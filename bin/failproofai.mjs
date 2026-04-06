@@ -8,8 +8,7 @@
  *   --install-policies    Install hooks + enable policies in Claude Code settings
  *   --remove-policies     Remove hooks or disable policies from Claude Code settings
  *   --list-policies       List available policies and their status
- *   (default)             Launch Next.js in dev mode
- *   --start               Launch Next.js in production mode
+ *   (default)             Launch production dashboard
  */
 import { version } from "../package.json";
 
@@ -90,7 +89,6 @@ if (args.includes("--list-policies")) {
   process.exit(0);
 }
 
-// Dashboard launch — dev mode by default, --start for production
+// Dashboard launch — always production mode
 const { launch } = await import("../scripts/launch");
-const mode = args.includes("--start") ? "start" : "dev";
-launch(mode);
+launch("start");
