@@ -1,30 +1,25 @@
 /**
  * Runs the failproofai binary as a subprocess for E2E hook tests.
  *
- * Invokes .test-npx/node_modules/@failproofai/<platform>/bin/failproofai --hook <event>
- * exactly as Claude Code does — no Node.js bridge, no mocks.
+ * Invokes bin/failproofai.mjs --hook <event> via bun, exactly as Claude Code does —
+ * no Node.js bridge, no mocks.
  *
- * Run `bun run test:npx` once before running these tests.
+ * Run `bun build src/index.ts --outdir dist --target node --format cjs` once before
+ * running these tests (required for custom hook files that import from 'failproofai').
  */
 import { expect } from "vitest";
 import { spawnSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { existsSync } from "node:fs";
-import { platform, arch } from "node:os";
-
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 function getBinaryPath(): string {
-  const os = platform();   // linux | darwin | win32
-  const cpu = arch();      // x64 | arm64
-  const ext = os === "win32" ? ".exe" : "";
-  const pkgName = `${os}-${cpu}`;
-  return resolve(REPO_ROOT, `.test-npx/node_modules/@failproofai/${pkgName}/bin/failproofai${ext}`);
+  return resolve(REPO_ROOT, "bin/failproofai.mjs");
 }
 
 function getDistPath(): string {
-  return resolve(REPO_ROOT, ".test-npx/node_modules/failproofai/dist");
+  return resolve(REPO_ROOT, "dist");
 }
 
 export interface HookRunResult {
@@ -50,10 +45,7 @@ export function runHook(
   const binaryPath = getBinaryPath();
 
   if (!existsSync(binaryPath)) {
-    throw new Error(
-      `E2E binary not found: ${binaryPath}\n` +
-      `Run \`bun run test:npx\` first to build and install the npm package.`,
-    );
+    throw new Error(`E2E binary not found: ${binaryPath}`);
   }
 
   const env: NodeJS.ProcessEnv = {
@@ -63,7 +55,7 @@ export function runHook(
     ...(opts?.homeDir ? { HOME: opts.homeDir } : {}),
   };
 
-  const result = spawnSync(binaryPath, ["--hook", event], {
+  const result = spawnSync("bun", [binaryPath, "--hook", event], {
     input: JSON.stringify(payload),
     env,
     encoding: "utf8",
