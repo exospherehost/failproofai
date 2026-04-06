@@ -1,0 +1,90 @@
+{
+  "name": "failproofai",
+  "version": "0.0.1-beta.1",
+  "description": "Open-source hooks, policies, and project visualization for Claude Code & Agents SDK",
+  "bin": {
+    "failproofai": "./bin/failproofai.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "scripts/",
+    "lib/",
+    ".next/standalone/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.9.0",
+    "bun": ">=1.3.0"
+  },
+  "scripts": {
+    "dev": "FAILPROOFAI_TELEMETRY_DISABLED=1 bun scripts/dev.ts --port 8020",
+    "build": "bun --bun next build",
+    "start": "FAILPROOFAI_TELEMETRY_DISABLED=1 bun scripts/start.ts",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint . --config eslint.config.mjs",
+    "prepublishOnly": "bun run build",
+    "test:e2e": "vitest run --config vitest.config.e2e.mts",
+    "test:e2e:watch": "vitest --config vitest.config.e2e.mts"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "claude-agents-sdk",
+    "anthropic",
+    "ai-agent",
+    "llm-observability",
+    "agent-observability",
+    "log-viewer",
+    "session-replay",
+    "developer-tools",
+    "devtools",
+    "cli",
+    "local-first",
+    "monitoring",
+    "debugging",
+    "tracing",
+    "hooks",
+    "policies"
+  ],
+  "author": "ExosphereHost Inc. <failproofai@exosphere.host>",
+  "license": "SEE LICENSE IN LICENSE",
+  "homepage": "https://github.com/exospherehost/failproofai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exospherehost/failproofai.git"
+  },
+  "bugs": {
+    "url": "https://github.com/exospherehost/failproofai/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.18",
+    "@tanstack/react-virtual": "^3.13.18",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^25.5.2",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "clsx": "^2.1.1",
+    "eslint": "^10.2.0",
+    "eslint-config-next": "^16.2.2",
+    "happy-dom": "^20.7.0",
+    "lucide-react": "^1.0.1",
+    "next": "^16.2.2",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.1.18",
+    "typescript": "^6.0.2",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "posthog-node": "^5.28.11"
+  }
+}

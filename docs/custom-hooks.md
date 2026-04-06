@@ -1,0 +1,257 @@
+# Custom Hooks
+
+Custom hooks let you write your own policies in JavaScript. They integrate with the same hook event system as built-in policies and support the same `allow`, `deny`, and `instruct` decisions.
+
+---
+
+## Quick example
+
+```js
+// my-policies.js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+
+customPolicies.add({
+  name: "no-production-writes",
+  description: "Block writes to paths containing 'production'",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Write" && ctx.toolName !== "Edit") return allow();
+    const path = ctx.toolInput?.file_path ?? "";
+    if (path.includes("production")) {
+      return deny("Writes to production paths are blocked");
+    }
+    return allow();
+  },
+});
+```
+
+Install it:
+
+```bash
+failproofai --install-policies --custom-hooks ./my-policies.js
+```
+
+---
+
+## Installing and updating
+
+```bash
+# Install with a custom hooks file
+failproofai --install-policies --custom-hooks ./my-policies.js
+
+# Replace the hooks file path
+failproofai --install-policies --custom-hooks ./new-policies.js
+
+# Remove the custom hooks path from config
+failproofai --remove-policies --remove-custom-hooks
+```
+
+The resolved absolute path is stored in `hooks-config.json` as `customHooksPath`. The file is loaded fresh on every hook event — there is no caching between events.
+
+---
+
+## API
+
+### Import
+
+```js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+```
+
+### `customPolicies.add(hook)`
+
+Registers a hook. Call this as many times as needed for multiple hooks in the same file.
+
+```ts
+customPolicies.add({
+  name: string;                         // required — unique identifier
+  description?: string;                 // shown in --list-policies output
+  match?: { events?: HookEventType[] }; // filter by event type; omit to match all
+  fn: (ctx: PolicyContext) => PolicyResult | Promise<PolicyResult>;
+});
+```
+
+### Decision helpers
+
+| Function | Effect | Use when |
+|----------|--------|----------|
+| `allow()` | Permit the tool call | Nothing to block or warn about |
+| `deny(message)` | Block the tool call | The action should not proceed |
+| `instruct(message)` | Add context to Claude's prompt | You want Claude to be careful but not stopped |
+
+`deny(message)` — the message appears to Claude prefixed with `"Blocked by failproofai:"`.
+
+`instruct(message)` — the message is appended to Claude's context for the current tool call. Multiple `instruct` returns from different hooks accumulate; a single `deny` short-circuits all further evaluation.
+
+### `PolicyContext` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
+| `toolName` | `string \| undefined` | The tool being called (e.g. `"Bash"`, `"Write"`, `"Read"`) |
+| `toolInput` | `Record<string, unknown> \| undefined` | The tool's input parameters |
+| `payload` | `Record<string, unknown>` | Full raw event payload from Claude Code |
+| `session` | `SessionMetadata \| undefined` | Session context (see below) |
+
+### `SessionMetadata` fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `sessionId` | `string` | Claude Code session identifier |
+| `cwd` | `string` | Working directory of the Claude Code session |
+| `transcriptPath` | `string` | Path to the session's JSONL transcript file |
+
+### Event types
+
+| Event | When it fires | `toolInput` contents |
+|-------|--------------|----------------------|
+| `PreToolUse` | Before Claude runs a tool | The tool's input (e.g. `{ command: "..." }` for Bash) |
+| `PostToolUse` | After a tool completes | The tool's input + `tool_result` (the output) |
+| `Notification` | When Claude sends a notification | `{ message: "..." }` |
+| `Stop` | When the Claude session ends | Empty |
+
+---
+
+## Evaluation order
+
+Hooks are evaluated in this order:
+
+1. Built-in policies (in definition order)
+2. Custom hooks (in `.add()` order)
+
+The first `deny` short-circuits all subsequent hooks. All `instruct` returns accumulate into a single message regardless of which hook produced them.
+
+---
+
+## Transitive imports
+
+Custom hook files can import local modules using relative paths:
+
+```js
+// my-policies.js
+import { isBlockedPath } from "./utils.js";
+import { checkApproval } from "./approval-client.js";
+
+customPolicies.add({
+  name: "approval-gate",
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const approved = await checkApproval(ctx.toolInput?.command, ctx.session?.sessionId);
+    return approved ? allow() : deny("Approval required for this command");
+  },
+});
+```
+
+All relative imports reachable from the entry file are resolved. This is implemented by rewriting `from "failproofai"` imports to the actual dist path and creating temporary `.mjs` files to ensure ESM compatibility.
+
+---
+
+## Hook event type filtering
+
+Use `match.events` to limit when a hook fires:
+
+```js
+customPolicies.add({
+  name: "require-summary-on-stop",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    // Only fires when the session ends
+    // ctx.session.transcriptPath contains the full session log
+    return allow();
+  },
+});
+```
+
+Omit `match` entirely to fire on every event type.
+
+---
+
+## Error handling and failure modes
+
+Custom hooks are **fail-open**: errors never block built-in policies or crash the hook handler.
+
+| Failure | Behavior |
+|---------|----------|
+| `customHooksPath` not set | No custom hooks run; built-ins continue normally |
+| File not found | Warning logged to `~/.failproofai/hook.log`; built-ins continue |
+| Syntax/import error | Error logged to `~/.failproofai/hook.log`; all custom hooks skipped |
+| `fn` throws at runtime | Error logged; that hook treated as `allow`; other hooks continue |
+| `fn` takes longer than 10s | Timeout logged; treated as `allow` |
+
+To debug custom hook errors:
+
+```bash
+tail -f ~/.failproofai/hook.log
+```
+
+---
+
+## Full example: multiple hooks
+
+```js
+// my-policies.js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+
+// Block any write to a path containing "secrets/"
+customPolicies.add({
+  name: "block-secrets-dir",
+  description: "Block writes to secrets/ directory",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
+    const path = ctx.toolInput?.file_path ?? "";
+    if (path.includes("secrets/")) return deny("Writing to secrets/ is not permitted");
+    return allow();
+  },
+});
+
+// Remind Claude to check test results before committing
+customPolicies.add({
+  name: "remind-test-before-commit",
+  description: "Remind Claude to verify tests pass before committing",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = ctx.toolInput?.command ?? "";
+    if (/git\s+commit/.test(cmd)) {
+      return instruct("Verify all tests pass before committing. Run `bun test` if you haven't already.");
+    }
+    return allow();
+  },
+});
+
+// Block npm install during a freeze period
+customPolicies.add({
+  name: "dependency-freeze",
+  description: "Block new package installs during freeze period",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = ctx.toolInput?.command ?? "";
+    const isInstall = /^(npm install|yarn add|bun add|pnpm add)\s+\S/.test(cmd);
+    if (isInstall && process.env.DEPENDENCY_FREEZE === "1") {
+      return deny("Package installs are frozen. Unset DEPENDENCY_FREEZE to allow.");
+    }
+    return allow();
+  },
+});
+
+export { customPolicies };
+```
+
+---
+
+## Examples in the repository
+
+The `examples/` directory contains ready-to-run hook files:
+
+| File | Contents |
+|------|----------|
+| `examples/policies-basic.js` | Five starter policies covering common use cases |
+| `examples/policies-advanced/index.js` | Advanced patterns including transitive imports, async calls, and `Stop` event hooks |
+
+Install the basic examples:
+
+```bash
+failproofai --install-policies --custom-hooks ./examples/policies-basic.js
+```

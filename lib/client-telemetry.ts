@@ -1,0 +1,37 @@
+import type { TelemetryConfig } from "@/app/actions/get-telemetry-config";
+
+let config: TelemetryConfig | null = null;
+
+export function setClientTelemetryConfig(c: TelemetryConfig): void {
+  config = c;
+}
+
+export function captureClientEvent(
+  event: string,
+  properties?: Record<string, unknown>,
+): void {
+  if (typeof window === "undefined") return;
+  if (!config || !config.enabled) return;
+
+  const payload = JSON.stringify({
+    api_key: config.apiKey,
+    event,
+    distinct_id: config.distinctId,
+    properties: {
+      ...properties,
+      $lib: "failproofai-web",
+      failproofai_version: config.version,
+      $current_url: window.location.href,
+      $pathname: window.location.pathname,
+    },
+  });
+
+  const url = config.host.replace(/\/+$/, "") + "/capture/";
+
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: payload,
+    signal: AbortSignal.timeout(5000),
+  }).catch(() => {});
+}

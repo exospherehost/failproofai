@@ -1,0 +1,311 @@
+# Architecture
+
+This document explains how failproofai works internally: how the hook system processes events, how configuration is loaded and merged, how policies are evaluated, and how the dashboard fits in.
+
+---
+
+## Overview
+
+failproofai has two independent subsystems:
+
+1. **Hook handler** — A fast CLI subprocess that Claude Code invokes on every tool call. Evaluates policies and returns a decision.
+2. **Dashboard** — A Next.js web application for browsing sessions and managing policies.
+
+Both subsystems share configuration files in `~/.failproofai/` and the project's `.failproofai/` directory, but they run as separate processes and communicate only through the filesystem.
+
+---
+
+## Hook handler
+
+### Integration with Claude Code
+
+When you run `failproofai --install-policies`, it writes entries like this into `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "failproofai --hook PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [ ... ]
+  }
+}
+```
+
+Claude Code then invokes `failproofai --hook PreToolUse` as a subprocess before each tool call, passing a JSON payload on stdin.
+
+### Payload format
+
+```json
+{
+  "session_id": "abc123",
+  "transcript_path": "/home/user/.claude/projects/myproject/sessions/abc123.jsonl",
+  "cwd": "/home/user/myproject",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "sudo apt install nodejs" }
+}
+```
+
+For `PostToolUse` events, the payload additionally contains `tool_result` with the tool's output.
+
+The handler enforces a 1 MB stdin limit. Payloads exceeding this are discarded and all policies implicitly allow.
+
+### Response format
+
+**Deny (PreToolUse):**
+```json
+{
+  "hookSpecificOutput": {
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Blocked by failproofai: sudo command blocked"
+  }
+}
+```
+
+**Deny (PostToolUse):**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "Blocked by failproofai because: API key detected in output"
+  }
+}
+```
+
+**Instruct (any event except Stop):**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "Instruction from failproofai: Verify tests pass before committing."
+  }
+}
+```
+
+**Stop event instruct:**
+- Exit code: `2`
+- Reason written to stderr (not stdout)
+
+**Allow:**
+- Exit code: `0`
+- Empty stdout
+
+### Processing pipeline
+
+`src/hooks/handler.ts` implements the full pipeline:
+
+```
+stdin JSON
+  → parse payload (max 1 MB)
+  → extract session metadata (session_id, cwd, tool_name, tool_input, etc.)
+  → readMergedHooksConfig(cwd)    ← merges project + local + global config
+  → register enabled builtin policies with resolved params
+  → load custom hooks from customHooksPath (if set)
+  → register custom hooks into policy registry
+  → evaluate all policies (builtins first, then custom)
+      → first deny short-circuits
+      → instruct decisions accumulate
+  → write JSON decision to stdout
+  → persist event to ~/.failproofai/hook-activity.jsonl
+  → exit
+```
+
+The entire process runs in under 100ms for typical payloads with no LLM calls.
+
+---
+
+## Configuration loading
+
+`src/hooks/hooks-config.ts` implements three-scope config loading.
+
+```
+[1] {cwd}/.failproofai/hooks-config.json        ← project  (highest priority)
+[2] {cwd}/.failproofai/hooks-config.local.json  ← local
+[3] ~/.failproofai/hooks-config.json             ← global   (lowest priority)
+```
+
+Merge logic:
+- `enabledPolicies` — deduplicated union across all three files
+- `policyParams` — per-policy key, first file that defines it wins entirely
+- `customHooksPath` — first file that defines it wins
+- `llm` — first file that defines it wins
+
+The web dashboard uses `readHooksConfig()` (global only) for reading and writing, since it is not invoked with a project cwd.
+
+---
+
+## Policy evaluation
+
+`src/hooks/policy-evaluator.ts` runs policies in order.
+
+For each policy:
+
+1. Look up the policy's `params` schema (if it has one).
+2. Read `policyParams[policy.name]` from the merged config.
+3. Merge user-provided values over schema defaults to produce `ctx.params`.
+4. Call `policy.fn(ctx)` with the resolved context.
+5. If the result is `deny`, stop immediately and return that decision.
+6. If the result is `instruct`, accumulate the message and continue.
+7. If the result is `allow`, continue to the next policy.
+
+After all policies run:
+- If any `deny` was returned, emit the deny response.
+- If any `instruct` returns were collected, emit a single instruct response with all messages joined.
+- Otherwise, emit an allow response (empty stdout, exit 0).
+
+---
+
+## Builtin policies
+
+`src/hooks/builtin-policies.ts` defines all 35+ built-in policies as `BuiltinPolicyDefinition` objects:
+
+```typescript
+interface BuiltinPolicyDefinition {
+  name: string;
+  description: string;
+  fn: (ctx: PolicyContext) => PolicyResult;
+  match: {
+    events: HookEventType[];
+    tools?: string[];
+  };
+  defaultEnabled: boolean;
+  category: string;
+  beta?: boolean;
+  params?: PolicyParamsSchema;
+}
+```
+
+Policies that accept `params` declare a `PolicyParamsSchema` with types and defaults for each parameter. The policy evaluator injects resolved values into `ctx.params` before calling `fn`. Policy functions read `ctx.params` without null-guarding because defaults are always applied first.
+
+Pattern matching inside policies uses parsed command tokens (argv), not raw string matching. This prevents bypass via shell operator injection (e.g. a pattern for `sudo systemctl status *` cannot be bypassed by appending `; rm -rf /` to the command).
+
+---
+
+## Custom hooks
+
+`src/hooks/custom-hooks-registry.ts` implements a `globalThis`-backed registry:
+
+```typescript
+const REGISTRY_KEY = "__failproofai_custom_hooks__";
+
+export const customPolicies = {
+  add(hook: CustomHook): void { ... }
+};
+
+export function getCustomHooks(): CustomHook[] { ... }
+export function clearCustomHooks(): void { ... }  // used in tests
+```
+
+`src/hooks/custom-hooks-loader.ts` loads the user's hooks file:
+
+1. Read `customHooksPath` from config; skip if absent.
+2. Resolve to absolute path; check file exists.
+3. Rewrite all `from "failproofai"` imports to the actual dist path so `customPolicies` resolves to the same `globalThis` registry.
+4. Recursively rewrite transitive local imports to ensure ESM compatibility.
+5. Write temporary `.mjs` files and `import()` the entry file.
+6. Call `getCustomHooks()` to retrieve registered hooks.
+7. Clean up all temp files in a `finally` block.
+
+On any error (file not found, syntax error, import failure), the error is logged to `~/.failproofai/hook.log` and the loader returns an empty array. Built-in policies are unaffected.
+
+Custom hooks are evaluated after all built-in policies. A custom hook `deny` still short-circuits further custom hooks (but all built-ins have already run by that point).
+
+---
+
+## Activity logging
+
+After each hook event, the handler appends a JSONL line to `~/.failproofai/hook-activity.jsonl`:
+
+```json
+{
+  "timestamp": "2026-04-06T12:34:56.789Z",
+  "sessionId": "abc123",
+  "eventType": "PreToolUse",
+  "toolName": "Bash",
+  "policyName": "block-sudo",
+  "decision": "deny",
+  "reason": "sudo command blocked by failproofai",
+  "durationMs": 12
+}
+```
+
+One line per policy that made a non-allow decision. Allow decisions are not logged (to keep the file small).
+
+---
+
+## Dashboard architecture
+
+The dashboard is a **Next.js 16** application using the App Router with React Server Components and Server Actions.
+
+```
+app/
+  layout.tsx                  ← Root layout (theme, telemetry, nav)
+  projects/page.tsx           ← Server component: list all Claude projects
+  project/[name]/page.tsx     ← Server component: list sessions in a project
+  project/[name]/session/
+    [sessionId]/page.tsx      ← Server component: render session viewer
+  policies/page.tsx           ← Client component: policy management + activity log
+  actions/
+    get-hooks-config.ts       ← Read config + policy list
+    update-hooks-config.ts    ← Toggle policy on/off
+    update-policy-params.ts   ← Update policy parameters
+    get-hook-activity.ts      ← Paginate/search activity log
+    install-hooks-web.ts      ← Install/remove hooks from the browser
+  api/
+    download/[project]/[session]/route.ts   ← Export session as ZIP/JSONL
+```
+
+**Data flow:**
+
+- Page components call `lib/projects.ts` and `lib/log-entries.ts` to read project/session data directly from the filesystem (no API layer for reads).
+- The Policies page uses Server Actions for all mutations (toggle, params update, install/remove).
+- The session viewer parses Claude's JSONL transcript format and renders a timeline of messages and tool calls.
+
+**Key design decisions:**
+
+- No database — all persistent state is in plain files (`~/.failproofai/`, `~/.claude/projects/`).
+- Server Actions for mutations — no REST API needed for CRUD operations.
+- React Server Components for read pages — faster initial load, no client bundle for data fetching.
+- Client components only where interactivity is needed (policy toggles, activity search, log viewer).
+
+---
+
+## File layout
+
+```
+failproofai/
+├── bin/
+│   └── failproofai.mjs           # CLI router (hook / dashboard / install / etc.)
+├── src/hooks/
+│   ├── handler.ts                # Hook event pipeline
+│   ├── builtin-policies.ts       # 35+ policy definitions
+│   ├── policy-evaluator.ts       # Policy execution engine
+│   ├── policy-registry.ts        # Policy registration and lookup
+│   ├── policy-types.ts           # TypeScript interfaces
+│   ├── hooks-config.ts           # Multi-scope config loading
+│   ├── custom-hooks-registry.ts  # globalThis-backed hook registry
+│   ├── custom-hooks-loader.ts    # ESM loader for user JS hooks
+│   ├── manager.ts                # install / remove / list operations
+│   ├── install-prompt.ts         # Interactive policy selection prompt
+│   ├── hook-logger.ts            # Logging to hook.log
+│   ├── hook-activity-store.ts    # Persist activity to hook-activity.jsonl
+│   └── llm-client.ts             # LLM API client (for AI-powered policies)
+├── app/                          # Next.js dashboard (pages + server actions)
+├── lib/                          # Shared utilities
+│   ├── projects.ts               # Enumerate Claude projects from filesystem
+│   ├── log-entries.ts            # Parse Claude transcript JSONL format
+│   ├── paths.ts                  # Resolve system paths
+│   └── ...
+├── components/                   # Shared React UI components
+├── contexts/                     # React context providers (theme, auto-refresh, telemetry)
+├── examples/                     # Example custom hook files
+└── __tests__/                    # Unit and E2E tests
+```

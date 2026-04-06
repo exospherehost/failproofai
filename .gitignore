@@ -1,0 +1,58 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+/.test-binary
+/.test-npx
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+/dist
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env
+.env.*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# claude
+.claude
+
+# cursor
+.cursor
+
+# custom hooks loader temp files
+*.__failproofai_tmp__.*
+
+# package manager lockfiles (bun.lock is tracked; bun.lockb is binary)
+package-lock.json
+
+# build artifacts from test scripts
+*.tgz
+/failproofai-local
+packages/*/bin/
+packages/*/assets/

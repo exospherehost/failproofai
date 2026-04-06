@@ -1,0 +1,969 @@
+/**
+ * Built-in security policies for Claude Code hooks.
+ */
+import { resolve, join } from "node:path";
+import { readFile, writeFile, stat, open } from "node:fs/promises";
+import { execSync } from "node:child_process";
+import { homedir } from "node:os";
+import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
+import { allow, deny, instruct } from "./policy-helpers";
+import { registerPolicy } from "./policy-registry";
+import { hookLogWarn } from "./hook-logger";
+
+function isClaudeInternalPath(resolved: string): boolean {
+  const claudeDir = join(homedir(), ".claude");
+  return resolved === claudeDir || resolved.startsWith(claudeDir + "/");
+}
+
+function isClaudeSettingsFile(resolved: string): boolean {
+  return /[\\/]\.claude[\\/]settings(?:\.[^/\\]+)?\.json$/.test(resolved);
+}
+
+function getCommand(ctx: PolicyContext): string {
+  return (ctx.toolInput?.command as string) ?? "";
+}
+
+function getFilePath(ctx: PolicyContext): string {
+  return (ctx.toolInput?.file_path as string) ?? "";
+}
+
+/**
+ * Parse a command string into argv tokens for safe pattern matching.
+ * Splits on whitespace and strips simple single/double quotes.
+ * Does not handle all shell syntax — sufficient for prefix-match allowlists.
+ */
+function parseArgvTokens(cmd: string): string[] {
+  return cmd.trim().split(/\s+/).map((t) => t.replace(/^['"]|['"]$/g, ""));
+}
+
+// Shell operators that always act as command separators when whitespace-delimited.
+const SHELL_OPERATORS = new Set(["&&", "||", "|", ";"]);
+
+// Shell metacharacters that are unsafe when embedded inside a token. Any command
+// whose argv contains one of these in a token is rejected before allowlist matching.
+// This closes the bypass where operators are glued to a word (e.g. "nginx;evil" or
+// "nginx&&evil") and would otherwise be invisible to the standalone-operator check.
+// Note: | is intentionally excluded here because "foo|bar" is a valid grep/sed
+// argument value; the standalone-operator check above already handles bare "|" tokens.
+const SHELL_METACHAR_RE = /[;&<>`$()\\]/;
+
+/**
+ * Check if a command matches an allow pattern using token-by-token comparison.
+ * The "*" token is a wildcard. Extra command tokens beyond the pattern are allowed,
+ * UNLESS any token is a standalone shell operator (&&, ||, |, ;) OR contains an
+ * embedded shell metacharacter — both cases are rejected to prevent bypass via
+ * appended sub-commands or glued operators (e.g. "nginx;" or "nginx;evil").
+ */
+function matchesAllowedPattern(cmd: string, pattern: string): boolean {
+  const cmdTokens = parseArgvTokens(cmd);
+  const patTokens = parseArgvTokens(pattern);
+  if (cmdTokens.length < patTokens.length) return false;
+  // Reject commands containing standalone shell-operator tokens
+  if (cmdTokens.some((tok) => SHELL_OPERATORS.has(tok))) return false;
+  // Reject any token containing embedded shell metacharacters
+  if (cmdTokens.some((tok) => SHELL_METACHAR_RE.test(tok))) return false;
+  return patTokens.every((tok, i) => tok === "*" || tok === cmdTokens[i]);
+}
+
+// -- Policy implementations --
+
+function sanitizeJwt(ctx: PolicyContext): PolicyResult {
+  // PostToolUse: scrub JWT patterns from tool output
+  const output = JSON.stringify(ctx.payload);
+  const jwtPattern = /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/;
+  if (jwtPattern.test(output)) {
+    return {
+      decision: "deny",
+      reason: "JWT token detected in tool output",
+      message: "[REDACTED: JWT token removed by failproofai]",
+    };
+  }
+  return allow();
+}
+
+function sanitizeApiKeys(ctx: PolicyContext): PolicyResult {
+  // PostToolUse: scrub common API key patterns from tool output
+  const output = JSON.stringify(ctx.payload);
+  const patterns: Array<[RegExp, string]> = [
+    [/sk-ant-[A-Za-z0-9\-_]{20,}/, "Anthropic API key"],
+    [/sk-proj-[A-Za-z0-9\-_]{20,}/, "OpenAI project API key"],
+    [/sk-[A-Za-z0-9]{20,}/, "OpenAI API key"],
+    [/ghp_[A-Za-z0-9]{36}/, "GitHub personal access token"],
+    [/github_pat_[A-Za-z0-9_]{82}/, "GitHub fine-grained token"],
+    [/AKIA[A-Z0-9]{16}/, "AWS access key ID"],
+    [/sk_live_[A-Za-z0-9]{24,}/, "Stripe live secret key"],
+    [/sk_test_[A-Za-z0-9]{24,}/, "Stripe test secret key"],
+    [/AIza[0-9A-Za-z\-_]{35}/, "Google API key"],
+  ];
+  for (const [pattern, label] of patterns) {
+    if (pattern.test(output)) {
+      return {
+        decision: "deny",
+        reason: `${label} detected in tool output`,
+        message: `[REDACTED: ${label} removed by failproofai]`,
+      };
+    }
+  }
+
+  // Check additional user-configured patterns
+  const additional = ((ctx.params?.additionalPatterns ?? []) as Array<{ regex: string; label: string }>);
+  for (const { regex, label } of additional) {
+    try {
+      if (new RegExp(regex).test(output)) {
+        return {
+          decision: "deny",
+          reason: `${label} detected in tool output`,
+          message: `[REDACTED: ${label} removed by failproofai]`,
+        };
+      }
+    } catch {
+      hookLogWarn(`additionalPatterns: invalid regex "${regex}", skipping`);
+    }
+  }
+
+  return allow();
+}
+
+function sanitizeConnectionStrings(ctx: PolicyContext): PolicyResult {
+  // PostToolUse: scrub database connection strings with embedded credentials
+  const output = JSON.stringify(ctx.payload);
+  if (/(?:postgresql|postgres|mysql|mongodb(?:\+srv)?|redis|amqps?|smtps?):\/\/[^@\s]+@/.test(output)) {
+    return {
+      decision: "deny",
+      reason: "Database connection string with credentials detected in tool output",
+      message: "[REDACTED: connection string removed by failproofai]",
+    };
+  }
+  return allow();
+}
+
+function sanitizePrivateKeyContent(ctx: PolicyContext): PolicyResult {
+  // PostToolUse: scrub PEM private key blocks from tool output
+  const output = JSON.stringify(ctx.payload);
+  if (/-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/.test(output)) {
+    return {
+      decision: "deny",
+      reason: "Private key content detected in tool output",
+      message: "[REDACTED: private key content removed by failproofai]",
+    };
+  }
+  return allow();
+}
+
+function sanitizeBearerTokens(ctx: PolicyContext): PolicyResult {
+  // PostToolUse: scrub Authorization: Bearer tokens from tool output
+  const output = JSON.stringify(ctx.payload);
+  if (/Authorization:\s*Bearer\s+[A-Za-z0-9\-._~+\/]{20,}/i.test(output)) {
+    return {
+      decision: "deny",
+      reason: "Bearer token detected in tool output",
+      message: "[REDACTED: Bearer token removed by failproofai]",
+    };
+  }
+  return allow();
+}
+
+function warnDestructiveSql(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (!/\b(?:psql|mysql|sqlite3|pgcli|clickhouse-client)\b/.test(cmd)) return allow();
+
+  // DROP or TRUNCATE always warns
+  if (/\b(?:DROP\s+(?:TABLE|DATABASE|SCHEMA)|TRUNCATE\b)/i.test(cmd)) {
+    return instruct(
+      "STOP: This command contains destructive SQL (DROP/TRUNCATE/DELETE). Confirm with the user before executing.",
+    );
+  }
+
+  // DELETE FROM without WHERE warns
+  if (/\bDELETE\s+FROM\b/i.test(cmd) && !/\bWHERE\b/i.test(cmd)) {
+    return instruct(
+      "STOP: This command contains destructive SQL (DROP/TRUNCATE/DELETE). Confirm with the user before executing.",
+    );
+  }
+
+  return allow();
+}
+
+function warnLargeFileWrite(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Write") return allow();
+  const content = ctx.toolInput?.content as string | undefined;
+  if (typeof content !== "string") return allow();
+  const thresholdKb = ((ctx.params?.thresholdKb ?? 1024) as number);
+  const thresholdBytes = thresholdKb * 1024;
+  if (content.length > thresholdBytes) {
+    return instruct(
+      `STOP: You are writing a file larger than ${thresholdKb}KB (${Math.round(content.length / 1024)}KB). This is unusually large. Confirm this is intentional before proceeding.`,
+    );
+  }
+  return allow();
+}
+
+function warnPackagePublish(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (/(?:npm\s+publish|bun\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|poetry\s+publish|cargo\s+publish|gem\s+push)\b/.test(cmd)) {
+    return instruct(
+      "STOP: This command publishes a package to a public registry. Confirm with the user that this is intentional.",
+    );
+  }
+  return allow();
+}
+
+function protectEnvVars(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  // Block: env, printenv, echo $VAR, export VAR=
+  if (/(?:^|\s|;|&&|\|\|)(?:env|printenv)(?:\s|$|;|&&|\|)/.test(cmd)) {
+    return deny("Command reads environment variables");
+  }
+  if (/echo\s+.*\$[A-Za-z_]/.test(cmd)) {
+    return deny("Command echoes environment variable");
+  }
+  if (/(?:^|\s|;|&&|\|\|)export\s+\w+/.test(cmd)) {
+    return deny("Command exports environment variable");
+  }
+  // PowerShell: $env:VAR
+  if (/\$env:[A-Za-z_]/i.test(cmd)) {
+    return deny("Command reads environment variable via PowerShell");
+  }
+  // PowerShell: Get-ChildItem Env: / dir env: / gci env: / ls env:
+  if (/(?:Get-ChildItem|dir|gci|ls)\s+Env:/i.test(cmd)) {
+    return deny("Command reads environment variables via PowerShell");
+  }
+  // PowerShell: [Environment]::GetEnvironmentVariable
+  if (/\[Environment\]::GetEnvironment/i.test(cmd)) {
+    return deny("Command reads environment variable via .NET");
+  }
+  // cmd: echo %VAR%
+  if (/echo\s+%[A-Za-z_]/i.test(cmd)) {
+    return deny("Command echoes environment variable via cmd");
+  }
+  return allow();
+}
+
+function blockEnvFiles(ctx: PolicyContext): PolicyResult {
+  const cmd = getCommand(ctx);
+  const filePath = getFilePath(ctx);
+
+  // Check file_path for Read/Write tools (match both / and \ path separators)
+  if (filePath && /(?:^|[\\/])\.env(?:\.|$)/.test(filePath)) {
+    return deny("Access to .env file blocked");
+  }
+  // Check Bash commands referencing .env files
+  if (ctx.toolName === "Bash" && /\.env(?:\b|\s|$|\.)/.test(cmd)) {
+    return deny("Command references .env file");
+  }
+  return allow();
+}
+
+function blockSudo(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx).trimStart();
+  if (/(?:^|;|&&|\|\|)\s*sudo\s/.test(cmd) || cmd.startsWith("sudo ")) {
+    // Check allowPatterns — match against parsed tokens, not raw string
+    const allowPatterns = ((ctx.params?.allowPatterns ?? []) as string[]);
+    if (allowPatterns.some((p) => matchesAllowedPattern(cmd, p))) return allow();
+    return deny("sudo commands are blocked");
+  }
+  // PowerShell: Start-Process -Verb RunAs (elevation)
+  if (/Start-Process\s+.*-Verb\s+RunAs/i.test(cmd)) {
+    return deny("Elevated process launch is blocked");
+  }
+  // Windows: runas command
+  if (/(?:^|;|&&|\|\|)\s*runas\s/i.test(cmd)) {
+    return deny("runas elevation is blocked");
+  }
+  return allow();
+}
+
+function blockCurlPipeSh(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (/(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh)/.test(cmd)) {
+    return deny("Piping downloads to shell is blocked");
+  }
+  // PowerShell: iwr | iex, irm | iex, Invoke-WebRequest | Invoke-Expression
+  if (/(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s*(?:Invoke-Expression|iex)/i.test(cmd)) {
+    return deny("Piping downloads to Invoke-Expression is blocked");
+  }
+  return allow();
+}
+
+function extractGitPushArgs(cmd: string): string[] {
+  return cmd
+    .split(/&&|\|\||[|;\n]/)
+    .map((s) => s.trim())
+    .filter((s) => /^git\s+push\s/.test(s))
+    .map((s) => s.replace(/^git\s+push\s+/, ""));
+}
+
+function blockPushMaster(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const protectedBranches = ((ctx.params?.protectedBranches ?? ["main", "master"]) as string[]);
+  if (protectedBranches.length === 0) return allow();
+  const args = extractGitPushArgs(getCommand(ctx));
+  const branchPattern = new RegExp(`\\b(?:${protectedBranches.map((b) => b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`);
+  if (args.some((a) => branchPattern.test(a))) {
+    return deny(`Pushing to ${protectedBranches.join("/")} is blocked`);
+  }
+  return allow();
+}
+
+/**
+ * Check whether all *recursive* rm path targets in a command are under an allowlisted path.
+ * Splits on shell operators first so that `/tmp` appearing in an unrelated
+ * sub-command (e.g. `echo /tmp && rm -rf /`) does not trigger a false allow.
+ * Uses path-boundary comparison so `/tmp` does not cover `/tmp2`.
+ * Non-recursive rm segments (no -r/-R flag) are skipped — they pose no catastrophic risk.
+ * Quoted paths with spaces are handled via a segment-level regex fallback.
+ */
+function rmTargetIsAllowed(cmd: string, allowPaths: string[]): boolean {
+  if (allowPaths.length === 0) return false;
+  const segments = cmd
+    .split(/&&|\|\||[|;\n]/)
+    .map((s) => s.trim())
+    .filter((s) => /\brm\b/.test(s));
+  if (segments.length === 0) return false;
+  for (const seg of segments) {
+    const tokens = parseArgvTokens(seg);
+    const rmIdx = tokens.findIndex((t) => t === "rm");
+    if (rmIdx < 0) continue;
+    // Only validate recursive rm segments — non-recursive rm has no catastrophic-deletion risk
+    const flagTokens = tokens.slice(rmIdx + 1).filter((t) => /^-[^-]/.test(t));
+    if (!/r/i.test(flagTokens.join(""))) continue;
+    const pathArgs = tokens.slice(rmIdx + 1).filter((t) => !t.startsWith("-"));
+    for (const target of pathArgs) {
+      const normalized = target.replace(/\/\*$/, "").replace(/\/+$/, "") || "/";
+      const covered = allowPaths.some((p) => {
+        const np = p.replace(/\/+$/, "") || "/";
+        return normalized === np || normalized.startsWith(np + "/");
+      });
+      if (!covered) {
+        // Fallback: check the raw segment for quoted paths that contain spaces
+        // (parseArgvTokens splits on whitespace, so "/tmp/my dir" becomes two tokens)
+        const segCovered = allowPaths.some((p) => {
+          const escaped = p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+          return new RegExp(`${escaped}(?:[/"'\\s/*]|$)`).test(seg);
+        });
+        if (!segCovered) return false;
+      }
+    }
+  }
+  return true;
+}
+
+function blockRmRf(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  const hasDestructivePath = /(?:\/\s*$|\/\*|~)/.test(cmd);
+
+  // Combined flags in one token: rm -rf /, rm -fr /
+  if (hasDestructivePath && (
+    /rm\s+-[^\s]*r[^\s]*f[^\s]*/.test(cmd) ||
+    /rm\s+-[^\s]*f[^\s]*r[^\s]*/.test(cmd)
+  )) {
+    const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
+    if (rmTargetIsAllowed(cmd, allowPaths)) return allow();
+    return deny("Catastrophic deletion blocked");
+  }
+
+  // Separated flags: rm -r -f /, rm -f -r /, rm -r -v -f /, etc.
+  if (hasDestructivePath && /\brm\b/.test(cmd)) {
+    const tokens = parseArgvTokens(cmd);
+    const shortFlags = tokens.filter((t) => /^-[^-]/.test(t)).join("");
+    if (/r/i.test(shortFlags) && /f/.test(shortFlags)) {
+      const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
+      if (rmTargetIsAllowed(cmd, allowPaths)) return allow();
+      return deny("Catastrophic deletion blocked");
+    }
+  }
+  // PowerShell: Remove-Item -Recurse -Force on root/drive
+  if (/Remove-Item\s+.*-Recurse.*-Force.*(?:[A-Z]:\\(?:\s|$)|\\\*)/i.test(cmd)) {
+    return deny("Catastrophic deletion blocked");
+  }
+  // cmd: rd /s /q or rmdir /s /q on drive root
+  if (/(?:rd|rmdir)\s+\/s\s+\/q\s+[A-Z]:\\/i.test(cmd)) {
+    return deny("Catastrophic deletion blocked");
+  }
+  return allow();
+}
+
+function blockForcePush(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const args = extractGitPushArgs(getCommand(ctx));
+  if (args.some((a) => /(?:--force|-f\b)/.test(a))) {
+    return deny("Force-pushing is blocked");
+  }
+  return allow();
+}
+
+function blockSecretsWrite(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Write") return allow();
+  const filePath = getFilePath(ctx);
+  if (/\.(?:pem|key)$/.test(filePath) || /id_rsa/.test(filePath) || /credentials/.test(filePath)) {
+    return deny("Writing secret key files is blocked");
+  }
+  const additionalPatterns = ((ctx.params?.additionalPatterns ?? []) as string[]);
+  for (const pattern of additionalPatterns) {
+    if (filePath.includes(pattern)) {
+      return deny(`Writing blocked file pattern: ${pattern}`);
+    }
+  }
+  return allow();
+}
+
+/** Read-like commands that access file system contents. */
+const READ_LIKE_CMDS =
+  /(?:^|;|&&|\|\||\|)\s*(?:ls|find|cat|head|tail|less|more|wc|file|stat|tree|du)\s/;
+
+/**
+ * Extract absolute paths from a Bash command string.
+ * Scans quoted strings only in the first pipeline segment (before the first
+ * bare pipe) and only when the quoted content has no glob or regex metacharacters.
+ * This catches `cat "/etc/passwd"` while avoiding false positives from grep
+ * patterns and find glob patterns that appear in later pipeline stages.
+ * Unquoted absolute paths are extracted from the whole command as before.
+ */
+function extractAbsolutePaths(command: string): string[] {
+  const paths: string[] = [];
+  const pathRe = /(?<![a-zA-Z0-9_.\-~\\])(?:~\/[^\s;|&"'()\[\]{}]*|~(?=\s|$|[;|&"'()\[\]{}])|\/[^\s;|&"'()\[\]{}]*)/g;
+
+  function addPaths(s: string): void {
+    pathRe.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = pathRe.exec(s)) !== null) {
+      let p = m[0];
+      if (p === "~") p = homedir();
+      else if (p.startsWith("~/")) p = join(homedir(), p.slice(2));
+      paths.push(p);
+    }
+  }
+
+  // Find the index of the first bare pipe (not inside quotes) to limit quoted extraction.
+  let firstBarePipe = command.length;
+  let inDouble = false, inSingle = false;
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i];
+    if (c === '"' && !inSingle) inDouble = !inDouble;
+    else if (c === "'" && !inDouble) inSingle = !inSingle;
+    else if (c === "|" && !inDouble && !inSingle) { firstBarePipe = i; break; }
+  }
+
+  // Extract paths from quoted strings in the FIRST pipeline segment only,
+  // and only when the content has no glob/regex metacharacters.
+  const firstSegment = command.slice(0, firstBarePipe);
+  const quotedRe = /"([^"]*)"|'([^']*)'/g;
+  let qm: RegExpExecArray | null;
+  while ((qm = quotedRe.exec(firstSegment)) !== null) {
+    const content = qm[1] ?? qm[2] ?? "";
+    // Skip patterns that contain glob or common regex metacharacters
+    if (/[*?\[\]^$+()\\]/.test(content)) continue;
+    addPaths(content);
+  }
+
+  // Extract from unquoted portions of the whole command (existing behaviour).
+  const stripped = command
+    .replace(/"[^"]*"/g, (m) => " ".repeat(m.length))
+    .replace(/'[^']*'/g, (m) => " ".repeat(m.length));
+  addPaths(stripped);
+
+  return paths;
+}
+
+function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
+  const cwd = ctx.session?.cwd;
+  if (!cwd) return allow(); // Can't enforce without cwd
+
+  const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
+
+  // For Bash tool: check read-like commands for absolute paths outside cwd
+  if (ctx.toolName === "Bash") {
+    const cmd = getCommand(ctx);
+    if (!READ_LIKE_CMDS.test(cmd)) return allow();
+
+    const paths = extractAbsolutePaths(cmd);
+    const cwdWithSep = cwd.endsWith("/") ? cwd : cwd + "/";
+    for (const p of paths) {
+      const resolved = resolve(cwd, p);
+      if (isClaudeSettingsFile(resolved)) {
+        return deny(`Reading Claude settings file blocked: ${resolved}`);
+      }
+      if (isClaudeInternalPath(resolved)) continue; // Whitelist ~/.claude/
+      if (resolved === "/dev/null") continue; // Harmless special file
+      if (resolved !== cwd && !resolved.startsWith(cwdWithSep)) {
+        if (allowPaths.some((ap) => resolved === ap || resolved.startsWith(ap.endsWith("/") ? ap : ap + "/"))) continue;
+        return deny(`Bash read outside project directory blocked: ${resolved}`);
+      }
+    }
+    return allow();
+  }
+
+  // For Read/Glob/Grep: existing file_path / path check
+  const filePath = getFilePath(ctx);
+  const searchPath = (ctx.toolInput?.path as string) ?? "";
+
+  const target = filePath || searchPath;
+  if (!target) return allow();
+
+  const resolved = resolve(cwd, target);
+
+  // Block settings files in any .claude directory before whitelisting
+  if (isClaudeSettingsFile(resolved)) {
+    return deny(`Reading Claude settings file blocked: ${resolved}`);
+  }
+
+  // Whitelist ~/.claude/ — Claude Code's own config, plans, memory, and settings
+  if (isClaudeInternalPath(resolved)) return allow();
+
+  // Whitelist /dev/null — harmless special file commonly used in shell commands
+  if (resolved === "/dev/null") return allow();
+
+  const cwdWithSep = cwd.endsWith("/") ? cwd : cwd + "/";
+  if (resolved !== cwd && !resolved.startsWith(cwdWithSep)) {
+    if (allowPaths.some((ap) => resolved === ap || resolved.startsWith(ap.endsWith("/") ? ap : ap + "/"))) return allow();
+    return deny(`Access outside project directory blocked: ${resolved}`);
+  }
+  return allow();
+}
+
+function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (!/git\s+(?:commit|merge|rebase|cherry-pick)\b/.test(cmd)) return allow();
+
+  const cwd = ctx.session?.cwd;
+  if (!cwd) return allow();
+
+  try {
+    const branch = execSync("git rev-parse --abbrev-ref HEAD", {
+      cwd,
+      encoding: "utf8",
+      timeout: 3000,
+    }).trim();
+    const protectedBranches = ((ctx.params?.protectedBranches ?? ["main", "master"]) as string[]);
+    if (protectedBranches.includes(branch)) {
+      return deny(
+        `Git ${cmd.match(/git\s+(\S+)/)?.[1] ?? "operation"} on ${branch} is blocked. Create a feature branch first.`,
+      );
+    }
+  } catch {
+    return allow();
+  }
+  return allow();
+}
+
+function blockFailproofaiCommands(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+
+  // Block direct failproofai CLI invocations
+  if (/(?:^|;|&&|\|\||\|)\s*failproofai(?:\s|$)/.test(cmd)) {
+    return deny("Running failproofai CLI commands is blocked");
+  }
+
+  // Block package-manager uninstallation of failproofai
+  if (/(?:npm\s+(?:uninstall|remove|un|r)\s.*failproofai|bun\s+remove\s.*failproofai|yarn\s+global\s+remove\s+failproofai|pnpm\s+(?:remove|uninstall|un)\s.*failproofai)/.test(cmd)) {
+    return deny("Uninstalling failproofai is blocked");
+  }
+
+  return allow();
+}
+
+// Maximum size of the per-session tool-call sidecar before we stop updating it.
+// If exceeded, repeated-call detection degrades gracefully (allows through) rather
+// than growing the file unboundedly.
+const TOOL_CALL_TRACKER_MAX_BYTES = 65_536; // 64 KB
+
+async function warnRepeatedToolCalls(ctx: PolicyContext): Promise<PolicyResult> {
+  const THRESHOLD = 3;
+  const transcriptPath = ctx.session?.transcriptPath;
+  if (!transcriptPath || !ctx.toolName || !ctx.toolInput) return allow();
+
+  // Sidecar file tracks { fingerprint: count } — O(1) per call vs O(transcript) per call.
+  const trackerPath = `${transcriptPath}.tool-calls.json`;
+  const fingerprint = JSON.stringify({ tool: ctx.toolName, input: ctx.toolInput });
+
+  let counts: Record<string, number> = {};
+  try {
+    const raw = await readFile(trackerPath, "utf8");
+    counts = JSON.parse(raw) as Record<string, number>;
+  } catch { /* first call or unreadable — start fresh */ }
+
+  const prevCount = counts[fingerprint] ?? 0;
+  if (prevCount >= THRESHOLD) {
+    return instruct(
+      `STOP: You have already called ${ctx.toolName} ${prevCount} times with identical parameters. This is wasteful and unproductive. Do NOT repeat this call — use a different approach or ask the user for clarification.`,
+    );
+  }
+
+  counts[fingerprint] = prevCount + 1;
+  try {
+    const serialized = JSON.stringify(counts);
+    if (serialized.length <= TOOL_CALL_TRACKER_MAX_BYTES) {
+      await writeFile(trackerPath, serialized, "utf8");
+    }
+  } catch { /* non-fatal */ }
+
+  return allow();
+}
+
+function warnGitAmend(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (/\bgit\s+commit\b.*--amend\b/.test(cmd)) {
+    return instruct(
+      "STOP: This command amends the last commit, which rewrites git history. If this commit has already been pushed to a shared branch, this will cause divergence for other contributors. Confirm with the user before executing.",
+    );
+  }
+  return allow();
+}
+
+function warnGitStashDrop(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (/\bgit\s+stash\s+(?:drop|clear)\b/.test(cmd)) {
+    return instruct(
+      "STOP: This command permanently deletes stashed changes (git stash drop/clear). Stash entries cannot be recovered after deletion. Confirm with the user before executing.",
+    );
+  }
+  return allow();
+}
+
+function warnAllFilesStaged(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (/\bgit\s+add\s+(?:-A\b|--all\b|\.(?:\s|$|;|&&|\|\|))/.test(cmd)) {
+    return instruct(
+      "STOP: This command stages all files in the working tree (git add -A / --all / .). This may inadvertently include build artifacts, generated files, or sensitive files not covered by .gitignore. Confirm with the user before executing.",
+    );
+  }
+  return allow();
+}
+
+function warnSchemaAlteration(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (!/\b(?:psql|mysql|sqlite3|pgcli|clickhouse-client)\b/.test(cmd)) return allow();
+  if (/\bALTER\s+TABLE\b[\s\S]*\b(?:DROP\s+COLUMN|ADD\s+COLUMN|RENAME\s+(?:COLUMN|TO)|MODIFY\s+COLUMN)\b/i.test(cmd)) {
+    return instruct(
+      "STOP: This command contains a schema-altering SQL statement (ALTER TABLE with column or rename operation). Schema changes on production databases are irreversible or disruptive. Confirm with the user before executing.",
+    );
+  }
+  return allow();
+}
+
+function warnGlobalPackageInstall(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  const isGlobal =
+    /\bnpm\s+(?:install|i)\b(?=.*(?:\s-g\b|--global\b))/.test(cmd) ||
+    /\byarn\s+global\s+add\b/.test(cmd) ||
+    /\bpnpm\s+(?:add|install|i)\b(?=.*(?:\s-g\b|--global\b))/.test(cmd) ||
+    /\bbun\s+(?:install|add)\b(?=.*(?:\s-g\b|--global\b))/.test(cmd) ||
+    /\bcargo\s+install\b/.test(cmd) ||
+    // Bare 'pip install' respects the active venv when one is present;
+    // only flag explicit system-level flags (--user, --break-system-packages).
+    /\bpip(?:3)?\s+install\b(?=.*(?:--user\b|--break-system-packages\b))/.test(cmd);
+  if (isGlobal) {
+    return instruct(
+      "STOP: This command installs a package globally, which modifies the system-wide environment outside the project. This can conflict with other projects or system tools. Confirm with the user before executing.",
+    );
+  }
+  return allow();
+}
+
+function warnBackgroundProcess(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  const isBackground =
+    /\bnohup\s+\S/.test(cmd) ||
+    /\bscreen\s+-[A-Za-z]*d[A-Za-z]*\b/.test(cmd) ||
+    /\btmux\s+(?:new-session|new)\b[^|&;]*-d\b/.test(cmd) ||
+    /\bdisown\b/.test(cmd) ||
+    /(?<![&|])\s?&\s*(?:$|#|;)/.test(cmd);
+  if (isBackground) {
+    return instruct(
+      "STOP: This command starts a background or detached process (nohup, screen -d, tmux -d, or trailing &). Background processes persist after Claude's session and may be difficult to track or stop. Confirm with the user before executing.",
+    );
+  }
+  return allow();
+}
+
+// -- Registry --
+
+export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
+  {
+    name: "sanitize-jwt",
+    description: "Stop Claude from reading JWTs in tool responses",
+    fn: sanitizeJwt,
+    match: { events: ["PostToolUse"] },
+    defaultEnabled: true,
+    category: "Sanitize",
+  },
+  {
+    name: "sanitize-api-keys",
+    description: "Stop Claude from reading API keys (OpenAI, Anthropic, GitHub, AWS, Stripe, Google) in tool responses",
+    fn: sanitizeApiKeys,
+    match: { events: ["PostToolUse"] },
+    defaultEnabled: true,
+    category: "Sanitize",
+    params: {
+      additionalPatterns: {
+        type: "pattern[]",
+        description: "Additional API key patterns to scrub, each with { regex, label }",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "sanitize-connection-strings",
+    description: "Stop Claude from reading database connection strings with embedded credentials in tool responses",
+    fn: sanitizeConnectionStrings,
+    match: { events: ["PostToolUse"] },
+    defaultEnabled: true,
+    category: "Sanitize",
+  },
+  {
+    name: "sanitize-private-key-content",
+    description: "Stop Claude from reading PEM private key content in tool responses",
+    fn: sanitizePrivateKeyContent,
+    match: { events: ["PostToolUse"] },
+    defaultEnabled: true,
+    category: "Sanitize",
+  },
+  {
+    name: "sanitize-bearer-tokens",
+    description: "Stop Claude from reading Authorization Bearer tokens in tool responses",
+    fn: sanitizeBearerTokens,
+    match: { events: ["PostToolUse"] },
+    defaultEnabled: true,
+    category: "Sanitize",
+  },
+  {
+    name: "protect-env-vars",
+    description: "Prevent commands that read environment variables",
+    fn: protectEnvVars,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: true,
+    category: "Environment",
+  },
+  {
+    name: "block-env-files",
+    description: "Block reading/writing .env files",
+    fn: blockEnvFiles,
+    match: { events: ["PreToolUse"] },
+    defaultEnabled: true,
+    category: "Environment",
+  },
+  {
+    name: "block-read-outside-cwd",
+    description: "Block file reads outside the session working directory",
+    fn: blockReadOutsideCwd,
+    match: { events: ["PreToolUse"], toolNames: ["Read", "Glob", "Grep", "Bash"] },
+    defaultEnabled: false,
+    category: "Environment",
+    params: {
+      allowPaths: {
+        type: "string[]",
+        description: "Absolute paths outside cwd that are allowed to be read",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-sudo",
+    description: "Block sudo commands",
+    fn: blockSudo,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: true,
+    category: "Dangerous Commands",
+    params: {
+      allowPatterns: {
+        type: "string[]",
+        description: "Sudo command patterns to allow, matched token-by-token (e.g. 'sudo systemctl status')",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-curl-pipe-sh",
+    description: "Block piping downloads to shell",
+    fn: blockCurlPipeSh,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: true,
+    category: "Dangerous Commands",
+  },
+  {
+    name: "block-rm-rf",
+    description: "Prevent catastrophic deletions",
+    fn: blockRmRf,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Dangerous Commands",
+    params: {
+      allowPaths: {
+        type: "string[]",
+        description: "Paths that are allowed to be recursively deleted",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-failproofai-commands",
+    description: "Block failproofai CLI commands and uninstallation",
+    fn: blockFailproofaiCommands,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: true,
+    category: "Dangerous Commands",
+  },
+  {
+    name: "block-secrets-write",
+    description: "Block writing secret key files",
+    fn: blockSecretsWrite,
+    match: { events: ["PreToolUse"], toolNames: ["Write"] },
+    defaultEnabled: false,
+    category: "Dangerous Commands",
+    params: {
+      additionalPatterns: {
+        type: "string[]",
+        description: "Additional filename patterns (substrings) to block",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-push-master",
+    description: "Block pushing to main/master",
+    fn: blockPushMaster,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: true,
+    category: "Git",
+    params: {
+      protectedBranches: {
+        type: "string[]",
+        description: "Branch names to protect from direct pushes",
+        default: ["main", "master"],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-force-push",
+    description: "Prevent force-pushing to any branch",
+    fn: blockForcePush,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Git",
+  },
+  {
+    name: "block-work-on-main",
+    description: "Block git commits and merges on main/master branch",
+    fn: blockWorkOnMain,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Git",
+    params: {
+      protectedBranches: {
+        type: "string[]",
+        description: "Branch names where commits/merges are blocked",
+        default: ["main", "master"],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "warn-git-amend",
+    description: "Warns before amending git commits, which rewrites history",
+    fn: warnGitAmend,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Git",
+  },
+  {
+    name: "warn-git-stash-drop",
+    description: "Warns before permanently deleting stashed changes",
+    fn: warnGitStashDrop,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Git",
+  },
+  {
+    name: "warn-all-files-staged",
+    description: "Warns before staging all working tree files with git add -A / . / --all",
+    fn: warnAllFilesStaged,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Git",
+  },
+  {
+    name: "warn-destructive-sql",
+    description: "Warn before executing destructive SQL (DROP/TRUNCATE/DELETE without WHERE) via database clients",
+    fn: warnDestructiveSql,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Database",
+  },
+  {
+    name: "warn-schema-alteration",
+    description: "Warns before SQL schema changes (ALTER TABLE with column or rename operations)",
+    fn: warnSchemaAlteration,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Database",
+  },
+  {
+    name: "warn-package-publish",
+    description: "Warn before publishing packages to public registries (npm, PyPI, crates.io, RubyGems, etc.)",
+    fn: warnPackagePublish,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Packages & System",
+  },
+  {
+    name: "warn-global-package-install",
+    description: "Warns before installing packages globally (npm -g, cargo install, etc.)",
+    fn: warnGlobalPackageInstall,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Packages & System",
+  },
+  {
+    name: "warn-large-file-write",
+    description: "Warn before writing files larger than 1MB (configurable via thresholdKb param)",
+    fn: warnLargeFileWrite,
+    match: { events: ["PreToolUse"], toolNames: ["Write"] },
+    defaultEnabled: false,
+    category: "Packages & System",
+    params: {
+      thresholdKb: {
+        type: "number",
+        description: "File size threshold in KB above which a warning is issued",
+        default: 1024,
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "warn-background-process",
+    description: "Warns before starting detached or background processes",
+    fn: warnBackgroundProcess,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Packages & System",
+  },
+  {
+    name: "warn-repeated-tool-calls",
+    description: "Warn when the same tool is called 3+ times with identical parameters",
+    fn: warnRepeatedToolCalls,
+    match: { events: ["PreToolUse"] },
+    defaultEnabled: false,
+    category: "AI Behavior",
+  },
+];
+
+export function registerBuiltinPolicies(enabledNames: string[]): void {
+  const enabledSet = new Set(enabledNames);
+  for (const policy of BUILTIN_POLICIES) {
+    if (enabledSet.has(policy.name)) {
+      registerPolicy(policy.name, policy.description, policy.fn, policy.match);
+    }
+  }
+}
