@@ -756,7 +756,7 @@ describe("hooks/manager", () => {
 
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       const output = calls.join("\n");
-      expect(output).toContain("Hooks not installed");
+      expect(output).toContain("Policies — not installed");
       expect(output).toContain("--install-policies");
     });
 

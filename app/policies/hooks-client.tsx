@@ -427,7 +427,7 @@ function ActivityTab({
             <Shield className="h-12 w-12 text-muted-foreground/30" />
             {hooksInstalled === false ? (
               <>
-                <p className="text-sm text-muted-foreground mt-4 font-medium">Hooks are not installed</p>
+                <p className="text-sm text-muted-foreground mt-4 font-medium">Policies are not installed</p>
                 <p className="text-xs text-muted-foreground mt-1 max-w-sm">
                   Go to the{" "}
                   <button
@@ -436,7 +436,7 @@ function ActivityTab({
                   >
                     Policies tab
                   </button>
-                  {" "}and click <span className="font-mono bg-muted px-1 rounded">Install</span> to enable hook monitoring.
+                  {" "}and click <span className="font-mono bg-muted px-1 rounded">Install</span> to enable policy monitoring.
                 </p>
               </>
             ) : (
@@ -857,7 +857,7 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
     if (!config) return;
     const installed = config.installedScopes.length > 0;
     if (!installed) {
-      setHooksWarning("Hooks are not installed. Install hooks to continue.");
+      setHooksWarning("Policies are not installed. Install policies to continue.");
       return;
     }
     setHooksWarning(null);
@@ -953,7 +953,7 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
             className={`h-2 w-2 rounded-full shrink-0 ${installed ? "bg-emerald-500" : "bg-muted-foreground/50"}`}
           />
           <span className="text-sm text-foreground">
-            {installed ? "Hooks installed" : "Hooks not installed"}
+            {installed ? "Policies installed" : "Policies not installed"}
           </span>
           {installed && (
             <span className="text-xs text-muted-foreground font-mono hidden sm:inline">
@@ -980,7 +980,7 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
             disabled={isPending}
             className="text-xs h-7 px-3"
           >
-            {installed ? "Reinstall" : "Install hooks"}
+            {installed ? "Reinstall" : "Install policies"}
           </Button>
         </div>
       </div>

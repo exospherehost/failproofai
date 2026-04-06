@@ -511,7 +511,7 @@ export async function listHooks(cwd?: string): Promise<void> {
 
   if (installedScopes.length === 0) {
     // State A: No hooks installed — show table with configured state + descriptions
-    console.log("\nFailproof AI Hook Policies \u2014 not installed\n");
+    console.log("\nFailproof AI Policies \u2014 not installed\n");
 
     console.log(`  ${"Status".padEnd(statusCol)}${"Name".padEnd(nameColWidth)}Description`);
     console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
@@ -520,7 +520,7 @@ export async function listHooks(cwd?: string): Promise<void> {
     printBetaSection(printSimpleRow);
 
     if (config.enabledPolicies.length > 0) {
-      console.log("\n  Hooks not installed. Run `failproofai --install-policies` to activate.");
+      console.log("\n  Policies not installed. Run `failproofai --install-policies` to activate.");
     } else {
       console.log("\n  Run `failproofai --install-policies` to get started.");
     }
