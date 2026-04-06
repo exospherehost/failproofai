@@ -107,7 +107,7 @@ customPolicies.add({
 |-------|--------------|----------------------|
 | `PreToolUse` | Before Claude runs a tool | The tool's input (e.g. `{ command: "..." }` for Bash) |
 | `PostToolUse` | After a tool completes | The tool's input + `tool_result` (the output) |
-| `Notification` | When Claude sends a notification | `{ message: "..." }` |
+| `Notification` | When Claude sends a notification | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` — hooks must always return `allow()`, they cannot block notifications |
 | `Stop` | When the Claude session ends | Empty |
 
 ---
