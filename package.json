@@ -18,8 +18,10 @@
     "bun": ">=1.3.0"
   },
   "scripts": {
+    "predev": "bun link",
     "dev": "FAILPROOFAI_TELEMETRY_DISABLED=1 bun scripts/dev.ts --port 8020",
     "build": "bun --bun next build",
+    "prestart": "bun link",
     "start": "FAILPROOFAI_TELEMETRY_DISABLED=1 bun scripts/start.ts",
     "test": "vitest",
     "test:run": "vitest run",

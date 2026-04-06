@@ -29,7 +29,21 @@ export function launch(mode: "dev" | "start"): void {
 
   process.env.CLAUDE_PROJECTS_PATH = claudeProjectsPath;
 
-  const nextProcess = spawn("bunx", ["--bun", "next", mode, ...remainingArgs], {
+  let cmd: string;
+  let cmdArgs: string[];
+  if (mode === "start") {
+    const portIdx = remainingArgs.indexOf("--port");
+    const port = portIdx >= 0 ? remainingArgs[portIdx + 1] : "8020";
+    process.env.PORT = port;
+    process.env.HOSTNAME = "0.0.0.0";
+    cmd = "node";
+    cmdArgs = [".next/standalone/server.js"];
+  } else {
+    cmd = "bunx";
+    cmdArgs = ["--bun", "next", "dev", ...remainingArgs];
+  }
+
+  const nextProcess = spawn(cmd, cmdArgs, {
     stdio: "inherit",
     env: {
       ...process.env,
