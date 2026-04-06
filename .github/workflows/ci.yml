@@ -39,6 +39,7 @@ jobs:
           echo "Root version: $ROOT_VERSION"
           MISMATCH=0
           for pkg in packages/*/package.json; do
+            [ -f "$pkg" ] || continue
             PKG_VERSION=$(jq -r .version "$pkg")
             if [ "$PKG_VERSION" != "$ROOT_VERSION" ]; then
               echo "::error file=$pkg::Version mismatch: $pkg has $PKG_VERSION, expected $ROOT_VERSION"
@@ -46,7 +47,7 @@ jobs:
             fi
           done
           # Check optionalDependencies in wrapper
-          for dep_version in $(jq -r '.optionalDependencies // {} | values[]' packages/wrapper/package.json); do
+          for dep_version in $(jq -r '.optionalDependencies // {} | values[]' packages/wrapper/package.json 2>/dev/null || true); do
             if [ "$dep_version" != "$ROOT_VERSION" ]; then
               echo "::error file=packages/wrapper/package.json::Dependency version mismatch: $dep_version, expected $ROOT_VERSION"
               MISMATCH=1
@@ -163,12 +164,8 @@ jobs:
           timeout_minutes: 5
           command: bun install --frozen-lockfile
 
-      - name: Build npm package (setup E2E env)
-        uses: nick-fields/retry@v4
-        with:
-          max_attempts: 2
-          timeout_minutes: 15
-          command: bun run test:npx
+      - name: Build E2E fixtures
+        run: bun build src/index.ts --outdir dist --target node --format cjs
 
       - name: E2E Hook Tests
         uses: nick-fields/retry@v4

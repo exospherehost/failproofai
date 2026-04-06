@@ -4,7 +4,7 @@
  * Each test invokes the real failproofai binary as a subprocess with an isolated
  * fixture environment — no mocks, no Claude, just stdin/stdout.
  *
- * Run `bun run test:npx` once before running these tests.
+ * Run `bun build src/index.ts --outdir dist --target node --format cjs` once before running these tests.
  */
 import { describe, it } from "vitest";
 import { runHook, assertAllow, assertPreToolUseDeny, assertPostToolUseDeny, assertInstruct } from "../helpers/hook-runner";

@@ -110,24 +110,19 @@ E2E tests invoke the real `failproofai` binary as a subprocess, pipe a JSON payl
 
 ### Setup
 
-E2E tests require the npm package to be built and installed locally first:
+E2E tests run the binary directly from the repo source. Before the first run, build the CJS bundle that custom hook files use when they import from `'failproofai'`:
 
 ```bash
-bun run test:npx
+bun build src/index.ts --outdir dist --target node --format cjs
 ```
 
-This script:
-1. Builds the Next.js standalone
-2. Compiles the native binary (`bun build --compile`)
-3. Packs and installs both platform and wrapper packages into `.test-npx/`
-
-Once setup, run the tests:
+Then run the tests:
 
 ```bash
 bun run test:e2e
 ```
 
-The built package persists in `.test-npx/` between runs, so you only need to run `test:npx` again after making changes to the hook handler or binary entry point.
+Rebuild `dist/` whenever you change the public hook API (`src/hooks/custom-hooks-registry.ts`, `src/hooks/policy-helpers.ts`, or `src/hooks/policy-types.ts`).
 
 ### E2E test structure
 
