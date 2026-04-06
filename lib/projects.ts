@@ -9,6 +9,7 @@ import { readdir, stat } from "fs/promises";
 import { join, resolve, sep } from "path";
 import { getClaudeProjectsPath } from "./paths";
 import { runtimeCache } from "./runtime-cache";
+import { batchAll } from "./concurrency";
 import { logWarn, logError } from "./logger";
 import { formatDate } from "./utils";
 
@@ -59,10 +60,10 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
     const entries = await safeReaddir(projectsPath);
     if (!entries) return [];
 
-    const folders = await Promise.all(
+    const settled = await batchAll(
       entries
         .filter((entry) => entry.isDirectory())
-        .map(async (entry) => {
+        .map((entry) => async () => {
           const folderPath = join(projectsPath, entry.name);
           const mtime = await getMtime(folderPath, entry.name);
           return {
@@ -72,8 +73,12 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
             lastModified: mtime,
             lastModifiedFormatted: formatDate(mtime),
           } as ProjectFolder;
-        })
+        }),
+      16,
     );
+    const folders = settled
+      .filter((r): r is PromiseFulfilledResult<ProjectFolder> => r.status === "fulfilled")
+      .map((r) => r.value);
 
     folders.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
     return folders;
@@ -142,8 +147,8 @@ export async function getSessionFiles(projectPath: string): Promise<SessionFile[
       (entry) => entry.isFile() && entry.name.endsWith(".jsonl") && extractSessionId(entry.name)
     );
 
-    const files = await Promise.all(
-      jsonlEntries.map(async (entry) => {
+    const settled = await batchAll(
+      jsonlEntries.map((entry) => async () => {
         const filePath = join(projectPath, entry.name);
         const mtime = await getMtime(filePath, entry.name);
         return {
@@ -153,8 +158,12 @@ export async function getSessionFiles(projectPath: string): Promise<SessionFile[
           lastModifiedFormatted: formatDate(mtime),
           sessionId: extractSessionId(entry.name),
         } as SessionFile;
-      })
+      }),
+      16,
     );
+    const files = settled
+      .filter((r): r is PromiseFulfilledResult<SessionFile> => r.status === "fulfilled")
+      .map((r) => r.value);
 
     files.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
     return files;

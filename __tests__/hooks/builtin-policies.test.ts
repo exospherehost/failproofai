@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { readFile } from "node:fs/promises";
 import { execSync } from "node:child_process";
-import { BUILTIN_POLICIES, registerBuiltinPolicies } from "../../src/hooks/builtin-policies";
+import { BUILTIN_POLICIES, registerBuiltinPolicies, clearGitBranchCache } from "../../src/hooks/builtin-policies";
 import { getPoliciesForEvent, clearPolicies } from "../../src/hooks/policy-registry";
 import type { PolicyContext } from "../../src/hooks/policy-types";
 
@@ -772,6 +772,7 @@ describe("hooks/builtin-policies", () => {
 
     afterEach(() => {
       vi.mocked(execSync).mockReset();
+      clearGitBranchCache();
     });
 
     it("blocks git commit on main", async () => {
@@ -1519,6 +1520,7 @@ describe("hooks/builtin-policies", () => {
 
       afterEach(() => {
         vi.mocked(execSync).mockReset();
+        clearGitBranchCache();
       });
 
       it("blocks git commit on a custom protected branch", async () => {

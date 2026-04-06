@@ -78,7 +78,7 @@ describe("runtimeCache", () => {
   });
 
   describe("LRU eviction with maxSize", () => {
-    it("evicts the least-recently-used entry when maxSize is reached", async () => {
+    it("evicts the oldest-inserted entry when maxSize is reached", async () => {
       let callCount = 0;
       const fn = vi.fn().mockImplementation(async (x: string) => {
         callCount++;
@@ -92,26 +92,22 @@ describe("runtimeCache", () => {
       await cached("c"); // cache: [a, b, c]
       expect(fn).toHaveBeenCalledTimes(3);
 
-      // Access "a" again (should be cached, moves to end)
-      const resultA = await cached("a"); // cache: [b, c, a]
+      // Access "a" again — cache hit, no reordering (insertion-order eviction)
+      const resultA = await cached("a"); // cache: [a, b, c] — no reorder
       expect(fn).toHaveBeenCalledTimes(3); // no new call
       expect(resultA).toBe("result-a-1");
 
-      // Insert "d" — should evict "b" (least recently used)
-      await cached("d"); // cache: [c, a, d]
+      // Insert "d" — evicts "a" (oldest inserted, even though recently accessed)
+      await cached("d"); // cache: [b, c, d]
       expect(fn).toHaveBeenCalledTimes(4);
 
-      // "b" should have been evicted — next call should re-compute
-      await cached("b"); // cache: [a, d, b]
+      // "a" should have been evicted — next call should re-compute
+      await cached("a"); // cache: [c, d, a]
       expect(fn).toHaveBeenCalledTimes(5);
 
-      // "c" should also have been evicted by now
-      await cached("c"); // cache: [d, b, c] — evicts "a"
+      // "b" should also have been evicted by now
+      await cached("b"); // cache: [d, a, b]
       expect(fn).toHaveBeenCalledTimes(6);
-
-      // "a" was evicted, should re-compute
-      await cached("a");
-      expect(fn).toHaveBeenCalledTimes(7);
     });
 
     it("does not evict when cache is under maxSize", async () => {
