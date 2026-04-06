@@ -1,0 +1,175 @@
+/**
+ * Hook event handler — invoked when Claude Code triggers a hook.
+ *
+ * Reads the JSON payload from stdin, loads enabled policies from
+ * ~/.failproofai/hooks-config.json, evaluates matching policies, persists
+ * activity to disk, and returns the appropriate exit code + stdout response.
+ */
+import type { HookEventType, SessionMetadata } from "./types";
+import type { PolicyFunction, PolicyResult } from "./policy-types";
+import { readMergedHooksConfig } from "./hooks-config";
+import { registerBuiltinPolicies } from "./builtin-policies";
+import { evaluatePolicies } from "./policy-evaluator";
+import { clearPolicies, registerPolicy } from "./policy-registry";
+import { loadCustomHooks } from "./custom-hooks-loader";
+import { persistHookActivity } from "./hook-activity-store";
+import { trackHookEvent } from "./hook-telemetry";
+import { getInstanceId } from "../../lib/telemetry-id";
+import { hookLogInfo, hookLogWarn } from "./hook-logger";
+
+export async function handleHookEvent(eventType: string): Promise<number> {
+  const startTime = performance.now();
+
+  // Read stdin payload (Claude passes JSON)
+  const MAX_STDIN_BYTES = 1_048_576; // 1 MB
+  let payload = "";
+  try {
+    payload = await new Promise<string>((resolve, reject) => {
+      const chunks: string[] = [];
+      let totalBytes = 0;
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", (chunk: string) => {
+        totalBytes += Buffer.byteLength(chunk);
+        if (totalBytes > MAX_STDIN_BYTES) {
+          hookLogWarn(`stdin payload exceeds 1 MB for ${eventType}, discarding`);
+          process.stdin.destroy();
+          resolve("");
+          return;
+        }
+        chunks.push(chunk);
+      });
+      process.stdin.on("end", () => resolve(chunks.join("")));
+      process.stdin.on("error", reject);
+      // If stdin is already closed or not piped, resolve immediately
+      if (process.stdin.readableEnded) resolve("");
+    });
+  } catch {
+    hookLogWarn(`stdin read failed for ${eventType}`);
+  }
+
+  let parsed: Record<string, unknown> = {};
+  if (payload) {
+    try {
+      parsed = JSON.parse(payload) as Record<string, unknown>;
+    } catch {
+      hookLogWarn(`payload parse failed for ${eventType} (${payload.length} bytes)`);
+    }
+  }
+
+  // Extract session metadata from payload
+  const session: SessionMetadata = {
+    sessionId: parsed.session_id as string | undefined,
+    transcriptPath: parsed.transcript_path as string | undefined,
+    cwd: parsed.cwd as string | undefined,
+    permissionMode: parsed.permission_mode as string | undefined,
+    hookEventName: parsed.hook_event_name as string | undefined,
+  };
+
+  // Load enabled policies (merge across project/local/global scopes)
+  const config = readMergedHooksConfig(session.cwd);
+  clearPolicies();
+  registerBuiltinPolicies(config.enabledPolicies);
+
+  // Load and register custom hooks (layer 2, after builtins)
+  const customHooksList = await loadCustomHooks(config.customHooksPath);
+  for (const hook of customHooksList) {
+    const hookName = hook.name;
+    const fn: PolicyFunction = async (ctx): Promise<PolicyResult> => {
+      try {
+        const result = await Promise.race([
+          hook.fn(ctx),
+          new Promise<PolicyResult>((_, reject) =>
+            setTimeout(() => reject(new Error("timeout")), 10_000),
+          ),
+        ]);
+        return result;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const isTimeout = msg === "timeout";
+        hookLogWarn(`custom hook "${hookName}" failed: ${msg}`);
+        void trackHookEvent(getInstanceId(), "custom_hook_error", {
+          hook_name: hookName,
+          error_type: isTimeout ? "timeout" : "exception",
+          event_type: eventType,
+        });
+        return { decision: "allow" };
+      }
+    };
+    registerPolicy(
+      `custom/${hookName}`,
+      hook.description ?? "",
+      fn,
+      hook.match ?? {},
+      -1, // Custom hooks run after builtins (priority 0)
+    );
+  }
+
+  // Fire telemetry once per invocation for custom hook loads
+  if (customHooksList.length > 0) {
+    void trackHookEvent(getInstanceId(), "custom_hooks_loaded", {
+      custom_hooks_count: customHooksList.length,
+      custom_hook_names: customHooksList.map((h) => h.name),
+      event_types_covered: [...new Set(customHooksList.flatMap((h) => h.match?.events ?? []))],
+    });
+  }
+
+  hookLogInfo(`event=${eventType} policies=${config.enabledPolicies.length} custom=${customHooksList.length}`);
+
+  // Evaluate policies
+  const result = await evaluatePolicies(eventType as HookEventType, parsed, session, config);
+  const durationMs = Math.round(performance.now() - startTime);
+  hookLogInfo(`result=${result.decision} policy=${result.policyName ?? "none"} duration=${durationMs}ms`);
+
+  if (result.stdout) {
+    process.stdout.write(result.stdout);
+  }
+  if (result.stderr) {
+    process.stderr.write(result.stderr);
+  }
+
+  // Persist activity to disk (visible in /policies activity tab)
+  try {
+    persistHookActivity({
+      timestamp: Date.now(),
+      eventType,
+      toolName: (parsed.tool_name as string) ?? null,
+      policyName: result.policyName,
+      decision: result.decision,
+      reason: result.reason,
+      durationMs,
+      sessionId: session.sessionId,
+      transcriptPath: session.transcriptPath,
+      cwd: session.cwd,
+      permissionMode: session.permissionMode,
+      hookEventName: session.hookEventName,
+    });
+  } catch {
+    hookLogWarn("activity persistence failed");
+  }
+
+  // Fire PostHog telemetry for decisions that affect Claude's behavior
+  if (result.decision === "deny" || result.decision === "instruct") {
+    try {
+      const isCustomHook = result.policyName?.startsWith("custom/") ?? false;
+      const hasCustomParams =
+        !isCustomHook && !!(result.policyName && config.policyParams?.[result.policyName]);
+      const paramKeysOverridden = hasCustomParams
+        ? Object.keys(config.policyParams![result.policyName!])
+        : [];
+      const distinctId = getInstanceId();
+      await trackHookEvent(distinctId, "hook_policy_triggered", {
+        event_type: eventType,
+        tool_name: (parsed.tool_name as string) ?? null,
+        policy_name: result.policyName,
+        decision: result.decision,
+        is_custom_hook: isCustomHook,
+        has_custom_params: hasCustomParams,
+        param_keys_overridden: paramKeysOverridden,
+      });
+    } catch {
+      // Telemetry is best-effort — never block the hook
+    }
+  }
+
+  return result.exitCode;
+}

@@ -1,0 +1,596 @@
+// @vitest-environment node
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { handleHookEvent } from "../../src/hooks/handler";
+
+vi.mock("../../src/hooks/hooks-config", () => ({
+  readMergedHooksConfig: vi.fn(() => ({ enabledPolicies: ["block-sudo"] })),
+}));
+
+vi.mock("../../src/hooks/builtin-policies", () => ({
+  registerBuiltinPolicies: vi.fn(),
+}));
+
+vi.mock("../../src/hooks/policy-evaluator", () => ({
+  evaluatePolicies: vi.fn(() => ({
+    exitCode: 0,
+    stdout: "",
+    stderr: "",
+    policyName: null,
+    reason: null,
+    decision: "allow",
+  })),
+}));
+
+vi.mock("../../src/hooks/policy-registry", () => ({
+  clearPolicies: vi.fn(),
+  registerPolicy: vi.fn(),
+}));
+
+vi.mock("../../src/hooks/custom-hooks-loader", () => ({
+  loadCustomHooks: vi.fn(() => Promise.resolve([])),
+}));
+
+vi.mock("../../src/hooks/hook-activity-store", () => ({
+  persistHookActivity: vi.fn(),
+}));
+
+vi.mock("../../src/hooks/hook-telemetry", () => ({
+  trackHookEvent: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock("../../lib/telemetry-id", () => ({
+  getInstanceId: vi.fn(() => "test-instance-id"),
+}));
+
+vi.mock("../../src/hooks/hook-logger", () => ({
+  hookLogInfo: vi.fn(),
+  hookLogWarn: vi.fn(),
+  hookLogError: vi.fn(),
+}));
+
+describe("hooks/handler", () => {
+  let stderrSpy: ReturnType<typeof vi.spyOn>;
+  let stdoutSpy: ReturnType<typeof vi.spyOn>;
+  const originalStdin = process.stdin;
+
+  function mockStdin(payload?: string): void {
+    Object.defineProperty(process, "stdin", {
+      value: {
+        setEncoding: vi.fn(),
+        destroy: vi.fn(),
+        on: vi.fn((event: string, cb: (data?: string) => void) => {
+          if (event === "data" && payload) cb(payload);
+          if (event === "end") cb();
+        }),
+        readableEnded: !payload,
+      },
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  function restoreStdin(): void {
+    Object.defineProperty(process, "stdin", {
+      value: originalStdin,
+      writable: true,
+      configurable: true,
+    });
+  }
+
+  beforeEach(() => {
+    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    restoreStdin();
+  });
+
+  it("returns exit code from policy evaluation", async () => {
+    mockStdin();
+    const exitCode = await handleHookEvent("PreToolUse");
+    expect(exitCode).toBe(0);
+  });
+
+  it("returns number (not void)", async () => {
+    mockStdin();
+    const result = await handleHookEvent("SessionStart");
+    expect(typeof result).toBe("number");
+  });
+
+  it("does not write raw stderr (logging is via hook-logger)", async () => {
+    mockStdin(JSON.stringify({ tool_name: "Read", tool_input: { file_path: "/foo" } }));
+    await handleHookEvent("PreToolUse");
+    expect(stderrSpy).not.toHaveBeenCalled();
+  });
+
+  it("calls readMergedHooksConfig and registerBuiltinPolicies", async () => {
+    mockStdin();
+    const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+    const { registerBuiltinPolicies } = await import("../../src/hooks/builtin-policies");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(readMergedHooksConfig).toHaveBeenCalled();
+    expect(registerBuiltinPolicies).toHaveBeenCalledWith(["block-sudo"]);
+  });
+
+  it("persists hook activity for every evaluation", async () => {
+    mockStdin();
+    const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(persistHookActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: "PreToolUse",
+        decision: "allow",
+        policyName: null,
+      }),
+    );
+  });
+
+  it("persists deny decision when evaluator returns deny", async () => {
+    const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+    vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+      exitCode: 0,
+      stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+      stderr: "",
+      policyName: "block-sudo",
+      reason: "sudo blocked",
+      decision: "deny",
+    });
+    mockStdin(JSON.stringify({ tool_name: "Bash" }));
+    const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(persistHookActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: "deny",
+        policyName: "block-sudo",
+        reason: "sudo blocked",
+      }),
+    );
+  });
+
+  describe("PostHog telemetry", () => {
+    it("fires telemetry with full payload for deny decisions", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+        stderr: "",
+        policyName: "block-sudo",
+        reason: "sudo blocked",
+        decision: "deny",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "hook_policy_triggered",
+        {
+          event_type: "PreToolUse",
+          tool_name: "Bash",
+          policy_name: "block-sudo",
+          decision: "deny",
+          is_custom_hook: false,
+          has_custom_params: false,
+          param_keys_overridden: [],
+        },
+      );
+    });
+
+    it("fires telemetry with full payload for instruct decisions", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"hookSpecificOutput":{"additionalContext":"Instruction from failproofai: repeated calls"}}',
+        stderr: "",
+        policyName: "warn-repeated-tool-calls",
+        reason: "repeated calls",
+        decision: "instruct",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Read" }));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "hook_policy_triggered",
+        {
+          event_type: "PreToolUse",
+          tool_name: "Read",
+          policy_name: "warn-repeated-tool-calls",
+          decision: "instruct",
+          is_custom_hook: false,
+          has_custom_params: false,
+          param_keys_overridden: [],
+        },
+      );
+    });
+
+    it("sets is_custom_hook true when triggered policy is a custom hook", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+        stderr: "",
+        policyName: "custom/my-hook",
+        reason: "custom blocked",
+        decision: "deny",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "hook_policy_triggered",
+        expect.objectContaining({
+          policy_name: "custom/my-hook",
+          is_custom_hook: true,
+          has_custom_params: false,
+          param_keys_overridden: [],
+        }),
+      );
+    });
+
+    it("sets has_custom_params and param_keys_overridden when policyParams are configured", async () => {
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readMergedHooksConfig).mockReturnValueOnce({
+        enabledPolicies: ["block-sudo"],
+        policyParams: { "block-sudo": { allowPatterns: ["sudo systemctl status"] } },
+      });
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+        stderr: "",
+        policyName: "block-sudo",
+        reason: "sudo blocked",
+        decision: "deny",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "hook_policy_triggered",
+        expect.objectContaining({
+          policy_name: "block-sudo",
+          is_custom_hook: false,
+          has_custom_params: true,
+          param_keys_overridden: ["allowPatterns"],
+        }),
+      );
+    });
+
+    it("does not fire telemetry for allow decisions", async () => {
+      mockStdin();
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(trackHookEvent).not.toHaveBeenCalled();
+    });
+
+    it("passes null tool_name when payload has no tool_name", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+        stderr: "",
+        policyName: "block-sudo",
+        reason: "sudo blocked",
+        decision: "deny",
+      });
+      mockStdin(JSON.stringify({}));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "hook_policy_triggered",
+        expect.objectContaining({
+          tool_name: null,
+        }),
+      );
+    });
+
+    it("telemetry failure does not throw or affect exit code", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+        stderr: "",
+        policyName: "block-sudo",
+        reason: "sudo blocked",
+        decision: "deny",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+      vi.mocked(trackHookEvent).mockRejectedValueOnce(new Error("PostHog unavailable"));
+
+      const exitCode = await handleHookEvent("PreToolUse");
+
+      expect(exitCode).toBe(0);
+    });
+
+    it("fires custom_hooks_loaded with count, names, and event types when custom hooks are present", async () => {
+      const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+      vi.mocked(loadCustomHooks).mockResolvedValueOnce([
+        { name: "hook-a", fn: async () => ({ decision: "allow" as const }), match: { events: ["PreToolUse" as never] } },
+        { name: "hook-b", fn: async () => ({ decision: "allow" as const }), match: { events: ["Stop" as never] } },
+      ]);
+      mockStdin();
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "custom_hooks_loaded",
+        {
+          custom_hooks_count: 2,
+          custom_hook_names: ["hook-a", "hook-b"],
+          event_types_covered: expect.arrayContaining(["PreToolUse", "Stop"]),
+        },
+      );
+    });
+
+    it("does not fire custom_hooks_loaded when no custom hooks are loaded", async () => {
+      mockStdin();
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      const calls = vi.mocked(trackHookEvent).mock.calls;
+      expect(calls.every(([, event]) => event !== "custom_hooks_loaded")).toBe(true);
+    });
+
+    it("fires custom_hook_error with error_type exception when hook throws", async () => {
+      const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+      vi.mocked(loadCustomHooks).mockResolvedValueOnce([
+        { name: "bad-hook", fn: async () => { throw new Error("oops"); } },
+      ]);
+      const { registerPolicy } = await import("../../src/hooks/policy-registry");
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      let wrappedFn: ((ctx: never) => Promise<unknown>) | null = null;
+      vi.mocked(registerPolicy).mockImplementationOnce((_n, _d, fn) => {
+        wrappedFn = fn as (ctx: never) => Promise<unknown>;
+      });
+
+      mockStdin();
+      await handleHookEvent("PreToolUse");
+
+      expect(wrappedFn).not.toBeNull();
+      await wrappedFn!({} as never);
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "custom_hook_error",
+        { hook_name: "bad-hook", error_type: "exception", event_type: "PreToolUse" },
+      );
+    });
+
+    it("fires custom_hook_error with error_type timeout when hook times out", async () => {
+      const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+      vi.mocked(loadCustomHooks).mockResolvedValueOnce([
+        { name: "slow-hook", fn: async () => { throw new Error("timeout"); } },
+      ]);
+      const { registerPolicy } = await import("../../src/hooks/policy-registry");
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      let wrappedFn: ((ctx: never) => Promise<unknown>) | null = null;
+      vi.mocked(registerPolicy).mockImplementationOnce((_n, _d, fn) => {
+        wrappedFn = fn as (ctx: never) => Promise<unknown>;
+      });
+
+      mockStdin();
+      await handleHookEvent("PreToolUse");
+
+      expect(wrappedFn).not.toBeNull();
+      await wrappedFn!({} as never);
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "custom_hook_error",
+        { hook_name: "slow-hook", error_type: "timeout", event_type: "PreToolUse" },
+      );
+    });
+
+    it("fires exactly one telemetry event per hook invocation", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+        stderr: "",
+        policyName: "block-sudo",
+        reason: "sudo blocked",
+        decision: "deny",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(trackHookEvent).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("passes session metadata to persistHookActivity", async () => {
+    const sessionPayload = JSON.stringify({
+      tool_name: "Read",
+      tool_input: { file_path: "/foo/bar.ts" },
+      session_id: "sess-abc-123",
+      transcript_path: "/tmp/transcript.jsonl",
+      cwd: "/home/user/project",
+      permission_mode: "default",
+      hook_event_name: "PreToolUse",
+    });
+    mockStdin(sessionPayload);
+    const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(persistHookActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: "sess-abc-123",
+        transcriptPath: "/tmp/transcript.jsonl",
+        cwd: "/home/user/project",
+        permissionMode: "default",
+        hookEventName: "PreToolUse",
+      }),
+    );
+  });
+
+  it("passes undefined session fields when payload is empty", async () => {
+    mockStdin();
+    const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(persistHookActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: undefined,
+        transcriptPath: undefined,
+        cwd: undefined,
+        permissionMode: undefined,
+        hookEventName: undefined,
+      }),
+    );
+  });
+
+  it("passes session metadata to evaluatePolicies", async () => {
+    const sessionPayload = JSON.stringify({
+      session_id: "sess-xyz",
+      cwd: "/home/user/project",
+      permission_mode: "plan",
+    });
+    mockStdin(sessionPayload);
+    const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(evaluatePolicies).toHaveBeenCalledWith(
+      "PreToolUse",
+      expect.any(Object),
+      expect.objectContaining({
+        sessionId: "sess-xyz",
+        cwd: "/home/user/project",
+        permissionMode: "plan",
+      }),
+      expect.any(Object),
+    );
+  });
+
+  it("writes stdout from evaluator result", async () => {
+    const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+    vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+      exitCode: 0,
+      stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+      stderr: "",
+      policyName: "block-sudo",
+      reason: "blocked",
+      decision: "deny",
+    });
+    mockStdin(JSON.stringify({ tool_name: "Bash" }));
+
+    await handleHookEvent("PreToolUse");
+
+    expect(stdoutSpy).toHaveBeenCalledWith(
+      expect.stringContaining("permissionDecision"),
+    );
+  });
+
+  it("persists instruct decision as 'instruct' in activity store", async () => {
+    const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+    vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+      exitCode: 0,
+      stdout: '{"hookSpecificOutput":{"additionalContext":"Instruction from failproofai: repeated calls"}}',
+      stderr: "",
+      policyName: "warn-repeated-tool-calls",
+      reason: "repeated calls",
+      decision: "instruct",
+    });
+    mockStdin(JSON.stringify({ tool_name: "Read" }));
+    const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(persistHookActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        decision: "instruct",
+        policyName: "warn-repeated-tool-calls",
+        reason: "repeated calls",
+      }),
+    );
+  });
+
+  describe("hook logging", () => {
+    it("logs event type and policy count at info level", async () => {
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { hookLogInfo } = await import("../../src/hooks/hook-logger");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(hookLogInfo).toHaveBeenCalledWith(expect.stringContaining("event=PreToolUse"));
+      expect(hookLogInfo).toHaveBeenCalledWith(expect.stringContaining("policies="));
+    });
+
+    it("logs evaluation result at info level", async () => {
+      mockStdin();
+      const { hookLogInfo } = await import("../../src/hooks/hook-logger");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(hookLogInfo).toHaveBeenCalledWith(expect.stringContaining("result=allow"));
+      expect(hookLogInfo).toHaveBeenCalledWith(expect.stringContaining("duration="));
+    });
+
+    it("logs warning when JSON parse fails", async () => {
+      mockStdin("not valid json {{{");
+      const { hookLogWarn } = await import("../../src/hooks/hook-logger");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(hookLogWarn).toHaveBeenCalledWith(expect.stringContaining("payload parse failed"));
+    });
+
+    it("logs warning and returns exit 0 when stdin exceeds 1 MB", async () => {
+      const oversized = "A".repeat(1_100_000); // 1.1 MB
+      mockStdin(oversized);
+      const { hookLogWarn } = await import("../../src/hooks/hook-logger");
+
+      const exitCode = await handleHookEvent("PreToolUse");
+
+      expect(hookLogWarn).toHaveBeenCalledWith(expect.stringContaining("exceeds 1 MB"));
+      expect(exitCode).toBe(0);
+    });
+
+    it("logs warning when activity persistence fails", async () => {
+      mockStdin();
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+      vi.mocked(persistHookActivity).mockImplementation(() => { throw new Error("disk full"); });
+      const { hookLogWarn } = await import("../../src/hooks/hook-logger");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(hookLogWarn).toHaveBeenCalledWith(expect.stringContaining("activity persistence failed"));
+    });
+  });
+
+});

@@ -1,0 +1,178 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 5
+          command: bun install --frozen-lockfile
+
+      - name: Check version consistency
+        run: |
+          ROOT_VERSION=$(jq -r .version package.json)
+          echo "Root version: $ROOT_VERSION"
+          MISMATCH=0
+          for pkg in packages/*/package.json; do
+            PKG_VERSION=$(jq -r .version "$pkg")
+            if [ "$PKG_VERSION" != "$ROOT_VERSION" ]; then
+              echo "::error file=$pkg::Version mismatch: $pkg has $PKG_VERSION, expected $ROOT_VERSION"
+              MISMATCH=1
+            fi
+          done
+          # Check optionalDependencies in wrapper
+          for dep_version in $(jq -r '.optionalDependencies // {} | values[]' packages/wrapper/package.json); do
+            if [ "$dep_version" != "$ROOT_VERSION" ]; then
+              echo "::error file=packages/wrapper/package.json::Dependency version mismatch: $dep_version, expected $ROOT_VERSION"
+              MISMATCH=1
+            fi
+          done
+          if [ "$MISMATCH" -eq 1 ]; then
+            echo "::error::Version mismatch detected across package.json files"
+            exit 1
+          fi
+          echo "All versions match: $ROOT_VERSION"
+
+      - name: Lint
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 5
+          command: bun run lint
+
+      - name: Type check
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 5
+          command: bunx tsc --noEmit
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        env-config:
+          - { name: default,            env: {} }
+          - { name: telemetry-disabled, env: { FAILPROOFAI_TELEMETRY_DISABLED: "1" } }
+          - { name: log-debug,          env: { FAILPROOFAI_LOG_LEVEL: debug } }
+          - { name: hook-log-file,      env: { FAILPROOFAI_HOOK_LOG_FILE: "1" } }
+    env: ${{ matrix.env-config.env }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 5
+          command: bun install --frozen-lockfile
+
+      - name: Test (${{ matrix.env-config.name }})
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: bun run test:run
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 5
+          command: bun install --frozen-lockfile
+
+      - name: Build
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 10
+          command: bun run build
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    env:
+      FAILPROOFAI_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 3
+          timeout_minutes: 5
+          command: bun install --frozen-lockfile
+
+      - name: Build npm package (setup E2E env)
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 2
+          timeout_minutes: 15
+          command: bun run test:npx
+
+      - name: E2E Hook Tests
+        uses: nick-fields/retry@v4
+        with:
+          max_attempts: 2
+          timeout_minutes: 10
+          command: bun run test:e2e

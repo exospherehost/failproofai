@@ -1,0 +1,269 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --accent: #031035;
+  --accent-light: #0a1a4a;
+  --accent-lighter: #1a2a5a;
+  --accent-lightest: #2a3a6a;
+  --radius: 0.625rem;
+  
+  /* Updated Color Palette based on #031035 and accents */
+  --background: #031035; /* Deep navy primary */
+  --foreground: #f8fafc; /* Light text */
+  --card: #0a1a4a; /* Slightly lighter navy for cards */
+  --card-foreground: #f8fafc;
+  --popover: #0a1a4a;
+  --popover-foreground: #f8fafc;
+  --primary: #87ceeb; /* Sky blue accent */
+  --primary-foreground: #031035;
+  --secondary: #1a2a5a; /* Medium navy */
+  --secondary-foreground: #f8fafc;
+  --muted: #2a3a6a; /* Muted navy */
+  --muted-foreground: #94a3b8; /* Light gray text */
+  --accent-foreground: #f8fafc;
+  --destructive: #ff6b8a; /* Pink accent for errors */
+  --border: #1a2a5a; /* Navy border */
+  --input: #1a2a5a; /* Navy input background */
+  --ring: #87ceeb; /* Sky blue focus ring */
+  --chart-1: #87ceeb; /* Sky blue */
+  --chart-2: #66d1b5; /* Green accent */
+  --chart-3: #ffed9e; /* Yellow accent */
+  --chart-4: #ff6b8a; /* Pink accent */
+  --chart-5: #a78bfa; /* Purple accent */
+  --sidebar: #0a1a4a;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #87ceeb;
+  --sidebar-primary-foreground: #031035;
+  --sidebar-accent: #1a2a5a;
+  --sidebar-accent-foreground: #f8fafc;
+  --sidebar-border: #1a2a5a;
+  --sidebar-ring: #87ceeb;
+}
+
+/* Light Mode Variables */
+.light {
+  --background: #ffffff; /* White background */
+  --foreground: #031035; /* Dark navy text */
+  --card: #f2f7fb; /* Light card background */
+  --card-foreground: #031035;
+  --popover: #ffffff;
+  --popover-foreground: #031035;
+  --primary: #031035; /* Dark navy primary (keeping dark blue accent) */
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9; /* Light gray secondary */
+  --secondary-foreground: #031035;
+  --muted: #f1f5f9; /* Light muted background */
+  --muted-foreground: #64748b; /* Medium gray text */
+  --accent: #031035; /* Keep dark blue accent */
+  --accent-light: #0a1a4a; /* Keep dark blue accent */
+  --accent-lighter: #1a2a5a; /* Keep dark blue accent */
+  --accent-lightest: #2a3a6a; /* Keep dark blue accent */
+  --accent-foreground: #ffffff;
+  --destructive: #dc2626; /* Red for errors in light mode */
+  --border: #e2e8f0; /* Light border */
+  --input: #ffffff; /* White input background */
+  --ring: #87ceeb; /* Keep sky blue focus ring */
+  --chart-1: #87ceeb; /* Sky blue */
+  --chart-2: #4ade80; /* Green accent */
+  --chart-3: #cca301; /* Yellow accent */
+  --chart-4: #ff6b8a; /* Pink accent */
+  --chart-5: #a78bfa; /* Purple accent */
+  --sidebar: #f8fafc;
+  --sidebar-foreground: #031035;
+  --sidebar-primary: #031035; /* Dark navy for sidebar primary in light mode */
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f1f5f9;
+  --sidebar-accent-foreground: #031035;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #87ceeb;
+}
+
+/* Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: var(--radius);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--chart-1);
+  border-radius: var(--radius);
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-lightest);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--muted);
+}
+
+/* Firefox scrollbar styling */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--muted);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-lighter: var(--accent-lighter);
+  --color-accent-lightest: var(--accent-lightest);
+  --font-sans: system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-size: 120%; /* Increased from default 16px */
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  input[type="checkbox"] {
+    accent-color: var(--primary);
+  }
+  
+  /* Custom select dropdown styling for better theme support */
+  select {
+    color-scheme: light dark;
+  }
+  
+  .light select {
+    color-scheme: light;
+  }
+  
+  select option {
+    background-color: var(--popover);
+    color: var(--popover-foreground);
+  }
+
+  /* Date Input Styling */
+  input[type="date"] {
+    position: relative;
+    overflow: visible;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    display: none;
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    width: 0;
+    height: 0;
+    cursor: pointer;
+  }
+
+  /* Custom date picker calendar styling */
+  input[type="date"]::-webkit-datetime-edit {
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+    padding: 0;
+    gap: 0;
+  }
+
+  input[type="date"]::-webkit-datetime-edit-text {
+    color: var(--muted-foreground);
+    padding: 0 0.2rem;
+  }
+
+  input[type="date"]::-webkit-datetime-edit-month-field {
+    color: var(--foreground);
+    padding: 0 0.15rem;
+    width: 2.5ch;
+    min-width: 2.5ch;
+  }
+
+  input[type="date"]::-webkit-datetime-edit-day-field {
+    color: var(--foreground);
+    padding: 0 0.15rem;
+    width: 2.5ch;
+    min-width: 2.5ch;
+  }
+
+  input[type="date"]::-webkit-datetime-edit-year-field {
+    color: var(--foreground);
+    padding: 0 0.15rem;
+    width: 5ch;
+    min-width: 5ch;
+    max-width: 5ch;
+    overflow: visible;
+  }
+
+  input[type="date"]::-webkit-datetime-edit-month-field:focus,
+  input[type="date"]::-webkit-datetime-edit-day-field:focus,
+  input[type="date"]::-webkit-datetime-edit-year-field:focus {
+    background-color: var(--muted);
+    color: var(--foreground);
+    border-radius: 0.25rem;
+  }
+
+  /* Firefox date input styling */
+  input[type="date"] {
+    color-scheme: dark;
+  }
+
+  .light input[type="date"] {
+    color-scheme: light;
+  }
+
+  #__loading { display: none !important; }
+  body > * { opacity: 1 !important; }
+}
+
+@keyframes entry-highlight {
+  0% { background-color: hsl(var(--primary) / 0.15); }
+  100% { background-color: transparent; }
+}
+.entry-highlighted {
+  animation: entry-highlight 3s ease-out forwards;
+  outline: 2px solid hsl(var(--primary) / 0.4);
+  outline-offset: -1px;
+  border-radius: 0.5rem;
+}
