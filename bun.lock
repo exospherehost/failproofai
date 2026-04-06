@@ -5,7 +5,7 @@
     "": {
       "name": "claudeye",
       "dependencies": {
-        "posthog-node": "^5.28.0",
+        "posthog-node": "^5.28.11",
       },
       "devDependencies": {
         "@tailwindcss/postcss": "^4.1.18",
@@ -248,7 +248,7 @@
 
     "@oxc-project/types": ["@oxc-project/types@0.122.0", "", {}, "sha512-oLAl5kBpV4w69UtFZ9xqcmTi+GENWOcPF7FCrczTiBbmC0ibXxCwyvZGbO39rCVEuLGAZM84DH0pUIyyv/YJzA=="],
 
-    "@posthog/core": ["@posthog/core@1.24.4", "", { "dependencies": { "cross-spawn": "^7.0.6" } }, "sha512-S+TolwBHSSJz7WWtgaELQWQqXviSm3uf1e+qorWUts0bZcgPwWzhnmhCUZAhvn0NVpTQHDJ3epv+hHbPLl5dHg=="],
+    "@posthog/core": ["@posthog/core@1.24.6", "", {}, "sha512-9WkcRKqmXSWIJcca6m3VwA9YbFd4HiG2hKEtDq6FcwEHlvfDhQQUZ5/sJZ47Fw8OtyNMHQ6rW4+COttk4Bg5NQ=="],
 
     "@rolldown/binding-android-arm64": ["@rolldown/binding-android-arm64@1.0.0-rc.12", "", { "os": "android", "cpu": "arm64" }, "sha512-pv1y2Fv0JybcykuiiD3qBOBdz6RteYojRFY1d+b95WVuzx211CRh+ytI/+9iVyWQ6koTh5dawe4S/yRfOFjgaA=="],
 
@@ -872,7 +872,7 @@
 
     "postcss-value-parser": ["postcss-value-parser@4.2.0", "", {}, "sha512-1NNCs6uurfkVbeXG4S8JFT9t19m45ICnif8zWLd5oPSZ50QnwMfK+H3jv408d4jw/7Bttv5axS5IiHoLaVNHeQ=="],
 
-    "posthog-node": ["posthog-node@5.28.9", "", { "dependencies": { "@posthog/core": "1.24.4" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-iZWyAYkIAq5QqcYz4q2nXOX+Ivn04Yh8AuKqfFVw0SvBpfli49bNAjyE97qbRTLr+irrzRUELgGIkDC14NgugA=="],
+    "posthog-node": ["posthog-node@5.28.11", "", { "dependencies": { "@posthog/core": "1.24.6" }, "peerDependencies": { "rxjs": "^7.0.0" }, "optionalPeers": ["rxjs"] }, "sha512-H4FOiqKUBO8SVXyXlU5tyifeS11hyTGVwBirFPR5rPtw8X6OFs5xVLx38YL7ZBLjaa9u8is+nIWXKBwWsZ2vlw=="],
 
     "prelude-ls": ["prelude-ls@1.2.1", "", {}, "sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g=="],
 

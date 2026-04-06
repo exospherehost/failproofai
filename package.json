@@ -87,6 +87,6 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "posthog-node": "^5.28.0"
+    "posthog-node": "^5.28.11"
   }
 }
