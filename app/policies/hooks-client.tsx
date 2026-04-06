@@ -27,17 +27,8 @@ import { updatePolicyParamsAction } from "@/app/actions/update-policy-params";
 import { useAutoRefresh } from "@/contexts/AutoRefreshContext";
 import { useUrlParams } from "@/lib/use-url-params";
 import { pageToParam, paramToPage } from "@/lib/url-filter-serializers";
+import { formatRelativeTime } from "@/lib/format-duration";
 import { Button } from "@/components/ui/button";
-
-// -- Formatters --
-
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  if (diff < 60_000) return `${Math.max(1, Math.floor(diff / 1000))}s ago`;
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
-}
 
 function formatAbsoluteTime(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {

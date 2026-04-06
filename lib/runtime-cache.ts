@@ -30,11 +30,6 @@ export function runtimeCache<TArgs extends unknown[], TResult>(
     const key = JSON.stringify(args);
     const entry = cache.get(key);
     if (entry && Date.now() < entry.expiry) {
-      // LRU: move to end (most recently used) and refresh expiry
-      if (maxSize) {
-        cache.delete(key);
-        cache.set(key, { data: entry.data, expiry: Date.now() + revalidateSeconds * 1000 });
-      }
       return entry.data;
     }
 

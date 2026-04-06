@@ -341,7 +341,7 @@ async function parseFileContent(fileContent: string, source: LogSource): Promise
       if (!resultInfo) continue;
 
       const returnDate = new Date(resultInfo.timestamp);
-      const durationMs = resultInfo.timestampMs - entry.timestampMs;
+      const durationMs = Math.max(0, resultInfo.timestampMs - entry.timestampMs);
       block.result = {
         timestamp: resultInfo.timestamp,
         timestampFormatted: formatTimestamp(returnDate),

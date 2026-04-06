@@ -7,23 +7,13 @@ import {
   ShieldAlert,
   Shield,
   ChevronDown,
-  Copy,
-  Check,
 } from "lucide-react";
 import PaginationControls from "@/app/components/pagination-controls";
 import { searchHookActivityAction } from "@/app/actions/get-hook-activity";
 import type { HookActivityPayload } from "@/app/actions/get-hook-activity";
 import { useAutoRefresh } from "@/contexts/AutoRefreshContext";
-
-// -- Formatters --
-
-function formatRelativeTime(ts: number): string {
-  const diff = Date.now() - ts;
-  if (diff < 60_000) return `${Math.max(1, Math.floor(diff / 1000))}s ago`;
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
-  return `${Math.floor(diff / 86_400_000)}d ago`;
-}
+import { formatRelativeTime } from "@/lib/format-duration";
+import { CopyButton } from "@/app/components/copy-button";
 
 function formatAbsoluteTime(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
@@ -98,40 +88,6 @@ function DurationDisplay({ ms }: { ms: number }) {
         ? "text-amber-400"
         : "text-muted-foreground";
   return <span className={`font-mono text-[0.7rem] ${color}`}>{formatDuration(ms)}</span>;
-}
-
-// -- Copy Button --
-
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      const ta = document.createElement("textarea");
-      ta.value = text;
-      ta.style.position = "fixed";
-      ta.style.opacity = "0";
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand("copy");
-      document.body.removeChild(ta);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    }
-  };
-  return (
-    <button
-      onClick={handleCopy}
-      className="inline-flex items-center justify-center h-5 w-5 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-      title="Copy"
-    >
-      {copied ? <Check className="h-3 w-3 text-emerald-400" /> : <Copy className="h-3 w-3" />}
-    </button>
-  );
 }
 
 // -- Decision Pill Toggle --

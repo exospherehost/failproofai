@@ -6,6 +6,14 @@
  * This module is intentionally free of Node.js imports so it can be
  * safely used in both server and client components.
  */
+export function formatRelativeTime(ts: number): string {
+  const diff = Date.now() - ts;
+  if (diff < 60_000) return `${Math.max(1, Math.floor(diff / 1000))}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
 export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   const seconds = ms / 1000;

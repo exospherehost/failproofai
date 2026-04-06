@@ -47,6 +47,110 @@ const SHELL_OPERATORS = new Set(["&&", "||", "|", ";"]);
 // argument value; the standalone-operator check above already handles bare "|" tokens.
 const SHELL_METACHAR_RE = /[;&<>`$()\\]/;
 
+// -- Pre-compiled regex constants (hoisted to avoid per-call allocation) --
+
+// sanitizeJwt
+const JWT_RE = /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/;
+
+// sanitizeApiKeys
+const API_KEY_PATTERNS: Array<[RegExp, string]> = [
+  [/sk-ant-[A-Za-z0-9\-_]{20,}/, "Anthropic API key"],
+  [/sk-proj-[A-Za-z0-9\-_]{20,}/, "OpenAI project API key"],
+  [/sk-[A-Za-z0-9]{20,}/, "OpenAI API key"],
+  [/ghp_[A-Za-z0-9]{36}/, "GitHub personal access token"],
+  [/github_pat_[A-Za-z0-9_]{82}/, "GitHub fine-grained token"],
+  [/AKIA[A-Z0-9]{16}/, "AWS access key ID"],
+  [/sk_live_[A-Za-z0-9]{24,}/, "Stripe live secret key"],
+  [/sk_test_[A-Za-z0-9]{24,}/, "Stripe test secret key"],
+  [/AIza[0-9A-Za-z\-_]{35}/, "Google API key"],
+];
+
+// sanitizeConnectionStrings
+const CONNECTION_STRING_RE = /(?:postgresql|postgres|mysql|mongodb(?:\+srv)?|redis|amqps?|smtps?):\/\/[^@\s]+@/;
+
+// sanitizePrivateKeyContent
+const PRIVATE_KEY_RE = /-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/;
+
+// sanitizeBearerTokens
+const BEARER_TOKEN_RE = /Authorization:\s*Bearer\s+[A-Za-z0-9\-._~+/]{20,}/i;
+
+// warnDestructiveSql / warnSchemaAlteration
+const SQL_TOOL_RE = /\b(?:psql|mysql|sqlite3|pgcli|clickhouse-client)\b/;
+const DESTRUCTIVE_SQL_RE = /\b(?:DROP\s+(?:TABLE|DATABASE|SCHEMA)|TRUNCATE\b)/i;
+const DELETE_NO_WHERE_RE = /\bDELETE\s+FROM\b/i;
+const SQL_WHERE_RE = /\bWHERE\b/i;
+const SCHEMA_ALTER_RE = /\bALTER\s+TABLE\b[\s\S]*\b(?:DROP\s+COLUMN|ADD\s+COLUMN|RENAME\s+(?:COLUMN|TO)|MODIFY\s+COLUMN)\b/i;
+
+// warnPackagePublish
+const PUBLISH_CMD_RE = /(?:npm\s+publish|bun\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|poetry\s+publish|cargo\s+publish|gem\s+push)\b/;
+
+// protectEnvVars
+const ENV_PRINTENV_RE = /(?:^|\s|;|&&|\|\|)(?:env|printenv)(?:\s|$|;|&&|\|)/;
+const ECHO_ENV_RE = /echo\s+.*\$[A-Za-z_]/;
+const EXPORT_RE = /(?:^|\s|;|&&|\|\|)export\s+\w+/;
+const PS_ENV_VAR_RE = /\$env:[A-Za-z_]/i;
+const PS_CHILDITEM_ENV_RE = /(?:Get-ChildItem|dir|gci|ls)\s+Env:/i;
+const DOTNET_GETENV_RE = /\[Environment\]::GetEnvironment/i;
+const CMD_ECHO_ENV_RE = /echo\s+%[A-Za-z_]/i;
+
+// blockEnvFiles
+const ENV_FILE_PATH_RE = /(?:^|[\\/])\.env(?:\.|$)/;
+const ENV_CMD_RE = /\.env(?:\b|\s|$|\.)/;
+
+// blockSudo
+const SUDO_RE = /(?:^|;|&&|\|\|)\s*sudo\s/;
+const PS_ELEVATION_RE = /Start-Process\s+.*-Verb\s+RunAs/i;
+const RUNAS_RE = /(?:^|;|&&|\|\|)\s*runas\s/i;
+
+// blockCurlPipeSh
+const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh)/;
+const PS_WEB_PIPE_RE = /(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s*(?:Invoke-Expression|iex)/i;
+
+// blockForcePush
+const FORCE_PUSH_RE = /(?:--force|-f\b)/;
+
+// blockSecretsWrite
+const SECRET_FILE_RE = /\.(?:pem|key)$/;
+const SECRET_FILE_ID_RSA_RE = /id_rsa/;
+const SECRET_FILE_CREDENTIALS_RE = /credentials/;
+
+// blockWorkOnMain
+const GIT_COMMIT_MERGE_RE = /git\s+(?:commit|merge|rebase|cherry-pick)\b/;
+
+// blockFailproofaiCommands
+const FAILPROOFAI_CLI_RE = /(?:^|;|&&|\|\||\|)\s*failproofai(?:\s|$)/;
+const FAILPROOFAI_UNINSTALL_RE = /(?:npm\s+(?:uninstall|remove|un|r)\s.*failproofai|bun\s+remove\s.*failproofai|yarn\s+global\s+remove\s+failproofai|pnpm\s+(?:remove|uninstall|un)\s.*failproofai)/;
+
+// warnGitAmend
+const GIT_AMEND_RE = /\bgit\s+commit\b.*--amend\b/;
+
+// warnGitStashDrop
+const GIT_STASH_DROP_RE = /\bgit\s+stash\s+(?:drop|clear)\b/;
+
+// warnAllFilesStaged
+const GIT_ADD_ALL_RE = /\bgit\s+add\s+(?:-A\b|--all\b|\.(?:\s|$|;|&&|\|\|))/;
+
+// warnGlobalPackageInstall
+const NPM_GLOBAL_RE = /\bnpm\s+(?:install|i)\b(?=.*(?:\s-g\b|--global\b))/;
+const YARN_GLOBAL_RE = /\byarn\s+global\s+add\b/;
+const PNPM_GLOBAL_RE = /\bpnpm\s+(?:add|install|i)\b(?=.*(?:\s-g\b|--global\b))/;
+const BUN_GLOBAL_RE = /\bbun\s+(?:install|add)\b(?=.*(?:\s-g\b|--global\b))/;
+const CARGO_INSTALL_RE = /\bcargo\s+install\b/;
+const PIP_SYSTEM_RE = /\bpip(?:3)?\s+install\b(?=.*(?:--user\b|--break-system-packages\b))/;
+
+// warnBackgroundProcess
+const NOHUP_RE = /\bnohup\s+\S/;
+const SCREEN_DETACH_RE = /\bscreen\s+-[A-Za-z]*d[A-Za-z]*\b/;
+const TMUX_DETACH_RE = /\btmux\s+(?:new-session|new)\b[^|&;]*-d\b/;
+const DISOWN_RE = /\bdisown\b/;
+const BACKGROUND_AMPERSAND_RE = /(?<![&|])\s?&\s*(?:$|#|;)/;
+
+// blockWorkOnMain: caches the current branch per cwd to avoid repeated execSync calls.
+// Trade-off: if the user switches branches externally mid-session, the cache serves
+// the stale value until the process restarts. This is acceptable since branch switches
+// during an active Claude session are rare.
+const gitBranchCache = new Map<string, string>();
+
 /**
  * Check if a command matches an allow pattern using token-by-token comparison.
  * The "*" token is a wildcard. Extra command tokens beyond the pattern are allowed,
@@ -70,8 +174,7 @@ function matchesAllowedPattern(cmd: string, pattern: string): boolean {
 function sanitizeJwt(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub JWT patterns from tool output
   const output = JSON.stringify(ctx.payload);
-  const jwtPattern = /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/;
-  if (jwtPattern.test(output)) {
+  if (JWT_RE.test(output)) {
     return {
       decision: "deny",
       reason: "JWT token detected in tool output",
@@ -84,18 +187,7 @@ function sanitizeJwt(ctx: PolicyContext): PolicyResult {
 function sanitizeApiKeys(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub common API key patterns from tool output
   const output = JSON.stringify(ctx.payload);
-  const patterns: Array<[RegExp, string]> = [
-    [/sk-ant-[A-Za-z0-9\-_]{20,}/, "Anthropic API key"],
-    [/sk-proj-[A-Za-z0-9\-_]{20,}/, "OpenAI project API key"],
-    [/sk-[A-Za-z0-9]{20,}/, "OpenAI API key"],
-    [/ghp_[A-Za-z0-9]{36}/, "GitHub personal access token"],
-    [/github_pat_[A-Za-z0-9_]{82}/, "GitHub fine-grained token"],
-    [/AKIA[A-Z0-9]{16}/, "AWS access key ID"],
-    [/sk_live_[A-Za-z0-9]{24,}/, "Stripe live secret key"],
-    [/sk_test_[A-Za-z0-9]{24,}/, "Stripe test secret key"],
-    [/AIza[0-9A-Za-z\-_]{35}/, "Google API key"],
-  ];
-  for (const [pattern, label] of patterns) {
+  for (const [pattern, label] of API_KEY_PATTERNS) {
     if (pattern.test(output)) {
       return {
         decision: "deny",
@@ -127,7 +219,7 @@ function sanitizeApiKeys(ctx: PolicyContext): PolicyResult {
 function sanitizeConnectionStrings(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub database connection strings with embedded credentials
   const output = JSON.stringify(ctx.payload);
-  if (/(?:postgresql|postgres|mysql|mongodb(?:\+srv)?|redis|amqps?|smtps?):\/\/[^@\s]+@/.test(output)) {
+  if (CONNECTION_STRING_RE.test(output)) {
     return {
       decision: "deny",
       reason: "Database connection string with credentials detected in tool output",
@@ -140,7 +232,7 @@ function sanitizeConnectionStrings(ctx: PolicyContext): PolicyResult {
 function sanitizePrivateKeyContent(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub PEM private key blocks from tool output
   const output = JSON.stringify(ctx.payload);
-  if (/-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/.test(output)) {
+  if (PRIVATE_KEY_RE.test(output)) {
     return {
       decision: "deny",
       reason: "Private key content detected in tool output",
@@ -153,7 +245,7 @@ function sanitizePrivateKeyContent(ctx: PolicyContext): PolicyResult {
 function sanitizeBearerTokens(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub Authorization: Bearer tokens from tool output
   const output = JSON.stringify(ctx.payload);
-  if (/Authorization:\s*Bearer\s+[A-Za-z0-9\-._~+\/]{20,}/i.test(output)) {
+  if (BEARER_TOKEN_RE.test(output)) {
     return {
       decision: "deny",
       reason: "Bearer token detected in tool output",
@@ -166,17 +258,17 @@ function sanitizeBearerTokens(ctx: PolicyContext): PolicyResult {
 function warnDestructiveSql(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (!/\b(?:psql|mysql|sqlite3|pgcli|clickhouse-client)\b/.test(cmd)) return allow();
+  if (!SQL_TOOL_RE.test(cmd)) return allow();
 
   // DROP or TRUNCATE always warns
-  if (/\b(?:DROP\s+(?:TABLE|DATABASE|SCHEMA)|TRUNCATE\b)/i.test(cmd)) {
+  if (DESTRUCTIVE_SQL_RE.test(cmd)) {
     return instruct(
       "STOP: This command contains destructive SQL (DROP/TRUNCATE/DELETE). Confirm with the user before executing.",
     );
   }
 
   // DELETE FROM without WHERE warns
-  if (/\bDELETE\s+FROM\b/i.test(cmd) && !/\bWHERE\b/i.test(cmd)) {
+  if (DELETE_NO_WHERE_RE.test(cmd) && !SQL_WHERE_RE.test(cmd)) {
     return instruct(
       "STOP: This command contains destructive SQL (DROP/TRUNCATE/DELETE). Confirm with the user before executing.",
     );
@@ -202,7 +294,7 @@ function warnLargeFileWrite(ctx: PolicyContext): PolicyResult {
 function warnPackagePublish(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (/(?:npm\s+publish|bun\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|poetry\s+publish|cargo\s+publish|gem\s+push)\b/.test(cmd)) {
+  if (PUBLISH_CMD_RE.test(cmd)) {
     return instruct(
       "STOP: This command publishes a package to a public registry. Confirm with the user that this is intentional.",
     );
@@ -214,29 +306,29 @@ function protectEnvVars(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
   // Block: env, printenv, echo $VAR, export VAR=
-  if (/(?:^|\s|;|&&|\|\|)(?:env|printenv)(?:\s|$|;|&&|\|)/.test(cmd)) {
+  if (ENV_PRINTENV_RE.test(cmd)) {
     return deny("Command reads environment variables");
   }
-  if (/echo\s+.*\$[A-Za-z_]/.test(cmd)) {
+  if (ECHO_ENV_RE.test(cmd)) {
     return deny("Command echoes environment variable");
   }
-  if (/(?:^|\s|;|&&|\|\|)export\s+\w+/.test(cmd)) {
+  if (EXPORT_RE.test(cmd)) {
     return deny("Command exports environment variable");
   }
   // PowerShell: $env:VAR
-  if (/\$env:[A-Za-z_]/i.test(cmd)) {
+  if (PS_ENV_VAR_RE.test(cmd)) {
     return deny("Command reads environment variable via PowerShell");
   }
   // PowerShell: Get-ChildItem Env: / dir env: / gci env: / ls env:
-  if (/(?:Get-ChildItem|dir|gci|ls)\s+Env:/i.test(cmd)) {
+  if (PS_CHILDITEM_ENV_RE.test(cmd)) {
     return deny("Command reads environment variables via PowerShell");
   }
   // PowerShell: [Environment]::GetEnvironmentVariable
-  if (/\[Environment\]::GetEnvironment/i.test(cmd)) {
+  if (DOTNET_GETENV_RE.test(cmd)) {
     return deny("Command reads environment variable via .NET");
   }
   // cmd: echo %VAR%
-  if (/echo\s+%[A-Za-z_]/i.test(cmd)) {
+  if (CMD_ECHO_ENV_RE.test(cmd)) {
     return deny("Command echoes environment variable via cmd");
   }
   return allow();
@@ -247,11 +339,11 @@ function blockEnvFiles(ctx: PolicyContext): PolicyResult {
   const filePath = getFilePath(ctx);
 
   // Check file_path for Read/Write tools (match both / and \ path separators)
-  if (filePath && /(?:^|[\\/])\.env(?:\.|$)/.test(filePath)) {
+  if (filePath && ENV_FILE_PATH_RE.test(filePath)) {
     return deny("Access to .env file blocked");
   }
   // Check Bash commands referencing .env files
-  if (ctx.toolName === "Bash" && /\.env(?:\b|\s|$|\.)/.test(cmd)) {
+  if (ctx.toolName === "Bash" && ENV_CMD_RE.test(cmd)) {
     return deny("Command references .env file");
   }
   return allow();
@@ -260,18 +352,18 @@ function blockEnvFiles(ctx: PolicyContext): PolicyResult {
 function blockSudo(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx).trimStart();
-  if (/(?:^|;|&&|\|\|)\s*sudo\s/.test(cmd) || cmd.startsWith("sudo ")) {
+  if (SUDO_RE.test(cmd) || cmd.startsWith("sudo ")) {
     // Check allowPatterns — match against parsed tokens, not raw string
     const allowPatterns = ((ctx.params?.allowPatterns ?? []) as string[]);
     if (allowPatterns.some((p) => matchesAllowedPattern(cmd, p))) return allow();
     return deny("sudo commands are blocked");
   }
   // PowerShell: Start-Process -Verb RunAs (elevation)
-  if (/Start-Process\s+.*-Verb\s+RunAs/i.test(cmd)) {
+  if (PS_ELEVATION_RE.test(cmd)) {
     return deny("Elevated process launch is blocked");
   }
   // Windows: runas command
-  if (/(?:^|;|&&|\|\|)\s*runas\s/i.test(cmd)) {
+  if (RUNAS_RE.test(cmd)) {
     return deny("runas elevation is blocked");
   }
   return allow();
@@ -280,11 +372,11 @@ function blockSudo(ctx: PolicyContext): PolicyResult {
 function blockCurlPipeSh(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (/(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh)/.test(cmd)) {
+  if (CURL_PIPE_SH_RE.test(cmd)) {
     return deny("Piping downloads to shell is blocked");
   }
   // PowerShell: iwr | iex, irm | iex, Invoke-WebRequest | Invoke-Expression
-  if (/(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s*(?:Invoke-Expression|iex)/i.test(cmd)) {
+  if (PS_WEB_PIPE_RE.test(cmd)) {
     return deny("Piping downloads to Invoke-Expression is blocked");
   }
   return allow();
@@ -392,7 +484,7 @@ function blockRmRf(ctx: PolicyContext): PolicyResult {
 function blockForcePush(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const args = extractGitPushArgs(getCommand(ctx));
-  if (args.some((a) => /(?:--force|-f\b)/.test(a))) {
+  if (args.some((a) => FORCE_PUSH_RE.test(a))) {
     return deny("Force-pushing is blocked");
   }
   return allow();
@@ -401,7 +493,7 @@ function blockForcePush(ctx: PolicyContext): PolicyResult {
 function blockSecretsWrite(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Write") return allow();
   const filePath = getFilePath(ctx);
-  if (/\.(?:pem|key)$/.test(filePath) || /id_rsa/.test(filePath) || /credentials/.test(filePath)) {
+  if (SECRET_FILE_RE.test(filePath) || SECRET_FILE_ID_RSA_RE.test(filePath) || SECRET_FILE_CREDENTIALS_RE.test(filePath)) {
     return deny("Writing secret key files is blocked");
   }
   const additionalPatterns = ((ctx.params?.additionalPatterns ?? []) as string[]);
@@ -530,17 +622,21 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
 function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (!/git\s+(?:commit|merge|rebase|cherry-pick)\b/.test(cmd)) return allow();
+  if (!GIT_COMMIT_MERGE_RE.test(cmd)) return allow();
 
   const cwd = ctx.session?.cwd;
   if (!cwd) return allow();
 
   try {
-    const branch = execSync("git rev-parse --abbrev-ref HEAD", {
-      cwd,
-      encoding: "utf8",
-      timeout: 3000,
-    }).trim();
+    let branch = gitBranchCache.get(cwd);
+    if (branch === undefined) {
+      branch = execSync("git rev-parse --abbrev-ref HEAD", {
+        cwd,
+        encoding: "utf8",
+        timeout: 3000,
+      }).trim();
+      gitBranchCache.set(cwd, branch);
+    }
     const protectedBranches = ((ctx.params?.protectedBranches ?? ["main", "master"]) as string[]);
     if (protectedBranches.includes(branch)) {
       return deny(
@@ -558,12 +654,12 @@ function blockFailproofaiCommands(ctx: PolicyContext): PolicyResult {
   const cmd = getCommand(ctx);
 
   // Block direct failproofai CLI invocations
-  if (/(?:^|;|&&|\|\||\|)\s*failproofai(?:\s|$)/.test(cmd)) {
+  if (FAILPROOFAI_CLI_RE.test(cmd)) {
     return deny("Running failproofai CLI commands is blocked");
   }
 
   // Block package-manager uninstallation of failproofai
-  if (/(?:npm\s+(?:uninstall|remove|un|r)\s.*failproofai|bun\s+remove\s.*failproofai|yarn\s+global\s+remove\s+failproofai|pnpm\s+(?:remove|uninstall|un)\s.*failproofai)/.test(cmd)) {
+  if (FAILPROOFAI_UNINSTALL_RE.test(cmd)) {
     return deny("Uninstalling failproofai is blocked");
   }
 
@@ -611,7 +707,7 @@ async function warnRepeatedToolCalls(ctx: PolicyContext): Promise<PolicyResult> 
 function warnGitAmend(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (/\bgit\s+commit\b.*--amend\b/.test(cmd)) {
+  if (GIT_AMEND_RE.test(cmd)) {
     return instruct(
       "STOP: This command amends the last commit, which rewrites git history. If this commit has already been pushed to a shared branch, this will cause divergence for other contributors. Confirm with the user before executing.",
     );
@@ -622,7 +718,7 @@ function warnGitAmend(ctx: PolicyContext): PolicyResult {
 function warnGitStashDrop(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (/\bgit\s+stash\s+(?:drop|clear)\b/.test(cmd)) {
+  if (GIT_STASH_DROP_RE.test(cmd)) {
     return instruct(
       "STOP: This command permanently deletes stashed changes (git stash drop/clear). Stash entries cannot be recovered after deletion. Confirm with the user before executing.",
     );
@@ -633,7 +729,7 @@ function warnGitStashDrop(ctx: PolicyContext): PolicyResult {
 function warnAllFilesStaged(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (/\bgit\s+add\s+(?:-A\b|--all\b|\.(?:\s|$|;|&&|\|\|))/.test(cmd)) {
+  if (GIT_ADD_ALL_RE.test(cmd)) {
     return instruct(
       "STOP: This command stages all files in the working tree (git add -A / --all / .). This may inadvertently include build artifacts, generated files, or sensitive files not covered by .gitignore. Confirm with the user before executing.",
     );
@@ -644,8 +740,8 @@ function warnAllFilesStaged(ctx: PolicyContext): PolicyResult {
 function warnSchemaAlteration(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  if (!/\b(?:psql|mysql|sqlite3|pgcli|clickhouse-client)\b/.test(cmd)) return allow();
-  if (/\bALTER\s+TABLE\b[\s\S]*\b(?:DROP\s+COLUMN|ADD\s+COLUMN|RENAME\s+(?:COLUMN|TO)|MODIFY\s+COLUMN)\b/i.test(cmd)) {
+  if (!SQL_TOOL_RE.test(cmd)) return allow();
+  if (SCHEMA_ALTER_RE.test(cmd)) {
     return instruct(
       "STOP: This command contains a schema-altering SQL statement (ALTER TABLE with column or rename operation). Schema changes on production databases are irreversible or disruptive. Confirm with the user before executing.",
     );
@@ -657,14 +753,14 @@ function warnGlobalPackageInstall(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
   const isGlobal =
-    /\bnpm\s+(?:install|i)\b(?=.*(?:\s-g\b|--global\b))/.test(cmd) ||
-    /\byarn\s+global\s+add\b/.test(cmd) ||
-    /\bpnpm\s+(?:add|install|i)\b(?=.*(?:\s-g\b|--global\b))/.test(cmd) ||
-    /\bbun\s+(?:install|add)\b(?=.*(?:\s-g\b|--global\b))/.test(cmd) ||
-    /\bcargo\s+install\b/.test(cmd) ||
+    NPM_GLOBAL_RE.test(cmd) ||
+    YARN_GLOBAL_RE.test(cmd) ||
+    PNPM_GLOBAL_RE.test(cmd) ||
+    BUN_GLOBAL_RE.test(cmd) ||
+    CARGO_INSTALL_RE.test(cmd) ||
     // Bare 'pip install' respects the active venv when one is present;
     // only flag explicit system-level flags (--user, --break-system-packages).
-    /\bpip(?:3)?\s+install\b(?=.*(?:--user\b|--break-system-packages\b))/.test(cmd);
+    PIP_SYSTEM_RE.test(cmd);
   if (isGlobal) {
     return instruct(
       "STOP: This command installs a package globally, which modifies the system-wide environment outside the project. This can conflict with other projects or system tools. Confirm with the user before executing.",
@@ -677,11 +773,11 @@ function warnBackgroundProcess(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
   const isBackground =
-    /\bnohup\s+\S/.test(cmd) ||
-    /\bscreen\s+-[A-Za-z]*d[A-Za-z]*\b/.test(cmd) ||
-    /\btmux\s+(?:new-session|new)\b[^|&;]*-d\b/.test(cmd) ||
-    /\bdisown\b/.test(cmd) ||
-    /(?<![&|])\s?&\s*(?:$|#|;)/.test(cmd);
+    NOHUP_RE.test(cmd) ||
+    SCREEN_DETACH_RE.test(cmd) ||
+    TMUX_DETACH_RE.test(cmd) ||
+    DISOWN_RE.test(cmd) ||
+    BACKGROUND_AMPERSAND_RE.test(cmd);
   if (isBackground) {
     return instruct(
       "STOP: This command starts a background or detached process (nohup, screen -d, tmux -d, or trailing &). Background processes persist after Claude's session and may be difficult to track or stop. Confirm with the user before executing.",
@@ -966,4 +1062,9 @@ export function registerBuiltinPolicies(enabledNames: string[]): void {
       registerPolicy(policy.name, policy.description, policy.fn, policy.match);
     }
   }
+}
+
+/** Clears the git branch cache. Exposed for test isolation only. */
+export function clearGitBranchCache(): void {
+  gitBranchCache.clear();
 }

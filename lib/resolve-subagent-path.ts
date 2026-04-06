@@ -27,7 +27,8 @@ export async function resolveSubagentPath(
       return candidatePath;
     } catch (e) {
       const code = (e as NodeJS.ErrnoException).code;
-      if (code !== "ENOENT") continue;
+      if (code === "ENOENT") continue; // file not found — try next candidate
+      break; // unexpected error (e.g., EACCES) — stop searching
     }
   }
 
