@@ -3,6 +3,8 @@
  */
 import { getDefaultClaudeProjectsPath } from "../lib/paths";
 import { spawn } from "child_process";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseScriptArgs } from "./parse-script-args";
 import { version } from "../package.json";
 
@@ -37,7 +39,8 @@ export function launch(mode: "dev" | "start"): void {
     process.env.PORT = port;
     process.env.HOSTNAME = "0.0.0.0";
     cmd = "node";
-    cmdArgs = [".next/standalone/server.js"];
+    // Absolute path — required so the CLI works from any working directory after install
+    cmdArgs = [resolve(dirname(fileURLToPath(import.meta.url)), "../.next/standalone/server.js")];
   } else {
     cmd = "bunx";
     cmdArgs = ["--bun", "next", "dev", ...remainingArgs];
