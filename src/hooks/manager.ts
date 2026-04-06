@@ -56,10 +56,7 @@ function readSettings(settingsPath: string): ClaudeSettings {
 }
 
 function writeSettings(settingsPath: string, settings: ClaudeSettings): void {
-  const dir = dirname(settingsPath);
-  if (!existsSync(dir)) {
-    mkdirSync(dir, { recursive: true });
-  }
+  mkdirSync(dirname(settingsPath), { recursive: true });
   writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf8");
 }
 
@@ -216,21 +213,20 @@ export async function installHooks(
   }
 
   // Preserve existing config fields (policyParams, customHooksPath, llm) when updating
-  const existingConfig = readHooksConfig();
-  const configToWrite = { ...existingConfig, enabledPolicies: selectedPolicies };
+  const configToWrite = { ...previousConfig, enabledPolicies: selectedPolicies };
   if (removeCustomHooks) {
     delete configToWrite.customHooksPath;
   } else if (customHooksPath) {
     configToWrite.customHooksPath = resolve(customHooksPath);
     // Validate the file before committing it to config
-    let validatedHooks: Awaited<ReturnType<typeof loadCustomHooks>>;
+    let validatedHooks: Awaited<ReturnType<typeof loadCustomHooks>> = [];
     try {
       validatedHooks = await loadCustomHooks(configToWrite.customHooksPath, { strict: true });
     } catch (err) {
       console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
       process.exit(1);
     }
-    if (validatedHooks!.length === 0) {
+    if (validatedHooks.length === 0) {
       console.error(
         `Error: no hooks registered in ${customHooksPath}. ` +
           `Make sure your file calls customPolicies.add(...) at least once.`,
@@ -238,7 +234,7 @@ export async function installHooks(
       process.exit(1);
     }
     console.log(
-      `\nValidated ${validatedHooks!.length} custom hook(s): ${validatedHooks!.map((h) => h.name).join(", ")}`,
+      `\nValidated ${validatedHooks.length} custom hook(s): ${validatedHooks.map((h) => h.name).join(", ")}`,
     );
   }
   writeHooksConfig(configToWrite);
@@ -500,27 +496,28 @@ export async function listHooks(cwd?: string): Promise<void> {
     }
   };
 
+  const statusCol = 8;
+  const printSimpleRow = (policy: { name: string; description: string }) => {
+    const mark = enabledSet.has(policy.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
+    console.log(`  ${mark}${" ".repeat(statusCol - 1)}${policy.name.padEnd(nameColWidth)}${policy.description}`);
+    printParamsSummary(policy.name, `  ${" ".repeat(statusCol)}`);
+  };
+  const printBetaSection = (printRow: (p: { name: string; description: string }) => void) => {
+    if (betaPolicies.length > 0) {
+      console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
+      for (const policy of betaPolicies) printRow(policy);
+    }
+  };
+
   if (installedScopes.length === 0) {
     // State A: No hooks installed — show table with configured state + descriptions
     console.log("\nFailproof AI Hook Policies \u2014 not installed\n");
 
-    const statusCol = 8;
     console.log(`  ${"Status".padEnd(statusCol)}${"Name".padEnd(nameColWidth)}Description`);
     console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
 
-    const printNotInstalledRow = (policy: { name: string; description: string }) => {
-      const enabled = enabledSet.has(policy.name);
-      const mark = enabled ? `\x1B[32m\u2713\x1B[0m` : " ";
-      console.log(`  ${mark}${" ".repeat(statusCol - 1)}${policy.name.padEnd(nameColWidth)}${policy.description}`);
-      printParamsSummary(policy.name, `  ${" ".repeat(statusCol)}`);
-    };
-
-    for (const policy of regularPolicies) printNotInstalledRow(policy);
-
-    if (betaPolicies.length > 0) {
-      console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
-      for (const policy of betaPolicies) printNotInstalledRow(policy);
-    }
+    for (const policy of regularPolicies) printSimpleRow(policy);
+    printBetaSection(printSimpleRow);
 
     if (config.enabledPolicies.length > 0) {
       console.log("\n  Hooks not installed. Run `failproofai --install-policies` to activate.");
@@ -533,24 +530,11 @@ export async function listHooks(cwd?: string): Promise<void> {
     const scope = installedScopes[0];
     console.log(`\nFailproof AI Hook Policies (${scope})\n`);
 
-    // Header + separator
-    const statusCol = 8; // "Status  "
     console.log(`  ${"Status".padEnd(statusCol)}${"Name".padEnd(nameColWidth)}Description`);
     console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
 
-    const printSingleScopeRow = (policy: { name: string; description: string }) => {
-      const enabled = enabledSet.has(policy.name);
-      const mark = enabled ? `\x1B[32m\u2713\x1B[0m` : " ";
-      console.log(`  ${mark}${" ".repeat(statusCol - 1)}${policy.name.padEnd(nameColWidth)}${policy.description}`);
-      printParamsSummary(policy.name, `  ${" ".repeat(statusCol)}`);
-    };
-
-    for (const policy of regularPolicies) printSingleScopeRow(policy);
-
-    if (betaPolicies.length > 0) {
-      console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
-      for (const policy of betaPolicies) printSingleScopeRow(policy);
-    }
+    for (const policy of regularPolicies) printSimpleRow(policy);
+    printBetaSection(printSimpleRow);
 
     console.log("\n  Config: ~/.failproofai/hooks-config.json\n");
   } else {
@@ -602,7 +586,7 @@ export async function listHooks(cwd?: string): Promise<void> {
     const scopeNames = installedScopes.join(", ");
     console.log();
     console.log(`\x1B[33m\u26A0 Hooks in multiple scopes (${scopeNames}).\x1B[0m`);
-    console.log("  Consider keeping one. Remove with: failproofai --remove-hooks --scope <scope>\n");
+    console.log("  Consider keeping one. Remove with: failproofai --remove-policies --scope <scope>\n");
   }
 
   // Warn about unknown policyParams keys
@@ -616,7 +600,6 @@ export async function listHooks(cwd?: string): Promise<void> {
 
   // Custom Policies section
   if (config.customHooksPath) {
-    const { existsSync } = await import("node:fs");
     console.log(`\n  \u2500\u2500 Custom Policies (${config.customHooksPath}) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
     if (!existsSync(config.customHooksPath)) {
       console.log(`  \x1B[31m\u2717 File not found: ${config.customHooksPath}\x1B[0m`);

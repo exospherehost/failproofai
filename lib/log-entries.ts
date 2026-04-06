@@ -1,8 +1,10 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
 import { getClaudeProjectsPath } from "./paths";
+import { resolveProjectPath } from "./projects";
 import { resolveSubagentPath } from "./resolve-subagent-path";
 import { runtimeCache } from "./runtime-cache";
+import { batchAll } from "./concurrency";
 import { formatDate } from "./utils";
 import { formatDuration } from "./format-duration";
 
@@ -399,12 +401,16 @@ export function extractSubagentMeta(
  * Eagerly loads all subagent JSONL files and merges them into a single
  * entries/rawLines array with `_source` markers.
  */
+const SUBAGENT_CONCURRENCY = 4;
+
 export async function parseSessionLog(
   projectName: string,
   sessionId: string,
 ): Promise<SessionLogData> {
+  // Defense-in-depth: validate path even though callers should have already done so.
+  const projectDir = resolveProjectPath(projectName);
   const projectsPath = getClaudeProjectsPath();
-  const filePath = join(projectsPath, projectName, `${sessionId}.jsonl`);
+  const filePath = join(projectDir, `${sessionId}.jsonl`);
   const fileContent = await readFile(filePath, "utf-8");
 
   const { entries: sessionEntries, rawLines: sessionRawLines, subagentIds } =
@@ -414,16 +420,17 @@ export async function parseSessionLog(
     return { entries: sessionEntries, rawLines: sessionRawLines, subagentIds: [] };
   }
 
-  // Load all subagent files in parallel
-  const results = await Promise.allSettled(
-    subagentIds.map(async (agentId) => {
+  // Load subagent files with bounded concurrency to avoid file-descriptor pressure.
+  const results = await batchAll(
+    subagentIds.map((agentId) => async () => {
       const agentSource: LogSource = `agent-${agentId}`;
       const agentPath = await resolveSubagentPath(projectsPath, projectName, sessionId, agentId);
       if (!agentPath) return null;
       const agentContent = await readFile(agentPath, "utf-8");
       const { entries, rawLines } = await parseFileContent(agentContent, agentSource);
       return { entries, rawLines };
-    })
+    }),
+    SUBAGENT_CONCURRENCY,
   );
 
   // Combine all entries and rawLines

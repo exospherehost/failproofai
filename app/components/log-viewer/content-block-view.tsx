@@ -16,21 +16,21 @@ import { SubagentToolCard } from "./entry-row";
 
 interface ContentBlockViewProps {
   block: ContentBlock;
-  allEntries?: LogEntry[];
+  entriesBySource?: Map<string, LogEntry[]>;
   projectName: string;
   sessionId: string;
   highlightedUuid?: string | null;
   autoExpandForUuid?: string | null;
 }
 
-export const ContentBlockView = React.memo(function ContentBlockView({ block, allEntries, projectName, sessionId, highlightedUuid, autoExpandForUuid }: ContentBlockViewProps) {
+export const ContentBlockView = React.memo(function ContentBlockView({ block, entriesBySource, projectName, sessionId, highlightedUuid, autoExpandForUuid }: ContentBlockViewProps) {
   switch (block.type) {
     case "text":
       return <p className="whitespace-pre-wrap text-sm">{block.text}</p>;
     case "tool_use":
       if (block.name === "Task" && (block.subagentType || block.subagentId)) {
-        const subagentEntries = block.subagentId && allEntries
-          ? allEntries.filter(e => e._source === `agent-${block.subagentId}`)
+        const subagentEntries = block.subagentId && entriesBySource
+          ? entriesBySource.get(`agent-${block.subagentId}`)
           : undefined;
         return (
           <SubagentToolCard
@@ -91,20 +91,20 @@ export function UserContent({ entry }: { entry: UserEntry }) {
 
 interface AssistantContentProps {
   entry: AssistantEntry;
-  allEntries?: LogEntry[];
+  entriesBySource?: Map<string, LogEntry[]>;
   projectName: string;
   sessionId: string;
   highlightedUuid?: string | null;
   autoExpandForUuid?: string | null;
 }
 
-export const AssistantContent = React.memo(function AssistantContent({ entry, allEntries, projectName, sessionId, highlightedUuid, autoExpandForUuid }: AssistantContentProps) {
+export const AssistantContent = React.memo(function AssistantContent({ entry, entriesBySource, projectName, sessionId, highlightedUuid, autoExpandForUuid }: AssistantContentProps) {
   const { content } = entry.message;
 
   return (
     <div className="space-y-3">
       {content.map((block, i) => (
-        <ContentBlockView key={i} block={block} allEntries={allEntries} projectName={projectName} sessionId={sessionId} highlightedUuid={highlightedUuid} autoExpandForUuid={autoExpandForUuid} />
+        <ContentBlockView key={i} block={block} entriesBySource={entriesBySource} projectName={projectName} sessionId={sessionId} highlightedUuid={highlightedUuid} autoExpandForUuid={autoExpandForUuid} />
       ))}
     </div>
   );

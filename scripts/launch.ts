@@ -31,7 +31,6 @@ export function launch(mode: "dev" | "start"): void {
 
   const nextProcess = spawn("bunx", ["--bun", "next", mode, ...remainingArgs], {
     stdio: "inherit",
-    shell: true,
     env: {
       ...process.env,
       CLAUDE_PROJECTS_PATH: claudeProjectsPath,

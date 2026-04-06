@@ -99,7 +99,7 @@ function ToolStatsGrid({ tools, compact }: { tools: ToolStat[]; compact?: boolea
 
 interface VirtualizedEntryListProps {
   entries: LogEntry[];
-  allEntries: LogEntry[];
+  entriesBySource: Map<string, LogEntry[]>;
   projectName: string;
   sessionId: string;
 }
@@ -199,7 +199,11 @@ function buildSubagentUuidToParentMap(allEntries: LogEntry[]): Map<string, strin
   return result;
 }
 
-function VirtualizedEntryList({ entries, allEntries, projectName, sessionId }: VirtualizedEntryListProps) {
+function VirtualizedEntryList({ entries, entriesBySource, projectName, sessionId }: VirtualizedEntryListProps) {
+  const allEntries = useMemo(
+    () => Array.from(entriesBySource.values()).flat(),
+    [entriesBySource]
+  );
   const [collapsedSessions, setCollapsedSessions] = useState<Set<string>>(new Set());
   const [scrollMargin, setScrollMargin] = useState(0);
   const [highlightedUuid, setHighlightedUuid] = useState<string | null>(() => parseHashUuid());
@@ -367,7 +371,7 @@ function VirtualizedEntryList({ entries, allEntries, projectName, sessionId }: V
               ) : (
                 <EntryRow
                   entry={entry}
-                  allEntries={allEntries}
+                  entriesBySource={entriesBySource}
                   projectName={projectName}
                   sessionId={sessionId}
                   isHighlighted={!targetSubagentUuid && isTarget}
@@ -385,6 +389,9 @@ function VirtualizedEntryList({ entries, allEntries, projectName, sessionId }: V
 
 // ── Main Component ──
 
+// Stable empty array so useMemo dependencies don't change when "session" bucket is absent.
+const EMPTY_ENTRIES: LogEntry[] = [];
+
 interface RawLogViewerProps {
   entries: LogEntry[];
   projectName: string;
@@ -392,21 +399,18 @@ interface RawLogViewerProps {
 }
 
 export default function RawLogViewer({ entries, projectName, sessionId }: RawLogViewerProps) {
-  const sessionEntries = useMemo(
-    () => entries.filter(e => e._source === "session"),
-    [entries]
-  );
-
-  const subagents = useMemo(() => extractSubagents(entries), [entries]);
-
-  const subagentEntriesMap = useMemo(() => {
+  const entriesBySource = useMemo(() => {
     const map = new Map<string, LogEntry[]>();
-    for (const sa of subagents) {
-      const source = `agent-${sa.id}`;
-      map.set(sa.id, entries.filter(e => e._source === source));
+    for (const entry of entries) {
+      const bucket = map.get(entry._source);
+      if (bucket) { bucket.push(entry); } else { map.set(entry._source, [entry]); }
     }
     return map;
-  }, [entries, subagents]);
+  }, [entries]);
+
+  const sessionEntries = entriesBySource.get("session") ?? EMPTY_ENTRIES;
+
+  const subagents = useMemo(() => extractSubagents(entries), [entries]);
 
   const toolStats = useMemo(() => extractToolStats(sessionEntries), [sessionEntries]);
 
@@ -480,12 +484,10 @@ export default function RawLogViewer({ entries, projectName, sessionId }: RawLog
               </button>
               {!collapsedSubagentIds.has(sa.id) && (
                 <div className="space-y-2">
-                  <StatsBar entries={subagentEntriesMap.get(sa.id) || []} compact />
-                  {hookData && (
-                    <SessionHooksPanel key={`hooks-${sa.id}`} sessionId={sessionId} initialData={hookData} />
-                  )}
+                  <StatsBar entries={entriesBySource.get(`agent-${sa.id}`) || []} compact />
+                  {/* Hook activity is session-scoped and shown in the top-level panel; no per-subagent duplicate */}
                   {(() => {
-                    const saTools = extractToolStats(subagentEntriesMap.get(sa.id) || []);
+                    const saTools = extractToolStats(entriesBySource.get(`agent-${sa.id}`) || []);
                     return saTools.length > 0 ? <ToolStatsGrid tools={saTools} compact /> : null;
                   })()}
                 </div>
@@ -522,7 +524,7 @@ export default function RawLogViewer({ entries, projectName, sessionId }: RawLog
             ) : (
               <VirtualizedEntryList
                 entries={sessionEntries}
-                allEntries={entries}
+                entriesBySource={entriesBySource}
                 projectName={projectName}
                 sessionId={sessionId}
               />

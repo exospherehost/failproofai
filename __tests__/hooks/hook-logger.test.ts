@@ -7,7 +7,7 @@ import {
   _resetHookLogger,
 } from "../../src/hooks/hook-logger";
 import {
-  writeFileSync,
+  appendFileSync,
   renameSync,
   existsSync,
   statSync,
@@ -15,8 +15,7 @@ import {
 
 // Mock fs to isolate file-logging tests
 vi.mock("node:fs", () => ({
-  writeFileSync: vi.fn(),
-  readFileSync: vi.fn(() => ""),
+  appendFileSync: vi.fn(),
   renameSync: vi.fn(),
   mkdirSync: vi.fn(),
   existsSync: vi.fn(() => false),
@@ -182,32 +181,32 @@ describe("hooks/hook-logger", () => {
   describe("file logging", () => {
     it("disabled when FAILPROOFAI_HOOK_LOG_FILE is unset", () => {
       hookLogWarn("no file");
-      expect(writeFileSync).not.toHaveBeenCalled();
+      expect(appendFileSync).not.toHaveBeenCalled();
     });
 
-    it("enabled with '1' — calls writeFileSync", () => {
+    it("enabled with '1' — calls appendFileSync", () => {
       vi.mocked(existsSync).mockReturnValue(false);
       process.env.FAILPROOFAI_HOOK_LOG_FILE = "1";
       hookLogWarn("file log test");
-      expect(writeFileSync).toHaveBeenCalled();
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string;
+      expect(appendFileSync).toHaveBeenCalled();
+      const writtenContent = vi.mocked(appendFileSync).mock.calls[0][1] as string;
       expect(writtenContent).toContain("WARN");
       expect(writtenContent).toContain("file log test");
     });
 
-    it("enabled with 'true' — calls writeFileSync", () => {
+    it("enabled with 'true' — calls appendFileSync", () => {
       vi.mocked(existsSync).mockReturnValue(false);
       process.env.FAILPROOFAI_HOOK_LOG_FILE = "true";
       hookLogWarn("file log test");
-      expect(writeFileSync).toHaveBeenCalled();
+      expect(appendFileSync).toHaveBeenCalled();
     });
 
     it("enabled with custom path — uses that directory", () => {
       vi.mocked(existsSync).mockReturnValue(false);
       process.env.FAILPROOFAI_HOOK_LOG_FILE = "/tmp/custom-logs";
       hookLogWarn("custom path test");
-      expect(writeFileSync).toHaveBeenCalled();
-      const writtenPath = vi.mocked(writeFileSync).mock.calls[0][0] as string;
+      expect(appendFileSync).toHaveBeenCalled();
+      const writtenPath = vi.mocked(appendFileSync).mock.calls[0][0] as string;
       expect(writtenPath).toContain("/tmp/custom-logs");
     });
 
@@ -215,14 +214,14 @@ describe("hooks/hook-logger", () => {
       process.env.FAILPROOFAI_HOOK_LOG_FILE = "1";
       process.env.FAILPROOFAI_LOG_LEVEL = "error";
       hookLogWarn("suppressed");
-      expect(writeFileSync).not.toHaveBeenCalled();
+      expect(appendFileSync).not.toHaveBeenCalled();
     });
 
     it("file content includes ISO timestamp", () => {
       vi.mocked(existsSync).mockReturnValue(false);
       process.env.FAILPROOFAI_HOOK_LOG_FILE = "1";
       hookLogWarn("timestamp test");
-      const writtenContent = vi.mocked(writeFileSync).mock.calls[0][1] as string;
+      const writtenContent = vi.mocked(appendFileSync).mock.calls[0][1] as string;
       // ISO timestamp pattern: 2024-01-01T00:00:00.000Z
       expect(writtenContent).toMatch(/\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
     });
@@ -233,7 +232,7 @@ describe("hooks/hook-logger", () => {
       process.env.FAILPROOFAI_HOOK_LOG_FILE = "1";
       hookLogWarn("rotation test");
       expect(renameSync).toHaveBeenCalled();
-      expect(writeFileSync).toHaveBeenCalled();
+      expect(appendFileSync).toHaveBeenCalled();
     });
 
     it("does not rotate when file is under size threshold", () => {

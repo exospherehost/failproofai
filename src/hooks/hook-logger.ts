@@ -14,8 +14,7 @@
  *       <path>       → enabled, writes to that directory
  */
 import {
-  writeFileSync,
-  readFileSync,
+  appendFileSync,
   renameSync,
   mkdirSync,
   existsSync,
@@ -99,8 +98,7 @@ function appendToFile(label: string, msg: string): void {
 
     const timestamp = new Date().toISOString();
     const line = `[${timestamp}] ${label} ${msg}\n`;
-    const existing = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
-    writeFileSync(filePath, existing + line, "utf-8");
+    appendFileSync(filePath, line, "utf-8");
   } catch {
     // File logging is best-effort — never fail the hook
   }

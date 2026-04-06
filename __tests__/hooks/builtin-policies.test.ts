@@ -8,6 +8,7 @@ import type { PolicyContext } from "../../src/hooks/policy-types";
 
 vi.mock("node:fs/promises", () => ({
   readFile: vi.fn(),
+  writeFile: vi.fn(),
   stat: vi.fn().mockResolvedValue({ size: 0 }),
   open: vi.fn(),
 }));
@@ -968,14 +969,10 @@ describe("hooks/builtin-policies", () => {
       expect(result.decision).toBe("allow");
     });
 
-    it("returns instruct when transcript has 3+ identical calls", async () => {
-      const lines = [
-        makeTranscriptLine("Read", { file_path: "/foo/bar.ts" }),
-        makeTranscriptLine("Read", { file_path: "/foo/bar.ts" }),
-        makeTranscriptLine("Read", { file_path: "/foo/bar.ts" }),
-      ].join("\n");
-
-      vi.mocked(readFile).mockResolvedValue(lines);
+    it("returns instruct when sidecar shows 3+ identical calls", async () => {
+      // Policy now reads a per-session sidecar file instead of the full transcript.
+      const fingerprint = JSON.stringify({ tool: "Read", input: { file_path: "/foo/bar.ts" } });
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ [fingerprint]: 3 }));
 
       const ctx = makeCtx({
         toolName: "Read",
@@ -1018,16 +1015,11 @@ describe("hooks/builtin-policies", () => {
       expect(result.decision).toBe("allow");
     });
 
-    it("handles malformed JSONL lines gracefully", async () => {
-      const lines = [
-        "not valid json",
-        makeTranscriptLine("Read", { file_path: "/foo/bar.ts" }),
-        "{malformed",
-        makeTranscriptLine("Read", { file_path: "/foo/bar.ts" }),
-        makeTranscriptLine("Read", { file_path: "/foo/bar.ts" }),
-      ].join("\n");
-
-      vi.mocked(readFile).mockResolvedValue(lines);
+    it("returns instruct when sidecar reaches threshold (ignores malformed sidecar gracefully)", async () => {
+      // Malformed sidecar JSON → counts reset to {} → allow on first call.
+      // Valid sidecar at threshold → instruct. Test the valid-sidecar path here.
+      const fingerprint = JSON.stringify({ tool: "Read", input: { file_path: "/foo/bar.ts" } });
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ [fingerprint]: 3 }));
 
       const ctx = makeCtx({
         toolName: "Read",
@@ -1036,6 +1028,18 @@ describe("hooks/builtin-policies", () => {
       });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("instruct");
+    });
+
+    it("returns allow when sidecar JSON is malformed (starts fresh)", async () => {
+      vi.mocked(readFile).mockResolvedValue("not valid json {{{");
+
+      const ctx = makeCtx({
+        toolName: "Read",
+        toolInput: { file_path: "/foo/bar.ts" },
+        session: { transcriptPath: "/tmp/transcript.jsonl" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
     });
   });
 

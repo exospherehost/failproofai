@@ -1,9 +1,11 @@
 /** Session page — parses and displays a single session's JSONL log via the Raw Log Viewer. */
 import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
+import { notFound } from "next/navigation";
 import { getCachedSessionLog } from "@/lib/log-entries";
 import { decodeFolderName } from "@/lib/paths";
 import { baseSessionId } from "@/lib/utils/session-id";
+import { resolveProjectPath, UUID_RE } from "@/lib/projects";
 import LazyLogViewer from "@/app/components/lazy-log-viewer";
 import { CopyButton } from "@/app/components/copy-button";
 
@@ -18,15 +20,23 @@ interface SessionPageProps {
 
 export default async function SessionPage({ params }: SessionPageProps) {
   const { name, sessionId } = await params;
-  const decodedName = decodeURIComponent(name);
-  const decodedSessionId = baseSessionId(decodeURIComponent(sessionId));
+  // Validate project path — throws RangeError if it escapes the projects root.
+  try {
+    resolveProjectPath(name);
+  } catch {
+    notFound();
+  }
+  const decodedName = decodeFolderName(name);
+  const decodedSessionId = baseSessionId(sessionId);
+  if (!UUID_RE.test(decodedSessionId)) notFound();
 
   let entries = null;
   let rawLines: Record<string, unknown>[] | null = null;
   let error: string | null = null;
 
   try {
-    const result = await getCachedSessionLog(decodedName, decodedSessionId);
+    // Use raw folder name for file operations — decodedName is for display only
+    const result = await getCachedSessionLog(name, decodedSessionId);
     entries = result.entries;
     rawLines = result.rawLines;
   } catch (e) {
@@ -38,7 +48,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
     <main className="min-h-screen bg-background">
       <div className="container mx-auto p-8">
         <Link
-          href={`/project/${encodeURIComponent(decodedName)}`}
+          href={`/project/${encodeURIComponent(name)}`}
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -52,7 +62,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
           <div className="space-y-1">
             <p className="text-muted-foreground">
               <span className="font-medium">Project:</span>{" "}
-              {decodeFolderName(decodedName)}
+              {decodedName}
             </p>
             <p className="text-muted-foreground break-words break-all inline-flex items-center gap-1">
               <span className="font-medium">Session:</span> {decodedSessionId}
@@ -64,7 +74,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
                   <span className="font-medium">{rawLines.length}</span> log lines
                 </p>
                 <a
-                  href={`/api/download/${encodeURIComponent(decodedName)}/${encodeURIComponent(decodedSessionId)}`}
+                  href={`/api/download/${encodeURIComponent(name)}/${encodeURIComponent(decodedSessionId)}`}
                   download
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
                 >

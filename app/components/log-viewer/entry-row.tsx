@@ -120,7 +120,7 @@ export function SubagentToolCard({ block, subagentEntries, projectName, sessionI
 
 interface EntryRowProps {
   entry: LogEntry;
-  allEntries?: LogEntry[];
+  entriesBySource?: Map<string, LogEntry[]>;
   projectName: string;
   sessionId: string;
   isHighlighted?: boolean;
@@ -128,12 +128,12 @@ interface EntryRowProps {
   autoExpandForUuid?: string | null;
 }
 
-function EntryContent({ entry, allEntries, projectName, sessionId, highlightedUuid, autoExpandForUuid }: EntryRowProps): React.ReactNode {
+function EntryContent({ entry, entriesBySource, projectName, sessionId, highlightedUuid, autoExpandForUuid }: EntryRowProps): React.ReactNode {
   switch (entry.type) {
     case "user":
       return <UserContent entry={entry} />;
     case "assistant":
-      return <AssistantContent entry={entry} allEntries={allEntries} projectName={projectName} sessionId={sessionId} highlightedUuid={highlightedUuid} autoExpandForUuid={autoExpandForUuid} />;
+      return <AssistantContent entry={entry} entriesBySource={entriesBySource} projectName={projectName} sessionId={sessionId} highlightedUuid={highlightedUuid} autoExpandForUuid={autoExpandForUuid} />;
     case "file-history-snapshot":
     case "progress":
     case "system":
@@ -141,7 +141,7 @@ function EntryContent({ entry, allEntries, projectName, sessionId, highlightedUu
   }
 }
 
-export const EntryRow = React.memo(function EntryRow({ entry, allEntries, projectName, sessionId, isHighlighted, highlightedUuid, autoExpandForUuid }: EntryRowProps) {
+export const EntryRow = React.memo(function EntryRow({ entry, entriesBySource, projectName, sessionId, isHighlighted, highlightedUuid, autoExpandForUuid }: EntryRowProps) {
   return (
     <div
       id={entry.uuid ? `entry-${entry.uuid}` : undefined}
@@ -161,13 +161,13 @@ export const EntryRow = React.memo(function EntryRow({ entry, allEntries, projec
         </div>
       </div>
       <div className="px-4 py-3">
-        <EntryContent entry={entry} allEntries={allEntries} projectName={projectName} sessionId={sessionId} highlightedUuid={highlightedUuid} autoExpandForUuid={autoExpandForUuid} />
+        <EntryContent entry={entry} entriesBySource={entriesBySource} projectName={projectName} sessionId={sessionId} highlightedUuid={highlightedUuid} autoExpandForUuid={autoExpandForUuid} />
       </div>
     </div>
   );
 }, (prev, next) =>
   prev.entry === next.entry &&
-  prev.allEntries === next.allEntries &&
+  prev.entriesBySource === next.entriesBySource &&
   prev.projectName === next.projectName &&
   prev.sessionId === next.sessionId &&
   prev.isHighlighted === next.isHighlighted &&

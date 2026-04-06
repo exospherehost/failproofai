@@ -1,6 +1,6 @@
 /** Project page — shows metadata and a filterable sessions list for a single project. */
 import { Suspense } from "react";
-import { getProjectPath, getCachedSessionFiles } from "@/lib/projects";
+import { resolveProjectPath, getCachedSessionFiles } from "@/lib/projects";
 import { logWarn } from "@/lib/logger";
 import { decodeFolderName } from "@/lib/paths";
 import { notFound } from "next/navigation";
@@ -21,8 +21,15 @@ interface ProjectPageProps {
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const { name } = await params;
-  const decodedName = decodeURIComponent(name);
-  const projectPath = getProjectPath(decodedName);
+  // Next.js already decodes route params once; resolveProjectPath validates and
+  // canonicalizes, throwing RangeError if the path escapes the projects root.
+  let projectPath: string;
+  try {
+    projectPath = resolveProjectPath(name);
+  } catch {
+    notFound();
+  }
+  const decodedName = decodeFolderName(name);
 
   // Check if project exists
   if (!existsSync(projectPath)) {
@@ -56,7 +63,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
 
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-foreground mb-2 break-words break-all">
-            {decodeFolderName(decodedName)}
+            {decodedName}
           </h1>
           <div className="space-y-1">
             <p className="text-muted-foreground">
@@ -84,7 +91,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
               </p>
             </div>
           ) : (
-            <Suspense><SessionsList files={sessionFiles} projectName={decodedName} /></Suspense>
+            <Suspense><SessionsList files={sessionFiles} projectName={name} /></Suspense>
           )}
         </div>
       </div>

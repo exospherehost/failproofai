@@ -13,10 +13,13 @@
 import {
   readFileSync,
   writeFileSync,
+  appendFileSync,
   renameSync,
   readdirSync,
   mkdirSync,
   existsSync,
+  statSync,
+  unlinkSync,
 } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -25,6 +28,10 @@ export const PAGE_SIZE = 25;
 
 const DEFAULT_STORE_DIR = join(homedir(), ".failproofai", "cache", "hook-activity");
 const CURRENT_FILE = "current.jsonl";
+const COUNT_FILE = "current.count"; // tracks line count; O(1) read/write vs rereading current.jsonl
+const STATS_FILE = "stats.json";
+const LOCK_FILE = "current.lock";  // advisory lock for concurrent hook processes
+const LOCK_STALE_MS = 2000;        // steal lock if older than 2 s (covers crashed processes)
 
 let storeDir = DEFAULT_STORE_DIR;
 let rotateSeq = 0;
@@ -68,32 +75,87 @@ function ensureDir(): void {
   }
 }
 
+// ── Advisory lock (protects count + stats read-modify-write cycles) ──
+
+function acquireLock(): void {
+  ensureDir();
+  const lockPath = join(storeDir, LOCK_FILE);
+  const deadline = Date.now() + LOCK_STALE_MS;
+  while (Date.now() < deadline) {
+    try {
+      // Exclusive create — fails with EEXIST if another process holds the lock
+      writeFileSync(lockPath, String(process.pid), { flag: "wx" });
+      return; // acquired
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "EEXIST") return; // unexpected — proceed unlocked
+      // Check if the lock is stale (process may have crashed)
+      try {
+        const s = statSync(lockPath);
+        if (Date.now() - s.mtimeMs > LOCK_STALE_MS) {
+          writeFileSync(lockPath, String(process.pid), "utf-8"); // steal stale lock
+          return;
+        }
+      } catch { /* lock file disappeared — retry */ }
+    }
+  }
+  // Timed out — proceed without lock (best-effort, extremely rare)
+}
+
+function releaseLock(): void {
+  try { unlinkSync(join(storeDir, LOCK_FILE)); } catch { /* ignore */ }
+}
+
 // ── Writing (synchronous — hook handler is short-lived) ──
 
 export function persistHookActivity(entry: HookActivityEntry): void {
   ensureDir();
-  const currentPath = join(storeDir, CURRENT_FILE);
-  const lineCount = countLines(currentPath);
+  acquireLock();
+  try {
+    const currentPath = join(storeDir, CURRENT_FILE);
+    const countPath = join(storeDir, COUNT_FILE);
 
-  if (lineCount >= PAGE_SIZE) {
-    rotate(currentPath);
+    const lineCount = readCount(countPath);
+    if (lineCount >= PAGE_SIZE) {
+      try {
+        rotate(currentPath, countPath);
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+        // Another process rotated concurrently — proceed to append to fresh file.
+      }
+    }
+
+    appendFileSync(currentPath, JSON.stringify(entry) + "\n", "utf-8");
+    writeCount(countPath, lineCount >= PAGE_SIZE ? 1 : lineCount + 1);
+    updateStats(entry);
+  } finally {
+    releaseLock();
   }
-
-  const line = JSON.stringify(entry) + "\n";
-  const existing = readFileSafe(currentPath);
-  writeFileSync(currentPath, existing + line, "utf-8");
 }
 
-function rotate(currentPath: string): void {
+function rotate(currentPath: string, countPath: string): void {
   const archiveName = `page-${Date.now()}-${rotateSeq++}.jsonl`;
   const archivePath = join(storeDir, archiveName);
   renameSync(currentPath, archivePath);
+  // Reset count for the fresh file (write 0 — next append will set it to 1)
+  writeCount(countPath, 0);
 }
 
-function countLines(filePath: string): number {
-  const content = readFileSafe(filePath);
-  if (!content.trim()) return 0;
-  return content.trim().split("\n").length;
+// O(1) line count via a tiny sidecar file; avoids rereading current.jsonl.
+function readCount(countPath: string): number {
+  try {
+    const n = parseInt(readFileSync(countPath, "utf-8"), 10);
+    return isNaN(n) ? 0 : n;
+  } catch {
+    return 0;
+  }
+}
+
+function writeCount(countPath: string, n: number): void {
+  try {
+    writeFileSync(countPath, String(n), "utf-8");
+  } catch {
+    // Non-fatal: worst case we recount from 0 next time
+  }
 }
 
 function readFileSafe(filePath: string): string {
@@ -102,6 +164,53 @@ function readFileSafe(filePath: string): string {
   } catch {
     return "";
   }
+}
+
+// ── Incremental stats (O(1) reads/writes) ──
+
+interface StoredStats {
+  totalEvents: number;
+  denyCount: number;
+  policyMap: Record<string, number>;
+}
+
+function readStoredStats(): StoredStats {
+  try {
+    return JSON.parse(readFileSync(join(storeDir, STATS_FILE), "utf-8")) as StoredStats;
+  } catch {
+    return { totalEvents: 0, denyCount: 0, policyMap: {} };
+  }
+}
+
+function updateStats(entry: HookActivityEntry): void {
+  const s = readStoredStats();
+  s.totalEvents += 1;
+  if (entry.decision === "deny") s.denyCount += 1;
+  if (entry.policyName) {
+    s.policyMap[entry.policyName] = (s.policyMap[entry.policyName] ?? 0) + 1;
+  }
+  // Write atomically: write to a PID-unique temp file then rename — prevents partial reads.
+  const tmpPath = join(storeDir, `stats.json.${process.pid}.tmp`);
+  try {
+    writeFileSync(tmpPath, JSON.stringify(s), "utf-8");
+    renameSync(tmpPath, join(storeDir, STATS_FILE));
+  } catch {
+    try { unlinkSync(tmpPath); } catch { /* ignore */ }
+    // Non-fatal: stats file write failure doesn't block the hook
+  }
+}
+
+function readStats(): HookActivityStats {
+  const s = readStoredStats();
+  let topPolicy: string | null = null;
+  let topPolicyCount = 0;
+  for (const [name, count] of Object.entries(s.policyMap)) {
+    if (count > topPolicyCount) {
+      topPolicy = name;
+      topPolicyCount = count;
+    }
+  }
+  return { totalEvents: s.totalEvents, denyCount: s.denyCount, topPolicy, topPolicyCount };
 }
 
 // ── Reading (lazy, per-page) ──
@@ -143,26 +252,6 @@ export function getAllHookActivityEntries(): HookActivityEntry[] {
   return [...currentEntries, ...archiveEntries];
 }
 
-function computeStats(entries: HookActivityEntry[]): HookActivityStats {
-  const totalEvents = entries.length;
-  let denyCount = 0;
-  const policyMap = new Map<string, number>();
-  for (const entry of entries) {
-    if (entry.decision === "deny") denyCount++;
-    if (entry.policyName) {
-      policyMap.set(entry.policyName, (policyMap.get(entry.policyName) ?? 0) + 1);
-    }
-  }
-  let topPolicy: string | null = null;
-  let topPolicyCount = 0;
-  for (const [name, count] of policyMap) {
-    if (count > topPolicyCount) {
-      topPolicy = name;
-      topPolicyCount = count;
-    }
-  }
-  return { totalEvents, denyCount, topPolicy, topPolicyCount };
-}
 
 export function searchHookActivity(
   filters: HookActivityFilters,
@@ -191,7 +280,8 @@ export function searchHookActivity(
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const start = (page - 1) * PAGE_SIZE;
   const entries = filtered.slice(start, start + PAGE_SIZE);
-  const stats = computeStats(all);
+  // Stats come from the O(1) incremental stats file rather than a full rescan.
+  const stats = readStats();
 
   return { entries, totalPages, page, stats };
 }
@@ -204,8 +294,8 @@ export function getHookActivityHistory(page: number): {
 } {
   const entries = getHookActivityPage(page);
   const totalPages = getHookActivityPageCount();
-  const all = getAllHookActivityEntries();
-  const stats = computeStats(all);
+  // Stats come from the O(1) incremental stats file rather than a full rescan.
+  const stats = readStats();
   return { entries, totalPages, page, stats };
 }
 

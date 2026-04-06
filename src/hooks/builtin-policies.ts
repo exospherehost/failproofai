@@ -2,7 +2,7 @@
  * Built-in security policies for Claude Code hooks.
  */
 import { resolve, join } from "node:path";
-import { readFile, stat, open } from "node:fs/promises";
+import { readFile, writeFile, stat, open } from "node:fs/promises";
 import { execSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
@@ -37,18 +37,22 @@ function parseArgvTokens(cmd: string): string[] {
 }
 
 // Shell operators that always act as command separators when whitespace-delimited.
-// Note: a semicolon directly appended to a word (e.g. "nginx;") is not caught here;
-// for exact-match patterns that is fine because "nginx;" !== "nginx", but wildcard
-// patterns remain exploitable by that form. Full shell parsing is out of scope.
 const SHELL_OPERATORS = new Set(["&&", "||", "|", ";"]);
+
+// Shell metacharacters that are unsafe when embedded inside a token. Any command
+// whose argv contains one of these in a token is rejected before allowlist matching.
+// This closes the bypass where operators are glued to a word (e.g. "nginx;evil" or
+// "nginx&&evil") and would otherwise be invisible to the standalone-operator check.
+// Note: | is intentionally excluded here because "foo|bar" is a valid grep/sed
+// argument value; the standalone-operator check above already handles bare "|" tokens.
+const SHELL_METACHAR_RE = /[;&<>`$()\\]/;
 
 /**
  * Check if a command matches an allow pattern using token-by-token comparison.
  * The "*" token is a wildcard. Extra command tokens beyond the pattern are allowed,
- * UNLESS a token is a standalone shell operator (&&, ||, |, ;) — those commands
- * are always rejected to prevent bypass via appended sub-commands.
- * Characters like | or ; embedded inside an argument value (e.g. grep pattern
- * "foo|bar") are NOT treated as operators.
+ * UNLESS any token is a standalone shell operator (&&, ||, |, ;) OR contains an
+ * embedded shell metacharacter — both cases are rejected to prevent bypass via
+ * appended sub-commands or glued operators (e.g. "nginx;" or "nginx;evil").
  */
 function matchesAllowedPattern(cmd: string, pattern: string): boolean {
   const cmdTokens = parseArgvTokens(cmd);
@@ -56,6 +60,8 @@ function matchesAllowedPattern(cmd: string, pattern: string): boolean {
   if (cmdTokens.length < patTokens.length) return false;
   // Reject commands containing standalone shell-operator tokens
   if (cmdTokens.some((tok) => SHELL_OPERATORS.has(tok))) return false;
+  // Reject any token containing embedded shell metacharacters
+  if (cmdTokens.some((tok) => SHELL_METACHAR_RE.test(tok))) return false;
   return patTokens.every((tok, i) => tok === "*" || tok === cmdTokens[i]);
 }
 
@@ -413,28 +419,55 @@ const READ_LIKE_CMDS =
 
 /**
  * Extract absolute paths from a Bash command string.
- * Matches sequences starting with `/` that aren't inside quotes.
+ * Scans quoted strings only in the first pipeline segment (before the first
+ * bare pipe) and only when the quoted content has no glob or regex metacharacters.
+ * This catches `cat "/etc/passwd"` while avoiding false positives from grep
+ * patterns and find glob patterns that appear in later pipeline stages.
+ * Unquoted absolute paths are extracted from the whole command as before.
  */
 function extractAbsolutePaths(command: string): string[] {
-  // Strip quoted strings to avoid extracting patterns/arguments as paths
-  // Replace content inside quotes with spaces to preserve string length
+  const paths: string[] = [];
+  const pathRe = /(?<![a-zA-Z0-9_.\-~\\])(?:~\/[^\s;|&"'()\[\]{}]*|~(?=\s|$|[;|&"'()\[\]{}])|\/[^\s;|&"'()\[\]{}]*)/g;
+
+  function addPaths(s: string): void {
+    pathRe.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = pathRe.exec(s)) !== null) {
+      let p = m[0];
+      if (p === "~") p = homedir();
+      else if (p.startsWith("~/")) p = join(homedir(), p.slice(2));
+      paths.push(p);
+    }
+  }
+
+  // Find the index of the first bare pipe (not inside quotes) to limit quoted extraction.
+  let firstBarePipe = command.length;
+  let inDouble = false, inSingle = false;
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i];
+    if (c === '"' && !inSingle) inDouble = !inDouble;
+    else if (c === "'" && !inDouble) inSingle = !inSingle;
+    else if (c === "|" && !inDouble && !inSingle) { firstBarePipe = i; break; }
+  }
+
+  // Extract paths from quoted strings in the FIRST pipeline segment only,
+  // and only when the content has no glob/regex metacharacters.
+  const firstSegment = command.slice(0, firstBarePipe);
+  const quotedRe = /"([^"]*)"|'([^']*)'/g;
+  let qm: RegExpExecArray | null;
+  while ((qm = quotedRe.exec(firstSegment)) !== null) {
+    const content = qm[1] ?? qm[2] ?? "";
+    // Skip patterns that contain glob or common regex metacharacters
+    if (/[*?\[\]^$+()\\]/.test(content)) continue;
+    addPaths(content);
+  }
+
+  // Extract from unquoted portions of the whole command (existing behaviour).
   const stripped = command
     .replace(/"[^"]*"/g, (m) => " ".repeat(m.length))
     .replace(/'[^']*'/g, (m) => " ".repeat(m.length));
+  addPaths(stripped);
 
-  const paths: string[] = [];
-  // Match absolute paths, ~/paths, or standalone ~ (tilde at word boundary)
-  const re = /(?<![a-zA-Z0-9_.\-~\\])(?:~\/[^\s;|&"'()\[\]{}]*|~(?=\s|$|[;|&"'()\[\]{}])|\/[^\s;|&"'()\[\]{}]*)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(stripped)) !== null) {
-    let p = m[0];
-    if (p === "~") {
-      p = homedir();
-    } else if (p.startsWith("~/")) {
-      p = join(homedir(), p.slice(2));
-    }
-    paths.push(p);
-  }
   return paths;
 }
 
@@ -537,59 +570,41 @@ function blockFailproofaiCommands(ctx: PolicyContext): PolicyResult {
   return allow();
 }
 
+// Maximum size of the per-session tool-call sidecar before we stop updating it.
+// If exceeded, repeated-call detection degrades gracefully (allows through) rather
+// than growing the file unboundedly.
+const TOOL_CALL_TRACKER_MAX_BYTES = 65_536; // 64 KB
+
 async function warnRepeatedToolCalls(ctx: PolicyContext): Promise<PolicyResult> {
   const THRESHOLD = 3;
-  const MAX_TRANSCRIPT_BYTES = 262_144; // 256 KB — bound memory for large sessions
   const transcriptPath = ctx.session?.transcriptPath;
   if (!transcriptPath || !ctx.toolName || !ctx.toolInput) return allow();
 
-  let content: string;
+  // Sidecar file tracks { fingerprint: count } — O(1) per call vs O(transcript) per call.
+  const trackerPath = `${transcriptPath}.tool-calls.json`;
+  const fingerprint = JSON.stringify({ tool: ctx.toolName, input: ctx.toolInput });
+
+  let counts: Record<string, number> = {};
   try {
-    const fileStat = await stat(transcriptPath);
-    if (fileStat.size > MAX_TRANSCRIPT_BYTES) {
-      const start = fileStat.size - MAX_TRANSCRIPT_BYTES;
-      const buf = Buffer.allocUnsafe(MAX_TRANSCRIPT_BYTES);
-      const fh = await open(transcriptPath, "r");
-      try {
-        await fh.read(buf, 0, MAX_TRANSCRIPT_BYTES, start);
-      } finally {
-        await fh.close();
-      }
-      const partial = buf.toString("utf8");
-      // Drop potentially partial first line caused by mid-line offset
-      const firstNewline = partial.indexOf("\n");
-      content = firstNewline >= 0 ? partial.slice(firstNewline + 1) : partial;
-    } else {
-      content = await readFile(transcriptPath, "utf8");
-    }
-  } catch {
-    return allow(); // Can't read transcript, skip
+    const raw = await readFile(trackerPath, "utf8");
+    counts = JSON.parse(raw) as Record<string, number>;
+  } catch { /* first call or unreadable — start fresh */ }
+
+  const prevCount = counts[fingerprint] ?? 0;
+  if (prevCount >= THRESHOLD) {
+    return instruct(
+      `STOP: You have already called ${ctx.toolName} ${prevCount} times with identical parameters. This is wasteful and unproductive. Do NOT repeat this call — use a different approach or ask the user for clarification.`,
+    );
   }
 
-  const currentFingerprint = JSON.stringify({ tool: ctx.toolName, input: ctx.toolInput });
-  let count = 0;
-
-  for (const line of content.split("\n")) {
-    if (!line) continue;
-    try {
-      const raw = JSON.parse(line);
-      if (raw.type !== "assistant" || !Array.isArray(raw.message?.content)) continue;
-      for (const block of raw.message.content) {
-        if (block.type !== "tool_use") continue;
-        const fp = JSON.stringify({ tool: block.name, input: block.input });
-        if (fp === currentFingerprint) {
-          count++;
-          if (count >= THRESHOLD) {
-            return instruct(
-              `STOP: You have already called ${ctx.toolName} ${count} times with identical parameters. This is wasteful and unproductive. Do NOT repeat this call — use a different approach or ask the user for clarification.`,
-            );
-          }
-        }
-      }
-    } catch {
-      /* skip malformed */
+  counts[fingerprint] = prevCount + 1;
+  try {
+    const serialized = JSON.stringify(counts);
+    if (serialized.length <= TOOL_CALL_TRACKER_MAX_BYTES) {
+      await writeFile(trackerPath, serialized, "utf8");
     }
-  }
+  } catch { /* non-fatal */ }
+
   return allow();
 }
 

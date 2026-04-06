@@ -114,18 +114,33 @@ export async function promptPolicySelection(
   // Build display rows: category header rows interspersed with item rows.
   // Categories appear in the order they first appear in BUILTIN_POLICIES.
   function buildDisplayRows(filtered: SelectItem[]): DisplayRow[] {
+    // Single pass: compute category order, enabled counts, and total counts together.
     const categoryOrder: string[] = [];
+    const categoryEnabledCount = new Map<string, number>();
+    const categoryTotalCount = new Map<string, number>();
     for (const p of items) {
-      if (!categoryOrder.includes(p.category)) categoryOrder.push(p.category);
+      if (!categoryEnabledCount.has(p.category)) {
+        categoryOrder.push(p.category);
+        categoryEnabledCount.set(p.category, 0);
+        categoryTotalCount.set(p.category, 0);
+      }
+      categoryTotalCount.set(p.category, categoryTotalCount.get(p.category)! + 1);
+      if (p.selected) categoryEnabledCount.set(p.category, categoryEnabledCount.get(p.category)! + 1);
     }
+
+    const filteredByCategory = new Map<string, SelectItem[]>();
+    for (const item of filtered) {
+      const bucket = filteredByCategory.get(item.category) ?? [];
+      bucket.push(item);
+      filteredByCategory.set(item.category, bucket);
+    }
+
     const rows: DisplayRow[] = [];
     let idx = 0;
     for (const cat of categoryOrder) {
-      const catFiltered = filtered.filter((i) => i.category === cat);
-      if (catFiltered.length === 0) continue;
-      const enabledCount = items.filter((i) => i.category === cat && i.selected).length;
-      const totalCount = items.filter((i) => i.category === cat).length;
-      rows.push({ kind: "header", category: cat, enabledCount, totalCount });
+      const catFiltered = filteredByCategory.get(cat);
+      if (!catFiltered || catFiltered.length === 0) continue;
+      rows.push({ kind: "header", category: cat, enabledCount: categoryEnabledCount.get(cat)!, totalCount: categoryTotalCount.get(cat)! });
       for (const item of catFiltered) {
         rows.push({ kind: "item", item, filteredIndex: idx++ });
       }

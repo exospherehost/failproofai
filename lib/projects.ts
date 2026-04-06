@@ -6,11 +6,14 @@
  * so that client components can display them without hydration mismatches.
  */
 import { readdir, stat } from "fs/promises";
-import { join } from "path";
+import { join, resolve, sep } from "path";
 import { getClaudeProjectsPath } from "./paths";
 import { runtimeCache } from "./runtime-cache";
 import { logWarn, logError } from "./logger";
 import { formatDate } from "./utils";
+
+export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
+export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;
 
 export interface ProjectFolder {
   name: string;
@@ -88,6 +91,34 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
 export function getProjectPath(projectName: string): string {
   const projectsPath = getClaudeProjectsPath();
   return join(projectsPath, projectName);
+}
+
+/**
+ * Resolves a project name to its absolute path, verifying it stays under
+ * the Claude projects root. Throws RangeError for any invalid or escaping input.
+ * Callers should catch RangeError and return 400/404 as appropriate.
+ */
+export function resolveProjectPath(projectName: string): string {
+  if (!projectName) throw new RangeError("Empty project name");
+  // Reject absolute paths before joining (catches /etc, \Windows, etc.)
+  if (/^[/\\]/.test(projectName)) throw new RangeError("Absolute project name");
+  const projectsPath = resolve(getClaudeProjectsPath());
+  const candidate = resolve(join(projectsPath, projectName));
+  // Must be strictly under the root (not equal — projects are subdirs)
+  if (!candidate.startsWith(projectsPath + sep)) {
+    throw new RangeError("Project path escapes root");
+  }
+  return candidate;
+}
+
+/**
+ * Resolves a session file path, validating both project name and session ID.
+ * Throws RangeError for invalid inputs (caught by callers for 400/404).
+ */
+export function resolveSessionFilePath(projectName: string, sessionId: string): string {
+  if (!UUID_RE.test(sessionId)) throw new RangeError("Invalid session ID");
+  const projectDir = resolveProjectPath(projectName);
+  return join(projectDir, `${sessionId}.jsonl`);
 }
 
 /**
