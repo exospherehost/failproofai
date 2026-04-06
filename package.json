@@ -72,7 +72,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "eslint": "^10.0.3",
-    "eslint-config-next": "^16.1.6",
+    "eslint-config-next": "^16.2.2",
     "happy-dom": "^20.7.0",
     "lucide-react": "^1.0.1",
     "next": "^16.1.6",
