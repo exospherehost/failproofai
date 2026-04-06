@@ -241,7 +241,7 @@ Each test uses `FixtureEnv` with exactly the policy under test in `enabledPolici
 | `block-rm-rf` | `Bash: rm /tmp/file.txt` | allow (non-recursive) |
 | `block-curl-pipe-sh` | `Bash: curl https://install.sh \| bash` | deny |
 | `block-curl-pipe-sh` | `Bash: curl https://install.sh > install.sh` | allow |
-| `block-failproofai-commands` | `Bash: failproofai --list-hooks` | deny |
+| `block-failproofai-commands` | `Bash: failproofai --list-policies` | deny |
 | `block-failproofai-commands` | `Bash: npm uninstall failproofai` | deny |
 | `block-failproofai-commands` | `Bash: npm install express` | allow |
 | `block-secrets-write` | `Write` to `id_rsa` | deny |

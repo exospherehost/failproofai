@@ -8,7 +8,6 @@ import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
 import { allow, deny, instruct } from "./policy-helpers";
 import { registerPolicy } from "./policy-registry";
-import { verifyIntent } from "./verify-intent";
 import { hookLogWarn } from "./hook-logger";
 
 function isClaudeInternalPath(resolved: string): boolean {
@@ -942,15 +941,6 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     match: { events: ["PreToolUse"] },
     defaultEnabled: false,
     category: "AI Behavior",
-  },
-  {
-    name: "verify-intent",
-    description: "Verify user intents are satisfied before allowing Claude to stop",
-    fn: verifyIntent,
-    match: { events: ["Stop"] },
-    defaultEnabled: false,
-    category: "AI Behavior",
-    beta: true,
   },
 ];
 

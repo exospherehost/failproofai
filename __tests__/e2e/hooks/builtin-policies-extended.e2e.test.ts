@@ -40,7 +40,7 @@ describe("block-failproofai-commands extended", () => {
   it("allows npx failproofai (regex requires failproofai at cmd start, not after npx)", () => {
     const env = createFixtureEnv();
     env.writeConfig({ enabledPolicies: ["block-failproofai-commands"] });
-    const result = runHook("PreToolUse", Payloads.preToolUse.bash("npx failproofai --list-hooks", env.cwd), { homeDir: env.home });
+    const result = runHook("PreToolUse", Payloads.preToolUse.bash("npx failproofai --list-policies", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
 

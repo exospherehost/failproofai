@@ -23,7 +23,7 @@ STATUS: COMPLETED
    - Each parameterized builtin policy (default behavior unchanged, custom param applied correctly)
    - `customHooks` registry (`.add()`, `getCustomHooks()`, `globalThis` isolation)
    - Hook handler loading `customHooksPath` from config and registering custom hooks
-   - `--list-hooks` output with params and custom hooks section
+   - `--list-policies` output with params and custom hooks section
 
 5. **Documentation** — update `README.md` with:
    - `policyParams` config reference for each parameterized policy
@@ -233,7 +233,7 @@ This means to change a policy's params for a project, you own the full value —
 partially extend the global list. That's intentional: explicit is better than surprising
 concatenation.
 
-### `--list-hooks` display
+### `--list-policies` display
 
 Configured params are shown as a summary line beneath each policy:
 
@@ -307,7 +307,7 @@ The path to the hooks file is given explicitly via `--custom-hooks <path>` when 
 hooks. It is stored in `hooks-config.json` and read by the hook handler at event-fire time.
 
 ```bash
-failproofai --install-hooks --custom-hooks ./my-hooks.js
+failproofai --install-policies --custom-hooks ./my-hooks.js
 ```
 
 `hooks-config.json` stores the resolved absolute path:
@@ -322,8 +322,8 @@ failproofai --install-hooks --custom-hooks ./my-hooks.js
 To update or remove:
 
 ```bash
-failproofai --install-hooks --custom-hooks ./new-hooks.js   # replace path
-failproofai --install-hooks --remove-custom-hooks            # clear
+failproofai --install-policies --custom-hooks ./new-hooks.js   # replace path
+failproofai --install-policies --remove-custom-hooks            # clear
 ```
 
 ### Loading
@@ -400,7 +400,7 @@ inside `fn`. The framework only filters by event type.
 
 Fail-open throughout. See exospherehost/failproofai#154 for future fail-closed support.
 
-### `--list-hooks` display
+### `--list-policies` display
 
 ```
 Failproof AI Hook Policies (user)
@@ -444,7 +444,7 @@ interface HooksConfig {
 | JS loading mechanism | Reuse `lib/evals/loader.ts` verbatim — same as `eval.js`, handles ESM compat + transitive imports |
 | Custom hooks API | `import { customHooks } from 'failproofai'` → `customHooks.add()` → `export { customHooks }` |
 | Custom hooks path | Explicit via `--custom-hooks <path>`, stored as `customHooksPath` in `hooks-config.json` |
-| Unknown `policyParams` keys | Warn in `--list-hooks`, silent at fire time |
+| Unknown `policyParams` keys | Warn in `--list-policies`, silent at fire time |
 | Custom hook failures | Fail-open — tracked in #154 for future fail-closed support |
 | Per-custom-hook params (`ctx.params`) | Deferred |
 
@@ -559,7 +559,7 @@ For each policy below: add `params` schema to its `BuiltinPolicyDefinition` entr
 
 ---
 
-### 11. `--list-hooks` display — `src/hooks/manager.ts`
+### 11. `--list-policies` display — `src/hooks/manager.ts`
 - [x] Beneath each enabled policy that has user-configured params, print a summary line showing the active param values
 - [x] Detect unknown keys in `policyParams` (keys that don't match any known policy schema param); print a warning line for each
 - [x] If `customHooksPath` is set: attempt to load the file and show a "Custom Hooks" section beneath builtins
@@ -628,10 +628,10 @@ New file: `__tests__/hooks/custom-hooks-loader.test.ts`
 File: `__tests__/hooks/manager.test.ts`
 - [x] Test: `--custom-hooks <path>` saves resolved absolute path to `customHooksPath` in config
 - [x] Test: `--remove-custom-hooks` clears `customHooksPath` from config
-- [x] Test: `--list-hooks` output includes param summary for configured policies
-- [x] Test: `--list-hooks` warns on unknown `policyParams` keys
-- [x] Test: `--list-hooks` shows "Custom Hooks" section when `customHooksPath` is set
-- [x] Test: `--list-hooks` shows error row when hooks file fails to load
+- [x] Test: `--list-policies` output includes param summary for configured policies
+- [x] Test: `--list-policies` warns on unknown `policyParams` keys
+- [x] Test: `--list-policies` shows "Custom Hooks" section when `customHooksPath` is set
+- [x] Test: `--list-policies` shows error row when hooks file fails to load
 
 ---
 
@@ -641,7 +641,7 @@ File: `__tests__/hooks/manager.test.ts`
 - [x] Add `--custom-hooks <path>` to the CLI reference section
 - [x] Add `--remove-custom-hooks` to the CLI reference section
 - [x] Add a "Custom Hooks" authoring guide with:
-  - [x] Installation step (`failproofai --install-hooks --custom-hooks ./my-hooks.js`)
+  - [x] Installation step (`failproofai --install-policies --custom-hooks ./my-hooks.js`)
   - [x] Full working example file using `customHooks.add()` with `allow()`, `deny()`, `instruct()`
   - [x] Description of each decision helper: `allow()`, `deny(message)`, `instruct(message)` — what each does, when to use it, what the message becomes in Claude's context
   - [x] Note that `deny(message)` is prefixed with `"Blocked by failproofai:"` in the output
@@ -675,8 +675,8 @@ File: `__tests__/hooks/manager.test.ts`
 ### 19. Final verification
 - [x] `npm run build` (or equivalent) passes with zero errors
 - [x] Full test suite passes (`npm test` or equivalent) with zero failures
-- [x] `failproofai --list-hooks` runs without error on a clean install
-- [x] `failproofai --install-hooks --custom-hooks <path>` correctly saves the path and loads hooks on next event
+- [x] `failproofai --list-policies` runs without error on a clean install
+- [x] `failproofai --install-policies --custom-hooks <path>` correctly saves the path and loads hooks on next event
 - [x] A manually authored `my-hooks.js` using `customHooks.add()` with a transitive import loads and evaluates correctly end-to-end
 - [x] No `console.log` debug statements left in production code paths
 - [x] No new `any` types introduced without a comment explaining why

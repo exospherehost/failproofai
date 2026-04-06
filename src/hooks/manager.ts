@@ -15,7 +15,7 @@ import {
   type ClaudeSettings,
 } from "./types";
 import { promptPolicySelection } from "./install-prompt";
-import { readHooksConfig, writeHooksConfig, readLlmConfig, readMergedHooksConfig } from "./hooks-config";
+import { readHooksConfig, writeHooksConfig, readMergedHooksConfig } from "./hooks-config";
 import type { HooksConfig } from "./policy-types";
 import { BUILTIN_POLICIES } from "./builtin-policies";
 import { loadCustomHooks } from "./custom-hooks-loader";
@@ -249,16 +249,6 @@ export async function installHooks(
     console.log(`Custom hooks path: ${configToWrite.customHooksPath}`);
   }
 
-  // Warn if an LLM-dependent policy is enabled without LLM config
-  const LLM_POLICIES = new Set(["verify-intent"]);
-  if (selectedPolicies.some((p) => LLM_POLICIES.has(p))) {
-    const llmConfig = readLlmConfig();
-    if (!llmConfig) {
-      console.log(`\n\x1B[33mNote: verify-intent requires an LLM provider.`);
-      console.log(`Configure one with: failproofai --configure-llm\x1B[0m`);
-    }
-  }
-
   const settingsPath = getSettingsPath(scope, cwd);
   const settings = readSettings(settingsPath);
 
@@ -340,8 +330,8 @@ export async function installHooks(
     console.log();
     console.log(`\x1B[33mWarning: Failproof AI hooks are also installed at ${scopeList}.\x1B[0m`);
     console.log(`Having hooks in multiple scopes may cause duplicate policy evaluation.`);
-    console.log(`Use \`failproofai --remove-hooks --scope ${duplicates[0]}\` to remove the other installation,`);
-    console.log(`or \`failproofai --list-hooks\` to see all scopes.`);
+    console.log(`Use \`failproofai --remove-policies --scope ${duplicates[0]}\` to remove the other installation,`);
+    console.log(`or \`failproofai --list-policies\` to see all scopes.`);
   }
 }
 
@@ -533,9 +523,9 @@ export async function listHooks(cwd?: string): Promise<void> {
     }
 
     if (config.enabledPolicies.length > 0) {
-      console.log("\n  Hooks not installed. Run `failproofai --install-hooks` to activate.");
+      console.log("\n  Hooks not installed. Run `failproofai --install-policies` to activate.");
     } else {
-      console.log("\n  Run `failproofai --install-hooks` to get started.");
+      console.log("\n  Run `failproofai --install-policies` to get started.");
     }
     console.log("  Config: ~/.failproofai/hooks-config.json\n");
   } else if (installedScopes.length === 1) {

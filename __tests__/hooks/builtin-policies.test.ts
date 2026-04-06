@@ -32,8 +32,8 @@ describe("hooks/builtin-policies", () => {
   });
 
   describe("BUILTIN_POLICIES", () => {
-    it("has 27 built-in policies", () => {
-      expect(BUILTIN_POLICIES).toHaveLength(27);
+    it("has 26 built-in policies", () => {
+      expect(BUILTIN_POLICIES).toHaveLength(26);
     });
 
     it("has 11 default-enabled policies", () => {
@@ -839,18 +839,18 @@ describe("hooks/builtin-policies", () => {
   describe("block-failproofai-commands", () => {
     const policy = BUILTIN_POLICIES.find((p) => p.name === "block-failproofai-commands")!;
 
-    it("blocks failproofai --remove-hooks", async () => {
-      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "failproofai --remove-hooks" } });
+    it("blocks failproofai --remove-policies", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "failproofai --remove-policies" } });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
 
-    it("blocks failproofai --install-hooks", async () => {
-      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "failproofai --install-hooks all" } });
+    it("blocks failproofai --install-policies", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "failproofai --install-policies all" } });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
 
-    it("blocks failproofai --list-hooks", async () => {
-      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "failproofai --list-hooks" } });
+    it("blocks failproofai --list-policies", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "failproofai --list-policies" } });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
 
@@ -920,7 +920,7 @@ describe("hooks/builtin-policies", () => {
     });
 
     it("allows non-Bash tools", async () => {
-      const ctx = makeCtx({ toolName: "Read", toolInput: { command: "failproofai --remove-hooks" } });
+      const ctx = makeCtx({ toolName: "Read", toolInput: { command: "failproofai --remove-policies" } });
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
   });

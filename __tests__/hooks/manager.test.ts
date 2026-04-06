@@ -26,7 +26,6 @@ vi.mock("../../src/hooks/hooks-config", () => ({
   readHooksConfig: vi.fn(() => ({ enabledPolicies: [] })),
   readMergedHooksConfig: vi.fn(() => ({ enabledPolicies: [] })),
   writeHooksConfig: vi.fn(),
-  readLlmConfig: vi.fn(() => null),
 }));
 
 vi.mock("../../src/hooks/hook-telemetry", () => ({
@@ -126,34 +125,6 @@ describe("hooks/manager", () => {
       expect(writeHooksConfig).toHaveBeenCalledWith({
         enabledPolicies: ["block-sudo", "block-rm-rf"],
       });
-    });
-
-    it("warns when verify-intent is enabled without LLM config", async () => {
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFileSync).mockReturnValue("{}");
-
-      const { installHooks } = await import("../../src/hooks/manager");
-      const { readLlmConfig } = await import("../../src/hooks/hooks-config");
-      vi.mocked(readLlmConfig).mockReturnValue(null);
-
-      await installHooks(["verify-intent"]);
-
-      const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
-      expect(logs.some((l: string) => l.includes("verify-intent requires an LLM"))).toBe(true);
-    });
-
-    it("does not warn about LLM when verify-intent is not enabled", async () => {
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFileSync).mockReturnValue("{}");
-
-      const { installHooks } = await import("../../src/hooks/manager");
-      const { readLlmConfig } = await import("../../src/hooks/hooks-config");
-      vi.mocked(readLlmConfig).mockReturnValue(null);
-
-      await installHooks(["block-sudo"]);
-
-      const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
-      expect(logs.some((l: string) => l.includes("verify-intent requires an LLM"))).toBe(false);
     });
 
     it("non-interactive: rejects unknown policy names", async () => {
@@ -770,7 +741,7 @@ describe("hooks/manager", () => {
       );
       expect(headerLine).toBeUndefined();
       // Should show get started hint
-      expect(output).toContain("--install-hooks");
+      expect(output).toContain("--install-policies");
     });
 
     it("compact output hints to activate when config exists but not installed", async () => {
@@ -786,7 +757,7 @@ describe("hooks/manager", () => {
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       const output = calls.join("\n");
       expect(output).toContain("Hooks not installed");
-      expect(output).toContain("--install-hooks");
+      expect(output).toContain("--install-policies");
     });
 
     it("single scope shows checkmark list", async () => {

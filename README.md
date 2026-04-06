@@ -11,7 +11,7 @@
 
 Open-source hooks, policies, and project visualization for **Claude Code** & the **Agents SDK**.
 
-- **Hooks & Policies** — 35+ built-in security policies that run as Claude Code hooks (PreToolUse, PostToolUse, etc.). Block dangerous commands, sanitize secrets, restrict file access, verify intent, and more. Add your own custom policies.
+- **Hooks & Policies** — 35+ built-in security policies that run as Claude Code hooks (PreToolUse, PostToolUse, etc.). Block dangerous commands, sanitize secrets, restrict file access, and more. Add your own custom policies.
 - **Projects** — Browse your Claude Code projects and sessions locally. Search, filter, and inspect session logs.
 - **Session Viewer** — Read tool calls, messages, and per-session hook activity side-by-side.
 
@@ -35,60 +35,60 @@ npm install -g failproofai
 ## Run the dashboard
 
 ```bash
-failproofai --dev
+failproofai
 ```
 
 Opens a local dashboard at `http://localhost:8020`.
 
 ---
 
-## Hook installation
+## Policy installation
 
-Hooks let failproofai intercept Claude Code tool calls and evaluate policies in real time.
+Policies let failproofai intercept Claude Code tool calls and evaluate rules in real time.
 
-### Install hooks globally
+### Install policies globally
 
 ```bash
-failproofai --install-hooks
+failproofai --install-policies
 ```
 
 This writes hook entries into `~/.claude/settings.json` for all Claude Code sessions.
 
-### Install hooks for a single project
+### Install policies for a single project
 
 ```bash
-failproofai --install-hooks --scope project
+failproofai --install-policies --scope project
 ```
 
 Writes into `.claude/settings.json` in the current directory.
 
-### List installed hooks
+### List installed policies
 
 ```bash
-failproofai --list-hooks
+failproofai --list-policies
 ```
 
-### Remove hooks
+### Remove policies
 
 ```bash
-failproofai --remove-hooks
+failproofai --remove-policies
 ```
 
 ---
 
 ## Configuration
 
-Hook configuration lives at `~/.failproofai/hooks-config.json`:
+Policy configuration lives at `~/.failproofai/hooks-config.json`:
 
 ```json
 {
   "enabledPolicies": [
-    "sanitizeApiKeys",
-    "blockReadOutsideCwd",
-    "requireIntentVerification"
+    "sanitize-api-keys",
+    "block-read-outside-cwd",
+    "block-sudo"
   ],
   "policyParams": {
-    "sanitizeApiKeys": {
+    "sanitize-api-keys": {
       "additionalPatterns": ["MY_SECRET_[A-Z0-9]+"]
     }
   }
@@ -103,14 +103,13 @@ You can also set configuration per-project in `.claude/settings.json` under a `f
 
 | Policy | Description |
 |---|---|
-| `sanitizeApiKeys` | Redact API keys, JWTs, bearer tokens |
-| `sanitizePrivateKeyContent` | Redact private key material |
-| `sanitizeConnectionStrings` | Redact DB connection strings |
-| `blockReadOutsideCwd` | Prevent reading files outside the project |
-| `blockWriteToClaudeSettings` | Prevent modification of Claude settings |
-| `requireIntentVerification` | Confirm sensitive operations with the user |
-| `blockShellOperators` | Block dangerous shell operators |
-| `allowlistShellCommands` | Only permit listed commands |
+| `sanitize-api-keys` | Redact API keys, bearer tokens |
+| `sanitize-private-key-content` | Redact private key material |
+| `sanitize-connection-strings` | Redact DB connection strings |
+| `block-read-outside-cwd` | Prevent reading files outside the project |
+| `block-env-files` | Block access to .env files |
+| `block-sudo` | Block sudo commands |
+| `block-rm-rf` | Block destructive recursive deletions |
 | `block-failproofai-commands` | Prevent self-uninstallation |
 | … and 25+ more | |
 
@@ -141,25 +140,7 @@ customPolicies.add({
 Install with:
 
 ```bash
-failproofai --install-hooks custom ./my-policies.js
-```
-
----
-
-## LLM-powered intent verification
-
-Some policies (like `requireIntentVerification`) use an LLM to assess intent. Configure it:
-
-```bash
-failproofai --configure-llm
-```
-
-Or set environment variables:
-
-```bash
-FAILPROOFAI_LLM_API_KEY=sk-...
-FAILPROOFAI_LLM_BASE_URL=https://api.openai.com/v1
-FAILPROOFAI_LLM_MODEL=gpt-4o-mini
+failproofai --install-policies --custom-hooks ./my-policies.js
 ```
 
 ---
@@ -171,7 +152,7 @@ Failproof AI collects anonymous usage telemetry via PostHog to understand featur
 Disable it:
 
 ```bash
-FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai --dev
+FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 ```
 
 ---
