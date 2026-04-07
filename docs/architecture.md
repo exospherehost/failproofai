@@ -1,4 +1,8 @@
-# Architecture
+---
+title: Architecture
+description: "How the hook handler, config loading, and policy evaluation work internally"
+icon: sitemap
+---
 
 This document explains how failproofai works internally: how the hook system processes events, how configuration is loaded and merged, how policies are evaluated, and how the dashboard fits in.
 

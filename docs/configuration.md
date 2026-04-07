@@ -1,4 +1,8 @@
-# Configuration
+---
+title: Configuration
+description: "Config file format, three-scope system, and merge rules"
+icon: gear
+---
 
 failproofai uses JSON configuration files to control which policies are active, how they behave, and where custom hooks are loaded from.
 

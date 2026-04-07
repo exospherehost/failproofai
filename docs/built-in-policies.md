@@ -1,4 +1,8 @@
-# Built-in Policies
+---
+title: Built-in Policies
+description: "All 35+ security policies with descriptions and parameters"
+icon: shield
+---
 
 failproofai ships with 35+ built-in security policies. Each policy fires on a specific hook event type and tool name. Eight policies accept parameters that let you tune their behavior without writing code.
 

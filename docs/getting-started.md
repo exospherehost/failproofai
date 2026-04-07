@@ -1,4 +1,8 @@
-# Getting Started
+---
+title: Getting Started
+description: "Install failproofai, enable policies, and take it for a spin"
+icon: rocket
+---
 
 ## Requirements
 

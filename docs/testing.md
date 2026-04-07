@@ -1,4 +1,8 @@
-# Testing
+---
+title: Testing
+description: "Unit tests, E2E tests, and test helpers"
+icon: flask-vial
+---
 
 failproofai has two test suites: **unit tests** (fast, mocked) and **end-to-end tests** (real subprocess invocations).
 
