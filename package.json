@@ -1,6 +1,6 @@
 {
   "name": "failproofai",
-  "version": "0.0.1-beta.10",
+  "version": "0.0.1-beta.11",
   "description": "Open-source hooks, policies, and project visualization for Claude Code & Agents SDK",
   "bin": {
     "failproofai": "./bin/failproofai.mjs"
@@ -11,6 +11,7 @@
     "scripts/",
     "lib/",
     ".next/standalone/",
+    "dist/",
     "README.md"
   ],
   "engines": {
@@ -20,7 +21,7 @@
   "scripts": {
     "predev": "bun link",
     "dev": "FAILPROOFAI_TELEMETRY_DISABLED=1 bun scripts/dev.ts --port 8020",
-    "build": "bun --bun next build && node -e \"const {cpSync}=require('fs');cpSync('.next/static','.next/standalone/.next/static',{recursive:true});\"",
+    "build": "bun build --target=node --format=cjs --outfile=dist/index.js src/index.ts && bun --bun next build && node -e \"const {cpSync}=require('fs');cpSync('.next/static','.next/standalone/.next/static',{recursive:true});\"",
     "prestart": "bun link",
     "start": "FAILPROOFAI_TELEMETRY_DISABLED=1 bun scripts/start.ts",
     "test": "vitest",
