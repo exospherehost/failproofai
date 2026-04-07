@@ -326,8 +326,8 @@ export async function installHooks(
     console.log();
     console.log(`\x1B[33mWarning: Failproof AI hooks are also installed at ${scopeList}.\x1B[0m`);
     console.log(`Having hooks in multiple scopes may cause duplicate policy evaluation.`);
-    console.log(`Use \`failproofai --remove-policies --scope ${duplicates[0]}\` to remove the other installation,`);
-    console.log(`or \`failproofai --list-policies\` to see all scopes.`);
+    console.log(`Use \`failproofai policies --uninstall --scope ${duplicates[0]}\` to remove the other installation,`);
+    console.log(`or \`failproofai policies\` to see all scopes.`);
   }
 }
 
@@ -528,9 +528,9 @@ export async function listHooks(cwd?: string): Promise<void> {
     printBetaSection(printSimpleRow);
 
     if (config.enabledPolicies.length > 0) {
-      console.log("\n  Policies not installed. Run `failproofai --install-policies` to activate.");
+      console.log("\n  Policies not installed. Run `failproofai policies --install` to activate.");
     } else {
-      console.log("\n  Run `failproofai --install-policies` to get started.");
+      console.log("\n  Run `failproofai policies --install` to get started.");
     }
     console.log("  Config: ~/.failproofai/policies-config.json\n");
   } else if (installedScopes.length === 1) {
@@ -594,7 +594,7 @@ export async function listHooks(cwd?: string): Promise<void> {
     const scopeNames = installedScopes.join(", ");
     console.log();
     console.log(`\x1B[33m\u26A0 Hooks in multiple scopes (${scopeNames}).\x1B[0m`);
-    console.log("  Consider keeping one. Remove with: failproofai --remove-policies --scope <scope>\n");
+    console.log("  Consider keeping one. Remove with: failproofai policies --uninstall --scope <scope>\n");
   }
 
   // Warn about unknown policyParams keys

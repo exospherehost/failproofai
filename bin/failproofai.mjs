@@ -6,9 +6,7 @@
  *   --hook <event>        Hook event from Claude Code (minimal startup latency)
  *   --version / -v        Print version and exit
  *   --help / -h           Show usage and exit
- *   --install-policies    Install hooks + enable policies in Claude Code settings
- *   --remove-policies     Remove hooks or disable policies from Claude Code settings
- *   --list-policies       List available policies and their status
+ *   policies              Manage policies (list / install / uninstall)
  *   (default)             Launch production dashboard
  */
 import { realpathSync } from "node:fs";
@@ -28,8 +26,9 @@ if (!process.env.FAILPROOFAI_PACKAGE_ROOT) {
 
 const args = process.argv.slice(2);
 
-// --help / -h
-if (args.includes("--help") || args.includes("-h")) {
+// --help / -h  (only when not inside a subcommand that handles its own --help)
+const SUBCOMMANDS = ["policies"];
+if ((args.includes("--help") || args.includes("-h")) && !SUBCOMMANDS.includes(args[0])) {
   console.log(`
 failproofai v${version}
 
@@ -39,28 +38,32 @@ USAGE
 COMMANDS
   (no args)                      Launch the policy dashboard
 
-  --install-policies [names...]  Enable policies in Claude Code settings
+  policies                       List all available policies and their status
+  policies --install, -i         Enable policies in Claude Code settings
+    [names...]                     Specific policy names to enable
     --scope user|project|local     Config scope to write to (default: user)
     --beta                         Include beta policies
-    --custom <path>                Path to a JS file of custom policies
+    --custom, -c <path>            Path to a JS file of custom policies
 
-  --remove-policies [names...]   Disable policies or remove hooks
+  policies --uninstall, -u       Disable policies or remove hooks
+    [names...]                     Specific policy names to disable
     --scope user|project|local|all Config scope to remove from (default: user)
     --beta                         Remove only beta policies
-    --custom                       Clear the customPoliciesPath from config
+    --custom, -c                   Clear the customPoliciesPath from config
 
-  --list-policies                List all available policies and their status
+  policies --help, -h            Show this help for the policies command
 
   --version, -v                  Print version and exit
   --help, -h                     Show this help message
 
 EXAMPLES
-  failproofai --install-policies
-  failproofai --install-policies block-sudo sanitize-api-keys --scope project
-  failproofai --install-policies --custom ./my-policies.js
-  failproofai --remove-policies block-sudo
-  failproofai --remove-policies --custom
-  failproofai --list-policies
+  failproofai policies
+  failproofai policies --install
+  failproofai policies --install block-sudo sanitize-api-keys --scope project
+  failproofai policies --install --custom ./my-policies.js
+  failproofai policies -i -c ./my-policies.js
+  failproofai policies --uninstall block-sudo
+  failproofai policies --uninstall --custom
 
 LINKS
   ⭐ Star us:      https://github.com/exospherehost/failproofai
@@ -83,70 +86,121 @@ if (hookIdx >= 0 && args[hookIdx + 1]) {
   process.exit(exitCode);
 }
 
-// --install-policies [policyNames...] [--scope user|project|local] [--beta] [--custom <path>]
-if (args.includes("--install-policies")) {
-  const { installHooks } = await import("../src/hooks/manager");
+// policies [--install|-i|--uninstall|-u|--help|-h] [names...] [--scope] [--beta] [--custom|-c <path>]
+if (args[0] === "policies") {
+  const subArgs = args.slice(1);
 
-  const scopeIdx = args.indexOf("--scope");
-  const scope = scopeIdx >= 0 ? args[scopeIdx + 1] : "user";
+  const isInstall   = subArgs.includes("--install")   || subArgs.includes("-i");
+  const isUninstall = subArgs.includes("--uninstall")  || subArgs.includes("-u");
+  const isHelp      = subArgs.includes("--help")       || subArgs.includes("-h");
 
-  const customIdx = args.indexOf("--custom");
-  const customPoliciesPath = customIdx >= 0 ? args[customIdx + 1] : undefined;
+  if (isHelp) {
+    console.log(`
+failproofai policies — manage Failproof AI policies
 
-  const includeBeta = args.includes("--beta");
+USAGE
+  failproofai policies                       List all policies and their status
+  failproofai policies --install, -i         Enable policies
+  failproofai policies --uninstall, -u       Disable policies or remove hooks
 
-  // Collect positional policy names (args after --install-policies that don't start with --)
-  const installIdx = args.indexOf("--install-policies");
-  const policyNames = args
-    .slice(installIdx + 1)
-    .filter((a) => !a.startsWith("--") && a !== scope && a !== customPoliciesPath);
+OPTIONS (install)
+  [names...]                     Specific policy names to enable (omit for interactive)
+  --scope user|project|local     Config scope to write to (default: user)
+  --beta                         Include beta policies
+  --custom, -c <path>            Path to a JS file of custom policies
+                                 (skips interactive prompt; validates file first)
 
-  await installHooks(
-    policyNames.length > 0 ? policyNames : undefined,
-    scope,
-    undefined,
-    includeBeta,
-    undefined,
-    customPoliciesPath,
-  );
-  process.exit(0);
-}
+OPTIONS (uninstall)
+  [names...]                     Specific policy names to disable (omit to remove hooks)
+  --scope user|project|local|all Config scope to remove from (default: user)
+  --beta                         Remove only beta policies
+  --custom, -c                   Clear the customPoliciesPath from config
 
-// --remove-policies [policyNames...] [--scope user|project|local|all] [--beta] [--custom]
-if (args.includes("--remove-policies")) {
-  const { removeHooks } = await import("../src/hooks/manager");
+EXAMPLES
+  failproofai policies
+  failproofai policies --install
+  failproofai policies --install block-sudo sanitize-api-keys
+  failproofai policies --install --custom ./my-policies.js
+  failproofai policies -i -c ./my-policies.js
+  failproofai policies --uninstall block-sudo
+  failproofai policies -u
+  failproofai policies --uninstall --custom
+`.trimStart());
+    process.exit(0);
+  }
 
-  const scopeIdx = args.indexOf("--scope");
-  const scope = scopeIdx >= 0 ? args[scopeIdx + 1] : "user";
+  if (isInstall) {
+    const { installHooks } = await import("../src/hooks/manager");
 
-  const betaOnly = args.includes("--beta");
-  const removeCustomHooks = args.includes("--custom");
+    const scopeIdx = subArgs.indexOf("--scope");
+    const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
 
-  const removeIdx = args.indexOf("--remove-policies");
-  const policyNames = args
-    .slice(removeIdx + 1)
-    .filter((a) => !a.startsWith("--") && a !== scope);
+    const customIdx = subArgs.includes("--custom") ? subArgs.indexOf("--custom")
+                    : subArgs.includes("-c")        ? subArgs.indexOf("-c")
+                    : -1;
+    const customPoliciesPath = customIdx >= 0 ? subArgs[customIdx + 1] : undefined;
 
-  await removeHooks(
-    policyNames.length > 0 ? policyNames : undefined,
-    scope,
-    undefined,
-    { betaOnly, removeCustomHooks },
-  );
-  process.exit(0);
-}
+    const includeBeta = subArgs.includes("--beta");
 
-// --list-policies
-if (args.includes("--list-policies")) {
+    // Collect positional policy names — args that don't start with - and aren't
+    // values consumed by --scope or --custom/-c.
+    const consumed = new Set([scope, customPoliciesPath].filter(Boolean));
+    const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c"]);
+    const explicitPolicyNames = subArgs.filter(
+      (a) => !a.startsWith("-") && !flags.has(a) && !consumed.has(a)
+    );
+
+    // When --custom/-c is present but no explicit policy names, pass [] so
+    // installHooks uses the existing enabled policies and skips the interactive
+    // prompt — validation of the custom file happens inside installHooks.
+    const policyNames =
+      explicitPolicyNames.length > 0 ? explicitPolicyNames
+      : customPoliciesPath !== undefined ? []
+      : undefined;
+
+    await installHooks(
+      policyNames,
+      scope,
+      undefined,
+      includeBeta,
+      undefined,
+      customPoliciesPath,
+    );
+    process.exit(0);
+  }
+
+  if (isUninstall) {
+    const { removeHooks } = await import("../src/hooks/manager");
+
+    const scopeIdx = subArgs.indexOf("--scope");
+    const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
+
+    const betaOnly = subArgs.includes("--beta");
+    const removeCustomHooks = subArgs.includes("--custom") || subArgs.includes("-c");
+
+    const consumed = new Set([scope].filter(Boolean));
+    const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c"]);
+    const policyNames = subArgs.filter(
+      (a) => !a.startsWith("-") && !flags.has(a) && !consumed.has(a)
+    );
+
+    await removeHooks(
+      policyNames.length > 0 ? policyNames : undefined,
+      scope,
+      undefined,
+      { betaOnly, removeCustomHooks },
+    );
+    process.exit(0);
+  }
+
+  // Default: list policies
   const { listHooks } = await import("../src/hooks/manager");
   await listHooks();
   process.exit(0);
 }
 
 // Unknown flag guard — must appear after all known-flag branches
-const knownFlags = ["--version", "-v", "--help", "-h", "--hook",
-                    "--install-policies", "--remove-policies", "--list-policies",
-                    "--scope", "--beta", "--custom"];
+const knownFlags = ["--version", "-v", "--help", "-h", "--hook"];
 const unknownFlag = args.find(a => a.startsWith("-") && !knownFlags.includes(a));
 
 if (unknownFlag) {
@@ -163,8 +217,7 @@ if (unknownFlag) {
     return dp[m][n];
   }
 
-  const primary = ["--version", "--help", "--hook", "--install-policies",
-                   "--remove-policies", "--list-policies"];
+  const primary = ["--version", "--help", "--hook", "policies"];
   const closest = primary.reduce((best, flag) => {
     const dist = levenshtein(unknownFlag, flag);
     return dist < best.dist ? { flag, dist } : best;
@@ -172,6 +225,15 @@ if (unknownFlag) {
 
   console.error(`Unknown flag: ${unknownFlag}`);
   console.error(`Did you mean: ${closest.flag}?`);
+  console.error(`Run \`failproofai --help\` for usage details.`);
+  process.exit(1);
+}
+
+// Unknown subcommand guard (non-flag args that aren't "policies")
+const unknownSubcommand = args.find(a => !a.startsWith("-") && a !== "policies");
+if (unknownSubcommand) {
+  console.error(`Unknown command: ${unknownSubcommand}`);
+  console.error(`Did you mean: failproofai policies?`);
   console.error(`Run \`failproofai --help\` for usage details.`);
   process.exit(1);
 }

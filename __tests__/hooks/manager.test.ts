@@ -741,7 +741,7 @@ describe("hooks/manager", () => {
       );
       expect(headerLine).toBeUndefined();
       // Should show get started hint
-      expect(output).toContain("--install-policies");
+      expect(output).toContain("policies --install");
     });
 
     it("compact output hints to activate when config exists but not installed", async () => {
@@ -757,7 +757,7 @@ describe("hooks/manager", () => {
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       const output = calls.join("\n");
       expect(output).toContain("Policies — not installed");
-      expect(output).toContain("--install-policies");
+      expect(output).toContain("policies --install");
     });
 
     it("single scope shows checkmark list", async () => {

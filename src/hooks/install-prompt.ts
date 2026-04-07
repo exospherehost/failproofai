@@ -263,11 +263,11 @@ export async function promptPolicySelection(
     );
     lines.push("");
     lines.push(
-      "  \x1B[2mTip: --list-policies for a flat list \u00b7 --install-policies <name\u2026> to skip prompt\x1B[0m",
+      "  \x1B[2mTip: `policies` for a flat list \u00b7 `policies --install <name\u2026>` to skip prompt\x1B[0m",
     );
     if (!includeBeta) {
       lines.push(
-        "  \x1B[2mTip: --install-policies all --beta to include beta policies\x1B[0m",
+        "  \x1B[2mTip: `policies --install --beta` to include beta policies\x1B[0m",
       );
     }
 
