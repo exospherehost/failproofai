@@ -1,4 +1,8 @@
-# CLI Reference
+---
+title: CLI Reference
+description: "All commands, flags, and environment variables for the failproofai CLI"
+icon: terminal
+---
 
 All commands are invoked via the `failproofai` binary.
 

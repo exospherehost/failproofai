@@ -1,4 +1,8 @@
-# Package Aliases & Typosquatting Protection
+---
+title: Package Aliases
+description: "Registered typosquat-prevention aliases and how they work"
+icon: copy
+---
 
 ## Official package
 

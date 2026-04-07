@@ -1,4 +1,8 @@
-# Dashboard
+---
+title: Dashboard
+description: "Session viewer, policy management, and activity log"
+icon: chart-line
+---
 
 The failproofai dashboard is a local web application for browsing Claude Code sessions and managing security policies.
 

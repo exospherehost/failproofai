@@ -1,4 +1,8 @@
-# Custom Hooks
+---
+title: Custom Hooks
+description: "Write your own policies in JavaScript with allow, deny, and instruct decisions"
+icon: code
+---
 
 Custom hooks let you write your own policies in JavaScript. They integrate with the same hook event system as built-in policies and support the same `allow`, `deny`, and `instruct` decisions.
 

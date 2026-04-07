@@ -1,4 +1,8 @@
-# Getting Started
+---
+title: Getting Started
+description: "Install failproofai, enable policies, and take it for a spin"
+icon: rocket
+---
 
 ## Requirements
 
@@ -47,7 +51,7 @@ failproofai --install-policies --scope project
 failproofai --install-policies block-sudo block-rm-rf sanitize-api-keys
 ```
 
-See [Built-in Policies](./built-in-policies.md) for the full list.
+See [Built-in Policies](/built-in-policies) for the full list.
 
 ### 3. Verify installation
 
@@ -115,8 +119,8 @@ failproofai --remove-policies --scope project
 
 ## Next steps
 
-- [Configuration](./configuration.md) — understand scopes and the config file format
-- [Built-in Policies](./built-in-policies.md) — full list of policies and their parameters
-- [Custom Hooks](./custom-hooks.md) — write your own policies in JavaScript
-- [Dashboard](./dashboard.md) — using the session viewer and policy manager
-- [CLI Reference](./cli-reference.md) — all flags and commands
+- [Configuration](/configuration) — understand scopes and the config file format
+- [Built-in Policies](/built-in-policies) — full list of policies and their parameters
+- [Custom Hooks](/custom-hooks) — write your own policies in JavaScript
+- [Dashboard](/dashboard) — using the session viewer and policy manager
+- [CLI Reference](/cli-reference) — all flags and commands

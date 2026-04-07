@@ -1,4 +1,8 @@
-# Testing
+---
+title: Testing
+description: "Unit tests, E2E tests, and test helpers"
+icon: flask-vial
+---
 
 failproofai has two test suites: **unit tests** (fast, mocked) and **end-to-end tests** (real subprocess invocations).
 
@@ -253,4 +257,4 @@ The `forks` pool is important: thread-based workers share `globalThis`, which ca
 
 The full CI run (`bun run lint && bunx tsc --noEmit && bun run test:run && bun run build`) is required to pass before merging. The E2E suite runs as a separate CI job in parallel.
 
-See [Contributing](../CONTRIBUTING.md) for the complete pre-merge checklist.
+See [Contributing](https://github.com/exospherehost/failproofai/blob/main/CONTRIBUTING.md) for the complete pre-merge checklist.

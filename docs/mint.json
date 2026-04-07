@@ -1,0 +1,61 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "Failproof AI",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#6366F1",
+    "light": "#818CF8",
+    "dark": "#4F46E5",
+    "anchors": {
+      "from": "#6366F1",
+      "to": "#4F46E5"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "GitHub",
+      "url": "https://github.com/exospherehost/failproofai"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Get Started",
+    "url": "https://www.npmjs.com/package/failproofai"
+  },
+  "anchors": [
+    {
+      "name": "GitHub",
+      "icon": "github",
+      "url": "https://github.com/exospherehost/failproofai"
+    },
+    {
+      "name": "npm",
+      "icon": "npm",
+      "url": "https://www.npmjs.com/package/failproofai"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Getting Started",
+      "pages": ["introduction", "getting-started"]
+    },
+    {
+      "group": "Core Concepts",
+      "pages": ["configuration", "built-in-policies", "custom-hooks"]
+    },
+    {
+      "group": "Tools",
+      "pages": ["cli-reference", "dashboard"]
+    },
+    {
+      "group": "Advanced",
+      "pages": ["architecture", "testing", "package-aliases"]
+    }
+  ],
+  "footerSocials": {
+    "github": "https://github.com/exospherehost/failproofai"
+  }
+}
