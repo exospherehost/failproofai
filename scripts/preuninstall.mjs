@@ -18,7 +18,7 @@ import { homedir, platform, arch } from "node:os";
 import { trackInstallEvent } from "./install-telemetry.mjs";
 
 // Skip when running in development context (same guard as postinstall.mjs).
-if (!process.env.INIT_CWD || process.env.INIT_CWD === process.cwd()) process.exit(0);
+if (process.env.INIT_CWD && process.env.INIT_CWD === process.cwd()) process.exit(0);
 
 const FAILPROOFAI_HOOK_MARKER = "__failproofai_hook__";
 
