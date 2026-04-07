@@ -29,13 +29,13 @@ describe("hooks/custom-hooks-loader", () => {
     vi.resetAllMocks();
   });
 
-  it("returns [] when customHooksPath is undefined", async () => {
+  it("returns [] when customPoliciesPath is undefined", async () => {
     const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
     const result = await loadCustomHooks(undefined);
     expect(result).toEqual([]);
   });
 
-  it("returns [] when customHooksPath is empty string", async () => {
+  it("returns [] when customPoliciesPath is empty string", async () => {
     const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
     const result = await loadCustomHooks("");
     expect(result).toEqual([]);

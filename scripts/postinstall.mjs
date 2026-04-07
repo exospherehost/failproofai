@@ -30,7 +30,7 @@ function hashToId(raw) {
  * @returns {{ configured: boolean, registered: boolean, policyCount: number }}
  */
 function checkHooks() {
-  const hooksConfigPath = resolve(homedir(), ".failproofai", "hooks-config.json");
+  const hooksConfigPath = resolve(homedir(), ".failproofai", "policies-config.json");
   if (!existsSync(hooksConfigPath)) {
     return { configured: false, registered: false, policyCount: 0 };
   }

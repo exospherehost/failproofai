@@ -16,18 +16,18 @@ import type { CustomHook } from "./policy-types";
 const LOADING_KEY = "__FAILPROOFAI_LOADING_HOOKS__";
 
 export async function loadCustomHooks(
-  customHooksPath: string | undefined,
+  customPoliciesPath: string | undefined,
   opts?: { strict?: boolean },
 ): Promise<CustomHook[]> {
-  if (!customHooksPath) return [];
+  if (!customPoliciesPath) return [];
 
-  const absPath = isAbsolute(customHooksPath)
-    ? customHooksPath
-    : resolve(process.cwd(), customHooksPath);
+  const absPath = isAbsolute(customPoliciesPath)
+    ? customPoliciesPath
+    : resolve(process.cwd(), customPoliciesPath);
 
   if (!existsSync(absPath)) {
     if (opts?.strict) throw new Error(`Custom hooks file not found: ${absPath}`);
-    hookLogWarn(`customHooksPath not found: ${absPath}`);
+    hookLogWarn(`customPoliciesPath not found: ${absPath}`);
     return [];
   }
 

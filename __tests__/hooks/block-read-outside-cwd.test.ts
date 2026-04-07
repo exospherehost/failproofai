@@ -327,12 +327,12 @@ describe("block-read-outside-cwd policy", () => {
     const home = os.homedir();
     const ctx = makeCtx({
       toolName: "Bash",
-      toolInput: { command: "cat ~/.failproofai/hooks-config.json" },
+      toolInput: { command: "cat ~/.failproofai/policies-config.json" },
       session: { cwd: "/home/user/project" },
     });
     const result = await policy.fn(ctx);
     expect(result.decision).toBe("deny");
-    expect(result.reason).toContain(`${home}/.failproofai/hooks-config.json`);
+    expect(result.reason).toContain(`${home}/.failproofai/policies-config.json`);
   });
 
   it("allows Read with relative file_path resolved against session cwd", async () => {

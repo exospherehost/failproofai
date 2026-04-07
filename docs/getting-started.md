@@ -89,11 +89,11 @@ failproofai stores all configuration and logs locally:
 
 | Path | Contents |
 |------|----------|
-| `~/.failproofai/hooks-config.json` | Global policy configuration |
+| `~/.failproofai/policies-config.json` | Global policy configuration |
 | `~/.failproofai/hook-activity.jsonl` | Hook execution history (one JSON line per event) |
 | `~/.failproofai/hook.log` | Debug log for custom hook errors |
-| `.failproofai/hooks-config.json` | Per-project policy configuration (committed) |
-| `.failproofai/hooks-config.local.json` | Per-project personal overrides (gitignored) |
+| `.failproofai/policies-config.json` | Per-project policy configuration (committed) |
+| `.failproofai/policies-config.local.json` | Per-project personal overrides (gitignored) |
 
 ---
 

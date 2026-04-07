@@ -364,7 +364,7 @@ describe("hooks/manager", () => {
       );
     });
 
-    it("saves resolved absolute customHooksPath when customHooksPath provided", async () => {
+    it("saves resolved absolute customPoliciesPath when customPoliciesPath provided", async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("{}");
 
@@ -380,20 +380,20 @@ describe("hooks/manager", () => {
 
       expect(writeHooksConfig).toHaveBeenCalledWith(
         expect.objectContaining({
-          customHooksPath: resolve("/tmp/my-hooks.js"),
+          customPoliciesPath: resolve("/tmp/my-hooks.js"),
         }),
       );
       const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       expect(logs.some((l: unknown) => typeof l === "string" && l.includes(resolve("/tmp/my-hooks.js")))).toBe(true);
     });
 
-    it("clears customHooksPath when removeCustomHooks is true", async () => {
+    it("clears customPoliciesPath when removeCustomHooks is true", async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("{}");
       const { readHooksConfig, writeHooksConfig } = await import("../../src/hooks/hooks-config");
       vi.mocked(readHooksConfig).mockReturnValue({
         enabledPolicies: ["block-sudo"],
-        customHooksPath: "/tmp/old-hooks.js",
+        customPoliciesPath: "/tmp/old-hooks.js",
       });
 
       const { installHooks } = await import("../../src/hooks/manager");
@@ -401,7 +401,7 @@ describe("hooks/manager", () => {
       await installHooks(["block-sudo"], "user", undefined, false, undefined, undefined, true);
 
       const [[written]] = vi.mocked(writeHooksConfig).mock.calls;
-      expect((written as unknown as Record<string, unknown>).customHooksPath).toBeUndefined();
+      expect((written as unknown as Record<string, unknown>).customPoliciesPath).toBeUndefined();
       const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       expect(logs.some((l: unknown) => typeof l === "string" && l.includes("Custom hooks path cleared"))).toBe(true);
     });
@@ -992,11 +992,11 @@ describe("hooks/manager", () => {
       expect(output).toContain("not-a-real-policy");
     });
 
-    it("shows Custom Policies section with loaded hooks when customHooksPath is set", async () => {
+    it("shows Custom Policies section with loaded hooks when customPoliciesPath is set", async () => {
       const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
       vi.mocked(readMergedHooksConfig).mockReturnValue({
         enabledPolicies: [],
-        customHooksPath: "/tmp/my-hooks.js",
+        customPoliciesPath: "/tmp/my-hooks.js",
       });
 
       vi.mocked(existsSync).mockImplementation((p) => p === "/tmp/my-hooks.js");
@@ -1017,11 +1017,11 @@ describe("hooks/manager", () => {
       expect(output).toContain("does something");
     });
 
-    it("shows error row when customHooksPath file exists but fails to load", async () => {
+    it("shows error row when customPoliciesPath file exists but fails to load", async () => {
       const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
       vi.mocked(readMergedHooksConfig).mockReturnValue({
         enabledPolicies: [],
-        customHooksPath: "/tmp/broken-hooks.js",
+        customPoliciesPath: "/tmp/broken-hooks.js",
       });
 
       vi.mocked(existsSync).mockImplementation((p) => p === "/tmp/broken-hooks.js");

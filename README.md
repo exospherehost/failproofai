@@ -89,7 +89,7 @@ failproofai --remove-policies --scope project
 
 ## Configuration
 
-Policy configuration lives in `~/.failproofai/hooks-config.json` (global) or `.failproofai/hooks-config.json` in your project (per-project).
+Policy configuration lives in `~/.failproofai/policies-config.json` (global) or `.failproofai/policies-config.json` in your project (per-project).
 
 ```json
 {
@@ -182,7 +182,7 @@ customPolicies.add({
 Install with:
 
 ```bash
-failproofai --install-policies --custom-hooks ./my-policies.js
+failproofai --install-policies --custom ./my-policies.js
 ```
 
 ### Decision helpers

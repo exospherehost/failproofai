@@ -1097,7 +1097,7 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
       })}
 
       {/* Custom policies section */}
-      {config.customHooksPath && (
+      {config.customPoliciesPath && (
         <div>
           {/* Section header — matches category header style */}
           <div className="flex items-center justify-between px-4 py-2.5 bg-muted/20 border-b border-border/50">
@@ -1111,7 +1111,7 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
           {/* File path row */}
           <div className="flex items-center gap-3 px-4 py-3 border-b border-border/20">
             <Code className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <span className="text-xs font-mono text-muted-foreground truncate">{config.customHooksPath}</span>
+            <span className="text-xs font-mono text-muted-foreground truncate">{config.customPoliciesPath}</span>
           </div>
           {/* Reconfigure notice */}
           <div className="flex items-start gap-2 px-4 py-2.5 border-b border-border/20 bg-muted/10">

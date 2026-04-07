@@ -147,7 +147,7 @@ __tests__/e2e/
 import { createFixtureEnv } from "../helpers/fixture-env";
 
 const env = createFixtureEnv();
-// env.cwd    — temp dir; pass as payload.cwd to pick up .failproofai/hooks-config.json
+// env.cwd    — temp dir; pass as payload.cwd to pick up .failproofai/policies-config.json
 // env.home   — isolated home dir; no real ~/.failproofai leaks in
 
 env.writeConfig({

@@ -1,5 +1,5 @@
 /**
- * Read/write the hooks configuration file at ~/.failproofai/hooks-config.json.
+ * Read/write the hooks configuration file at ~/.failproofai/policies-config.json.
  */
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -20,21 +20,21 @@ function readConfigAt(path: string): Partial<HooksConfig> {
 
 /**
  * Read and merge hooks config from three scopes in priority order:
- *   1. {cwd}/.failproofai/hooks-config.json        (project)
- *   2. {cwd}/.failproofai/hooks-config.local.json  (local)
- *   3. ~/.failproofai/hooks-config.json             (global)
+ *   1. {cwd}/.failproofai/policies-config.json        (project)
+ *   2. {cwd}/.failproofai/policies-config.local.json  (local)
+ *   3. ~/.failproofai/policies-config.json             (global)
  *
  * Merge rules:
  *   enabledPolicies: union + dedup across all three
  *   policyParams:    per-policy key, first scope that defines it wins entirely
- *   customHooksPath: first scope that defines it wins
+ *   customPoliciesPath: first scope that defines it wins
  *   llm:            first scope that defines it wins
  */
 export function readMergedHooksConfig(cwd?: string): HooksConfig {
   const base = cwd ? resolve(cwd) : process.cwd();
-  const projectPath = resolve(base, ".failproofai", "hooks-config.json");
-  const localPath = resolve(base, ".failproofai", "hooks-config.local.json");
-  const globalPath = resolve(homedir(), ".failproofai", "hooks-config.json");
+  const projectPath = resolve(base, ".failproofai", "policies-config.json");
+  const localPath = resolve(base, ".failproofai", "policies-config.local.json");
+  const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
 
   const project = readConfigAt(projectPath);
   const local = readConfigAt(localPath);
@@ -58,9 +58,9 @@ export function readMergedHooksConfig(cwd?: string): HooksConfig {
     }
   }
 
-  // customHooksPath: first scope wins
-  const customHooksPath =
-    project.customHooksPath ?? local.customHooksPath ?? global_.customHooksPath;
+  // customPoliciesPath: first scope wins
+  const customPoliciesPath =
+    project.customPoliciesPath ?? local.customPoliciesPath ?? global_.customPoliciesPath;
 
   // llm: first scope wins
   const llm = project.llm ?? local.llm ?? global_.llm;
@@ -68,13 +68,13 @@ export function readMergedHooksConfig(cwd?: string): HooksConfig {
   return {
     enabledPolicies: [...enabledSet],
     ...(Object.keys(mergedParams).length > 0 ? { policyParams: mergedParams } : {}),
-    ...(customHooksPath !== undefined ? { customHooksPath } : {}),
+    ...(customPoliciesPath !== undefined ? { customPoliciesPath } : {}),
     ...(llm !== undefined ? { llm } : {}),
   };
 }
 
 function getConfigPath(): string {
-  return resolve(homedir(), ".failproofai", "hooks-config.json");
+  return resolve(homedir(), ".failproofai", "policies-config.json");
 }
 
 export function readHooksConfig(): HooksConfig {

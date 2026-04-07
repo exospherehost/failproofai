@@ -108,7 +108,7 @@ stdin JSON
   → extract session metadata (session_id, cwd, tool_name, tool_input, etc.)
   → readMergedHooksConfig(cwd)    ← merges project + local + global config
   → register enabled builtin policies with resolved params
-  → load custom hooks from customHooksPath (if set)
+  → load custom hooks from customPoliciesPath (if set)
   → register custom hooks into policy registry
   → evaluate all policies (builtins first, then custom)
       → first deny short-circuits
@@ -127,15 +127,15 @@ The entire process runs in under 100ms for typical payloads with no LLM calls.
 `src/hooks/hooks-config.ts` implements three-scope config loading.
 
 ```
-[1] {cwd}/.failproofai/hooks-config.json        ← project  (highest priority)
-[2] {cwd}/.failproofai/hooks-config.local.json  ← local
-[3] ~/.failproofai/hooks-config.json             ← global   (lowest priority)
+[1] {cwd}/.failproofai/policies-config.json        ← project  (highest priority)
+[2] {cwd}/.failproofai/policies-config.local.json  ← local
+[3] ~/.failproofai/policies-config.json             ← global   (lowest priority)
 ```
 
 Merge logic:
 - `enabledPolicies` — deduplicated union across all three files
 - `policyParams` — per-policy key, first file that defines it wins entirely
-- `customHooksPath` — first file that defines it wins
+- `customPoliciesPath` — first file that defines it wins
 - `llm` — first file that defines it wins
 
 The web dashboard uses `readHooksConfig()` (global only) for reading and writing, since it is not invoked with a project cwd.
@@ -206,7 +206,7 @@ export function clearCustomHooks(): void { ... }  // used in tests
 
 `src/hooks/custom-hooks-loader.ts` loads the user's hooks file:
 
-1. Read `customHooksPath` from config; skip if absent.
+1. Read `customPoliciesPath` from config; skip if absent.
 2. Resolve to absolute path; check file exists.
 3. Rewrite all `from "failproofai"` imports to the actual dist path so `customPolicies` resolves to the same `globalThis` registry.
 4. Recursively rewrite transitive local imports to ensure ESM compatibility.

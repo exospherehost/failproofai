@@ -2,7 +2,7 @@
  * Hook event handler — invoked when Claude Code triggers a hook.
  *
  * Reads the JSON payload from stdin, loads enabled policies from
- * ~/.failproofai/hooks-config.json, evaluates matching policies, persists
+ * ~/.failproofai/policies-config.json, evaluates matching policies, persists
  * activity to disk, and returns the appropriate exit code + stdout response.
  */
 import type { HookEventType, SessionMetadata } from "./types";
@@ -71,7 +71,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   registerBuiltinPolicies(config.enabledPolicies);
 
   // Load and register custom hooks (layer 2, after builtins)
-  const customHooksList = await loadCustomHooks(config.customHooksPath);
+  const customHooksList = await loadCustomHooks(config.customPoliciesPath);
   for (const hook of customHooksList) {
     const hookName = hook.name;
     const fn: PolicyFunction = async (ctx): Promise<PolicyResult> => {

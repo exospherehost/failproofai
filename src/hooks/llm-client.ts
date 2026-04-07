@@ -2,7 +2,7 @@
  * Shared OpenAI-compatible chat completions client.
  *
  * Uses raw `fetch` — no SDK dependency. Any policy can import this
- * to make LLM calls using the shared configuration from hooks-config.json
+ * to make LLM calls using the shared configuration from policies-config.json
  * or environment variables.
  */
 import { readLlmConfig } from "./hooks-config";
@@ -35,7 +35,7 @@ export async function chatCompletion(
   const config = readLlmConfig();
   if (!config) {
     throw new Error(
-      "No LLM API key configured. Set FAILPROOFAI_LLM_API_KEY or configure llm.apiKey in hooks-config.json",
+      "No LLM API key configured. Set FAILPROOFAI_LLM_API_KEY or configure llm.apiKey in policies-config.json",
     );
   }
 
