@@ -1,6 +1,6 @@
 {
   "name": "failproofai",
-  "version": "0.0.1-beta.11",
+  "version": "0.0.1-beta.12",
   "description": "Open-source hooks, policies, and project visualization for Claude Code & Agents SDK",
   "bin": {
     "failproofai": "./bin/failproofai.mjs"
