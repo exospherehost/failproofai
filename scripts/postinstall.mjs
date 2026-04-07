@@ -87,7 +87,7 @@ function printHooksWarning() {
   console.log(
     `\n[failproofai] Warning: hooks config exists with enabled policies, but hooks are not registered in Claude Code settings.\n` +
     `  To re-register hooks, run:\n` +
-    `    failproofai --remove-policies && failproofai --install-policies\n`
+    `    failproofai policies --uninstall && failproofai policies --install\n`
   );
 }
 
