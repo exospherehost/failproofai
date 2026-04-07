@@ -22,39 +22,39 @@ To eliminate this surface, **we pre-emptively own all common misspellings and fo
 
 **Formatting variants** — different ways to write "failproof ai":
 
-| Package | Install command | Status |
-|---------|----------------|--------|
-| `failproof` | `npm install -g failproof` | ✅ published |
-| `failproof-ai` | `npm install -g failproof-ai` | ⏳ pending npm support approval |
-| `fail-proof-ai` | `npm install -g fail-proof-ai` | ⏳ pending npm support approval |
-| `failproof_ai` | `npm install -g failproof_ai` | ⏳ pending npm support approval |
-| `fail_proof_ai` | `npm install -g fail_proof_ai` | ⏳ pending npm support approval |
-| `fail-proofai` | `npm install -g fail-proofai` | ⏳ pending npm support approval |
-
-> **Why pending?** npm's spam-prevention policy blocks registration of names that normalize to the same string as an existing package after stripping punctuation (e.g. `failproof-ai` → `failproofai`). We have contacted npm support to reserve these names for anti-squatting purposes. They will be activated once approved.
+| Package | Status |
+|---------|--------|
+| `failproof` | ✅ Published |
+| `failproof-ai` | ⏳ Pending npm support |
+| `fail-proof-ai` | ⏳ Pending npm support |
+| `failproof_ai` | ⏳ Pending npm support |
+| `fail_proof_ai` | ⏳ Pending npm support |
+| `fail-proofai` | ⏳ Pending npm support |
 
 **`failprof*` typos** — missing one `o` from "proof":
 
-| Package | Install command |
-|---------|----------------|
-| `failprof` | `npm install -g failprof` |
-| `failprof-ai` | `npm install -g failprof-ai` |
-| `failprofai` | `npm install -g failprofai` |
-| `fail-prof-ai` | `npm install -g fail-prof-ai` |
-| `failprof_ai` | `npm install -g failprof_ai` |
+| Package | Status |
+|---------|--------|
+| `failprof` | ✅ Published |
+| `failprof-ai` | ✅ Published |
+| `failprofai` | ⏳ Pending npm support |
+| `fail-prof-ai` | ⏳ Pending npm support |
+| `failprof_ai` | ⏳ Pending npm support |
 
 **`faliproof*` typos** — transposed `a` and `i`:
 
-| Package | Install command |
-|---------|----------------|
-| `faliproof` | `npm install -g faliproof` |
-| `faliproof-ai` | `npm install -g faliproof-ai` |
-| `faliproofai` | `npm install -g faliproofai` |
+| Package | Status |
+|---------|--------|
+| `faliproof` | ✅ Published |
+| `faliproof-ai` | ✅ Published |
+| `faliproofai` | ⏳ Pending npm support |
 
-All 14 aliases are published by **ExosphereHost Inc.** (the same npm account as `failproofai`). You can verify any of them:
+> **Why pending?** npm's spam-prevention policy blocks names that normalize to the same string as an existing package after stripping punctuation and running similarity checks. We have contacted npm support to reserve these names for anti-squatting purposes. They will be activated once approved.
+
+You can verify any published alias is owned by us:
 
 ```bash
-npm info failproof-ai
+npm info failproof
 # Look for: "ExosphereHost Inc." in the maintainers field
 ```
 
@@ -65,7 +65,7 @@ npm info failproof-ai
 Each alias package:
 
 1. Lists `failproofai` as a dependency — so the real package (including its `postinstall` hook setup) runs on install
-2. Exposes a binary matching its own name (e.g. `failproof-ai`) that proxies all arguments to the `failproofai` binary
+2. Exposes a binary matching its own name (e.g. `failprof-ai`) that proxies all arguments to the `failproofai` binary
 
 The proxy is a two-line Node script; there is no logic, no network calls, and no data collection beyond what `failproofai` itself does.
 
