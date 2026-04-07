@@ -1,0 +1,190 @@
+name: Post-Publish Smoke Test
+
+on:
+  workflow_run:
+    workflows: ["Publish to npm"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version to test (defaults to package.json)"
+        required: false
+
+jobs:
+  smoke:
+    name: Smoke test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    env:
+      FAILPROOFAI_TELEMETRY_DISABLED: "1"
+
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # Required: the failproofai binary uses #!/usr/bin/env bun
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Resolve version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+          fi
+
+      - name: Wait for npm registry (backoff 0s → 2s → 4s → 8s → 30s → 60s)
+        run: |
+          DELAYS=(0 2 4 8 30 60)
+          PUBLISHED=""
+          for delay in "${DELAYS[@]}"; do
+            if [ "$delay" -gt 0 ]; then
+              echo "Waiting ${delay}s before retry..."
+              sleep "$delay"
+            fi
+            PUBLISHED=$(npm view "failproofai@${VERSION}" version 2>/dev/null || true)
+            if [ "$PUBLISHED" = "$VERSION" ]; then
+              echo "Version ${VERSION} is available on npm"
+              break
+            fi
+            echo "Not yet available (after ${delay}s delay)"
+          done
+          if [ "$PUBLISHED" != "$VERSION" ]; then
+            echo "::error::Version ${VERSION} never appeared on npm after all retries"
+            exit 1
+          fi
+
+      - name: Install package globally
+        run: npm install -g "failproofai@${VERSION}"
+
+      - name: Smoke test -- version
+        run: |
+          ACTUAL=$(failproofai --version)
+          if [ "$ACTUAL" != "$VERSION" ]; then
+            echo "::error::Version mismatch: expected '${VERSION}', got '${ACTUAL}'"
+            exit 1
+          fi
+          echo "Version OK: ${ACTUAL}"
+
+      - name: Create empty projects directory
+        run: mkdir -p "$RUNNER_TEMP/smoke-projects"
+
+      - name: Start dashboard server
+        run: |
+          CLAUDE_PROJECTS_PATH="$RUNNER_TEMP/smoke-projects" failproofai &
+          echo "SERVER_PID=$!" >> "$GITHUB_ENV"
+
+      - name: Wait for server readiness
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf --max-time 3 http://localhost:8020/ > /dev/null 2>&1; then
+              echo "Server ready after ${i} poll(s)"
+              break
+            fi
+            if [ "$i" -eq 30 ]; then
+              echo "::error::Server failed to become ready within 60 seconds"
+              exit 1
+            fi
+            sleep 2
+          done
+
+      - name: Capture HTML from /policies and /projects
+        run: |
+          curl -sf --max-time 15 http://localhost:8020/policies > "$RUNNER_TEMP/policies.html"
+          curl -sf --max-time 15 http://localhost:8020/projects > "$RUNNER_TEMP/projects.html"
+
+      - name: Stop server
+        if: always()
+        run: kill "$SERVER_PID" || true
+
+      - name: Compare HTML against golden snapshots
+        run: |
+          cat > "$RUNNER_TEMP/compare.py" << 'PYEOF'
+          import sys, re
+
+          def is_placeholder(html):
+              return html.strip().startswith("<!-- PLACEHOLDER:")
+
+          def normalize(html):
+              # Strip __NEXT_DATA__ (contains per-build buildId)
+              html = re.sub(
+                  r'<script id="__NEXT_DATA__"[^>]*>.*?</script>',
+                  '<script id="__NEXT_DATA__"></script>',
+                  html, flags=re.DOTALL
+              )
+              # Strip RSC streaming flush scripts
+              html = re.sub(
+                  r'<script>self\.__next_f\.push\(.*?</script>',
+                  '', html, flags=re.DOTALL
+              )
+              # Normalize Next.js build ID in static paths
+              html = re.sub(r'/_next/static/[A-Za-z0-9_-]+/', '/_next/static/__BUILD__/', html)
+              # Normalize content-hash suffixes in JS chunk filenames
+              html = re.sub(r'-[a-f0-9]{8,16}\.js', '-__HASH__.js', html)
+              return html
+
+          runner_temp = sys.argv[1]
+          failed = False
+
+          for page in ["policies", "projects"]:
+              golden_path = f".github/smoke-test/expected/{page}.html"
+              actual_path = f"{runner_temp}/{page}.html"
+
+              with open(golden_path) as f:
+                  golden = f.read()
+              with open(actual_path) as f:
+                  actual = f.read()
+
+              if is_placeholder(golden):
+                  print(f"[{page}] WARNING: golden snapshot is a placeholder — skipping comparison")
+                  print(f"[{page}]   Run locally and commit {golden_path} to enable this check")
+                  continue
+
+              n_golden = normalize(golden)
+              n_actual = normalize(actual)
+
+              if n_golden != n_actual:
+                  print(f"[{page}] FAIL: HTML does not match golden snapshot")
+                  for i, (a, b) in enumerate(zip(n_golden, n_actual)):
+                      if a != b:
+                          start = max(0, i - 120)
+                          end = i + 120
+                          print(f"  First diff at position {i}:")
+                          print(f"  Expected: ...{n_golden[start:end]}...")
+                          print(f"  Actual:   ...{n_actual[start:end]}...")
+                          break
+                  if len(n_golden) != len(n_actual):
+                      print(f"  Length: expected {len(n_golden)}, got {len(n_actual)}")
+                  failed = True
+              else:
+                  print(f"[{page}] OK")
+
+          sys.exit(1 if failed else 0)
+          PYEOF
+          python3 "$RUNNER_TEMP/compare.py" "$RUNNER_TEMP"
+
+      - name: Upload HTML artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-html-${{ matrix.os }}
+          path: ${{ runner.temp }}/*.html
+          retention-days: 3
