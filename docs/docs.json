@@ -1,0 +1,83 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "luma",
+  "name": "FailproofAI",
+  "colors": {
+    "primary": "#002CA7",
+    "light": "#e4587d",
+    "dark": "#002CA7"
+  },
+  "favicon": "/favicon.ico",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Docs",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "getting-started"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "configuration",
+              "built-in-policies",
+              "custom-hooks"
+            ]
+          },
+          {
+            "group": "Tools",
+            "pages": [
+              "cli-reference",
+              "dashboard"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "architecture",
+              "testing",
+              "package-aliases"
+            ]
+          }
+        ]
+      }
+    ],
+    "global": {
+      "anchors": [
+        {
+          "anchor": "GitHub",
+          "href": "https://github.com/exospherehost/failproofai",
+          "icon": "github"
+        },
+        {
+          "anchor": "npm",
+          "href": "https://www.npmjs.com/package/failproofai",
+          "icon": "npm"
+        },
+        {
+          "anchor": "Discord",
+          "href": "https://discord.com/invite/zT92CAgvkj",
+          "icon": "discord"
+        }
+      ]
+    }
+  },
+  "navbar": {
+    "links": [],
+    "primary": {
+      "type": "button",
+      "label": "Get started",
+      "href": "/getting-started"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/exospherehost/failproofai",
+      "x": "https://x.com/exospherehost"
+    }
+  }
+}
