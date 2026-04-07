@@ -67,12 +67,18 @@ describe("preuninstall script", () => {
   });
 
   describe("dev context guard", () => {
-    it("exits 0 when INIT_CWD is not set", async () => {
+    it("removes hooks when INIT_CWD is not set (npm uninstall scenario)", async () => {
       delete process.env.INIT_CWD;
-      await expect(import("../../scripts/preuninstall.mjs")).rejects.toThrow("process.exit called");
-      expect(exitSpy).toHaveBeenCalledWith(0);
-      const { writeFileSync } = await import("node:fs");
-      expect(writeFileSync).not.toHaveBeenCalled();
+      const { existsSync, readFileSync, writeFileSync } = await import("node:fs");
+      vi.mocked(existsSync).mockImplementation((p) => p === USER_SETTINGS);
+      vi.mocked(readFileSync).mockReturnValue(settingsWithMarkedHook());
+
+      await import("../../scripts/preuninstall.mjs");
+
+      expect(exitSpy).not.toHaveBeenCalled();
+      expect(writeFileSync).toHaveBeenCalledOnce();
+      const written = JSON.parse(vi.mocked(writeFileSync).mock.calls[0][1] as string);
+      expect(written.hooks).toBeUndefined();
     });
 
     it("exits 0 when INIT_CWD equals cwd", async () => {
