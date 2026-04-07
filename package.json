@@ -20,7 +20,7 @@
   "scripts": {
     "predev": "bun link",
     "dev": "FAILPROOFAI_TELEMETRY_DISABLED=1 bun scripts/dev.ts --port 8020",
-    "build": "bun --bun next build",
+    "build": "bun --bun next build && node -e \"const {cpSync}=require('fs');cpSync('.next/static','.next/standalone/.next/static',{recursive:true});\"",
     "prestart": "bun link",
     "start": "FAILPROOFAI_TELEMETRY_DISABLED=1 bun scripts/start.ts",
     "test": "vitest",
@@ -28,7 +28,7 @@
     "lint": "eslint . --config eslint.config.mjs",
     "postinstall": "node scripts/postinstall.mjs",
     "preuninstall": "node scripts/preuninstall.mjs",
-    "prepublishOnly": "bun run build",
+    "prepare": "bun run build",
     "test:e2e": "vitest run --config vitest.config.e2e.mts",
     "test:e2e:watch": "vitest --config vitest.config.e2e.mts"
   },
