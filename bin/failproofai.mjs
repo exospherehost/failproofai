@@ -10,7 +10,20 @@
  *   --list-policies       List available policies and their status
  *   (default)             Launch production dashboard
  */
+import { realpathSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { version } from "../package.json";
+
+// Resolve the real package root early (following any npm bin symlinks) so that
+// scripts/launch.ts can locate .next/standalone/server.js correctly regardless
+// of how bun resolves import.meta.url for dynamically-imported modules.
+if (!process.env.FAILPROOFAI_PACKAGE_ROOT) {
+  process.env.FAILPROOFAI_PACKAGE_ROOT = resolve(
+    dirname(realpathSync(fileURLToPath(import.meta.url))),
+    ".."
+  );
+}
 
 const args = process.argv.slice(2);
 
