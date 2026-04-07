@@ -24,7 +24,18 @@ if (!process.env.FAILPROOFAI_PACKAGE_ROOT) {
   );
 }
 
+if (!process.env.FAILPROOFAI_DIST_PATH) {
+  process.env.FAILPROOFAI_DIST_PATH = resolve(
+    dirname(realpathSync(fileURLToPath(import.meta.url))),
+    "..",
+    "dist"
+  );
+}
+
 const args = process.argv.slice(2);
+
+// Normalize 'p' → 'policies' (shorthand alias)
+if (args[0] === "p") args[0] = "policies";
 
 // --help / -h  (only when not inside a subcommand that handles its own --help)
 const SUBCOMMANDS = ["policies"];
@@ -38,7 +49,7 @@ USAGE
 COMMANDS
   (no args)                      Launch the policy dashboard
 
-  policies                       List all available policies and their status
+  policies, p                    List all available policies and their status
   policies --install, -i         Enable policies in Claude Code settings
     [names...]                     Specific policy names to enable
     --scope user|project|local     Config scope to write to (default: user)
