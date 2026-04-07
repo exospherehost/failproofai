@@ -7,6 +7,7 @@ export interface ParsedScriptArgs {
   claudeProjectsPath: string | undefined;
   loggingLevel: string | undefined;
   disableTelemetry: boolean;
+  allowedDevOrigins: string[] | undefined;
   remainingArgs: string[];
 }
 
@@ -32,6 +33,7 @@ export function parseScriptArgs(argv: string[]): ParsedScriptArgs {
   let claudeProjectsPath: string | undefined;
   let loggingLevel: string | undefined;
   let disableTelemetry = false;
+  let allowedDevOrigins: string[] | undefined;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -71,7 +73,15 @@ export function parseScriptArgs(argv: string[]): ParsedScriptArgs {
       i--;
       continue;
     }
+
+    if (flag === "--allowed-origins") {
+      const { value, spliceCount } = parseStringFlag(flag, "a comma-separated list of origins", inlineValue, args, i);
+      allowedDevOrigins = value.split(",").map(s => s.trim()).filter(Boolean);
+      args.splice(i, spliceCount);
+      i--;
+      continue;
+    }
   }
 
-  return { claudeProjectsPath, loggingLevel, disableTelemetry, remainingArgs: args };
+  return { claudeProjectsPath, loggingLevel, disableTelemetry, allowedDevOrigins, remainingArgs: args };
 }

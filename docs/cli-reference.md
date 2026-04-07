@@ -13,6 +13,28 @@ failproofai --start
 
 Starts the web dashboard at `http://localhost:8020`. Use `--start` for production mode (Next.js standalone). The default bare invocation uses development mode with auto-reload.
 
+**Options (dev mode only):**
+
+| Flag | Description |
+|------|-------------|
+| `--port <number>` | Port to listen on (default: `8020`) |
+| `--projects-path <path>` | Override the Claude projects path |
+| `--allowed-origins <origins>` | Comma-separated list of hosts/IPs allowed to access dev resources (e.g. HMR websocket). Required when accessing the dev server from a hostname other than `localhost`. |
+
+**Example — allow a custom hostname in dev:**
+
+```bash
+npm run dev -- --allowed-origins dashboard.example.com
+# or multiple:
+npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
+```
+
+You can also set the env var directly instead of using the flag:
+
+```bash
+FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
+```
+
 ---
 
 ## Hook handler (internal)
@@ -145,4 +167,5 @@ Prints the installed version number.
 | `FAILPROOFAI_TELEMETRY_DISABLED=1` | Disable anonymous usage telemetry |
 | `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Server log level (default: `warn`) |
 | `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Comma-separated list of dashboard pages to disable |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Comma-separated list of hosts/IPs allowed to access Next.js dev resources (HMR). Dev mode only. Equivalent to `--allowed-origins`. |
 | `CLAUDE_PROJECTS_PATH` | Override the path where Claude Code project folders are found |

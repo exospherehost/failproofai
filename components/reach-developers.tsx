@@ -1,7 +1,7 @@
 /** Dropdown menu for users to reach the development team via GitHub. */
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { GitBranch, Lightbulb, Bug, MessageSquare, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -28,33 +28,30 @@ const options = [
 
 export const ReachDevelopers: React.FC = () => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const close = useCallback(() => setOpen(false), []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape" && open) {
-      setOpen(false);
-    }
-  }, [open]);
+    if (e.key === "Escape") setOpen(false);
+  }, []);
 
   return (
-    <div ref={ref} className="relative" onKeyDown={handleKeyDown}>
+    <div className="relative" onKeyDown={handleKeyDown}>
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={close}
+          aria-hidden="true"
+        />
+      )}
       <Button
+        type="button"
         variant="ghost"
         size="sm"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-haspopup="true"
-        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+        className="relative z-50 flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
       >
         <GitBranch className="h-4 w-4" />
         <span className="hidden sm:inline text-xs">Reach Us</span>
@@ -80,7 +77,7 @@ export const ReachDevelopers: React.FC = () => {
                 rel="noopener noreferrer"
                 role="menuitem"
                 className="flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                onClick={() => setOpen(false)}
+                onClick={close}
               >
                 <Icon className="h-3.5 w-3.5 flex-shrink-0" />
                 {label}
@@ -91,9 +88,7 @@ export const ReachDevelopers: React.FC = () => {
             <p className="text-[0.65rem] text-muted-foreground">
               or email{" "}
               <a
-                href={`${GITHUB_REPO}/issues`}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`mailto:${CONTACT_EMAIL}`}
                 className="text-primary hover:text-primary/80 transition-colors"
               >
                 {CONTACT_EMAIL}

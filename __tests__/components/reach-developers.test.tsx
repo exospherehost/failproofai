@@ -54,20 +54,16 @@ describe("ReachDevelopers", () => {
 
   it("click outside closes dropdown", async () => {
     const user = userEvent.setup();
-    render(
-      <div>
-        <div data-testid="outside">Outside</div>
-        <ReachDevelopers />
-      </div>
-    );
+    const { container } = render(<ReachDevelopers />);
 
     // Open dropdown
     const btn = screen.getAllByRole("button")[0];
     await user.click(btn);
     expect(screen.getByText("Request a Feature")).toBeInTheDocument();
 
-    // Click outside
-    await user.click(screen.getByTestId("outside"));
+    // Click the backdrop overlay (the fixed inset-0 div rendered when open)
+    const backdrop = container.querySelector('[aria-hidden="true"]') as HTMLElement;
+    await user.click(backdrop);
     expect(screen.queryByText("Report an Issue")).not.toBeInTheDocument();
   });
 

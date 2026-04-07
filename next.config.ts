@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
+const allowedDevOrigins = process.env.FAILPROOFAI_ALLOWED_DEV_ORIGINS
+  ? process.env.FAILPROOFAI_ALLOWED_DEV_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+  : undefined;
+
 const nextConfig: NextConfig = {
+  ...(allowedDevOrigins ? { allowedDevOrigins } : {}),
   output: "standalone",
   productionBrowserSourceMaps: false,
   turbopack: {

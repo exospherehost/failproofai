@@ -9,7 +9,7 @@ import { parseScriptArgs } from "./parse-script-args";
 import { version } from "../package.json";
 
 export function launch(mode: "dev" | "start"): void {
-  const { claudeProjectsPath: parsedPath, loggingLevel, disableTelemetry, remainingArgs } = parseScriptArgs(process.argv.slice(2));
+  const { claudeProjectsPath: parsedPath, loggingLevel, disableTelemetry, allowedDevOrigins, remainingArgs } = parseScriptArgs(process.argv.slice(2));
 
   console.log(`
     ______      _ __                       ____   ___    ____
@@ -53,6 +53,7 @@ export function launch(mode: "dev" | "start"): void {
       CLAUDE_PROJECTS_PATH: claudeProjectsPath,
       ...(loggingLevel ? { FAILPROOFAI_LOG_LEVEL: loggingLevel } : {}),
       ...(disableTelemetry ? { FAILPROOFAI_TELEMETRY_DISABLED: "1" } : {}),
+      ...(allowedDevOrigins ? { FAILPROOFAI_ALLOWED_DEV_ORIGINS: allowedDevOrigins.join(",") } : {}),
     },
   });
 
