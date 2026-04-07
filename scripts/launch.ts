@@ -21,7 +21,7 @@ export function launch(mode: "dev" | "start"): void {
                /_/   v${version}
 `);
   console.log(`  ⭐ Star us:      https://github.com/exospherehost/failproofai`);
-  console.log(`  📖 Docs:         https://failproof.ai\n`);
+  console.log(`  📖 Docs:         https://befailproof.ai\n`);
 
   let claudeProjectsPath = parsedPath;
 

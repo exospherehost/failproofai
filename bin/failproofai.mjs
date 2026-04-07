@@ -64,7 +64,7 @@ EXAMPLES
 
 LINKS
   ⭐ Star us:      https://github.com/exospherehost/failproofai
-  📖 Docs:         https://failproof.ai
+  📖 Docs:         https://befailproof.ai
 `.trimStart());
   process.exit(0);
 }

@@ -17,7 +17,7 @@ const options = [
   {
     label: "Documentation",
     icon: BookOpen,
-    href: "https://failproof.ai",
+    href: "https://befailproof.ai",
   },
   {
     label: "Request a Feature",
