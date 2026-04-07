@@ -29,6 +29,9 @@ const ALIASES = [
   'faliproofai',
 ];
 
+const skipped = [];
+const failed = [];
+
 for (const name of ALIASES) {
   const tmpDir = join('/tmp', `npm-alias-${name}-${Date.now()}`);
   const binDir = join(tmpDir, 'bin');
@@ -55,11 +58,39 @@ for (const name of ALIASES) {
     console.log(`[dry-run] Would publish ${name}@${VERSION}`);
     console.log(JSON.stringify(pkg, null, 2));
     console.log('---');
-  } else {
-    console.log(`Publishing ${name}@${VERSION}...`);
-    execSync('npm publish', { cwd: tmpDir, stdio: 'inherit' });
+    rmSync(tmpDir, { recursive: true, force: true });
+    continue;
+  }
+
+  console.log(`Publishing ${name}@${VERSION}...`);
+  try {
+    execSync('npm publish', { cwd: tmpDir, stdio: 'pipe' });
     console.log(`Done: ${name}`);
+  } catch (err) {
+    const output = (err.stdout?.toString() ?? '') + (err.stderr?.toString() ?? '');
+    if (output.includes('E403') && output.includes('too similar')) {
+      // npm blocks names that normalize to the same string as an existing package
+      // (e.g. "failproof-ai" → "failproofai"). These must be requested via npm
+      // support at https://www.npmjs.com/support — skipping without failing the build.
+      console.warn(`[SKIP] ${name}: blocked by npm similarity check — request manually via npm support`);
+      skipped.push(name);
+    } else if (output.includes('E403') && output.includes('cannot publish over')) {
+      // Already published at this version — treat as success.
+      console.log(`[SKIP] ${name}: already published at ${VERSION}`);
+    } else {
+      console.error(`[FAIL] ${name}:\n${output}`);
+      failed.push(name);
+    }
   }
 
   rmSync(tmpDir, { recursive: true, force: true });
+}
+
+if (skipped.length > 0) {
+  console.log(`\nSkipped (npm similarity block — request via npm support):\n  ${skipped.join('\n  ')}`);
+}
+
+if (failed.length > 0) {
+  console.error(`\nFailed with unexpected errors:\n  ${failed.join('\n  ')}`);
+  process.exit(1);
 }

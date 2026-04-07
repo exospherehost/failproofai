@@ -22,14 +22,16 @@ To eliminate this surface, **we pre-emptively own all common misspellings and fo
 
 **Formatting variants** — different ways to write "failproof ai":
 
-| Package | Install command |
-|---------|----------------|
-| `failproof` | `npm install -g failproof` |
-| `failproof-ai` | `npm install -g failproof-ai` |
-| `fail-proof-ai` | `npm install -g fail-proof-ai` |
-| `failproof_ai` | `npm install -g failproof_ai` |
-| `fail_proof_ai` | `npm install -g fail_proof_ai` |
-| `fail-proofai` | `npm install -g fail-proofai` |
+| Package | Install command | Status |
+|---------|----------------|--------|
+| `failproof` | `npm install -g failproof` | ✅ published |
+| `failproof-ai` | `npm install -g failproof-ai` | ⏳ pending npm support approval |
+| `fail-proof-ai` | `npm install -g fail-proof-ai` | ⏳ pending npm support approval |
+| `failproof_ai` | `npm install -g failproof_ai` | ⏳ pending npm support approval |
+| `fail_proof_ai` | `npm install -g fail_proof_ai` | ⏳ pending npm support approval |
+| `fail-proofai` | `npm install -g fail-proofai` | ⏳ pending npm support approval |
+
+> **Why pending?** npm's spam-prevention policy blocks registration of names that normalize to the same string as an existing package after stripping punctuation (e.g. `failproof-ai` → `failproofai`). We have contacted npm support to reserve these names for anti-squatting purposes. They will be activated once approved.
 
 **`failprof*` typos** — missing one `o` from "proof":
 
