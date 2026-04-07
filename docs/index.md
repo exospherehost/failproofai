@@ -16,6 +16,7 @@ Open-source hooks, policies, and session visualization for **Claude Code** and t
 | [Dashboard](./dashboard.md) | Session viewer, policy management, and activity log |
 | [Architecture](./architecture.md) | How the hook handler, config loading, and policy evaluation work |
 | [Testing](./testing.md) | Unit tests, E2E tests, and test helpers |
+| [Package Aliases](./package-aliases.md) | Registered typosquat-prevention aliases and how they work |
 
 ---
 
