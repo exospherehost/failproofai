@@ -1,0 +1,38 @@
+name: Sync Hook Event Types
+
+on:
+  schedule:
+    - cron: '7 8 * * *' # daily at 08:07 UTC
+  workflow_dispatch:
+
+jobs:
+  sync-hooks:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run hook coverage sync
+        env:
+          ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+          ANTHROPIC_AUTH_TOKEN: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FAILPROOFAI_TELEMETRY_DISABLED: "1"
+          CLAUDE_SKIP_SETUP_MODAL: "true"
+        run: |
+          claude \
+            --model claude-sonnet-4-6 \
+            --allowedTools "Read,Edit,Glob,Grep,WebFetch,Bash" \
+            --dangerously-skip-permissions \
+            -p "$(cat scripts/sync-hook-events-prompt.md)"
