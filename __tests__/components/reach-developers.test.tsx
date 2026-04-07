@@ -24,8 +24,8 @@ describe("ReachDevelopers", () => {
 
     // Dropdown should now be visible
     expect(screen.getByText("Request a Feature")).toBeInTheDocument();
-    expect(screen.getByText("Report a Bug")).toBeInTheDocument();
-    expect(screen.getByText("General Inquiry")).toBeInTheDocument();
+    expect(screen.getByText("Report an Issue")).toBeInTheDocument();
+    expect(screen.getByText("Ask a Question")).toBeInTheDocument();
   });
 
   it("contains correct mailto links with subjects", async () => {
@@ -38,37 +38,33 @@ describe("ReachDevelopers", () => {
     const featureLink = screen.getByText("Request a Feature").closest("a");
     expect(featureLink).toHaveAttribute(
       "href",
-      expect.stringContaining("mailto:failproofai@exosphere.host")
+      expect.stringContaining("github.com/exospherehost/failproofai")
     );
     expect(featureLink).toHaveAttribute(
       "href",
-      expect.stringContaining("subject=")
+      expect.stringContaining("labels=enhancement")
     );
 
-    const bugLink = screen.getByText("Report a Bug").closest("a");
+    const bugLink = screen.getByText("Report an Issue").closest("a");
     expect(bugLink).toHaveAttribute(
       "href",
-      expect.stringContaining("mailto:failproofai@exosphere.host")
+      expect.stringContaining("github.com/exospherehost/failproofai")
     );
   });
 
   it("click outside closes dropdown", async () => {
     const user = userEvent.setup();
-    render(
-      <div>
-        <div data-testid="outside">Outside</div>
-        <ReachDevelopers />
-      </div>
-    );
+    const { container } = render(<ReachDevelopers />);
 
     // Open dropdown
     const btn = screen.getAllByRole("button")[0];
     await user.click(btn);
     expect(screen.getByText("Request a Feature")).toBeInTheDocument();
 
-    // Click outside
-    await user.click(screen.getByTestId("outside"));
-    expect(screen.queryByText("Request a Feature")).not.toBeInTheDocument();
+    // Click the backdrop overlay (the fixed inset-0 div rendered when open)
+    const backdrop = container.querySelector('[aria-hidden="true"]') as HTMLElement;
+    await user.click(backdrop);
+    expect(screen.queryByText("Report an Issue")).not.toBeInTheDocument();
   });
 
   // ARIA attribute tests
@@ -117,6 +113,6 @@ describe("ReachDevelopers", () => {
     expect(screen.getByText("Request a Feature")).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
-    expect(screen.queryByText("Request a Feature")).not.toBeInTheDocument();
+    expect(screen.queryByText("Report an Issue")).not.toBeInTheDocument();
   });
 });

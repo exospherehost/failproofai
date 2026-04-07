@@ -109,3 +109,33 @@ By default, the dashboard reads from the standard Claude Code projects directory
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 ```
+
+---
+
+## Accessing from a non-localhost host
+
+When running the dashboard in **dev mode** (`npm run dev`) and accessing it from a hostname other than `localhost` — for example, a custom domain, a remote IP, or a tunneled URL — you may see a warning like:
+
+```
+⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
+```
+
+This is Next.js blocking cross-origin access to its HMR (hot module reload) websocket, which is a dev-only feature. To allow your host, use the `--allowed-origins` flag:
+
+```bash
+npm run dev -- --allowed-origins dashboard.example.com
+```
+
+For multiple hosts or IPs, pass a comma-separated list:
+
+```bash
+npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
+```
+
+You can also set the `FAILPROOFAI_ALLOWED_DEV_ORIGINS` environment variable instead:
+
+```bash
+FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
+```
+
+> **Note:** This only applies to dev mode. When running `failproofai` (production mode), there is no HMR websocket and no cross-origin dev resource issue.

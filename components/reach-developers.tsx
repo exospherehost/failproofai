@@ -1,61 +1,59 @@
-/** Dropdown menu for users to reach the development team via email. */
+/** Dropdown menu for users to reach the development team via GitHub. */
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { Mail, Lightbulb, Bug, MessageSquare, ChevronDown } from "lucide-react";
+import React, { useState, useCallback } from "react";
+import { GitBranch, Lightbulb, Bug, MessageSquare, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+const GITHUB_REPO = "https://github.com/exospherehost/failproofai";
 const CONTACT_EMAIL = "failproofai@exosphere.host";
 
 const options = [
   {
     label: "Request a Feature",
     icon: Lightbulb,
-    subject: "Feature Request: ",
+    href: `${GITHUB_REPO}/issues/new?labels=enhancement&title=Feature+Request%3A+`,
   },
   {
-    label: "Report a Bug",
+    label: "Report an Issue",
     icon: Bug,
-    subject: "Bug Report: ",
+    href: `${GITHUB_REPO}/issues/new?labels=bug&title=Bug+Report%3A+`,
   },
   {
-    label: "General Inquiry",
+    label: "Ask a Question",
     icon: MessageSquare,
-    subject: "General Inquiry: ",
+    href: `${GITHUB_REPO}/discussions/new?category=q-a`,
   },
 ] as const;
 
 export const ReachDevelopers: React.FC = () => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const close = useCallback(() => setOpen(false), []);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === "Escape" && open) {
-      setOpen(false);
-    }
-  }, [open]);
+    if (e.key === "Escape") setOpen(false);
+  }, []);
 
   return (
-    <div ref={ref} className="relative" onKeyDown={handleKeyDown}>
+    <div className="relative" onKeyDown={handleKeyDown}>
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={close}
+          aria-hidden="true"
+        />
+      )}
       <Button
+        type="button"
         variant="ghost"
         size="sm"
         onClick={() => setOpen((prev) => !prev)}
         aria-expanded={open}
         aria-haspopup="true"
-        className="flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
+        className="relative z-50 flex items-center gap-1.5 text-muted-foreground hover:text-foreground"
       >
-        <Mail className="h-4 w-4" />
+        <GitBranch className="h-4 w-4" />
         <span className="hidden sm:inline text-xs">Reach Us</span>
         <ChevronDown
           className={`h-3 w-3 transition-transform ${open ? "rotate-180" : ""}`}
@@ -71,13 +69,15 @@ export const ReachDevelopers: React.FC = () => {
             </p>
           </div>
           <div className="py-1">
-            {options.map(({ label, icon: Icon, subject }) => (
+            {options.map(({ label, icon: Icon, href }) => (
               <a
                 key={label}
-                href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
                 role="menuitem"
                 className="flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                onClick={() => setOpen(false)}
+                onClick={close}
               >
                 <Icon className="h-3.5 w-3.5 flex-shrink-0" />
                 {label}
@@ -85,12 +85,15 @@ export const ReachDevelopers: React.FC = () => {
             ))}
           </div>
           <div className="px-3 py-2 border-t border-border">
-            <a
-              href={`mailto:${CONTACT_EMAIL}`}
-              className="text-[0.65rem] text-primary hover:text-primary/80 transition-colors"
-            >
-              {CONTACT_EMAIL}
-            </a>
+            <p className="text-[0.65rem] text-muted-foreground">
+              or email{" "}
+              <a
+                href={`mailto:${CONTACT_EMAIL}`}
+                className="text-primary hover:text-primary/80 transition-colors"
+              >
+                {CONTACT_EMAIL}
+              </a>
+            </p>
           </div>
         </div>
       )}
