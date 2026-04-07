@@ -29,6 +29,8 @@ const ALIASES = [
   'faliproofai',
 ];
 
+const warnings = [];
+
 for (const name of ALIASES) {
   const tmpDir = join('/tmp', `npm-alias-${name}-${Date.now()}`);
   const binDir = join(tmpDir, 'bin');
@@ -55,11 +57,29 @@ for (const name of ALIASES) {
     console.log(`[dry-run] Would publish ${name}@${VERSION}`);
     console.log(JSON.stringify(pkg, null, 2));
     console.log('---');
-  } else {
-    console.log(`Publishing ${name}@${VERSION}...`);
-    execSync('npm publish', { cwd: tmpDir, stdio: 'inherit' });
+    rmSync(tmpDir, { recursive: true, force: true });
+    continue;
+  }
+
+  console.log(`Publishing ${name}@${VERSION}...`);
+  try {
+    execSync('npm publish', { cwd: tmpDir, stdio: 'pipe' });
     console.log(`Done: ${name}`);
+  } catch (err) {
+    const output = (err.stdout?.toString() ?? '') + (err.stderr?.toString() ?? '');
+    if (output.includes('too similar')) {
+      warnings.push(`${name}: blocked by npm similarity check — request via npm support`);
+    } else if (output.includes('cannot publish over')) {
+      console.log(`[skip] ${name}: already published at ${VERSION}`);
+    } else {
+      warnings.push(`${name}: ${output.trim().split('\n').find(l => l.includes('npm error')) ?? 'unknown error'}`);
+    }
   }
 
   rmSync(tmpDir, { recursive: true, force: true });
+}
+
+if (warnings.length > 0) {
+  console.log('\n::warning::Some alias packages were not published:');
+  for (const w of warnings) console.log(`  - ${w}`);
 }
