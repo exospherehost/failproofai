@@ -102,7 +102,7 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← falls through to glo
 
 Type: `string[]`
 
-List of policy names to enable. Names must match exactly the policy identifiers shown in `failproofai --list-policies`. See [Built-in Policies](/built-in-policies) for the full list.
+List of policy names to enable. Names must match exactly the policy identifiers shown in `failproofai --list-policies`. See [Built-in Policies](./built-in-policies.md) for the full list.
 
 Policies not in `enabledPolicies` are inactive, even if they have entries in `policyParams`.
 
@@ -110,7 +110,7 @@ Policies not in `enabledPolicies` are inactive, even if they have entries in `po
 
 Type: `Record<string, Record<string, unknown>>`
 
-Per-policy parameter overrides. The outer key is the policy name; the inner keys are policy-specific. Each policy documents its available parameters in [Built-in Policies](/built-in-policies).
+Per-policy parameter overrides. The outer key is the policy name; the inner keys are policy-specific. Each policy documents its available parameters in [Built-in Policies](./built-in-policies.md).
 
 If a policy has parameters but you don't specify them, the policy's built-in defaults are used. Users who do not configure `policyParams` at all get identical behavior to previous versions.
 
@@ -122,7 +122,7 @@ Type: `string` (absolute path)
 
 Path to a JavaScript file containing custom hook policies. This is set automatically by `failproofai --install-policies --custom <path>` (the path is resolved to absolute before being stored).
 
-The file is loaded fresh on every hook event — there is no caching. See [Custom Hooks](/custom-hooks) for authoring details.
+The file is loaded fresh on every hook event — there is no caching. See [Custom Hooks](./custom-hooks.md) for authoring details.
 
 ### `llm`
 
