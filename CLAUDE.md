@@ -15,6 +15,23 @@ Each local branch maps to exactly one PR. Before opening a PR, check with
 `gh pr list --head <branch>`. If one exists, push new commits to the same branch — never
 open a second PR for the same branch.
 
+### Branch must contain all commits from main
+Before pushing, verify your branch is up to date with `main`:
+
+```bash
+git fetch origin
+git log --oneline origin/main ^HEAD   # should print nothing
+```
+
+If it prints commits, rebase before pushing:
+
+```bash
+git rebase origin/main
+```
+
+Resolve any conflicts, then continue. Never push a branch that is missing commits from
+`main` — the PR diff will be polluted and CI may test against a stale base.
+
 ### CI must be green after every commit you push
 After every `git push`, run `gh run watch` or poll `gh run list --limit 3` until all checks
 finish. If any job fails, **stop and fix it before continuing**. Never leave a red CI.

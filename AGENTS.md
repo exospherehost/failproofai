@@ -5,19 +5,26 @@ critical rules from CLAUDE.md in a format optimised for agent consumption.
 
 ## Non-negotiable rules
 
-1. **One PR per branch.** Check `gh pr list --head <current-branch>` before creating a PR.
+1. **Branch must contain all commits from main.** Before every push, run:
+   ```bash
+   git fetch origin && git log --oneline origin/main ^HEAD
+   ```
+   If that prints anything, rebase first: `git rebase origin/main`. Never push a branch
+   that is missing commits from `main`.
+
+3. **One PR per branch.** Check `gh pr list --head <current-branch>` before creating a PR.
    Push to the existing PR if one already exists.
 
-2. **CI must be green before you stop.** After every push, poll `gh run list --limit 3`
+4. **CI must be green before you stop.** After every push, poll `gh run list --limit 3`
    until all checks complete. Fix failures before proceeding or declaring done.
 
-3. **Never edit a test to make it pass.** Fix the code. Tests may only be changed when the
+5. **Never edit a test to make it pass.** Fix the code. Tests may only be changed when the
    test itself is wrong or when the feature under test was intentionally changed.
 
-4. **Always add unit tests for new behaviour.** Place tests in `__tests__/`. Unit tests live
+6. **Always add unit tests for new behaviour.** Place tests in `__tests__/`. Unit tests live
    in `__tests__/hooks/`, e2e tests in `__tests__/e2e/hooks/`.
 
-5. **Docker is available.** Use `oven/bun:latest` with `--network=host` to do clean-install
+7. **Docker is available.** Use `oven/bun:latest` with `--network=host` to do clean-install
    end-to-end testing after every non-trivial implementation. See CLAUDE.md for the exact
    Docker test recipe.
 
