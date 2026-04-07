@@ -30,19 +30,12 @@ jobs:
           timeout_minutes: 5
           command: bun install --frozen-lockfile
 
-      - name: Build
-        uses: nick-fields/retry@v4
-        with:
-          max_attempts: 2
-          timeout_minutes: 10
-          command: bun run build
-
       - uses: actions/setup-node@v6
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
       - name: Publish
-        run: npm publish --ignore-scripts
+        run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
