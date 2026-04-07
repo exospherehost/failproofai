@@ -20,6 +20,8 @@ export function launch(mode: "dev" | "start"): void {
 /_/    \\__,_/_/_/ .___/_/   \\____/\\____/_/    /_/  |_/___/
                /_/   v${version}
 `);
+  console.log(`  ⭐ Star us:      https://github.com/exospherehost/failproofai`);
+  console.log(`  📖 Docs:         https://befailproof.ai\n`);
 
   let claudeProjectsPath = parsedPath;
 

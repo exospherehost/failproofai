@@ -2,13 +2,23 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { GitBranch, Lightbulb, Bug, MessageSquare, ChevronDown } from "lucide-react";
+import { GitBranch, Lightbulb, Bug, MessageSquare, ChevronDown, Star, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const GITHUB_REPO = "https://github.com/exospherehost/failproofai";
 const CONTACT_EMAIL = "failproofai@exosphere.host";
 
 const options = [
+  {
+    label: "Star us on GitHub",
+    icon: Star,
+    href: "https://github.com/exospherehost/failproofai",
+  },
+  {
+    label: "Documentation",
+    icon: BookOpen,
+    href: "https://befailproof.ai",
+  },
   {
     label: "Request a Feature",
     icon: Lightbulb,

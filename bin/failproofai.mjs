@@ -61,6 +61,10 @@ EXAMPLES
   failproofai --remove-policies block-sudo
   failproofai --remove-policies --custom
   failproofai --list-policies
+
+LINKS
+  ⭐ Star us:      https://github.com/exospherehost/failproofai
+  📖 Docs:         https://befailproof.ai
 `.trimStart());
   process.exit(0);
 }

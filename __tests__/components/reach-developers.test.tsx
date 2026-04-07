@@ -102,7 +102,7 @@ describe("ReachDevelopers", () => {
     const btn = screen.getAllByRole("button")[0];
     await user.click(btn);
     const menuItems = screen.getAllByRole("menuitem");
-    expect(menuItems).toHaveLength(3);
+    expect(menuItems).toHaveLength(5);
   });
 
   it("Escape key closes dropdown", async () => {
