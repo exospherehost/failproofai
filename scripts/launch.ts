@@ -3,7 +3,7 @@
  */
 import { getDefaultClaudeProjectsPath } from "../lib/paths";
 import { spawn } from "child_process";
-import { realpathSync } from "node:fs";
+import { realpathSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseScriptArgs } from "./parse-script-args";
@@ -44,7 +44,16 @@ export function launch(mode: "dev" | "start"): void {
     // don't cause import.meta.url to point at the symlink dir instead of the package dir.
     const packageRoot = process.env.FAILPROOFAI_PACKAGE_ROOT
       ?? resolve(dirname(realpathSync(fileURLToPath(import.meta.url))), "..");
-    cmdArgs = [resolve(packageRoot, ".next/standalone/server.js")];
+    const serverJsPath = resolve(packageRoot, ".next/standalone/server.js");
+    if (!existsSync(serverJsPath)) {
+      console.error(
+        `\nError: Cannot find server binary at:\n  ${serverJsPath}\n\n` +
+        `The package may be missing its build output.\n` +
+        `Try reinstalling:\n  npm install -g failproofai@latest\n`
+      );
+      process.exit(1);
+    }
+    cmdArgs = [serverJsPath];
   } else {
     cmd = "bunx";
     cmdArgs = ["--bun", "next", "dev", ...remainingArgs];
