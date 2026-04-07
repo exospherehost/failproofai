@@ -28,7 +28,7 @@ customPolicies.add({
 Install it:
 
 ```bash
-failproofai --install-policies --custom-hooks ./my-policies.js
+failproofai --install-policies --custom ./my-policies.js
 ```
 
 ---
@@ -37,16 +37,16 @@ failproofai --install-policies --custom-hooks ./my-policies.js
 
 ```bash
 # Install with a custom hooks file
-failproofai --install-policies --custom-hooks ./my-policies.js
+failproofai --install-policies --custom ./my-policies.js
 
 # Replace the hooks file path
-failproofai --install-policies --custom-hooks ./new-policies.js
+failproofai --install-policies --custom ./new-policies.js
 
 # Remove the custom hooks path from config
-failproofai --remove-policies --remove-custom-hooks
+failproofai --remove-policies --custom
 ```
 
-The resolved absolute path is stored in `hooks-config.json` as `customHooksPath`. The file is loaded fresh on every hook event — there is no caching between events.
+The resolved absolute path is stored in `policies-config.json` as `customPoliciesPath`. The file is loaded fresh on every hook event — there is no caching between events.
 
 ---
 
@@ -172,7 +172,7 @@ Custom hooks are **fail-open**: errors never block built-in policies or crash th
 
 | Failure | Behavior |
 |---------|----------|
-| `customHooksPath` not set | No custom hooks run; built-ins continue normally |
+| `customPoliciesPath` not set | No custom hooks run; built-ins continue normally |
 | File not found | Warning logged to `~/.failproofai/hook.log`; built-ins continue |
 | Syntax/import error | Error logged to `~/.failproofai/hook.log`; all custom hooks skipped |
 | `fn` throws at runtime | Error logged; that hook treated as `allow`; other hooks continue |
@@ -253,5 +253,5 @@ The `examples/` directory contains ready-to-run hook files:
 Install the basic examples:
 
 ```bash
-failproofai --install-policies --custom-hooks ./examples/policies-basic.js
+failproofai --install-policies --custom ./examples/policies-basic.js
 ```

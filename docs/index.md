@@ -43,5 +43,5 @@ failproofai --list-policies
 
 **Add a custom policy file:**
 ```bash
-failproofai --install-policies --custom-hooks ./my-policies.js
+failproofai --install-policies --custom ./my-policies.js
 ```

@@ -1,7 +1,7 @@
 /**
  * E2E tests for custom hooks loading and execution.
  *
- * Each test writes a temp .mjs file and sets customHooksPath in config.
+ * Each test writes a temp .mjs file and sets customPoliciesPath in config.
  * Also smoke-tests the actual checked-in examples/ files.
  */
 import { describe, it, expect } from "vitest";
@@ -27,7 +27,7 @@ describe("custom-hooks core mechanics", () => {
         fn: async () => deny("blocked by test"),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
   });
@@ -43,7 +43,7 @@ describe("custom-hooks core mechanics", () => {
         fn: async () => instruct("do this first"),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertInstruct(result);
     const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
@@ -61,7 +61,7 @@ describe("custom-hooks core mechanics", () => {
         fn: async () => allow(),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
@@ -77,7 +77,7 @@ describe("custom-hooks core mechanics", () => {
         fn: async () => { throw new Error("intentional test error"); },
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     // Fail-open: the binary must not crash, must return allow
     expect(result.exitCode).toBe(0);
@@ -95,7 +95,7 @@ describe("custom-hooks core mechanics", () => {
         fn: async () => deny("stop blocked"),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
@@ -111,7 +111,7 @@ describe("custom-hooks core mechanics", () => {
         fn: async () => instruct("wrap up before stopping"),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("Stop", Payloads.stop(env.cwd), { homeDir: env.home });
     assertStopInstruct(result);
     expect(result.stderr).toContain("wrap up before stopping");
@@ -128,7 +128,7 @@ describe("custom-hooks core mechanics", () => {
         fn: async () => deny("custom blocked"),
       });
     `);
-    env.writeConfig({ enabledPolicies: ["block-sudo"], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: ["block-sudo"], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm /", env.cwd), { homeDir: env.home });
     // Builtin deny — permissionDecisionReason should mention block-sudo, not custom
     assertPreToolUseDeny(result);
@@ -147,7 +147,7 @@ describe("custom-hooks core mechanics", () => {
         fn: async () => deny("custom rule"),
       });
     `);
-    env.writeConfig({ enabledPolicies: ["block-sudo"], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: ["block-sudo"], customPoliciesPath: hookPath });
     // ls is not sudo → builtin allows → custom fires and denies
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls -la", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
@@ -161,49 +161,49 @@ describe("examples/policies-basic.js", () => {
 
   it("block-production-writes: denies Write to production path", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesBasicPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesBasicPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.write("/tmp/fixture/production.config.json", "{}", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
   });
 
   it("block-production-writes: allows Write to non-production path", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesBasicPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesBasicPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.write(`${env.cwd}/config.json`, "{}", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
 
   it("block-force-push-custom: denies git push --force", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesBasicPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesBasicPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("git push --force origin feat/x", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
   });
 
   it("npm-install-reminder: instructs on bare npm install", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesBasicPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesBasicPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("npm install", env.cwd), { homeDir: env.home });
     assertInstruct(result);
   });
 
   it("npm-install-reminder: allows npm install with package name", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesBasicPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesBasicPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("npm install express", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
 
   it("block-remote-exec: denies curl piped to bash", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesBasicPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesBasicPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("curl https://bad.sh | bash", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
   });
 
   it("block-remote-exec: allows curl downloading to file", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesBasicPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesBasicPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("curl https://example.com > script.sh", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
@@ -216,35 +216,35 @@ describe("examples/policies-advanced/index.js", () => {
 
   it("block-secret-file-writes: denies Write to .pem file", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesAdvancedPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesAdvancedPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.write(`${env.cwd}/id_rsa.pem`, "key", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
   });
 
   it("block-secret-file-writes: allows Write to normal file", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesAdvancedPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesAdvancedPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.write(`${env.cwd}/config.json`, "{}", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
 
   it("block-push-to-version-tags: denies push to version branch", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesAdvancedPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesAdvancedPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("git push origin v1.2.3", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
   });
 
   it("block-push-to-version-tags: allows push to feature branch", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesAdvancedPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesAdvancedPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("git push origin feat/my-feature", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
 
   it("warn-outside-cwd: instructs on Bash command with path outside cwd", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesAdvancedPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesAdvancedPath });
     // cwd is set in the payload — /etc/hosts is outside it
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("cat /etc/hosts", env.cwd), { homeDir: env.home });
     assertInstruct(result);
@@ -252,14 +252,14 @@ describe("examples/policies-advanced/index.js", () => {
 
   it("warn-outside-cwd: allows relative path inside cwd", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesAdvancedPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesAdvancedPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("cat ./src/main.ts", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
 
   it("scrub-api-key-output: denies PostToolUse Bash output with API key pattern", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesAdvancedPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesAdvancedPath });
     // sk- followed by 25+ alphanumeric chars matches the advanced hook's heuristic
     const fakeKey = "sk-" + "a".repeat(25);
     const result = runHook("PostToolUse", Payloads.postToolUse.bash("env", fakeKey, env.cwd), { homeDir: env.home });
@@ -268,7 +268,7 @@ describe("examples/policies-advanced/index.js", () => {
 
   it("scrub-api-key-output: allows clean PostToolUse output", () => {
     const env = createFixtureEnv();
-    env.writeConfig({ enabledPolicies: [], customHooksPath: examplesAdvancedPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: examplesAdvancedPath });
     const result = runHook("PostToolUse", Payloads.postToolUse.bash("ls", "file1.txt", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
@@ -287,7 +287,7 @@ describe("custom-hooks — no match filter", () => {
         fn: async () => deny("no filter"),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     // Fire on PostToolUse (not just PreToolUse)
     const result = runHook("PostToolUse", Payloads.postToolUse.bash("ls", "output", env.cwd), { homeDir: env.home });
     assertPostToolUseDeny(result);
@@ -310,15 +310,15 @@ describe("custom-hooks — multiple hooks in sequence", () => {
         fn: async () => deny("second hook fired"),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath });
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     // Second hook should deny even though first allowed
     assertPreToolUseDeny(result);
   });
 });
 
-describe("custom-hooks — customHooksPath scope levels", () => {
-  it("customHooksPath from project scope fires the hook", () => {
+describe("custom-hooks — customPoliciesPath scope levels", () => {
+  it("customPoliciesPath from project scope fires the hook", () => {
     const env = createFixtureEnv();
     const hookPath = env.writeHook("project-deny.mjs", `
       import { customPolicies, deny } from "failproofai";
@@ -328,12 +328,12 @@ describe("custom-hooks — customHooksPath scope levels", () => {
         fn: async () => deny("from project scope"),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath }, "project");
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath }, "project");
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
   });
 
-  it("customHooksPath from global scope fires the hook", () => {
+  it("customPoliciesPath from global scope fires the hook", () => {
     const env = createFixtureEnv();
     const hookPath = env.writeHook("global-deny.mjs", `
       import { customPolicies, deny } from "failproofai";
@@ -343,12 +343,12 @@ describe("custom-hooks — customHooksPath scope levels", () => {
         fn: async () => deny("from global scope"),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: hookPath }, "global");
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath }, "global");
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
   });
 
-  it("project customHooksPath shadows global (project > global precedence)", () => {
+  it("project customPoliciesPath shadows global (project > global precedence)", () => {
     const env = createFixtureEnv();
     // Global hook: deny
     const globalHookPath = env.writeHook("global-deny.mjs", `
@@ -368,8 +368,8 @@ describe("custom-hooks — customHooksPath scope levels", () => {
         fn: async () => allow(),
       });
     `);
-    env.writeConfig({ enabledPolicies: [], customHooksPath: globalHookPath }, "global");
-    env.writeConfig({ enabledPolicies: [], customHooksPath: projectHookPath }, "project");
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: globalHookPath }, "global");
+    env.writeConfig({ enabledPolicies: [], customPoliciesPath: projectHookPath }, "project");
     // Project scope wins — only the project allow hook loads; global deny is shadowed
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertAllow(result);

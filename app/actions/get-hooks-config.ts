@@ -37,7 +37,7 @@ export interface HooksConfigPayload {
   installedScopes: HookScope[];
   settingsPath: string;
   policies: PolicyInfo[];
-  customHooksPath?: string;
+  customPoliciesPath?: string;
   customPolicies?: CustomPolicyInfo[];
 }
 
@@ -90,8 +90,8 @@ export async function getHooksConfigAction(): Promise<HooksConfigPayload> {
     currentParams: p.params ? (config.policyParams?.[p.name] ?? {}) : undefined,
   }));
 
-  const customPolicies = config.customHooksPath
-    ? await parseCustomPoliciesFromFile(config.customHooksPath)
+  const customPolicies = config.customPoliciesPath
+    ? await parseCustomPoliciesFromFile(config.customPoliciesPath)
     : undefined;
 
   return {
@@ -99,7 +99,7 @@ export async function getHooksConfigAction(): Promise<HooksConfigPayload> {
     installedScopes,
     settingsPath,
     policies,
-    customHooksPath: config.customHooksPath,
+    customPoliciesPath: config.customPoliciesPath,
     customPolicies: customPolicies?.length ? customPolicies : undefined,
   };
 }

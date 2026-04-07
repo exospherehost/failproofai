@@ -182,7 +182,7 @@ export async function installHooks(
   cwd?: string,
   includeBeta = false,
   source?: string,
-  customHooksPath?: string,
+  customPoliciesPath?: string,
   removeCustomHooks = false,
 ): Promise<void> {
   const binaryPath = resolveFailproofaiBinary();
@@ -212,23 +212,23 @@ export async function installHooks(
     selectedPolicies = await promptPolicySelection(preSelected, { includeBeta });
   }
 
-  // Preserve existing config fields (policyParams, customHooksPath, llm) when updating
+  // Preserve existing config fields (policyParams, customPoliciesPath, llm) when updating
   const configToWrite = { ...previousConfig, enabledPolicies: selectedPolicies };
   if (removeCustomHooks) {
-    delete configToWrite.customHooksPath;
-  } else if (customHooksPath) {
-    configToWrite.customHooksPath = resolve(customHooksPath);
+    delete configToWrite.customPoliciesPath;
+  } else if (customPoliciesPath) {
+    configToWrite.customPoliciesPath = resolve(customPoliciesPath);
     // Validate the file before committing it to config
     let validatedHooks: Awaited<ReturnType<typeof loadCustomHooks>> = [];
     try {
-      validatedHooks = await loadCustomHooks(configToWrite.customHooksPath, { strict: true });
+      validatedHooks = await loadCustomHooks(configToWrite.customPoliciesPath, { strict: true });
     } catch (err) {
       console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
       process.exit(1);
     }
     if (validatedHooks.length === 0) {
       console.error(
-        `Error: no hooks registered in ${customHooksPath}. ` +
+        `Error: no hooks registered in ${customPoliciesPath}. ` +
           `Make sure your file calls customPolicies.add(...) at least once.`,
       );
       process.exit(1);
@@ -241,8 +241,8 @@ export async function installHooks(
   console.log(`\nEnabled ${selectedPolicies.length} policy(ies): ${selectedPolicies.join(", ")}`);
   if (removeCustomHooks) {
     console.log("Custom hooks path cleared.");
-  } else if (configToWrite.customHooksPath) {
-    console.log(`Custom hooks path: ${configToWrite.customHooksPath}`);
+  } else if (configToWrite.customPoliciesPath) {
+    console.log(`Custom hooks path: ${configToWrite.customPoliciesPath}`);
   }
 
   const settingsPath = getSettingsPath(scope, cwd);
@@ -306,7 +306,7 @@ export async function installHooks(
       arch: arch(),
       os_release: release(),
       hostname_hash: hashToId(hostname()),
-      has_custom_hooks_path: !!(configToWrite.customHooksPath),
+      has_custom_hooks_path: !!(configToWrite.customPoliciesPath),
       has_policy_params: !!(configToWrite.policyParams && Object.keys(configToWrite.policyParams).length > 0),
       param_policy_names: configToWrite.policyParams ? Object.keys(configToWrite.policyParams) : [],
     });
@@ -340,7 +340,15 @@ export async function installHooks(
  * @param scope — settings scope to remove from (default: "user"), or "all" to remove from all scopes
  * @param opts.betaOnly — set to true when removing only beta policies (adds beta_only flag to telemetry)
  */
-export async function removeHooks(policyNames?: string[], scope: HookScope | "all" = "user", cwd?: string, opts?: { betaOnly?: boolean; source?: string }): Promise<void> {
+export async function removeHooks(policyNames?: string[], scope: HookScope | "all" = "user", cwd?: string, opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean }): Promise<void> {
+  // Clear custom hooks path if requested
+  if (opts?.removeCustomHooks) {
+    const config = readHooksConfig();
+    delete config.customPoliciesPath;
+    writeHooksConfig(config);
+    console.log("Custom hooks path cleared.");
+  }
+
   // Remove specific policies from config (keep hooks installed)
   if (policyNames && policyNames.length > 0 && !(policyNames.length === 1 && policyNames[0] === "all")) {
     validatePolicyNames(policyNames);
@@ -452,7 +460,7 @@ export async function removeHooks(policyNames?: string[], scope: HookScope | "al
   // Clear policy config when removing from all scopes, or when no hooks remain in any scope
   if (scope === "all" || !HOOK_SCOPES.some((s) => hooksInstalledInSettings(s, cwd))) {
     const existingForClear = readHooksConfig();
-    const { customHooksPath: _drop, policyParams: _dropParams, ...restClear } = existingForClear;
+    const { customPoliciesPath: _drop, policyParams: _dropParams, ...restClear } = existingForClear;
     writeHooksConfig({ ...restClear, enabledPolicies: [] });
   }
 }
@@ -467,7 +475,7 @@ export async function removeHooks(policyNames?: string[], scope: HookScope | "al
  * Also shows:
  *   - Configured policyParams values beneath each policy
  *   - Warnings for unknown policyParams keys
- *   - Custom Hooks section if customHooksPath is set
+ *   - Custom Hooks section if customPoliciesPath is set
  */
 export async function listHooks(cwd?: string): Promise<void> {
   const config = readMergedHooksConfig(cwd);
@@ -524,7 +532,7 @@ export async function listHooks(cwd?: string): Promise<void> {
     } else {
       console.log("\n  Run `failproofai --install-policies` to get started.");
     }
-    console.log("  Config: ~/.failproofai/hooks-config.json\n");
+    console.log("  Config: ~/.failproofai/policies-config.json\n");
   } else if (installedScopes.length === 1) {
     // State B: Single scope — table with header row
     const scope = installedScopes[0];
@@ -536,7 +544,7 @@ export async function listHooks(cwd?: string): Promise<void> {
     for (const policy of regularPolicies) printSimpleRow(policy);
     printBetaSection(printSimpleRow);
 
-    console.log("\n  Config: ~/.failproofai/hooks-config.json\n");
+    console.log("\n  Config: ~/.failproofai/policies-config.json\n");
   } else {
     // State C: Multiple scopes — column table
     const COL = 9;
@@ -580,7 +588,7 @@ export async function listHooks(cwd?: string): Promise<void> {
       for (const policy of betaPolicies) printMultiScopeRow(policy);
     }
 
-    console.log("\n  Config: ~/.failproofai/hooks-config.json");
+    console.log("\n  Config: ~/.failproofai/policies-config.json");
 
     // Multi-scope warning
     const scopeNames = installedScopes.join(", ");
@@ -599,12 +607,12 @@ export async function listHooks(cwd?: string): Promise<void> {
   }
 
   // Custom Policies section
-  if (config.customHooksPath) {
-    console.log(`\n  \u2500\u2500 Custom Policies (${config.customHooksPath}) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
-    if (!existsSync(config.customHooksPath)) {
-      console.log(`  \x1B[31m\u2717 File not found: ${config.customHooksPath}\x1B[0m`);
+  if (config.customPoliciesPath) {
+    console.log(`\n  \u2500\u2500 Custom Policies (${config.customPoliciesPath}) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
+    if (!existsSync(config.customPoliciesPath)) {
+      console.log(`  \x1B[31m\u2717 File not found: ${config.customPoliciesPath}\x1B[0m`);
     } else {
-      const hooks = await loadCustomHooks(config.customHooksPath);
+      const hooks = await loadCustomHooks(config.customPoliciesPath);
       if (hooks.length === 0) {
         console.log(`  \x1B[31m\u2717 ERR  failed to load (check ~/.failproofai/logs/hooks.log)\x1B[0m`);
       } else {

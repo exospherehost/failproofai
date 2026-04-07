@@ -2,7 +2,7 @@
  * Per-test fixture environment: isolated cwd and HOME directories.
  *
  * Each call to createFixtureEnv() creates two temp directories:
- *   - cwd:  pass as payload.cwd → hooks-config.json loaded from here
+ *   - cwd:  pass as payload.cwd → policies-config.json loaded from here
  *   - home: pass as runHook opts.homeDir → blocks real ~/.failproofai from leaking in
  *
  * Cleanup is registered via afterEach() automatically.
@@ -13,22 +13,22 @@ import { tmpdir } from "node:os";
 import { afterEach } from "vitest";
 
 export interface FixtureEnv {
-  /** Pass as payload.cwd — hooks-config.json is resolved relative to this. */
+  /** Pass as payload.cwd — policies-config.json is resolved relative to this. */
   cwd: string;
   /** Pass as runHook({ homeDir }) — isolates ~/.failproofai from the real system. */
   home: string;
   /**
-   * Write a hooks-config.json for this fixture.
+   * Write a policies-config.json for this fixture.
    *
    * @param config - The config object to write
-   * @param scope  - "project" → {cwd}/.failproofai/hooks-config.json (default)
-   *                 "local"   → {cwd}/.failproofai/hooks-config.local.json
-   *                 "global"  → {home}/.failproofai/hooks-config.json
+   * @param scope  - "project" → {cwd}/.failproofai/policies-config.json (default)
+   *                 "local"   → {cwd}/.failproofai/policies-config.local.json
+   *                 "global"  → {home}/.failproofai/policies-config.json
    */
   writeConfig(config: object, scope?: "project" | "local" | "global"): void;
   /**
    * Write a custom hook file inside the fixture cwd.
-   * Returns the absolute path (suitable for use as customHooksPath in config).
+   * Returns the absolute path (suitable for use as customPoliciesPath in config).
    */
   writeHook(filename: string, content: string): string;
 }
@@ -52,11 +52,11 @@ export function createFixtureEnv(): FixtureEnv {
       if (scope === "global") {
         const dir = join(home, ".failproofai");
         mkdirSync(dir, { recursive: true });
-        configPath = join(dir, "hooks-config.json");
+        configPath = join(dir, "policies-config.json");
       } else {
         const dir = join(cwd, ".failproofai");
         mkdirSync(dir, { recursive: true });
-        const filename = scope === "local" ? "hooks-config.local.json" : "hooks-config.json";
+        const filename = scope === "local" ? "policies-config.local.json" : "policies-config.json";
         configPath = join(dir, filename);
       }
 

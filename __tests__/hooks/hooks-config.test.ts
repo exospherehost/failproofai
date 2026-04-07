@@ -11,7 +11,7 @@ vi.mock("node:fs", () => ({
   mkdirSync: vi.fn(),
 }));
 
-const CONFIG_PATH = resolve(homedir(), ".failproofai", "hooks-config.json");
+const CONFIG_PATH = resolve(homedir(), ".failproofai", "policies-config.json");
 
 describe("hooks/hooks-config", () => {
   beforeEach(() => {
@@ -71,9 +71,9 @@ describe("hooks/hooks-config", () => {
 
   describe("readMergedHooksConfig", () => {
     const CWD = "/tmp/test-project";
-    const projectPath = resolve(CWD, ".failproofai", "hooks-config.json");
-    const localPath = resolve(CWD, ".failproofai", "hooks-config.local.json");
-    const globalPath = resolve(homedir(), ".failproofai", "hooks-config.json");
+    const projectPath = resolve(CWD, ".failproofai", "policies-config.json");
+    const localPath = resolve(CWD, ".failproofai", "policies-config.local.json");
+    const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
 
     function mockFiles(files: Record<string, object>): void {
       vi.mocked(existsSync).mockImplementation((p) => String(p) in files);
@@ -90,7 +90,7 @@ describe("hooks/hooks-config", () => {
       const config = readMergedHooksConfig(CWD);
       expect(config.enabledPolicies).toEqual([]);
       expect(config.policyParams).toBeUndefined();
-      expect(config.customHooksPath).toBeUndefined();
+      expect(config.customPoliciesPath).toBeUndefined();
     });
 
     it("returns global config when only global exists", async () => {
@@ -162,24 +162,24 @@ describe("hooks/hooks-config", () => {
       expect(config.policyParams?.["block-push-master"]).toEqual({ protectedBranches: ["release"] });
     });
 
-    it("customHooksPath: first scope that defines it wins", async () => {
+    it("customPoliciesPath: first scope that defines it wins", async () => {
       mockFiles({
-        [localPath]: { enabledPolicies: [], customHooksPath: "/local/hooks.js" },
-        [globalPath]: { enabledPolicies: [], customHooksPath: "/global/hooks.js" },
+        [localPath]: { enabledPolicies: [], customPoliciesPath: "/local/hooks.js" },
+        [globalPath]: { enabledPolicies: [], customPoliciesPath: "/global/hooks.js" },
       });
       const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
       const config = readMergedHooksConfig(CWD);
-      expect(config.customHooksPath).toBe("/local/hooks.js");
+      expect(config.customPoliciesPath).toBe("/local/hooks.js");
     });
 
-    it("customHooksPath: project scope wins over local", async () => {
+    it("customPoliciesPath: project scope wins over local", async () => {
       mockFiles({
-        [projectPath]: { enabledPolicies: [], customHooksPath: "/project/hooks.js" },
-        [localPath]: { enabledPolicies: [], customHooksPath: "/local/hooks.js" },
+        [projectPath]: { enabledPolicies: [], customPoliciesPath: "/project/hooks.js" },
+        [localPath]: { enabledPolicies: [], customPoliciesPath: "/local/hooks.js" },
       });
       const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
       const config = readMergedHooksConfig(CWD);
-      expect(config.customHooksPath).toBe("/project/hooks.js");
+      expect(config.customPoliciesPath).toBe("/project/hooks.js");
     });
 
     it("returns no policyParams key when no params configured", async () => {

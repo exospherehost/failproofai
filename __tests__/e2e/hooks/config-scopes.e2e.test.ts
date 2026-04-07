@@ -2,7 +2,7 @@
  * E2E tests for config scope merging.
  *
  * Tests src/hooks/hooks-config.ts merge behavior across project / local / global scopes.
- * Priority order: project > local > global for policyParams/customHooksPath.
+ * Priority order: project > local > global for policyParams/customPoliciesPath.
  * enabledPolicies: union across all three scopes.
  */
 import { describe, it } from "vitest";
@@ -96,17 +96,17 @@ describe("config-scopes", () => {
     // Write invalid JSON to the config file directly (bypass env.writeConfig which uses JSON.stringify)
     const dir = join(env.cwd, ".failproofai");
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "hooks-config.json"), "not json", "utf8");
+    writeFileSync(join(dir, "policies-config.json"), "not json", "utf8");
     // With malformed config, hook runner should not crash — fail-open
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm -rf /", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
 
-  it("customHooksPath pointing to non-existent file → fail-open (allow)", () => {
+  it("customPoliciesPath pointing to non-existent file → fail-open (allow)", () => {
     const env = createFixtureEnv();
     env.writeConfig({
       enabledPolicies: [],
-      customHooksPath: `${env.cwd}/.hooks/does-not-exist.mjs`,
+      customPoliciesPath: `${env.cwd}/.hooks/does-not-exist.mjs`,
     });
     // Non-existent hooks file — loadCustomHooks should handle gracefully, fail-open
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });

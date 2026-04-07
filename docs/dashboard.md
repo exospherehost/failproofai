@@ -65,7 +65,7 @@ A two-tab page for managing policies and reviewing activity.
 
 **Policies tab:**
 
-- Toggle individual policies on or off with a single click (writes to `~/.failproofai/hooks-config.json`)
+- Toggle individual policies on or off with a single click (writes to `~/.failproofai/policies-config.json`)
 - Expand a policy to configure its parameters (for policies that support `policyParams`)
 - Install or remove hooks for a given scope
 - Set a custom hooks file path

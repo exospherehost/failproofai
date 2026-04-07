@@ -10,9 +10,9 @@ There are three configuration scopes, evaluated in priority order:
 
 | Scope | File path | Purpose |
 |-------|-----------|---------|
-| **project** | `.failproofai/hooks-config.json` | Per-repo settings, committed to version control |
-| **local** | `.failproofai/hooks-config.local.json` | Personal per-repo overrides, gitignored |
-| **global** | `~/.failproofai/hooks-config.json` | User-level defaults across all projects |
+| **project** | `.failproofai/policies-config.json` | Per-repo settings, committed to version control |
+| **local** | `.failproofai/policies-config.local.json` | Personal per-repo overrides, gitignored |
+| **global** | `~/.failproofai/policies-config.json` | User-level defaults across all projects |
 
 When failproofai receives a hook event, it loads and merges all three files that exist for the current working directory.
 
@@ -45,7 +45,7 @@ global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 resolved: { allowPatterns: ["sudo systemctl status"] }  ← falls through to global
 ```
 
-**`customHooksPath`** — first scope that defines it wins.
+**`customPoliciesPath`** — first scope that defines it wins.
 
 **`llm`** — first scope that defines it wins.
 
@@ -86,7 +86,7 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← falls through to glo
       "thresholdKb": 512
     }
   },
-  "customHooksPath": "/home/alice/myproject/my-policies.js"
+  "customPoliciesPath": "/home/alice/myproject/my-policies.js"
 }
 ```
 
@@ -112,11 +112,11 @@ If a policy has parameters but you don't specify them, the policy's built-in def
 
 Unknown keys inside a policy's params block are silently ignored at hook-fire time but flagged as warnings when you run `failproofai --list-policies`.
 
-### `customHooksPath`
+### `customPoliciesPath`
 
 Type: `string` (absolute path)
 
-Path to a JavaScript file containing custom hook policies. This is set automatically by `failproofai --install-policies --custom-hooks <path>` (the path is resolved to absolute before being stored).
+Path to a JavaScript file containing custom hook policies. This is set automatically by `failproofai --install-policies --custom <path>` (the path is resolved to absolute before being stored).
 
 The file is loaded fresh on every hook event — there is no caching. See [Custom Hooks](./custom-hooks.md) for authoring details.
 
@@ -139,18 +139,18 @@ LLM client configuration for policies that make AI calls. Not required for most 
 
 ## Managing configuration from the CLI
 
-The `--install-policies` and `--remove-policies` commands write to Claude Code's `settings.json` (the hook entry points), while `hooks-config.json` is the file you manage directly. The two are separate:
+The `--install-policies` and `--remove-policies` commands write to Claude Code's `settings.json` (the hook entry points), while `policies-config.json` is the file you manage directly. The two are separate:
 
 - **`settings.json`** — tells Claude Code to call `failproofai --hook <event>` on each tool use
-- **`hooks-config.json`** — tells failproofai which policies to evaluate and with what params
+- **`policies-config.json`** — tells failproofai which policies to evaluate and with what params
 
-You can edit `hooks-config.json` directly at any time; changes take effect immediately on the next hook event with no restart needed.
+You can edit `policies-config.json` directly at any time; changes take effect immediately on the next hook event with no restart needed.
 
 ---
 
 ## Example: project-level config with team defaults
 
-Commit `.failproofai/hooks-config.json` to your repo:
+Commit `.failproofai/policies-config.json` to your repo:
 
 ```json
 {
@@ -169,4 +169,4 @@ Commit `.failproofai/hooks-config.json` to your repo:
 }
 ```
 
-Each developer can then create `.failproofai/hooks-config.local.json` (gitignored) for personal overrides without affecting teammates.
+Each developer can then create `.failproofai/policies-config.local.json` (gitignored) for personal overrides without affecting teammates.

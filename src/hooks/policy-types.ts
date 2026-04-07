@@ -73,5 +73,5 @@ export interface HooksConfig {
   enabledPolicies: string[];
   llm?: LlmConfig;
   policyParams?: Record<string, Record<string, unknown>>;
-  customHooksPath?: string;
+  customPoliciesPath?: string;
 }

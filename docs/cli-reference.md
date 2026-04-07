@@ -66,7 +66,7 @@ Writes hook entries into Claude Code's `settings.json` so that failproofai inter
 | `--scope user` | Install into `~/.claude/settings.json` (default — all sessions) |
 | `--scope project` | Install into `.claude/settings.json` in the current directory |
 | `--scope local` | Install into `.claude/settings.local.json` in the current directory |
-| `--custom-hooks <path>` | Path to a JS file containing custom hook policies |
+| `--custom <path>` | Path to a JS file containing custom hook policies |
 | `--beta` | Include beta policies in installation |
 
 **Examples:**
@@ -79,10 +79,10 @@ failproofai --install-policies
 failproofai --install-policies block-sudo sanitize-api-keys --scope project
 
 # Install with a custom hooks file
-failproofai --install-policies --custom-hooks ./my-policies.js
+failproofai --install-policies --custom ./my-policies.js
 ```
 
-When `--custom-hooks <path>` is provided, the resolved absolute path is saved to `hooks-config.json` as `customHooksPath`. The file is loaded and executed at hook-fire time (not at install time).
+When `--custom <path>` is provided, the resolved absolute path is saved to `policies-config.json` as `customPoliciesPath`. The file is loaded and executed at hook-fire time (not at install time).
 
 ---
 
@@ -102,7 +102,7 @@ Removes failproofai hook entries from Claude Code's `settings.json`.
 | `--scope project` | Remove from project settings |
 | `--scope local` | Remove from local settings |
 | `--scope all` | Remove from all scopes |
-| `--remove-custom-hooks` | Clear the `customHooksPath` from config |
+| `--custom` | Clear the `customPoliciesPath` from config |
 
 **Examples:**
 
@@ -114,7 +114,7 @@ failproofai --remove-policies
 failproofai --remove-policies block-sudo
 
 # Remove custom hooks path
-failproofai --remove-policies --remove-custom-hooks
+failproofai --remove-policies --custom
 ```
 
 ---
