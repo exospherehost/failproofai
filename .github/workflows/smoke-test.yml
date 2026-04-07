@@ -188,3 +188,73 @@ jobs:
           name: smoke-html-${{ matrix.os }}
           path: ${{ runner.temp }}/*.html
           retention-days: 3
+
+  verify-aliases:
+    name: Verify alias packages on npm
+    runs-on: ubuntu-latest
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Resolve version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+          fi
+
+      - name: Wait for all alias packages on npm
+        run: |
+          ALIASES=(
+            failproof
+            failproof-ai
+            fail-proof-ai
+            failproof_ai
+            fail_proof_ai
+            fail-proofai
+            failprof
+            failprof-ai
+            failprofai
+            fail-prof-ai
+            failprof_ai
+            faliproof
+            faliproof-ai
+            faliproofai
+          )
+          DELAYS=(0 5 10 20 40 80)
+          FAILED=()
+
+          for ALIAS in "${ALIASES[@]}"; do
+            PUBLISHED=""
+            for delay in "${DELAYS[@]}"; do
+              if [ "$delay" -gt 0 ]; then
+                echo "[$ALIAS] Waiting ${delay}s before retry..."
+                sleep "$delay"
+              fi
+              PUBLISHED=$(npm view "${ALIAS}@${VERSION}" version 2>/dev/null || true)
+              if [ "$PUBLISHED" = "$VERSION" ]; then
+                echo "[$ALIAS] OK — ${VERSION}"
+                break
+              fi
+              echo "[$ALIAS] Not yet available (attempt after ${delay}s)"
+            done
+            if [ "$PUBLISHED" != "$VERSION" ]; then
+              echo "::error::[$ALIAS] version ${VERSION} never appeared on npm after all retries"
+              FAILED+=("$ALIAS")
+            fi
+          done
+
+          if [ "${#FAILED[@]}" -gt 0 ]; then
+            echo "::error::Failed aliases: ${FAILED[*]}"
+            exit 1
+          fi
+          echo "All ${#ALIASES[@]} alias packages verified at version ${VERSION}"
