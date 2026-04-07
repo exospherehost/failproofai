@@ -54,7 +54,7 @@ describe("preuninstall script", () => {
     vi.resetModules();
     vi.clearAllMocks();
     cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(FAKE_CWD);
-    exitSpy = vi.spyOn(process, "exit").mockImplementation((_code?: number) => {
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((_code?: string | number | null) => {
       throw new Error("process.exit called");
     });
     consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
