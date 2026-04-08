@@ -14,31 +14,31 @@
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/exospherehost/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/exospherehost/failproofai/actions)
 
-**Don't just hope your agent behaves — enforce it with hooks.**
+**Don't just hope your agent behaves. Enforce it with hooks.**
 
 Open-source hooks management, policies, and session visualization for **Claude Code** & the **Agents SDK**.
 
 ### Why hooks?
 
-Claude Code hooks let you react to anything Claude does — every tool call, session event, and notification. Failproof AI makes them easy to manage: install with one command, pick from 35+ built-in policies, or write your own in JavaScript.
+Claude Code hooks fire on every tool call, session event, and notification. Failproof AI makes it easy to manage them: install with one command, pick from 35+ built-in policies, or write your own in JavaScript.
 
 ### What you can do
 
 - **Block risky commands** (`rm -rf`, `sudo`, `curl | bash`) before they run
-- **Enforce your team's git workflow** — no force-pushes, no commits to main
+- **Enforce your team's git workflow**: no force-pushes, no commits to main
 - **Get Slack notifications** when Claude is idle or finishes a session
 - **Sanitize secrets** from tool output so they never reach Claude's context
 - **Add project-specific rules** or connect external services in plain JavaScript
-- **Browse sessions** — inspect tool calls, messages, and hook activity in a local dashboard
+- **Browse sessions** in a local dashboard: tool calls, messages, and hook activity
 
-Everything runs locally — no data leaves your machine.
+Everything runs locally. No data leaves your machine.
 
 ---
 
 ## Requirements
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0 (optional — only needed for development / building from source)
+- Bun >= 1.3.0 (optional, only needed for building from source)
 
 ---
 
@@ -68,7 +68,7 @@ Writes hook entries into `~/.claude/settings.json`. Claude Code will now invoke 
 failproofai
 ```
 
-Opens `http://localhost:8020` — browse sessions, inspect hooks activity, manage policies.
+Opens `http://localhost:8020`. Browse sessions, inspect hook activity, manage policies.
 
 ### 3. Check what's active
 
@@ -80,13 +80,13 @@ failproofai policies
 
 ## How hooks work
 
-Claude Code emits events at key points during a session. Failproof AI registers as a hook handler and evaluates your policies against each event. Policies return one of three decisions:
+Claude Code emits events during a session (tool calls, session start/stop, notifications, etc). Failproof AI evaluates your policies against each event. Each policy returns one of three decisions:
 
 | Decision | Effect |
 |----------|--------|
 | `allow()` | Permit the action (default) |
 | `deny(message)` | Block the action; Claude sees the denial reason |
-| `instruct(message)` | Don't block — inject guidance into Claude's context |
+| `instruct(message)` | Don't block, but inject guidance into Claude's context |
 
 Evaluation runs built-in policies first, then custom hooks. The first `deny` short-circuits; all `instruct` results accumulate.
 
@@ -110,7 +110,7 @@ Hooks can listen to any Claude Code event:
 
 ### Scopes
 
-Hooks can be installed at three levels — settings merge automatically (project > local > global):
+Hooks can be installed at three levels. Settings merge automatically (project > local > global):
 
 | Scope | Command | Where it writes |
 |-------|---------|-----------------|
@@ -136,7 +136,7 @@ failproofai policies --uninstall --scope project
 
 ## Custom hooks
 
-Write your own hooks in JavaScript to enforce workflows, integrate with external services, or add project-specific rules.
+Write your own hooks in JavaScript. Enforce workflows, integrate external services, or add project-specific rules.
 
 ### Example: Block writes to production paths
 
@@ -212,7 +212,7 @@ failproofai policies --install --custom ./my-hooks.js
 | `session.sessionId` | `string` | Session identifier |
 | `session.transcriptPath` | `string` | Path to the session transcript file |
 
-Custom hooks support transitive local imports, async/await, and access to `process.env`. Errors are fail-open (logged to `~/.failproofai/hook.log`, built-in policies continue). See [docs/custom-hooks.md](docs/custom-hooks.md) for the full guide.
+Custom hooks support transitive local imports, async/await, and `process.env`. Errors are fail-open: logged to `~/.failproofai/hook.log`, built-in policies keep running. See [docs/custom-hooks.md](docs/custom-hooks.md) for more.
 
 ---
 
@@ -270,7 +270,7 @@ Full list with all parameters: [docs/built-in-policies.md](docs/built-in-policie
 
 ## Telemetry
 
-Failproof AI collects anonymous usage telemetry via PostHog to understand feature usage. No session content, file names, tool inputs, or personal information is ever sent.
+Anonymous usage telemetry via PostHog. No session content, file names, tool inputs, or personal information is sent.
 
 Disable it:
 
