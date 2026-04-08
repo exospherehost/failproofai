@@ -40,7 +40,12 @@ if (args[0] === "p") args[0] = "policies";
 // --hook <event> — called by Claude Code hooks; fast path, outside runCli()
 // because it has its own exit code contract with Claude Code.
 const hookIdx = args.indexOf("--hook");
-if (hookIdx >= 0 && args[hookIdx + 1]) {
+if (hookIdx >= 0) {
+  if (!args[hookIdx + 1]) {
+    console.error("Error: Missing event type after --hook");
+    console.error("Usage: failproofai --hook <event>  (e.g. PreToolUse, PostToolUse)");
+    process.exit(1);
+  }
   const { handleHookEvent } = await import("../src/hooks/handler");
   const exitCode = await handleHookEvent(args[hookIdx + 1]);
   process.exit(exitCode);
@@ -152,11 +157,20 @@ EXAMPLES
 
       const scopeIdx = subArgs.indexOf("--scope");
       const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
+      if (scopeIdx >= 0 && (!scope || scope.startsWith("-"))) {
+        throw new CliError("Missing value for --scope. Valid values: user, project, local");
+      }
+      if (scopeIdx >= 0 && !["user", "project", "local"].includes(scope)) {
+        throw new CliError(`Invalid scope: ${scope}. Valid values: user, project, local`);
+      }
 
       const customIdx = subArgs.includes("--custom") ? subArgs.indexOf("--custom")
                       : subArgs.includes("-c")        ? subArgs.indexOf("-c")
                       : -1;
       const customPoliciesPath = customIdx >= 0 ? subArgs[customIdx + 1] : undefined;
+      if (customIdx >= 0 && (!customPoliciesPath || customPoliciesPath.startsWith("-"))) {
+        throw new CliError("Missing path after --custom/-c\nUsage: --custom <path>  (e.g. --custom ./my-policies.js)");
+      }
 
       const includeBeta = subArgs.includes("--beta");
 
@@ -192,6 +206,12 @@ EXAMPLES
 
       const scopeIdx = subArgs.indexOf("--scope");
       const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
+      if (scopeIdx >= 0 && (!scope || scope.startsWith("-"))) {
+        throw new CliError("Missing value for --scope. Valid values: user, project, local, all");
+      }
+      if (scopeIdx >= 0 && !["user", "project", "local", "all"].includes(scope)) {
+        throw new CliError(`Invalid scope: ${scope}. Valid values: user, project, local, all`);
+      }
 
       const betaOnly = subArgs.includes("--beta");
       const removeCustomHooks = subArgs.includes("--custom") || subArgs.includes("-c");
@@ -212,8 +232,9 @@ EXAMPLES
     }
 
     // Default: list policies
-    // Reject unknown flags (e.g. --list) and unexpected positional args (e.g. "hi")
-    const knownListFlags = new Set(["--install", "-i", "--uninstall", "-u", "--help", "-h"]);
+    // Accept --list as a no-op alias (common intuition), reject all other unknown flags
+    // and unexpected positional args (e.g. "hi").
+    const knownListFlags = new Set(["--install", "-i", "--uninstall", "-u", "--help", "-h", "--list"]);
     const unknownListArg = subArgs.find((a) => a.startsWith("-") && !knownListFlags.has(a));
     if (unknownListArg) {
       throw new CliError(
@@ -221,9 +242,10 @@ EXAMPLES
         `Run \`failproofai policies --help\` for usage.`
       );
     }
-    if (subArgs.length > 0) {
+    const positionalArgs = subArgs.filter((a) => !a.startsWith("-"));
+    if (positionalArgs.length > 0) {
       throw new CliError(
-        `Unexpected argument: ${subArgs[0]}\n` +
+        `Unexpected argument: ${positionalArgs[0]}\n` +
         `Run \`failproofai policies --help\` for usage.`
       );
     }

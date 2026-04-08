@@ -68,7 +68,7 @@ function resolveFailproofaiBinary(): string {
     // `where` on Windows may return multiple lines; take the first
     return result.split("\n")[0].trim();
   } catch {
-    throw new Error(
+    throw new CliError(
       "failproofai binary not found in PATH.\n" +
       "Install it globally first: npm install -g failproofai"
     );
@@ -186,6 +186,20 @@ export async function installHooks(
   customPoliciesPath?: string,
   removeCustomHooks = false,
 ): Promise<void> {
+  // Validate user input first before any system checks
+  if (policyNames !== undefined && policyNames.length > 0) {
+    const nonAllNames = policyNames.filter((n) => n !== "all");
+    // Check unknown names first (most actionable error for the user)
+    if (nonAllNames.length > 0) validatePolicyNames(nonAllNames);
+    // Then check if "all" is mixed with valid specific names
+    if (policyNames.includes("all") && nonAllNames.length > 0) {
+      throw new CliError(
+        `"all" cannot be combined with specific policy names.\n` +
+        `Use either: --install all  or  --install block-sudo sanitize-jwt ...`
+      );
+    }
+  }
+
   const binaryPath = resolveFailproofaiBinary();
 
   // Capture existing config before overwriting (used for telemetry diff)
@@ -202,7 +216,6 @@ export async function installHooks(
         .filter((p) => includeBeta || !p.beta)
         .map((p) => p.name);
     } else {
-      if (policyNames.length > 0) validatePolicyNames(policyNames);
       incoming = policyNames;
     }
     // Additive: union with whatever was already enabled, deduplicated.
