@@ -1,0 +1,57 @@
+---
+title:  Failproof AI
+description: "Manage hooks and policies that keep your AI agents reliable and running autonomously"
+---
+
+[![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
+
+Hooks and policies that keep your AI agents reliable and running autonomously - for **Claude Code** and the **Agents SDK**.
+
+AI agents fail in predictable ways. They run destructive commands, leak secrets, drift off-task, get stuck in loops, or push directly to main. Left unattended, small failures cascade.
+
+Failproof AI solves this with **policies** - rules that hook into every agent tool call and can **detect failures**, **mitigate them** (block, instruct, sanitize), and **alert you** when something needs attention. A local dashboard lets you review everything afterward.
+
+Everything runs locally. No data leaves your machine.
+
+## Get started
+
+<CardGroup cols={2}>
+
+<Card title="26 built-in policies" icon="shield" href="/built-in-policies">
+  Block destructive commands, prevent secret leakage, keep agents inside project boundaries, and more - out of the box.
+</Card>
+
+<Card title="Custom policies" icon="code" href="/custom-hooks">
+  Write your own rules in JavaScript with a simple allow / deny / instruct API.
+</Card>
+
+<Card title="Agent monitor" icon="chart-line" href="/dashboard">
+  See what your agents did while you were away. Browse sessions, inspect tool calls, review where policies fired.
+</Card>
+
+<Card title="Easy configuration" icon="gear" href="/configuration">
+  Tune any policy without code. Set allowlists, protected branches, or thresholds per-project or globally.
+</Card>
+
+</CardGroup>
+
+## Quick start
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+```bash
+failproofai policies --install   # enable policies
+failproofai                      # launch the dashboard
+```
+
+See the [Getting started](/getting-started) guide for the full walkthrough.

@@ -1,10 +1,10 @@
 ---
 title: Dashboard
-description: "Session viewer, policy management, and activity log"
+description: "Monitor agent sessions, review tool calls, and manage policies"
 icon: chart-line
 ---
 
-The failproofai dashboard is a local web application for browsing Claude Code sessions and managing security policies.
+The failproofai dashboard is a local web application for monitoring your AI agent sessions and managing policies. See what your agents did while you were away.
 
 ---
 
@@ -16,13 +16,7 @@ failproofai
 
 Opens at `http://localhost:8020`.
 
-For production mode (faster startup, no file watching):
-
-```bash
-failproofai --start
-```
-
-The dashboard reads directly from the filesystem — your Claude Code project folders and the failproofai config files. Nothing is written to a remote service.
+The dashboard reads directly from the filesystem - your Claude Code project folders and the failproofai config files. Nothing is written to a remote service.
 
 ---
 
@@ -53,11 +47,11 @@ Click a session to open the session viewer.
 
 ### Session viewer
 
-A timeline of everything that happened in a session:
+The session viewer answers the key question for autonomous agents: what did the agent do, and did it stay on track? It shows a timeline of everything that happened in a session:
 
-- **Messages** — Claude's text responses and user prompts
-- **Tool calls** — Every tool Claude invoked, with its input and output
-- **Hook activity** — For each tool call, which policies fired and what decision they returned
+- **Messages** - Claude's text responses and user prompts
+- **Tool calls** - Every tool Claude invoked, with its input and output
+- **Policy activity** - For each tool call, which policies fired and what decision they returned
 
 The stats bar at the top shows session duration, total tool calls, and a summary of hook decisions (allow / deny / instruct counts).
 
@@ -67,24 +61,25 @@ You can export the session as a ZIP or JSONL file using the download button.
 
 A two-tab page for managing policies and reviewing activity.
 
-**Policies tab:**
-
-- Toggle individual policies on or off with a single click (writes to `~/.failproofai/policies-config.json`)
-- Expand a policy to configure its parameters (for policies that support `policyParams`)
-- Install or remove hooks for a given scope
-- Set a custom hooks file path
-
-**Activity tab:**
-
-- Full paginated history of every hook event that has fired across all sessions
-- Search by policy name, session ID, tool name, or decision
-- Each row shows: timestamp, policy name, decision, tool name, session ID, and the reason for deny/instruct decisions
+<Tabs>
+  <Tab title="Policies tab">
+  - Toggle individual policies on or off with a single click (writes to `~/.failproofai/policies-config.json`)
+  - Expand a policy to configure its parameters (for policies that support `policyParams`)
+  - Install or remove hooks for a given scope
+  - Set a custom hooks file path
+  </Tab>
+  <Tab title="Activity tab">
+  - Full paginated history of every hook event that has fired across all sessions
+  - Search by policy name, session ID, tool name, or decision
+  - Each row shows: timestamp, policy name, decision, tool name, session ID, and the reason for deny/instruct decisions
+  </Tab>
+</Tabs>
 
 ---
 
 ## Auto-refresh
 
-The dashboard has an auto-refresh toggle in the top navigation. When enabled, the current page refreshes periodically to show new sessions and hook activity as they appear. Useful when you have an active Claude Code session running in parallel.
+The dashboard has an auto-refresh toggle in the top navigation. When enabled, the current page refreshes periodically to show new sessions and policy activity as they appear. Essential for monitoring long-running autonomous agent sessions.
 
 ---
 
@@ -118,9 +113,9 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ## Accessing from a non-localhost host
 
-When running the dashboard in **dev mode** (`npm run dev`) and accessing it from a hostname other than `localhost` — for example, a custom domain, a remote IP, or a tunneled URL — you may see a warning like:
+When running the dashboard in **dev mode** (`npm run dev`) and accessing it from a hostname other than `localhost` - for example, a custom domain, a remote IP, or a tunneled URL - you may see a warning like:
 
-```
+```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
@@ -142,4 +137,6 @@ You can also set the `FAILPROOFAI_ALLOWED_DEV_ORIGINS` environment variable inst
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
-> **Note:** This only applies to dev mode. When running `failproofai` (production mode), there is no HMR websocket and no cross-origin dev resource issue.
+<Note>
+This only applies to dev mode. When running `failproofai` (production mode), there is no HMR websocket and no cross-origin dev resource issue.
+</Note>

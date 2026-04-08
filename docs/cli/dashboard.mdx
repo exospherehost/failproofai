@@ -1,0 +1,28 @@
+---
+title: View sessions
+description: "Launch the dashboard to browse agent sessions and manage policies"
+---
+
+```bash
+failproofai
+```
+
+Starts the web dashboard at `http://localhost:8020`.
+
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--port <number>` | Port to listen on (default: `8020`) |
+| `--projects-path <path>` | Override where Claude Code project folders are found |
+| `--allowed-origins <origins>` | Comma-separated hosts/IPs allowed to access dev resources |
+
+## Examples
+
+```bash
+# Launch on a different port
+failproofai --port 9000
+
+# Use a custom projects path
+failproofai --projects-path ~/my-claude-projects
+```

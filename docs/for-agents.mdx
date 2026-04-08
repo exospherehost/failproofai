@@ -1,0 +1,38 @@
+---
+title: "For agents"
+description: "Add Failproof AI knowledge to your coding agent in one command. Works with Claude Code, Cursor, Windsurf, and more."
+---
+
+Add the full Failproof AI reference to your coding agent in one command. Works with Claude Code, Cursor, Windsurf, and any other agent that supports skills.
+
+```bash
+npx skills add https://docs.befailproof.ai
+```
+
+`npx skills` detects which agents you have installed and adds the skill in the right format for each one automatically.
+
+## What the skill covers
+
+| Area | What's included |
+|------|----------------|
+| Policies | Built-in policy names, event types, parameters, enable/disable |
+| Custom hooks | `customPolicies.add()`, match filters, `allow`/`deny`/`instruct` API |
+| Context object | `ctx.eventType`, `ctx.toolName`, `ctx.toolInput`, `ctx.session` |
+| Configuration | `policies-config.json` structure, scope merging, `policyParams` |
+| CLI | `failproofai policies --install`, `--uninstall`, `--custom`, scopes |
+| Dashboard | Session viewer, policy activity, environment variables |
+| Architecture | Hook handler flow, exit codes, stdin/stdout contract |
+
+## Is the skill complete?
+
+Mintlify generates `llms.txt` from all pages in the navigation. The Failproof AI docs cover the full API - every policy, option, and example is included. If you find something missing, the source is at `https://docs.befailproof.ai/llms-full.txt`.
+
+For targeted context, link directly to a specific page:
+
+```bash
+# Just the custom hooks API
+npx skills add https://docs.befailproof.ai/custom-hooks
+
+# Just the built-in policies
+npx skills add https://docs.befailproof.ai/built-in-policies
+```

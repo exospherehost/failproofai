@@ -1,7 +1,7 @@
 {
   "name": "failproofai",
   "version": "0.0.2",
-  "description": "Open-source hooks, policies, and project visualization for Claude Code & Agents SDK",
+  "description": "The easiest way to manage policies that keep your AI agents reliable, on-task, and running autonomously — for Claude Code & the Agents SDK",
   "bin": {
     "failproofai": "./dist/cli.mjs"
   },
@@ -40,17 +40,14 @@
     "claude-agents-sdk",
     "anthropic",
     "ai-agent",
-    "llm-observability",
-    "agent-observability",
-    "log-viewer",
-    "session-replay",
+    "agent-reliability",
+    "agent-monitoring",
+    "autonomous-agent",
+    "failure-prevention",
     "developer-tools",
     "devtools",
     "cli",
     "local-first",
-    "monitoring",
-    "debugging",
-    "tracing",
     "hooks",
     "policies"
   ],

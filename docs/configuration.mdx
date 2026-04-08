@@ -4,7 +4,7 @@ description: "Config file format, three-scope system, and merge rules"
 icon: gear
 ---
 
-failproofai uses JSON configuration files to control which policies are active, how they behave, and where custom hooks are loaded from.
+failproofai uses JSON configuration files to control which policies are active, how they behave, and where custom hooks are loaded from. Configuration is designed to be easy to share with your team - commit it to your repo and every developer gets the same agent safety net.
 
 ---
 
@@ -22,9 +22,9 @@ When failproofai receives a hook event, it loads and merges all three files that
 
 ### Merge rules
 
-**`enabledPolicies`** — the union of all three scopes. A policy enabled at any level is active.
+**`enabledPolicies`** - the union of all three scopes. A policy enabled at any level is active.
 
-```
+```text
 project:  ["block-sudo"]
 local:    ["block-rm-rf"]
 global:   ["block-sudo", "sanitize-api-keys"]
@@ -32,16 +32,16 @@ global:   ["block-sudo", "sanitize-api-keys"]
 resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← deduplicated union
 ```
 
-**`policyParams`** — first scope that defines params for a given policy wins entirely. There is no deep merging of values within a policy's params.
+**`policyParams`** - first scope that defines params for a given policy wins entirely. There is no deep merging of values within a policy's params.
 
-```
+```text
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
 resolved: { allowPatterns: ["sudo apt-get update"] }   ← project wins, global ignored
 ```
 
-```
+```text
 project:  (no block-sudo entry)
 local:    (no block-sudo entry)
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
@@ -49,9 +49,9 @@ global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 resolved: { allowPatterns: ["sudo systemctl status"] }  ← falls through to global
 ```
 
-**`customPoliciesPath`** — first scope that defines it wins.
+**`customPoliciesPath`** - first scope that defines it wins.
 
-**`llm`** — first scope that defines it wins.
+**`llm`** - first scope that defines it wins.
 
 ---
 
@@ -102,7 +102,7 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← falls through to glo
 
 Type: `string[]`
 
-List of policy names to enable. Names must match exactly the policy identifiers shown in `failproofai --list-policies`. See [Built-in Policies](./built-in-policies.md) for the full list.
+List of policy names to enable. Names must match exactly the policy identifiers shown by `failproofai policies`. See [Built-in Policies](/built-in-policies) for the full list.
 
 Policies not in `enabledPolicies` are inactive, even if they have entries in `policyParams`.
 
@@ -110,19 +110,19 @@ Policies not in `enabledPolicies` are inactive, even if they have entries in `po
 
 Type: `Record<string, Record<string, unknown>>`
 
-Per-policy parameter overrides. The outer key is the policy name; the inner keys are policy-specific. Each policy documents its available parameters in [Built-in Policies](./built-in-policies.md).
+Per-policy parameter overrides. The outer key is the policy name; the inner keys are policy-specific. Each policy documents its available parameters in [Built-in Policies](/built-in-policies).
 
 If a policy has parameters but you don't specify them, the policy's built-in defaults are used. Users who do not configure `policyParams` at all get identical behavior to previous versions.
 
-Unknown keys inside a policy's params block are silently ignored at hook-fire time but flagged as warnings when you run `failproofai --list-policies`.
+Unknown keys inside a policy's params block are silently ignored at hook-fire time but flagged as warnings when you run `failproofai policies`.
 
 ### `customPoliciesPath`
 
 Type: `string` (absolute path)
 
-Path to a JavaScript file containing custom hook policies. This is set automatically by `failproofai --install-policies --custom <path>` (the path is resolved to absolute before being stored).
+Path to a JavaScript file containing custom hook policies. This is set automatically by `failproofai policies --install --custom <path>` (the path is resolved to absolute before being stored).
 
-The file is loaded fresh on every hook event — there is no caching. See [Custom Hooks](./custom-hooks.md) for authoring details.
+The file is loaded fresh on every hook event - there is no caching. See [Custom Hooks](/custom-hooks) for authoring details.
 
 ### `llm`
 
@@ -143,10 +143,10 @@ LLM client configuration for policies that make AI calls. Not required for most 
 
 ## Managing configuration from the CLI
 
-The `--install-policies` and `--remove-policies` commands write to Claude Code's `settings.json` (the hook entry points), while `policies-config.json` is the file you manage directly. The two are separate:
+The `policies --install` and `policies --uninstall` commands write to Claude Code's `settings.json` (the hook entry points), while `policies-config.json` is the file you manage directly. The two are separate:
 
-- **`settings.json`** — tells Claude Code to call `failproofai --hook <event>` on each tool use
-- **`policies-config.json`** — tells failproofai which policies to evaluate and with what params
+- **`settings.json`** - tells Claude Code to call `failproofai --hook <event>` on each tool use
+- **`policies-config.json`** - tells failproofai which policies to evaluate and with what params
 
 You can edit `policies-config.json` directly at any time; changes take effect immediately on the next hook event with no restart needed.
 
