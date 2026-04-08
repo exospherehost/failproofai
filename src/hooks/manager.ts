@@ -21,6 +21,7 @@ import { BUILTIN_POLICIES } from "./builtin-policies";
 import { loadCustomHooks } from "./custom-hooks-loader";
 import { trackHookEvent } from "./hook-telemetry";
 import { getInstanceId, hashToId } from "../../lib/telemetry-id";
+import { CliError } from "../cli-error";
 
 const VALID_POLICY_NAMES = new Set(BUILTIN_POLICIES.map((p) => p.name));
 
@@ -85,7 +86,7 @@ function validatePolicyNames(names: string[]): void {
   const invalid = names.filter((n) => !VALID_POLICY_NAMES.has(n));
   if (invalid.length > 0) {
     const validList = [...VALID_POLICY_NAMES].join(", ");
-    throw new Error(
+    throw new CliError(
       `Unknown policy name(s): ${invalid.join(", ")}\n` +
       `Valid policies: ${validList}`
     );
