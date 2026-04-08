@@ -147,6 +147,30 @@ describe("policies: --help", () => {
 
 // ── policies --install ────────────────────────────────────────────────────────
 
+describe("policies --install: unknown flags", () => {
+  it("rejects unknown flag with clean error", () => {
+    const result = runCli("policies", "--install", "--typo");
+    assertCleanError(result, "Unknown flag: --typo");
+  });
+
+  it("rejects unknown flag even with valid policy names present", () => {
+    const result = runCli("policies", "--install", "block-sudo", "--typo");
+    assertCleanError(result, "Unknown flag: --typo");
+  });
+});
+
+describe("policies --uninstall: unknown flags", () => {
+  it("rejects unknown flag with clean error (prevents silent destructive operation)", () => {
+    const result = runCli("policies", "--uninstall", "--typo");
+    assertCleanError(result, "Unknown flag: --typo");
+  });
+
+  it("rejects unknown flag even with valid policy names present", () => {
+    const result = runCli("policies", "--uninstall", "block-sudo", "--typo");
+    assertCleanError(result, "Unknown flag: --typo");
+  });
+});
+
 describe("policies --install: unknown policy names", () => {
   it("rejects single unknown policy name", () => {
     const result = runCli("policies", "--install", "okayyy");

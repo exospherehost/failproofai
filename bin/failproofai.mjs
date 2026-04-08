@@ -46,9 +46,15 @@ if (hookIdx >= 0) {
     console.error("Usage: failproofai --hook <event>  (e.g. PreToolUse, PostToolUse)");
     process.exit(1);
   }
-  const { handleHookEvent } = await import("../src/hooks/handler");
-  const exitCode = await handleHookEvent(args[hookIdx + 1]);
-  process.exit(exitCode);
+  try {
+    const { handleHookEvent } = await import("../src/hooks/handler");
+    const exitCode = await handleHookEvent(args[hookIdx + 1]);
+    process.exit(exitCode);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Unexpected error: ${msg}`);
+    process.exit(2);
+  }
 }
 
 /**
@@ -186,6 +192,11 @@ EXAMPLES
       // values consumed by --scope or --custom/-c.
       const consumed = new Set([scope, customPoliciesPath].filter(Boolean));
       const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c"]);
+      const unknownInstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
+      if (unknownInstallFlag) {
+        throw new CliError(`Unknown flag: ${unknownInstallFlag}\nRun \`failproofai policies --help\` for usage.`);
+      }
+
       const explicitPolicyNames = subArgs.filter(
         (a) => !a.startsWith("-") && !flags.has(a) && !consumed.has(a)
       );
@@ -226,6 +237,11 @@ EXAMPLES
 
       const consumed = new Set([scope].filter(Boolean));
       const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c"]);
+      const unknownUninstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
+      if (unknownUninstallFlag) {
+        throw new CliError(`Unknown flag: ${unknownUninstallFlag}\nRun \`failproofai policies --help\` for usage.`);
+      }
+
       const policyNames = subArgs.filter(
         (a) => !a.startsWith("-") && !flags.has(a) && !consumed.has(a)
       );
