@@ -24,6 +24,16 @@ describe("top-level: --version", () => {
     assertSuccess(result);
     expect(result.stdout).toMatch(/^\d+\.\d+\.\d+/);
   });
+
+  it("rejects extra argument after --version", () => {
+    const result = runCli("--version", "adw");
+    assertCleanError(result, "Unexpected argument: adw");
+  });
+
+  it("rejects extra argument after -v", () => {
+    const result = runCli("-v", "adw");
+    assertCleanError(result, "Unexpected argument: adw");
+  });
 });
 
 describe("top-level: --help", () => {
@@ -38,6 +48,16 @@ describe("top-level: --help", () => {
     const result = runCli("-h");
     assertSuccess(result);
     expect(result.stdout).toContain("USAGE");
+  });
+
+  it("rejects extra argument after --help", () => {
+    const result = runCli("--help", "o");
+    assertCleanError(result, "Unexpected argument: o");
+  });
+
+  it("rejects extra argument after -h", () => {
+    const result = runCli("-h", "o");
+    assertCleanError(result, "Unexpected argument: o");
   });
 });
 

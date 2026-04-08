@@ -60,6 +60,10 @@ async function runCli() {
   // --help / -h  (only when not inside a subcommand that handles its own --help)
   const SUBCOMMANDS = ["policies"];
   if ((args.includes("--help") || args.includes("-h")) && !SUBCOMMANDS.includes(args[0])) {
+    const extraArgs = args.filter((a) => a !== "--help" && a !== "-h");
+    if (extraArgs.length > 0) {
+      throw new CliError(`Unexpected argument: ${extraArgs[0]}\nRun \`failproofai --help\` for usage.`);
+    }
     console.log(`
 failproofai v${version}
 
@@ -105,6 +109,10 @@ LINKS
 
   // --version / -v
   if (args.includes("--version") || args.includes("-v")) {
+    const extraArgs = args.filter((a) => a !== "--version" && a !== "-v");
+    if (extraArgs.length > 0) {
+      throw new CliError(`Unexpected argument: ${extraArgs[0]}\nRun \`failproofai --help\` for usage.`);
+    }
     console.log(version);
     process.exit(0);
   }
