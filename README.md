@@ -56,13 +56,13 @@ npm install -g failproofai
 
 ## Quick start
 
-### 1. Install hooks
+### 1. Install policies
 
 ```bash
 failproofai policies --install
 ```
 
-Writes hook entries into `~/.claude/settings.json`. Claude Code will now invoke failproofai on every tool call and lifecycle event.
+Registers Failproof AI as a hook handler in `~/.claude/settings.json`. Your policies now run on every tool call and lifecycle event.
 
 ### 2. Launch the dashboard
 
@@ -70,7 +70,7 @@ Writes hook entries into `~/.claude/settings.json`. Claude Code will now invoke 
 failproofai
 ```
 
-Opens `http://localhost:8020`. Browse sessions, inspect hook activity, manage policies.
+Opens `http://localhost:8020`. Browse sessions, inspect policy activity, manage configuration.
 
 ### 3. Check what's active
 
@@ -80,21 +80,21 @@ failproofai policies
 
 ---
 
-## How hooks work
+## Policies
 
-Claude Code emits events during a session (tool calls, session start/stop, notifications, etc). Failproof AI evaluates your policies against each event. Each policy returns one of three decisions:
+Policies are the core primitive in Failproof AI. A policy is a function that runs on a Claude Code hook event and returns a decision:
 
 | Decision | Effect |
 |----------|--------|
 | `allow()` | Permit the action (default) |
-| `deny(message)` | Block the action; Claude sees the denial reason |
+| `deny(message)` | Block the action. Claude sees the denial reason |
 | `instruct(message)` | Don't block, but inject guidance into Claude's context |
 
-Evaluation runs built-in policies first, then custom hooks. The first `deny` short-circuits; all `instruct` results accumulate.
+Under the hood, policies connect to [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks). When Claude triggers an event, Failproof AI runs your policies against it. Built-in policies run first, then custom ones. The first `deny` short-circuits; all `instruct` results accumulate.
 
-### Event types
+### What policies can listen to
 
-Hooks can listen to any Claude Code event:
+Policies can match any Claude Code hook event:
 
 | Category | Events |
 |----------|--------|
@@ -108,11 +108,11 @@ Hooks can listen to any Claude Code event:
 
 ---
 
-## Hook installation
+## Installing policies
 
 ### Scopes
 
-Hooks can be installed at three levels. Settings merge automatically (project > local > global):
+Policies can be installed at three levels. Settings merge automatically (project > local > global):
 
 | Scope | Command | Where it writes |
 |-------|---------|-----------------|
@@ -136,9 +136,9 @@ failproofai policies --uninstall --scope project
 
 ---
 
-## Custom hooks
+## Custom policies
 
-Write your own hooks in JavaScript. Enforce workflows, integrate external services, or add project-specific rules.
+You can write your own policies in JavaScript. Enforce workflows, integrate external services, or add project-specific rules.
 
 ### Example: Block writes to production paths
 
@@ -196,17 +196,17 @@ customPolicies.add({
 });
 ```
 
-Install custom hooks with:
+Install custom policies with:
 
 ```bash
-failproofai policies --install --custom ./my-hooks.js
+failproofai policies --install --custom ./my-policies.js
 ```
 
 ### Context object (`ctx`)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `eventType` | `string` | Which event fired (see event types above) |
+| `eventType` | `string` | Which event fired (see events above) |
 | `toolName` | `string` | Tool being called (`"Bash"`, `"Write"`, `"Read"`, ...) |
 | `toolInput` | `object` | Tool's input parameters |
 | `payload` | `object` | Full raw event payload |
@@ -214,7 +214,7 @@ failproofai policies --install --custom ./my-hooks.js
 | `session.sessionId` | `string` | Session identifier |
 | `session.transcriptPath` | `string` | Path to the session transcript file |
 
-Custom hooks support transitive local imports, async/await, and `process.env`. Errors are fail-open: logged to `~/.failproofai/hook.log`, built-in policies keep running. See [docs/custom-hooks.md](docs/custom-hooks.md) for more.
+Custom policies support transitive local imports, async/await, and `process.env`. Errors are fail-open: logged to `~/.failproofai/hook.log`, built-in policies keep running. See [docs/custom-hooks.md](docs/custom-hooks.md) for more.
 
 ---
 
@@ -290,9 +290,9 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | [CLI Reference](docs/cli-reference.md) | All commands and flags |
 | [Configuration](docs/configuration.md) | Config file format and scope merging |
 | [Built-in Policies](docs/built-in-policies.md) | All 35+ policies with parameters |
-| [Custom Hooks](docs/custom-hooks.md) | Write your own hooks |
-| [Dashboard](docs/dashboard.md) | Session viewer and hook management |
-| [Architecture](docs/architecture.md) | How the hook system works |
+| [Custom Policies](docs/custom-hooks.md) | Write your own policies |
+| [Dashboard](docs/dashboard.md) | Session viewer and policy management |
+| [Architecture](docs/architecture.md) | How policies connect to hooks |
 | [Testing](docs/testing.md) | Running tests and writing new ones |
 
 ---
