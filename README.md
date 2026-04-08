@@ -14,12 +14,20 @@
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/exospherehost/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/exospherehost/failproofai/actions)
 
-Open-source hooks, policies, and project visualization for **Claude Code** & the **Agents SDK**.
+Open-source hooks management, policies, and session visualization for **Claude Code** & the **Agents SDK**.
 
-- **Hooks & Policies** — 35+ built-in security policies that run as Claude Code hooks. Block dangerous commands, sanitize secrets, restrict file access, and more.
-- **Custom Policies** — Write your own policies in JavaScript. Same `allow`/`deny`/`instruct` API as built-in policies, with full async support.
-- **Policy Parameters** — Tune built-in policies without writing code: configure allowlists, protected branches, thresholds, and custom patterns.
-- **Session Viewer** — Browse Claude Code projects and sessions locally. Inspect tool calls, messages, and per-session hook activity side-by-side.
+### Why hooks?
+
+Claude Code hooks let you react to anything Claude does — every tool call, session event, and notification. Failproof AI makes them easy to manage: install with one command, pick from 35+ built-in policies, or write your own in JavaScript.
+
+### What you can do
+
+- **Block risky commands** (`rm -rf`, `sudo`, `curl | bash`) before they run
+- **Enforce your team's git workflow** — no force-pushes, no commits to main
+- **Get Slack notifications** when Claude is idle or finishes a session
+- **Sanitize secrets** from tool output so they never reach Claude's context
+- **Add project-specific rules** or connect external services in plain JavaScript
+- **Browse sessions** — inspect tool calls, messages, and hook activity in a local dashboard
 
 Everything runs locally — no data leaves your machine.
 
@@ -44,13 +52,13 @@ bun add -g failproofai
 
 ## Quick start
 
-### 1. Enable policies globally
+### 1. Install hooks
 
 ```bash
 failproofai policies --install
 ```
 
-Writes hook entries into `~/.claude/settings.json`. Claude Code will now invoke failproofai before and after each tool call.
+Writes hook entries into `~/.claude/settings.json`. Claude Code will now invoke failproofai on every tool call and lifecycle event.
 
 ### 2. Launch the dashboard
 
@@ -58,7 +66,7 @@ Writes hook entries into `~/.claude/settings.json`. Claude Code will now invoke 
 failproofai
 ```
 
-Opens `http://localhost:8020` — browse sessions, inspect logs, manage policies.
+Opens `http://localhost:8020` — browse sessions, inspect hooks activity, manage policies.
 
 ### 3. Check what's active
 
@@ -68,9 +76,39 @@ failproofai policies
 
 ---
 
-## Policy installation
+## How hooks work
+
+Claude Code emits events at key points during a session. Failproof AI registers as a hook handler and evaluates your policies against each event. Policies return one of three decisions:
+
+| Decision | Effect |
+|----------|--------|
+| `allow()` | Permit the action (default) |
+| `deny(message)` | Block the action; Claude sees the denial reason |
+| `instruct(message)` | Don't block — inject guidance into Claude's context |
+
+Evaluation runs built-in policies first, then custom hooks. The first `deny` short-circuits; all `instruct` results accumulate.
+
+### Event types
+
+Hooks can listen to any Claude Code event:
+
+| Category | Events |
+|----------|--------|
+| **Tool execution** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure` |
+| **Session lifecycle** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
+| **User interaction** | `UserPromptSubmit`, `Notification` |
+| **Subagents & tasks** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted` |
+| **Configuration** | `InstructionsLoaded`, `ConfigChange`, `CwdChanged` |
+| **File system** | `FileChanged`, `WorktreeCreate`, `WorktreeRemove` |
+| **Context** | `PreCompact`, `PostCompact` |
+
+---
+
+## Hook installation
 
 ### Scopes
+
+Hooks can be installed at three levels — settings merge automatically (project > local > global):
 
 | Scope | Command | Where it writes |
 |-------|---------|-----------------|
@@ -84,7 +122,7 @@ failproofai policies
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 ```
 
-### Remove policies
+### Uninstall
 
 ```bash
 failproofai policies --uninstall
@@ -94,84 +132,14 @@ failproofai policies --uninstall --scope project
 
 ---
 
-## Configuration
+## Custom hooks
 
-Policy configuration lives in `~/.failproofai/policies-config.json` (global) or `.failproofai/policies-config.json` in your project (per-project).
+Write your own hooks in JavaScript to enforce workflows, integrate with external services, or add project-specific rules.
 
-```json
-{
-  "enabledPolicies": [
-    "block-sudo",
-    "block-rm-rf",
-    "sanitize-api-keys",
-    "block-push-master",
-    "block-env-files",
-    "block-read-outside-cwd"
-  ],
-  "policyParams": {
-    "block-sudo": {
-      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
-    },
-    "block-push-master": {
-      "protectedBranches": ["main", "release", "prod"]
-    },
-    "sanitize-api-keys": {
-      "additionalPatterns": [
-        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
-      ]
-    },
-    "warn-large-file-write": {
-      "thresholdKb": 512
-    }
-  }
-}
-```
-
-**Three config scopes** are merged automatically (project → local → global). See [docs/configuration.md](docs/configuration.md) for full merge rules.
-
----
-
-## Built-in policies
-
-| Policy | Description | Configurable |
-|--------|-------------|:---:|
-| `block-sudo` | Block sudo commands | `allowPatterns` |
-| `block-rm-rf` | Block recursive deletions | `allowPaths` |
-| `block-curl-pipe-sh` | Block curl\|bash and wget\|bash | |
-| `block-failproofai-commands` | Prevent self-uninstallation | |
-| `sanitize-jwt` | Redact JWT tokens from tool output | |
-| `sanitize-api-keys` | Redact API keys from tool output | `additionalPatterns` |
-| `sanitize-connection-strings` | Redact database credentials from tool output | |
-| `sanitize-private-key-content` | Redact PEM private key blocks | |
-| `sanitize-bearer-tokens` | Redact Authorization Bearer tokens | |
-| `block-env-files` | Block access to .env files | |
-| `protect-env-vars` | Block commands that print environment variables | |
-| `block-read-outside-cwd` | Block reading files outside the project | `allowPaths` |
-| `block-secrets-write` | Block writes to private key and certificate files | `additionalPatterns` |
-| `block-push-master` | Block pushing to main/master | `protectedBranches` |
-| `block-work-on-main` | Block checking out main/master | `protectedBranches` |
-| `block-force-push` | Block `git push --force` | |
-| `warn-git-amend` | Warn on `git commit --amend` | |
-| `warn-git-stash-drop` | Warn on `git stash drop` | |
-| `warn-all-files-staged` | Warn on `git add -A` | |
-| `warn-destructive-sql` | Warn on DROP/DELETE SQL statements | |
-| `warn-schema-alteration` | Warn on ALTER TABLE statements | |
-| `warn-large-file-write` | Warn on large file writes | `thresholdKb` |
-| `warn-package-publish` | Warn on `npm publish` | |
-| `warn-background-process` | Warn on background process launches | |
-| `warn-global-package-install` | Warn on global package installs | |
-| …and more | | |
-
-Full policy details and parameter reference: [docs/built-in-policies.md](docs/built-in-policies.md)
-
----
-
-## Custom policies
-
-Create a `.js` file with your own policies:
+### Example: Block writes to production paths
 
 ```js
-import { customPolicies, allow, deny, instruct } from "failproofai";
+import { customPolicies, allow, deny } from "failproofai";
 
 customPolicies.add({
   name: "no-production-writes",
@@ -186,33 +154,115 @@ customPolicies.add({
 });
 ```
 
-Install with:
+### Example: Send a Slack notification when Claude goes idle
 
-```bash
-failproofai policies --install --custom ./my-policies.js
+```js
+import { customPolicies, allow } from "failproofai";
+
+customPolicies.add({
+  name: "slack-on-idle",
+  description: "Notify Slack when Claude is waiting for input",
+  match: { events: ["Notification"] },
+  fn: async (ctx) => {
+    await fetch(process.env.SLACK_WEBHOOK_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `Claude is idle in ${ctx.session.cwd}` }),
+    });
+    return allow();
+  },
+});
 ```
 
-### Decision helpers
+### Example: Require a change summary before session ends
 
-| Function | Effect |
-|----------|--------|
-| `allow()` | Permit the tool call |
-| `deny(message)` | Block the tool call; message shown to Claude |
-| `instruct(message)` | Add context to Claude's prompt; does not block |
+```js
+import { customPolicies, allow, deny } from "failproofai";
+
+customPolicies.add({
+  name: "require-summary",
+  description: "Ask Claude to summarize changes before stopping",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    const output = ctx.toolInput?.result ?? "";
+    if (!output.toLowerCase().includes("summary"))
+      return deny("Please provide a summary of what changed before stopping.");
+    return allow();
+  },
+});
+```
+
+Install custom hooks with:
+
+```bash
+failproofai policies --install --custom ./my-hooks.js
+```
 
 ### Context object (`ctx`)
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
-| `toolName` | `string` | Tool being called (`"Bash"`, `"Write"`, `"Read"`, …) |
+| `eventType` | `string` | Which event fired (see event types above) |
+| `toolName` | `string` | Tool being called (`"Bash"`, `"Write"`, `"Read"`, ...) |
 | `toolInput` | `object` | Tool's input parameters |
 | `payload` | `object` | Full raw event payload |
 | `session.cwd` | `string` | Working directory of the Claude Code session |
 | `session.sessionId` | `string` | Session identifier |
 | `session.transcriptPath` | `string` | Path to the session transcript file |
 
-Custom hooks support transitive local imports, async/await, and access to `process.env`. Errors in custom hooks are fail-open (logged to `~/.failproofai/hook.log`, built-in policies continue). See [docs/custom-hooks.md](docs/custom-hooks.md) for the full guide.
+Custom hooks support transitive local imports, async/await, and access to `process.env`. Errors are fail-open (logged to `~/.failproofai/hook.log`, built-in policies continue). See [docs/custom-hooks.md](docs/custom-hooks.md) for the full guide.
+
+---
+
+## Configuration
+
+Policy configuration lives in `~/.failproofai/policies-config.json` (global) or `.failproofai/policies-config.json` (per-project).
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-push-master",
+    "sanitize-api-keys"
+  ],
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    },
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "prod"]
+    },
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
+      ]
+    }
+  }
+}
+```
+
+Three config scopes merge automatically (project > local > global). See [docs/configuration.md](docs/configuration.md) for full merge rules.
+
+---
+
+## Built-in policies
+
+35+ policies ship out of the box. Here are some highlights:
+
+| Policy | What it does | Parameters |
+|--------|-------------|:---:|
+| `block-sudo` | Block sudo commands | `allowPatterns` |
+| `block-rm-rf` | Block recursive deletions | `allowPaths` |
+| `block-push-master` | Block pushing to protected branches | `protectedBranches` |
+| `block-force-push` | Block `git push --force` | |
+| `block-read-outside-cwd` | Block reads outside the project | `allowPaths` |
+| `sanitize-api-keys` | Redact API keys from tool output | `additionalPatterns` |
+| `sanitize-connection-strings` | Redact database credentials | |
+| `warn-destructive-sql` | Warn on DROP/DELETE SQL | |
+| `warn-large-file-write` | Warn on large file writes | `thresholdKb` |
+| `warn-all-files-staged` | Warn on `git add -A` | |
+
+Full list with all parameters: [docs/built-in-policies.md](docs/built-in-policies.md)
 
 ---
 
@@ -236,8 +286,8 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | [CLI Reference](docs/cli-reference.md) | All commands and flags |
 | [Configuration](docs/configuration.md) | Config file format and scope merging |
 | [Built-in Policies](docs/built-in-policies.md) | All 35+ policies with parameters |
-| [Custom Hooks](docs/custom-hooks.md) | Write your own policies |
-| [Dashboard](docs/dashboard.md) | Session viewer and policy management |
+| [Custom Hooks](docs/custom-hooks.md) | Write your own hooks |
+| [Dashboard](docs/dashboard.md) | Session viewer and hook management |
 | [Architecture](docs/architecture.md) | How the hook system works |
 | [Testing](docs/testing.md) | Running tests and writing new ones |
 
