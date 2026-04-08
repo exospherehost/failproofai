@@ -20,7 +20,7 @@ Open-source hooks management, policies, and session visualization for **Claude C
 
 ### Why hooks?
 
-Claude Code runs tools on your behalf, but you can't control what it does with just prompts. Hooks let you intercept every tool call and session event so you can block, redirect, or extend behavior with real code. Failproof AI ships 35+ built-in policies and lets you write custom ones in JavaScript.
+Claude Code runs tools on your behalf, but you can't control what it does with just prompts. Hooks let you intercept every tool call and session event so you can block, redirect, or extend behavior with real code. Failproof AI comes with 35+ built-in policies that plug into your hooks for safety, git workflows, and output sanitization. You can also create your own in JavaScript.
 
 ### What you can do
 
