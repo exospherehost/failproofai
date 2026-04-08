@@ -14,6 +14,8 @@
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/exospherehost/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/exospherehost/failproofai/actions)
 
+**Don't just hope your agent behaves — enforce it with hooks.**
+
 Open-source hooks management, policies, and session visualization for **Claude Code** & the **Agents SDK**.
 
 ### Why hooks?
