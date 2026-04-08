@@ -10,6 +10,8 @@ The canonical npm package is **`failproofai`**:
 
 ```bash
 npm install -g failproofai
+# or
+bun add -g failproofai
 ```
 
 ---
