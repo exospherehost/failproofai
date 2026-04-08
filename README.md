@@ -13,7 +13,6 @@
 [![npm](https://img.shields.io/npm/v/failproofai/latest?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/exospherehost/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/exospherehost/failproofai/actions)
-[![Discord](https://img.shields.io/discord/816925020973432832?style=flat-square&label=Discord&color=5865F2)](https://discord.com/invite/2zjBZP7yQJ)
 
 Open-source hooks, policies, and project visualization for **Claude Code** & the **Agents SDK**.
 
