@@ -49,7 +49,7 @@ export function launch(mode: "dev" | "start"): void {
     const serverJsPath = resolve(packageRoot, ".next/standalone/server.js");
     if (!existsSync(serverJsPath)) {
       console.error(
-        `\nError: Cannot find server binary at:\n  ${serverJsPath}\n\n` +
+        `\nError: Cannot find server.js at:\n  ${serverJsPath}\n\n` +
         `The package may be missing its build output.\n` +
         `Try reinstalling:\n  npm install -g failproofai@latest\n`
       );

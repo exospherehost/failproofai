@@ -24,10 +24,12 @@ It also includes a local web dashboard for browsing Claude Code sessions, inspec
 
 ## Quick start
 
-Install globally via npm:
+Install globally:
 
 ```bash
 npm install -g failproofai
+# or
+bun add -g failproofai
 ```
 
 Enable policies:
