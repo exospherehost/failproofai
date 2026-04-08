@@ -10,10 +10,9 @@
 # Failproof AI
 
 [![Docs](https://img.shields.io/badge/docs-befailproof.ai-002CA7?style=flat-square)](https://befailproof.ai)
-[![npm](https://img.shields.io/npm/v/failproofai?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
+[![npm](https://img.shields.io/npm/v/failproofai/latest?style=flat-square&color=CB3837)](https://www.npmjs.com/package/failproofai)
 [![License](https://img.shields.io/badge/license-MIT%20%2B%20Commons%20Clause-blue?style=flat-square)](LICENSE)
 [![CI](https://img.shields.io/github/actions/workflow/status/exospherehost/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/exospherehost/failproofai/actions)
-[![Discord](https://img.shields.io/discord/1234567890?style=flat-square&label=Discord&color=5865F2)](https://discord.com/invite/zT92CAgvkj)
 
 Open-source hooks, policies, and project visualization for **Claude Code** & the **Agents SDK**.
 
