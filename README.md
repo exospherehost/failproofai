@@ -46,7 +46,7 @@ npm install -g failproofai
 ### 1. Enable policies globally
 
 ```bash
-failproofai --install-policies
+failproofai policies --install
 ```
 
 Writes hook entries into `~/.claude/settings.json`. Claude Code will now invoke failproofai before and after each tool call.
@@ -62,7 +62,7 @@ Opens `http://localhost:8020` — browse sessions, inspect logs, manage policies
 ### 3. Check what's active
 
 ```bash
-failproofai --list-policies
+failproofai policies
 ```
 
 ---
@@ -73,22 +73,22 @@ failproofai --list-policies
 
 | Scope | Command | Where it writes |
 |-------|---------|-----------------|
-| Global (default) | `failproofai --install-policies` | `~/.claude/settings.json` |
-| Project | `failproofai --install-policies --scope project` | `.claude/settings.json` |
-| Local | `failproofai --install-policies --scope local` | `.claude/settings.local.json` |
+| Global (default) | `failproofai policies --install` | `~/.claude/settings.json` |
+| Project | `failproofai policies --install --scope project` | `.claude/settings.json` |
+| Local | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
 ### Install specific policies
 
 ```bash
-failproofai --install-policies block-sudo block-rm-rf sanitize-api-keys
+failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 ```
 
 ### Remove policies
 
 ```bash
-failproofai --remove-policies
+failproofai policies --uninstall
 # or for a specific scope:
-failproofai --remove-policies --scope project
+failproofai policies --uninstall --scope project
 ```
 
 ---
@@ -188,7 +188,7 @@ customPolicies.add({
 Install with:
 
 ```bash
-failproofai --install-policies --custom ./my-policies.js
+failproofai policies --install --custom ./my-policies.js
 ```
 
 ### Decision helpers
