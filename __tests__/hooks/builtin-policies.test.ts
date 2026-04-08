@@ -407,6 +407,8 @@ describe("hooks/builtin-policies", () => {
   describe("protect-env-vars", () => {
     const policy = BUILTIN_POLICIES.find((p) => p.name === "protect-env-vars")!;
 
+    // ── true positives — must remain blocked ─────────────────────────────────
+
     it("blocks env command", async () => {
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "env" } });
       expect((await policy.fn(ctx)).decision).toBe("deny");
@@ -417,15 +419,69 @@ describe("hooks/builtin-policies", () => {
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
 
+    it("blocks printenv with no args", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "printenv" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
     it("blocks echo $VAR", async () => {
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo $SECRET_KEY" } });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
 
-    it("blocks export VAR=", async () => {
+    it("blocks echo $HOME (reads env var)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo $HOME" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks export VAR=value", async () => {
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "export API_KEY=abc" } });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
+
+    it("blocks export PATH=$PATH:/usr/local/bin (reads $PATH)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "export PATH=$PATH:/usr/local/bin" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks export NODE_ENV=production", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "export NODE_ENV=production" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks env chained with other command", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "env | grep SECRET" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    // ── false positives fixed — quoted string content must be ignored ─────────
+
+    it("allows git commit -m with 'export' in message", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git commit -m \"export PATH changes in readme\"" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows git commit -m with 'export' in single-quoted message", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git commit -m 'export PATH changes'" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows gh pr create with 'export' in body", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh pr create --body \"export the config using env vars\"" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows echo of a plain string with no $VAR", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo \"use export to set vars\"" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows echo with $VAR inside single quotes (not expanded by shell)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo '$HOME is not expanded'" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    // ── baseline allows ───────────────────────────────────────────────────────
 
     it("allows normal commands", async () => {
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "ls -la" } });
@@ -436,10 +492,22 @@ describe("hooks/builtin-policies", () => {
       const ctx = makeCtx({ toolName: "Read", toolInput: { command: "env" } });
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
+
+    it("allows npm install (reads env vars internally but not via bash)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "npm install express" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows git push (gh tools that use GITHUB_TOKEN internally)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git push origin main" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
   });
 
   describe("block-env-files", () => {
     const policy = BUILTIN_POLICIES.find((p) => p.name === "block-env-files")!;
+
+    // ── true positives — must remain blocked ─────────────────────────────────
 
     it("blocks Read of .env file", async () => {
       const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/home/user/.env" } });
@@ -451,13 +519,132 @@ describe("hooks/builtin-policies", () => {
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
 
+    it("blocks Read of .env.production file", async () => {
+      const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/app/.env.production" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Read of nested .env file", async () => {
+      const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/home/user/project/.env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Write to .env file", async () => {
+      const ctx = makeCtx({ toolName: "Write", toolInput: { file_path: "/app/.env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
     it("blocks Bash cat .env", async () => {
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "cat .env" } });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
 
+    it("blocks Bash source .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "source .env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash dot-source .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: ". .env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash cp .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "cp .env /tmp/backup" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash less .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "less .env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash head .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "head .env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash tail .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "tail .env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash nano .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "nano .env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash vim .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "vim .env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash rm .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "rm .env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks Bash cat path/.env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "cat /home/user/.env" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    // ── false positives fixed — .env in quoted strings must be ignored ────────
+
+    it("allows gh pr create with .env in body", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh pr create --body \"don't commit .env files\"" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows git commit -m with .env in message", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git commit -m \"add .env to .gitignore\"" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows echo with .env in quoted string", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo \"copy .env.example to .env\"" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows python -c with .env in comment string", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "python -c \"# load from .env file\nimport os\"" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows git commit with single-quoted message mentioning .env", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git commit -m 'document .env usage'" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    // ── baseline allows ───────────────────────────────────────────────────────
+
     it("allows non-.env files", async () => {
       const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/app/src/main.ts" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows .envrc (different suffix)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "cat .envrc" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows cat .env.example (safe template file, no real secrets)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "cat .env.example" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows Read of .env.example (safe template file)", async () => {
+      const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/app/.env.example" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows Read of .env.template", async () => {
+      const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/app/.env.template" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows Read of .env.sample", async () => {
+      const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/app/.env.sample" } });
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
   });

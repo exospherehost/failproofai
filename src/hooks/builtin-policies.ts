@@ -94,8 +94,26 @@ const DOTNET_GETENV_RE = /\[Environment\]::GetEnvironment/i;
 const CMD_ECHO_ENV_RE = /echo\s+%[A-Za-z_]/i;
 
 // blockEnvFiles
+// Allow .env.example / .env.template / .env.sample / .env.dist — these are
+// committed template files with no real secrets. Block everything else.
+const ENV_SAFE_SUFFIX_RE = /\.(?:example|template|sample|dist|test)(?:[./\\]|$)/i;
 const ENV_FILE_PATH_RE = /(?:^|[\\/])\.env(?:\.|$)/;
-const ENV_CMD_RE = /\.env(?:\b|\s|$|\.)/;
+const ENV_CMD_RE = /\.env(?!\.(?:example|template|sample|dist|test)\b)(?:\b|\s|$|\.)/i;
+
+/**
+ * Strip quoted string content from a shell command before regex matching.
+ *
+ * Removes the text INSIDE double quotes, single quotes, and backticks so that
+ * policy regexes don't false-positive on argument values like:
+ *   gh pr create --body "don't commit .env files"
+ *   git commit -m "export PATH changes"
+ *
+ * Real threats like `cat .env` have no quotes to strip so they still match.
+ * Known limitation: heredoc bodies are not quoted so they are not stripped.
+ */
+function stripQuotedStrings(cmd: string): string {
+  return cmd.replace(/"[^"]*"|'[^']*'|`[^`]*`/g, '""');
+}
 
 // blockSudo
 const SUDO_RE = /(?:^|;|&&|\|\|)\s*sudo\s/;
@@ -305,14 +323,20 @@ function warnPackagePublish(ctx: PolicyContext): PolicyResult {
 function protectEnvVars(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
+  // Strip quoted strings before checking so that policy regexes don't
+  // false-positive on argument values like:
+  //   git commit -m "export PATH changes in readme"
+  //   echo "use export to configure vars"
+  // Real threats like `export API_KEY=abc` have no quotes to strip.
+  const stripped = stripQuotedStrings(cmd);
   // Block: env, printenv, echo $VAR, export VAR=
-  if (ENV_PRINTENV_RE.test(cmd)) {
+  if (ENV_PRINTENV_RE.test(stripped)) {
     return deny("Command reads environment variables");
   }
-  if (ECHO_ENV_RE.test(cmd)) {
+  if (ECHO_ENV_RE.test(stripped)) {
     return deny("Command echoes environment variable");
   }
-  if (EXPORT_RE.test(cmd)) {
+  if (EXPORT_RE.test(stripped)) {
     return deny("Command exports environment variable");
   }
   // PowerShell: $env:VAR
@@ -338,12 +362,15 @@ function blockEnvFiles(ctx: PolicyContext): PolicyResult {
   const cmd = getCommand(ctx);
   const filePath = getFilePath(ctx);
 
-  // Check file_path for Read/Write tools (match both / and \ path separators)
-  if (filePath && ENV_FILE_PATH_RE.test(filePath)) {
+  // Check file_path for Read/Write tools (match both / and \ path separators).
+  // Allow .env.example / .env.template / .env.sample — safe committed templates.
+  if (filePath && ENV_FILE_PATH_RE.test(filePath) && !ENV_SAFE_SUFFIX_RE.test(filePath)) {
     return deny("Access to .env file blocked");
   }
-  // Check Bash commands referencing .env files
-  if (ctx.toolName === "Bash" && ENV_CMD_RE.test(cmd)) {
+  // Check Bash commands referencing .env files.
+  // Strip quoted strings first so that .env appearing inside argument values
+  // like --body "don't commit .env" or -m "add .env to gitignore" is ignored.
+  if (ctx.toolName === "Bash" && ENV_CMD_RE.test(stripQuotedStrings(cmd))) {
     return deny("Command references .env file");
   }
   return allow();
