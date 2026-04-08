@@ -29,7 +29,7 @@ Everything runs locally — no data leaves your machine.
 ## Requirements
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0
+- Bun >= 1.3.0 (optional — only needed for development / building from source)
 
 ---
 
@@ -37,6 +37,8 @@ Everything runs locally — no data leaves your machine.
 
 ```bash
 npm install -g failproofai
+# or
+bun add -g failproofai
 ```
 
 ---

@@ -18,6 +18,17 @@ import { trackInstallEvent } from "./install-telemetry.mjs";
 // from process.cwd() only when we are being installed as a dependency by someone else.
 if (!process.env.INIT_CWD || process.env.INIT_CWD === process.cwd()) process.exit(0);
 
+// Verify server.js exists — fail the install early if the dashboard build is missing.
+const serverJsPath = resolve(process.cwd(), ".next", "standalone", "server.js");
+if (!existsSync(serverJsPath)) {
+  console.error(
+    `\n[failproofai] Error: server.js not found at:\n  ${serverJsPath}\n\n` +
+    `  The package may not have been built correctly.\n` +
+    `  Try reinstalling: npm install -g failproofai@latest\n`
+  );
+  process.exit(1);
+}
+
 const FAILPROOFAI_HOOK_MARKER = "__failproofai_hook__";
 const NAMESPACE = "failproofai-telemetry-v1";
 

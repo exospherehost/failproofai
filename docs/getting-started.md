@@ -7,7 +7,7 @@ icon: rocket
 ## Requirements
 
 - **Node.js** >= 20.9.0
-- **Bun** >= 1.3.0 (used as the runtime and bundler)
+- **Bun** >= 1.3.0 (optional — only needed for development / building from source)
 
 ---
 
@@ -15,6 +15,8 @@ icon: rocket
 
 ```bash
 npm install -g failproofai
+# or
+bun add -g failproofai
 ```
 
 ---
