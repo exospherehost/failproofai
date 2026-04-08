@@ -26,6 +26,8 @@ Claude Code runs tools on your behalf, but you can't control what it does with j
 
 - **Block risky commands** (`rm -rf`, `sudo`, `curl | bash`) before they run
 - **Enforce your team's git workflow**: no force-pushes, no commits to main
+- **Detect and stop loops** when Claude retries the same failing action
+- **Verify task output** before Claude moves on
 - **Get Slack notifications** when Claude is idle or finishes a session
 - **Sanitize secrets** from tool output so they never reach Claude's context
 - **Add project-specific rules** or connect external services in plain JavaScript
