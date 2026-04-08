@@ -47,9 +47,9 @@ Everything runs locally. No data leaves your machine.
 ## Install
 
 ```bash
-npm install -g failproofai
-# or
 bun add -g failproofai
+# or
+npm install -g failproofai
 ```
 
 ---
