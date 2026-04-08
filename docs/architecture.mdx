@@ -4,7 +4,7 @@ description: "How the hook handler, config loading, and policy evaluation work i
 icon: sitemap
 ---
 
-This document explains how failproofai works internally: how the hook system processes events, how configuration is loaded and merged, how policies are evaluated, and how the dashboard fits in.
+This document explains how failproofai works internally: how the hook system intercepts agent tool calls, how configuration is loaded and merged, how policies are evaluated, and how the dashboard monitors agent activity.
 
 ---
 
@@ -12,8 +12,8 @@ This document explains how failproofai works internally: how the hook system pro
 
 failproofai has two independent subsystems:
 
-1. **Hook handler** — A fast CLI subprocess that Claude Code invokes on every tool call. Evaluates policies and returns a decision.
-2. **Dashboard** — A Next.js web application for browsing sessions and managing policies.
+1. **Hook handler** - A fast CLI subprocess that Claude Code invokes on every agent tool call. Evaluates policies and returns a decision.
+2. **Agent Monitor (Dashboard)** - A Next.js web application for monitoring agent sessions and managing policies.
 
 Both subsystems share configuration files in `~/.failproofai/` and the project's `.failproofai/` directory, but they run as separate processes and communicate only through the filesystem.
 
@@ -23,7 +23,7 @@ Both subsystems share configuration files in `~/.failproofai/` and the project's
 
 ### Integration with Claude Code
 
-When you run `failproofai --install-policies`, it writes entries like this into `~/.claude/settings.json`:
+When you run `failproofai policies --install`, it writes entries like this into `~/.claude/settings.json`:
 
 ```json
 {
@@ -60,7 +60,7 @@ Claude Code then invokes `failproofai --hook PreToolUse` as a subprocess before 
 }
 ```
 
-For `PostToolUse` events, the payload additionally contains `tool_result` with the tool's output.
+For `PostToolUse` events, the payload also contains `tool_result` with the tool's output.
 
 The handler enforces a 1 MB stdin limit. Payloads exceeding this are discarded and all policies implicitly allow.
 
@@ -106,7 +106,7 @@ The handler enforces a 1 MB stdin limit. Payloads exceeding this are discarded a
 
 `src/hooks/handler.ts` implements the full pipeline:
 
-```
+```text
 stdin JSON
   → parse payload (max 1 MB)
   → extract session metadata (session_id, cwd, tool_name, tool_input, etc.)
@@ -130,17 +130,17 @@ The entire process runs in under 100ms for typical payloads with no LLM calls.
 
 `src/hooks/hooks-config.ts` implements three-scope config loading.
 
-```
+```text
 [1] {cwd}/.failproofai/policies-config.json        ← project  (highest priority)
 [2] {cwd}/.failproofai/policies-config.local.json  ← local
 [3] ~/.failproofai/policies-config.json             ← global   (lowest priority)
 ```
 
 Merge logic:
-- `enabledPolicies` — deduplicated union across all three files
-- `policyParams` — per-policy key, first file that defines it wins entirely
-- `customPoliciesPath` — first file that defines it wins
-- `llm` — first file that defines it wins
+- `enabledPolicies` - deduplicated union across all three files
+- `policyParams` - per-policy key, first file that defines it wins entirely
+- `customPoliciesPath` - first file that defines it wins
+- `llm` - first file that defines it wins
 
 The web dashboard uses `readHooksConfig()` (global only) for reading and writing, since it is not invoked with a project cwd.
 
@@ -169,7 +169,7 @@ After all policies run:
 
 ## Builtin policies
 
-`src/hooks/builtin-policies.ts` defines all 35+ built-in policies as `BuiltinPolicyDefinition` objects:
+`src/hooks/builtin-policies.ts` defines all 26 built-in policies as `BuiltinPolicyDefinition` objects:
 
 ```typescript
 interface BuiltinPolicyDefinition {
@@ -249,7 +249,7 @@ One line per policy that made a non-allow decision. Allow decisions are not logg
 
 The dashboard is a **Next.js 16** application using the App Router with React Server Components and Server Actions.
 
-```
+```text
 app/
   layout.tsx                  ← Root layout (theme, telemetry, nav)
   projects/page.tsx           ← Server component: list all Claude projects
@@ -275,22 +275,22 @@ app/
 
 **Key design decisions:**
 
-- No database — all persistent state is in plain files (`~/.failproofai/`, `~/.claude/projects/`).
-- Server Actions for mutations — no REST API needed for CRUD operations.
-- React Server Components for read pages — faster initial load, no client bundle for data fetching.
+- No database - all persistent state is in plain files (`~/.failproofai/`, `~/.claude/projects/`).
+- Server Actions for mutations - no REST API needed for CRUD operations.
+- React Server Components for read pages - faster initial load, no client bundle for data fetching.
 - Client components only where interactivity is needed (policy toggles, activity search, log viewer).
 
 ---
 
 ## File layout
 
-```
+```text
 failproofai/
 ├── bin/
 │   └── failproofai.mjs           # CLI router (hook / dashboard / install / etc.)
 ├── src/hooks/
 │   ├── handler.ts                # Hook event pipeline
-│   ├── builtin-policies.ts       # 35+ policy definitions
+│   ├── builtin-policies.ts       # 26 policy definitions
 │   ├── policy-evaluator.ts       # Policy execution engine
 │   ├── policy-registry.ts        # Policy registration and lookup
 │   ├── policy-types.ts           # TypeScript interfaces

@@ -1,0 +1,34 @@
+---
+title: Environment variables
+description: "Configure failproofai behavior with environment variables"
+---
+
+## Dashboard
+
+| Variable | Description |
+|----------|-------------|
+| `PORT` | Dashboard port (default: `8020`) |
+| `CLAUDE_PROJECTS_PATH` | Override where Claude Code project folders are found |
+| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Comma-separated dashboard pages to hide |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Hosts/IPs allowed to access dev resources. Same as `--allowed-origins`. |
+
+## Logging
+
+| Variable | Description |
+|----------|-------------|
+| `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Server log level (default: `warn`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | Custom hook log file path, or `true` for default (`~/.failproofai/logs/hooks.log`) |
+
+## Telemetry
+
+| Variable | Description |
+|----------|-------------|
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | Disable anonymous usage telemetry |
+
+## LLM (for policy evaluation)
+
+| Variable | Description |
+|----------|-------------|
+| `FAILPROOFAI_LLM_BASE_URL` | LLM API endpoint (default: `https://api.openai.com/v1`) |
+| `FAILPROOFAI_LLM_API_KEY` | API key for LLM-powered policies |
+| `FAILPROOFAI_LLM_MODEL` | Model name (default: `gpt-4o-mini`) |

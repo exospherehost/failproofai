@@ -7,6 +7,10 @@
     "light": "#e4587d",
     "dark": "#002CA7"
   },
+  "logo": {
+    "light": "/logo/exosphere-light.png",
+    "dark": "/logo/exosphere-dark.png"
+  },
   "favicon": "/favicon.ico",
   "navigation": {
     "tabs": [
@@ -23,15 +27,26 @@
           {
             "group": "Core Concepts",
             "pages": [
-              "configuration",
               "built-in-policies",
-              "custom-hooks"
+              "custom-hooks",
+              "configuration"
+            ]
+          },
+          {
+            "group": "CLI",
+            "pages": [
+              "cli/dashboard",
+              "cli/install-policies",
+              "cli/remove-policies",
+              "cli/list-policies",
+              "cli/hook",
+              "cli/version",
+              "cli/environment-variables"
             ]
           },
           {
             "group": "Tools",
             "pages": [
-              "cli-reference",
               "dashboard"
             ]
           },
@@ -40,7 +55,19 @@
             "pages": [
               "architecture",
               "testing",
-              "package-aliases"
+              "package-aliases",
+              "for-agents"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Examples",
+        "groups": [
+          {
+            "group": "Examples",
+            "pages": [
+              "examples"
             ]
           }
         ]

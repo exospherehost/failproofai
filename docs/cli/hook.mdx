@@ -1,0 +1,30 @@
+---
+title: Hook handler (internal)
+description: "The subprocess Claude Code calls on each tool event"
+---
+
+```bash
+failproofai --hook <EventType>
+```
+
+This is the command registered in Claude Code's `settings.json` by `failproofai policies --install`. You don't normally call this directly.
+
+Reads a JSON payload from stdin, evaluates all enabled policies, and exits with a code indicating the decision:
+
+| Exit code | Decision | Effect |
+|-----------|----------|--------|
+| `0` | `allow` | Permit the action |
+| `1` | `deny` | Block the action - Claude sees the denial reason |
+| `2` | `instruct` | Inject guidance into Claude's context |
+
+### Supported event types
+
+| Category | Events |
+|----------|--------|
+| **Tool execution** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
+| **Session lifecycle** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
+| **User interaction** | `UserPromptSubmit`, `Notification`, `Elicitation`, `ElicitationResult` |
+| **Subagents & tasks** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
+| **Configuration** | `InstructionsLoaded`, `ConfigChange`, `CwdChanged` |
+| **File system** | `FileChanged`, `WorktreeCreate`, `WorktreeRemove` |
+| **Context** | `PreCompact`, `PostCompact` |

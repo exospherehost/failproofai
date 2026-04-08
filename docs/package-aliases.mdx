@@ -18,7 +18,7 @@ bun add -g failproofai
 
 ## Why we own the alias names
 
-Typosquatting is a common supply-chain attack where a malicious actor registers a package name that is one keystroke away from a popular package. Unsuspecting users who mistype the install command end up running attacker-controlled code with full system access — exactly the kind of threat Failproof AI is designed to defend against.
+Typosquatting is a common supply-chain attack where a malicious actor registers a package name that is one keystroke away from a popular package. Unsuspecting users who mistype the install command end up running attacker-controlled code with full system access - exactly the kind of threat Failproof AI is designed to defend against.
 
 To eliminate this surface, **we pre-emptively own all common misspellings and formatting variants** of `failproofai` on npm. None of these names can be registered by a third party. Each one is a thin proxy that installs and delegates to the real `failproofai` package.
 
@@ -26,7 +26,7 @@ To eliminate this surface, **we pre-emptively own all common misspellings and fo
 
 ## Registered aliases
 
-**Formatting variants** — different ways to write "failproof ai":
+**Formatting variants** - different ways to write "failproof ai":
 
 | Package | Status |
 |---------|--------|
@@ -37,7 +37,7 @@ To eliminate this surface, **we pre-emptively own all common misspellings and fo
 | `fail_proof_ai` | ⏳ Pending npm support |
 | `fail-proofai` | ⏳ Pending npm support |
 
-**`failprof*` typos** — missing one `o` from "proof":
+**`failprof*` typos** - missing one `o` from "proof":
 
 | Package | Status |
 |---------|--------|
@@ -47,7 +47,7 @@ To eliminate this surface, **we pre-emptively own all common misspellings and fo
 | `fail-prof-ai` | ⏳ Pending npm support |
 | `failprof_ai` | ⏳ Pending npm support |
 
-**`faliproof*` typos** — transposed `a` and `i`:
+**`faliproof*` typos** - transposed `a` and `i`:
 
 | Package | Status |
 |---------|--------|
@@ -70,7 +70,7 @@ npm info failproof
 
 Each alias package:
 
-1. Lists `failproofai` as a dependency — so the real package (including its `postinstall` hook setup) runs on install
+1. Lists `failproofai` as a dependency - so the real package (including its `postinstall` hook setup) runs on install
 2. Exposes a binary matching its own name (e.g. `failprof-ai`) that proxies all arguments to the `failproofai` binary
 
 The proxy is a two-line Node script; there is no logic, no network calls, and no data collection beyond what `failproofai` itself does.

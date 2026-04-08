@@ -1,10 +1,10 @@
 ---
 title: Built-in Policies
-description: "All 35+ security policies with descriptions and parameters"
+description: "All 26 built-in policies that catch common agent failure modes"
 icon: shield
 ---
 
-failproofai ships with 35+ built-in security policies. Each policy fires on a specific hook event type and tool name. Eight policies accept parameters that let you tune their behavior without writing code.
+failproofai ships with 26 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Eight policies accept parameters that let you tune their behavior without writing code.
 
 ---
 
@@ -22,11 +22,13 @@ Policies are grouped into categories:
 | [Database](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [Warnings](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
 
-Policies that start with `block-` return a **deny** decision (Claude cannot proceed). Policies that start with `warn-` return an **instruct** decision (Claude gets extra context but can proceed). Policies that start with `sanitize-` also return deny but fire after tool execution to redact secrets from output before Claude sees it.
+Policies prefixed with `block-` stop the agent from proceeding. Policies prefixed with `warn-` give the agent additional context so it can self-correct. Policies prefixed with `sanitize-` scrub sensitive data from tool output before the agent sees it.
 
 ---
 
 ## Dangerous commands
+
+Prevent agents from running operations that are hard to undo or that could damage the host system.
 
 ### `block-sudo`
 
@@ -55,7 +57,9 @@ Blocks invocations that include the `sudo` keyword. Pattern matching is done on 
 
 With this config, `sudo systemctl status nginx` is allowed, but `sudo rm /etc/hosts` is denied.
 
-> **Security note:** Patterns are matched against parsed tokens, not the raw command string. This prevents bypass via appended shell operators (e.g. `sudo systemctl status x; rm -rf /` does not match `sudo systemctl status *`).
+<Note>
+Patterns are matched against parsed tokens, not the raw command string. This prevents bypass via appended shell operators (e.g. `sudo systemctl status x; rm -rf /` does not match `sudo systemctl status *`).
+</Note>
 
 ---
 
@@ -96,7 +100,7 @@ No parameters.
 ### `block-failproofai-commands`
 
 **Event:** PreToolUse (Bash)  
-**Default:** Denies commands that would uninstall or disable failproofai itself (e.g. `npm uninstall failproofai`, `failproofai --remove-policies`).
+**Default:** Denies commands that would uninstall or disable failproofai itself (e.g. `npm uninstall failproofai`, `failproofai policies --uninstall`).
 
 No parameters.
 
@@ -104,7 +108,7 @@ No parameters.
 
 ## Secrets (sanitizers)
 
-Sanitizer policies fire on **PostToolUse** events. When Claude runs a Bash command, reads a file, or calls any tool, these policies inspect the output before it is returned to Claude. If a secret pattern is detected, the policy returns a deny decision that prevents the output from being passed back.
+Stop agents from leaking credentials into their context or output. Sanitizer policies fire on **PostToolUse** events. When Claude runs a Bash command, reads a file, or calls any tool, these policies inspect the output before it is returned to Claude. If a secret pattern is detected, the policy returns a deny decision that prevents the output from being passed back.
 
 ### `sanitize-jwt`
 
@@ -172,12 +176,14 @@ No parameters.
 
 ## Environment
 
+Protect sensitive environment configuration from being read or exposed by agents.
+
 ### `block-env-files`
 
 **Event:** PreToolUse (Bash, Read)  
 **Default:** Denies reading `.env` files via `cat .env`, `Read` tool calls with `.env` as the file path, etc.
 
-Does not block `.envrc` or other environment-adjacent files — only files named exactly `.env`.
+Does not block `.envrc` or other environment-adjacent files - only files named exactly `.env`.
 
 No parameters.
 
@@ -193,6 +199,8 @@ No parameters.
 ---
 
 ## File access
+
+Keep agents working inside project boundaries and away from sensitive files.
 
 ### `block-read-outside-cwd`
 
@@ -246,6 +254,8 @@ No parameters.
 
 ## Git
 
+Prevent accidental pushes, force-pushes, and branch mistakes that are hard to undo.
+
 ### `block-push-master`
 
 **Event:** PreToolUse (Bash)  
@@ -269,7 +279,9 @@ No parameters.
 }
 ```
 
-> To allow pushing to all branches (effectively disabling this policy without removing it from `enabledPolicies`), set `protectedBranches: []`.
+<Tip>
+To allow pushing to all branches (effectively disabling this policy without removing it from `enabledPolicies`), set `protectedBranches: []`.
+</Tip>
 
 ---
 
@@ -324,6 +336,8 @@ No parameters.
 
 ## Database
 
+Catch destructive SQL operations before they execute against your database.
+
 ### `warn-destructive-sql`
 
 **Event:** PreToolUse (Bash)  
@@ -343,6 +357,8 @@ No parameters.
 ---
 
 ## Warnings
+
+Give agents extra context before potentially risky but non-destructive operations.
 
 ### `warn-large-file-write`
 
@@ -367,7 +383,9 @@ No parameters.
 }
 ```
 
-> **Note:** The hook handler enforces a 1 MB stdin limit on payloads. To test this policy with small content, set `thresholdKb` to a value well below 1024.
+<Note>
+The hook handler enforces a 1 MB stdin limit on payloads. To test this policy with small content, set `thresholdKb` to a value well below 1024.
+</Note>
 
 ---
 
@@ -398,15 +416,28 @@ No parameters.
 
 ---
 
+## AI behavior
+
+Detect when agents get stuck or behave unexpectedly.
+
+### `warn-repeated-tool-calls`
+
+**Event:** PreToolUse (all tools)  
+**Default:** Instructs Claude to reconsider when the same tool is called 3+ times with identical parameters - a common sign the agent is stuck in a loop.
+
+No parameters.
+
+---
+
 ## Beta policies
 
 Some policies are marked `beta` and are not installed by default. To include them:
 
 ```bash
-failproofai --install-policies --beta
+failproofai policies --install --beta
 ```
 
-Beta policies may have rough edges or generate false positives. Use `failproofai --list-policies` to see which policies carry the beta flag.
+Beta policies may have rough edges or generate false positives. Run `failproofai policies` to see which policies carry the beta flag.
 
 ---
 

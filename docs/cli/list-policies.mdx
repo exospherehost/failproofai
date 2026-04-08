@@ -1,0 +1,31 @@
+---
+title: List policies
+description: "See which policies are enabled, their parameters, and custom hooks"
+---
+
+```bash
+failproofai policies
+```
+
+Shows all policies with their status, configured parameters, and custom hooks.
+
+## Sample output
+
+```text
+Failproof AI Hook Policies (user)
+
+  Status  Name                          Description
+  ──────  ──────────────────────────────────────────────────────────────
+  ✓       block-sudo                    Block sudo commands
+            allowPatterns: ["sudo systemctl status"]
+  ✓       block-rm-rf                   Block recursive deletions
+  ✗       block-curl-pipe-sh            Block curl|bash patterns
+  ✓       sanitize-api-keys             Redact API keys from output
+            additionalPatterns: [{ regex: "MY_TOKEN_...", label: "..." }]
+
+  ── Custom Hooks (/home/alice/myproject/my-policies.js) ──────────────
+  ✓       require-jira-ticket           Block commits without ticket
+  ✓       approval-gate                 Approval gate for destructive ops
+```
+
+Unknown keys in `policyParams` are flagged here so you can catch typos early.
