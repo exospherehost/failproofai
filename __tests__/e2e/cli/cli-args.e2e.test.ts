@@ -12,6 +12,13 @@ import { runCli, assertCleanError, assertSuccess } from "../helpers/cli-runner";
 
 // ── Top-level flags ───────────────────────────────────────────────────────────
 
+describe("policies: --version is rejected as unknown flag (not top-level hijack)", () => {
+  it("policies --version errors with unknown-flag message not 'Unexpected argument: policies'", () => {
+    const result = runCli("policies", "--version");
+    assertCleanError(result, "Unknown flag: --version");
+  });
+});
+
 describe("top-level: --version", () => {
   it("prints version and exits 0", () => {
     const result = runCli("--version");
@@ -332,6 +339,22 @@ describe("policies --uninstall: mixed valid and invalid names", () => {
     const result = runCli("policies", "--uninstall", "block-sudo", "sanitize-jwt", "fakeone", "faketwo");
     assertCleanError(result, "Unknown policy name(s): fakeone, faketwo");
     expect(result.stderr).toMatch(/Unknown policy name\(s\): fakeone, faketwo$/m);
+  });
+});
+
+describe("policies --install: positional token named 'user' (scope default collision)", () => {
+  it("treats 'user' as a policy name, not as consumed scope value", () => {
+    const result = runCli("policies", "--install", "user");
+    // "user" is not a valid policy name — should error on policy validation, not silently ignore
+    assertCleanError(result, "Unknown policy name(s): user");
+  });
+});
+
+describe("policies --uninstall: positional token named 'user' (scope default collision)", () => {
+  it("treats 'user' as a policy name, not as consumed scope value (prevents remove-all)", () => {
+    const result = runCli("policies", "--uninstall", "user");
+    // "user" is not a valid policy name — should error on policy validation
+    assertCleanError(result, "Unknown policy name(s): user");
   });
 });
 

@@ -114,7 +114,7 @@ LINKS
   }
 
   // --version / -v
-  if (args.includes("--version") || args.includes("-v")) {
+  if ((args.includes("--version") || args.includes("-v")) && !SUBCOMMANDS.includes(args[0])) {
     const extraArgs = args.filter((a) => a !== "--version" && a !== "-v");
     if (extraArgs.length > 0) {
       throw new CliError(`Unexpected argument: ${extraArgs[0]}\nRun \`failproofai --help\` for usage.`);
@@ -189,8 +189,11 @@ EXAMPLES
       const includeBeta = subArgs.includes("--beta");
 
       // Collect positional policy names — args that don't start with - and aren't
-      // values consumed by --scope or --custom/-c.
-      const consumed = new Set([scope, customPoliciesPath].filter(Boolean));
+      // values consumed by --scope or --custom/-c (tracked by index, not value,
+      // so a policy named "user" isn't incorrectly dropped by the default scope).
+      const consumedIdxs = new Set();
+      if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
+      if (customIdx >= 0) consumedIdxs.add(customIdx + 1);
       const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c"]);
       const unknownInstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
       if (unknownInstallFlag) {
@@ -198,7 +201,7 @@ EXAMPLES
       }
 
       const explicitPolicyNames = subArgs.filter(
-        (a) => !a.startsWith("-") && !flags.has(a) && !consumed.has(a)
+        (a, idx) => !a.startsWith("-") && !consumedIdxs.has(idx)
       );
 
       // When --custom/-c is present but no explicit policy names, pass [] so
@@ -235,7 +238,8 @@ EXAMPLES
       const betaOnly = subArgs.includes("--beta");
       const removeCustomHooks = subArgs.includes("--custom") || subArgs.includes("-c");
 
-      const consumed = new Set([scope].filter(Boolean));
+      const consumedIdxs = new Set();
+      if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
       const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c"]);
       const unknownUninstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
       if (unknownUninstallFlag) {
@@ -243,7 +247,7 @@ EXAMPLES
       }
 
       const policyNames = subArgs.filter(
-        (a) => !a.startsWith("-") && !flags.has(a) && !consumed.has(a)
+        (a, idx) => !a.startsWith("-") && !consumedIdxs.has(idx)
       );
 
       await removeHooks(
