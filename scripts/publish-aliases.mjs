@@ -8,6 +8,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootPkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));
 const VERSION = rootPkg.version;
 const DRY_RUN = process.argv.includes('--dry-run');
+const distTagIdx = process.argv.indexOf('--dist-tag');
+const DIST_TAG = distTagIdx !== -1 ? process.argv[distTagIdx + 1] : (VERSION.includes('-') ? 'beta' : 'latest');
 
 const ALIASES = [
   // Formatting variants — no "ai", or hyphen/underscore separators
@@ -54,7 +56,7 @@ for (const name of ALIASES) {
   cpSync(join(__dirname, 'alias-proxy.js'), join(binDir, 'proxy.js'));
 
   if (DRY_RUN) {
-    console.log(`[dry-run] Would publish ${name}@${VERSION}`);
+    console.log(`[dry-run] Would publish ${name}@${VERSION} (tag: ${DIST_TAG})`);
     console.log(JSON.stringify(pkg, null, 2));
     console.log('---');
     rmSync(tmpDir, { recursive: true, force: true });
@@ -63,7 +65,7 @@ for (const name of ALIASES) {
 
   console.log(`Publishing ${name}@${VERSION}...`);
   try {
-    execSync('npm publish', { cwd: tmpDir, stdio: 'pipe' });
+    execSync(`npm publish --tag ${DIST_TAG}`, { cwd: tmpDir, stdio: 'pipe' });
     console.log(`Done: ${name}`);
   } catch (err) {
     const output = (err.stdout?.toString() ?? '') + (err.stderr?.toString() ?? '');
