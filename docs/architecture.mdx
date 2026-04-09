@@ -100,18 +100,23 @@ The handler enforces a 1 MB stdin limit. Payloads exceeding this are discarded a
 
 **Allow:**
 - Exit code: `0`
-- Empty stdout (no message)
+- Empty stdout
 
-**Allow with message:**
+**Allow with message (beta):**
+
+Since v0.0.2-beta.3, `allow(message)` lets a policy send informational context back to Claude even when the operation is permitted. The hook handler writes the following JSON to **stdout** (not a config file — this is the handler's response to Claude Code, just like deny and instruct responses above):
+
 ```json
+// Written to stdout by the hook handler process
 {
   "hookSpecificOutput": {
     "additionalContext": "All CI checks passed on branch 'feat/my-feature'."
   }
 }
 ```
-- Exit code: `0`
-- Messages from multiple policies are joined with newlines
+- Exit code: `0` (operation is allowed)
+- When multiple policies return `allow` with a message, their messages are joined with newlines into a single `additionalContext` string
+- If no policy provides a message, stdout is empty (same as before)
 
 ### Processing pipeline
 

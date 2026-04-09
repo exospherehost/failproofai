@@ -198,7 +198,7 @@ failproofai policies --install --custom ./my-policies.js
 | Function | Effect |
 |----------|--------|
 | `allow()` | Permit the operation |
-| `allow(message)` | Permit and send informational context to Claude |
+| `allow(message)` | Permit and send informational context to Claude *(beta)* |
 | `deny(message)` | Block the operation; message shown to Claude |
 | `instruct(message)` | Add context to Claude's prompt; does not block |
 
