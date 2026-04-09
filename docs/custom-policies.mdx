@@ -79,13 +79,47 @@ customPolicies.add({
 
 | Function | Effect | Use when |
 |----------|--------|----------|
-| `allow()` | Permit the tool call | The action is safe to proceed |
-| `deny(message)` | Block the tool call | The agent should not take this action |
-| `instruct(message)` | Add context to Claude's prompt | Give the agent extra context to stay on track |
+| `allow()` | Permit the operation silently | The action is safe, no message needed |
+| `deny(message)` | Block the operation | The agent should not take this action |
+| `instruct(message)` | Add context without blocking | Give the agent extra context to stay on track |
 
-`deny(message)` - the message appears to Claude prefixed with `"Blocked by failproofai:"`.
+`deny(message)` - the message appears to Claude prefixed with `"Blocked by failproofai:"`. A single `deny` short-circuits all further evaluation.
 
-`instruct(message)` - the message is appended to Claude's context for the current tool call. Multiple `instruct` returns from different hooks accumulate; a single `deny` short-circuits all further evaluation.
+`instruct(message)` - the message is appended to Claude's context for the current tool call. The first `instruct` wins — subsequent `instruct` returns from other policies are ignored.
+
+### Informational allow messages (beta)
+
+<Note>
+`allow(message)` is a beta feature available since v0.0.2-beta.3. The API may change in future releases. Earlier versions only support `allow()` without arguments.
+</Note>
+
+`allow(message)` permits the operation **and** sends an informational message back to Claude. The message is delivered as `additionalContext` in the hook handler's stdout response — the same mechanism used by `instruct`, but semantically different: it's a status update, not a warning.
+
+| Function | Effect | Use when |
+|----------|--------|----------|
+| `allow(message)` | Permit and send context to Claude | Confirm a check passed, or explain why a check was skipped |
+
+Use cases:
+- **Status confirmations:** `allow("All CI checks passed.")` — tells Claude everything is green
+- **Fail-open explanations:** `allow("GitHub CLI not installed, skipping CI check.")` — tells Claude why a check was skipped so it has full context
+- **Multiple messages accumulate:** if several policies each return `allow(message)`, all messages are joined with newlines and delivered together
+
+```js
+customPolicies.add({
+  name: "confirm-branch-status",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    const cwd = ctx.session?.cwd;
+    if (!cwd) return allow("No working directory, skipping branch check.");
+
+    // ... check branch status ...
+    if (allPushed) {
+      return allow("Branch is up to date with remote.");
+    }
+    return deny("Unpushed changes detected.");
+  },
+});
+```
 
 ### `PolicyContext` fields
 
@@ -124,7 +158,7 @@ Policies are evaluated in this order:
 2. Custom policies (in `.add()` order)
 
 <Note>
-The first `deny` short-circuits all subsequent policies. All `instruct` returns accumulate into a single message regardless of which policy produced them.
+The first `deny` short-circuits all subsequent policies. The first `instruct` wins — subsequent `instruct` returns are ignored.
 </Note>
 
 ---

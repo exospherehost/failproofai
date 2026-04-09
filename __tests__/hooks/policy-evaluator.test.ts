@@ -189,6 +189,78 @@ describe("hooks/policy-evaluator", () => {
     expect(result.reason).toBe("first warning");
   });
 
+  describe("allow with message", () => {
+    it("returns additionalContext when allow has a reason", async () => {
+      registerPolicy("info", "desc", () => ({
+        decision: "allow",
+        reason: "All checks passed",
+      }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Read" });
+      expect(result.exitCode).toBe(0);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toBe("All checks passed");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.additionalContext).toBe("All checks passed");
+    });
+
+    it("combines multiple allow messages with newline", async () => {
+      registerPolicy("info1", "desc", () => ({
+        decision: "allow",
+        reason: "Commit check passed",
+      }), { events: ["Stop"] });
+      registerPolicy("info2", "desc", () => ({
+        decision: "allow",
+        reason: "Push check passed",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.exitCode).toBe(0);
+      expect(result.decision).toBe("allow");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.additionalContext).toBe("Commit check passed\nPush check passed");
+    });
+
+    it("returns empty stdout when allow has no reason (backward-compatible)", async () => {
+      registerPolicy("ok", "desc", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.reason).toBeNull();
+    });
+
+    it("deny still takes precedence over allow with message", async () => {
+      registerPolicy("info", "desc", () => ({
+        decision: "allow",
+        reason: "looks good",
+      }), { events: ["PreToolUse"] });
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked",
+      }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("blocker");
+    });
+
+    it("instruct takes precedence over allow with message", async () => {
+      registerPolicy("info", "desc", () => ({
+        decision: "allow",
+        reason: "looks good",
+      }), { events: ["PreToolUse"] });
+      registerPolicy("advisor", "desc", () => ({
+        decision: "instruct",
+        reason: "be careful",
+      }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
+      expect(result.decision).toBe("instruct");
+      expect(result.policyName).toBe("advisor");
+    });
+  });
+
   describe("params injection", () => {
     it("injects schema defaults into ctx.params when no policyParams in config", async () => {
       let capturedParams: unknown = null;
@@ -250,6 +322,152 @@ describe("hooks/policy-evaluator", () => {
 
       // Custom hooks get empty params object
       expect(capturedParams).toEqual({});
+    });
+  });
+
+  describe("Stop event deny format", () => {
+    it("Stop deny uses exit code 2 with empty stdout", async () => {
+      registerPolicy("stop-blocker", "desc", () => ({
+        decision: "deny",
+        reason: "changes not committed",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.exitCode).toBe(2);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toBe("changes not committed");
+    });
+
+    it("Stop deny short-circuits subsequent policies", async () => {
+      const secondPolicyCalled = { value: false };
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked first",
+      }), { events: ["Stop"] });
+      registerPolicy("second", "desc", () => {
+        secondPolicyCalled.value = true;
+        return { decision: "allow" };
+      }, { events: ["Stop"] });
+
+      await evaluatePolicies("Stop", {});
+      expect(secondPolicyCalled.value).toBe(false);
+    });
+  });
+
+  describe("workflow policy chain integration", () => {
+    it("first deny short-circuits — later workflow policies do not run", async () => {
+      const policyCalls: string[] = [];
+
+      registerPolicy("require-commit", "desc", () => {
+        policyCalls.push("commit");
+        return { decision: "deny", reason: "uncommitted changes" };
+      }, { events: ["Stop"] });
+      registerPolicy("require-push", "desc", () => {
+        policyCalls.push("push");
+        return { decision: "deny", reason: "unpushed commits" };
+      }, { events: ["Stop"] });
+      registerPolicy("require-pr", "desc", () => {
+        policyCalls.push("pr");
+        return { decision: "deny", reason: "no PR" };
+      }, { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("require-commit");
+      expect(policyCalls).toEqual(["commit"]);
+    });
+
+    it("all workflow policies allow with messages — messages accumulate", async () => {
+      registerPolicy("wf-commit", "desc", () => ({
+        decision: "allow",
+        reason: "All changes committed",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-push", "desc", () => ({
+        decision: "allow",
+        reason: "All commits pushed",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-pr", "desc", () => ({
+        decision: "allow",
+        reason: "PR #42 exists",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-ci", "desc", () => ({
+        decision: "allow",
+        reason: "All CI checks passed",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.exitCode).toBe(0);
+      expect(result.decision).toBe("allow");
+      const parsed = JSON.parse(result.stdout);
+      const ctx = parsed.hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("All changes committed");
+      expect(ctx).toContain("All commits pushed");
+      expect(ctx).toContain("PR #42 exists");
+      expect(ctx).toContain("All CI checks passed");
+    });
+
+    it("allow messages from early policies are discarded when a later policy denies", async () => {
+      registerPolicy("wf-commit", "desc", () => ({
+        decision: "allow",
+        reason: "All changes committed",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-push", "desc", () => ({
+        decision: "deny",
+        reason: "unpushed commits",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("wf-push");
+      expect(result.reason).toBe("unpushed commits");
+    });
+
+    it("instruct on Stop takes precedence over allow messages", async () => {
+      registerPolicy("wf-commit", "desc", () => ({
+        decision: "allow",
+        reason: "All committed",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-instruct", "desc", () => ({
+        decision: "instruct",
+        reason: "Please verify tests",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.decision).toBe("instruct");
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toBe("Please verify tests");
+    });
+
+    it("mixed allow (no message) and allow (with message) — only messages returned", async () => {
+      registerPolicy("silent", "desc", () => ({
+        decision: "allow",
+      }), { events: ["Stop"] });
+      registerPolicy("informative", "desc", () => ({
+        decision: "allow",
+        reason: "CI is green",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.exitCode).toBe(0);
+      expect(result.decision).toBe("allow");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.additionalContext).toBe("CI is green");
+    });
+
+    it("policy that throws is skipped — subsequent policies still run", async () => {
+      registerPolicy("thrower", "desc", () => {
+        throw new Error("unexpected crash");
+      }, { events: ["Stop"] });
+      registerPolicy("checker", "desc", () => ({
+        decision: "deny",
+        reason: "uncommitted",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("checker");
     });
   });
 });

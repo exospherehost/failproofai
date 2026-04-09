@@ -3,8 +3,8 @@
  */
 import type { PolicyResult } from "./policy-types";
 
-export function allow(): PolicyResult {
-  return { decision: "allow" };
+export function allow(reason?: string): PolicyResult {
+  return reason ? { decision: "allow", reason } : { decision: "allow" };
 }
 
 export function deny(reason: string): PolicyResult {
