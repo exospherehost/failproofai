@@ -124,7 +124,7 @@ export async function evaluatePolicies(
       return {
         exitCode: 2,
         stdout: "",
-        stderr: "",
+        stderr: reason,
         policyName: policy.name,
         reason,
         decision: "deny",
@@ -179,12 +179,10 @@ export async function evaluatePolicies(
   if (allowEntries.length > 0) {
     const combined = allowEntries.map((e) => e.reason).join("\n");
     const policyNames = allowEntries.map((e) => e.policyName);
-    const response = {
-      hookSpecificOutput: {
-        hookEventName: eventType,
-        additionalContext: `Note from failproofai: ${combined}`,
-      },
-    };
+    const supportsHookSpecificOutput = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
+    const response = supportsHookSpecificOutput
+      ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: `Note from failproofai: ${combined}` } }
+      : { reason: combined };
     const stderrMsg = allowEntries
       .map((e) => `[failproofai] ${e.policyName}: ${e.reason}`)
       .join("\n");

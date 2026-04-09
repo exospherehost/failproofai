@@ -72,7 +72,7 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("SessionStart", {});
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toBe("nope");
     expect(result.reason).toBe("nope");
   });
 
@@ -223,7 +223,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.policyName).toBe("info1");
       expect(result.policyNames).toEqual(["info1", "info2"]);
       const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.additionalContext).toBe("Note from failproofai: Commit check passed\nPush check passed");
+      expect(parsed.reason).toBe("Commit check passed\nPush check passed");
       expect(result.stderr).toContain("[failproofai] info1: Commit check passed");
       expect(result.stderr).toContain("[failproofai] info2: Push check passed");
     });
@@ -336,7 +336,7 @@ describe("hooks/policy-evaluator", () => {
   });
 
   describe("Stop event deny format", () => {
-    it("Stop deny uses exit code 2 with empty stdout", async () => {
+    it("Stop deny uses exit code 2 with reason in stderr", async () => {
       registerPolicy("stop-blocker", "desc", () => ({
         decision: "deny",
         reason: "changes not committed",
@@ -345,7 +345,7 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("");
+      expect(result.stderr).toBe("changes not committed");
       expect(result.decision).toBe("deny");
       expect(result.reason).toBe("changes not committed");
     });
@@ -412,12 +412,10 @@ describe("hooks/policy-evaluator", () => {
       expect(result.decision).toBe("allow");
       expect(result.policyNames).toEqual(["wf-commit", "wf-push", "wf-pr", "wf-ci"]);
       const parsed = JSON.parse(result.stdout);
-      const ctx = parsed.hookSpecificOutput.additionalContext;
-      expect(ctx).toContain("Note from failproofai:");
-      expect(ctx).toContain("All changes committed");
-      expect(ctx).toContain("All commits pushed");
-      expect(ctx).toContain("PR #42 exists");
-      expect(ctx).toContain("All CI checks passed");
+      expect(parsed.reason).toContain("All changes committed");
+      expect(parsed.reason).toContain("All commits pushed");
+      expect(parsed.reason).toContain("PR #42 exists");
+      expect(parsed.reason).toContain("All CI checks passed");
     });
 
     it("allow messages from early policies are discarded when a later policy denies", async () => {
@@ -467,7 +465,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.policyName).toBe("informative");
       expect(result.policyNames).toEqual(["informative"]);
       const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.additionalContext).toBe("Note from failproofai: CI is green");
+      expect(parsed.reason).toBe("CI is green");
     });
 
     it("policy that throws is skipped — subsequent policies still run", async () => {
