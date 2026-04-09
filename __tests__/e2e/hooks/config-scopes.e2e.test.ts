@@ -112,4 +112,47 @@ describe("config-scopes", () => {
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertAllow(result);
   });
+
+  it("two projects with different project configs → independent policy enforcement", () => {
+    // Project A enables block-sudo only
+    const envA = createFixtureEnv();
+    envA.writeConfig({ enabledPolicies: ["block-sudo"] }, "project");
+
+    // Project B enables block-rm-rf only (no block-sudo)
+    const envB = createFixtureEnv();
+    envB.writeConfig({ enabledPolicies: ["block-rm-rf"] }, "project");
+
+    // sudo in Project A → blocked
+    const sudoA = runHook("PreToolUse", Payloads.preToolUse.bash("sudo apt install", envA.cwd), { homeDir: envA.home });
+    assertPreToolUseDeny(sudoA);
+
+    // rm -rf in Project A → allowed (not enabled in A)
+    const rmA = runHook("PreToolUse", Payloads.preToolUse.bash("rm -rf /*", envA.cwd), { homeDir: envA.home });
+    assertAllow(rmA);
+
+    // sudo in Project B → allowed (not enabled in B)
+    const sudoB = runHook("PreToolUse", Payloads.preToolUse.bash("sudo apt install", envB.cwd), { homeDir: envB.home });
+    assertAllow(sudoB);
+
+    // rm -rf in Project B → blocked
+    const rmB = runHook("PreToolUse", Payloads.preToolUse.bash("rm -rf /*", envB.cwd), { homeDir: envB.home });
+    assertPreToolUseDeny(rmB);
+  });
+
+  it("project config does not leak into global", () => {
+    const env = createFixtureEnv();
+    // Only project config has block-sudo, global has nothing
+    env.writeConfig({ enabledPolicies: ["block-sudo"] }, "project");
+    // No global config written — env.home has empty .failproofai
+
+    // Handler with project cwd → block-sudo fires
+    const withProject = runHook("PreToolUse", Payloads.preToolUse.bash("sudo whoami", env.cwd), { homeDir: env.home });
+    assertPreToolUseDeny(withProject);
+
+    // Create a second env (different cwd) sharing same home → should NOT see block-sudo
+    const env2 = createFixtureEnv();
+    // Use env.home so the global scope is shared, but env2 has no project config
+    const withoutProject = runHook("PreToolUse", Payloads.preToolUse.bash("sudo whoami", env2.cwd), { homeDir: env.home });
+    assertAllow(withoutProject);
+  });
 });

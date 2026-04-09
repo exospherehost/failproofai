@@ -26,6 +26,13 @@ vi.mock("../../src/hooks/hooks-config", () => ({
   readHooksConfig: vi.fn(() => ({ enabledPolicies: [] })),
   readMergedHooksConfig: vi.fn(() => ({ enabledPolicies: [] })),
   writeHooksConfig: vi.fn(),
+  readScopedHooksConfig: vi.fn(() => ({ enabledPolicies: [] })),
+  writeScopedHooksConfig: vi.fn(),
+  getConfigPathForScope: vi.fn((scope: string, cwd?: string) => {
+    if (scope === "user") return resolve(homedir(), ".failproofai", "policies-config.json");
+    if (scope === "local") return `${cwd ?? process.cwd()}/.failproofai/policies-config.local.json`;
+    return `${cwd ?? process.cwd()}/.failproofai/policies-config.json`;
+  }),
 }));
 
 vi.mock("../../src/hooks/hook-telemetry", () => ({
@@ -87,14 +94,16 @@ describe("hooks/manager", () => {
 
       const { installHooks } = await import("../../src/hooks/manager");
       const { promptPolicySelection } = await import("../../src/hooks/install-prompt");
-      const { writeHooksConfig } = await import("../../src/hooks/hooks-config");
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
 
       await installHooks();
 
       expect(promptPolicySelection).toHaveBeenCalledOnce();
-      expect(writeHooksConfig).toHaveBeenCalledWith({
-        enabledPolicies: ["block-sudo", "block-env-files", "sanitize-jwt"],
-      });
+      expect(writeScopedHooksConfig).toHaveBeenCalledWith(
+        { enabledPolicies: ["block-sudo", "block-env-files", "sanitize-jwt"] },
+        "user",
+        undefined,
+      );
     });
 
     it("non-interactive: --install-hooks all enables all policies", async () => {
@@ -102,15 +111,17 @@ describe("hooks/manager", () => {
       vi.mocked(readFileSync).mockReturnValue("{}");
 
       const { installHooks } = await import("../../src/hooks/manager");
-      const { writeHooksConfig } = await import("../../src/hooks/hooks-config");
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
       const { promptPolicySelection } = await import("../../src/hooks/install-prompt");
 
       await installHooks(["all"]);
 
       expect(promptPolicySelection).not.toHaveBeenCalled();
-      expect(writeHooksConfig).toHaveBeenCalledWith({
-        enabledPolicies: expect.arrayContaining(["block-sudo", "block-rm-rf", "sanitize-jwt"]),
-      });
+      expect(writeScopedHooksConfig).toHaveBeenCalledWith(
+        { enabledPolicies: expect.arrayContaining(["block-sudo", "block-rm-rf", "sanitize-jwt"]) },
+        "user",
+        undefined,
+      );
     });
 
     it("non-interactive: --install-hooks with specific names", async () => {
@@ -118,13 +129,15 @@ describe("hooks/manager", () => {
       vi.mocked(readFileSync).mockReturnValue("{}");
 
       const { installHooks } = await import("../../src/hooks/manager");
-      const { writeHooksConfig } = await import("../../src/hooks/hooks-config");
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
 
       await installHooks(["block-sudo", "block-rm-rf"]);
 
-      expect(writeHooksConfig).toHaveBeenCalledWith({
-        enabledPolicies: ["block-sudo", "block-rm-rf"],
-      });
+      expect(writeScopedHooksConfig).toHaveBeenCalledWith(
+        { enabledPolicies: ["block-sudo", "block-rm-rf"] },
+        "user",
+        undefined,
+      );
     });
 
     it("non-interactive: rejects unknown policy names", async () => {
@@ -139,8 +152,8 @@ describe("hooks/manager", () => {
     it("pre-loads current config in interactive mode", async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("{}");
-      const { readHooksConfig } = await import("../../src/hooks/hooks-config");
-      vi.mocked(readHooksConfig).mockReturnValue({ enabledPolicies: ["block-sudo"] });
+      const { readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({ enabledPolicies: ["block-sudo"] });
 
       const { installHooks } = await import("../../src/hooks/manager");
       const { promptPolicySelection } = await import("../../src/hooks/install-prompt");
@@ -374,14 +387,16 @@ describe("hooks/manager", () => {
       ]);
 
       const { installHooks } = await import("../../src/hooks/manager");
-      const { writeHooksConfig } = await import("../../src/hooks/hooks-config");
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
 
       await installHooks(["block-sudo"], "user", undefined, false, undefined, "/tmp/my-hooks.js");
 
-      expect(writeHooksConfig).toHaveBeenCalledWith(
+      expect(writeScopedHooksConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           customPoliciesPath: resolve("/tmp/my-hooks.js"),
         }),
+        "user",
+        undefined,
       );
       const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       expect(logs.some((l: unknown) => typeof l === "string" && l.includes(resolve("/tmp/my-hooks.js")))).toBe(true);
@@ -390,8 +405,8 @@ describe("hooks/manager", () => {
     it("clears customPoliciesPath when removeCustomHooks is true", async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("{}");
-      const { readHooksConfig, writeHooksConfig } = await import("../../src/hooks/hooks-config");
-      vi.mocked(readHooksConfig).mockReturnValue({
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
         enabledPolicies: ["block-sudo"],
         customPoliciesPath: "/tmp/old-hooks.js",
       });
@@ -400,7 +415,7 @@ describe("hooks/manager", () => {
 
       await installHooks(["block-sudo"], "user", undefined, false, undefined, undefined, true);
 
-      const [[written]] = vi.mocked(writeHooksConfig).mock.calls;
+      const [[written]] = vi.mocked(writeScopedHooksConfig).mock.calls;
       expect((written as unknown as Record<string, unknown>).customPoliciesPath).toBeUndefined();
       const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       expect(logs.some((l: unknown) => typeof l === "string" && l.includes("Custom hooks path cleared"))).toBe(true);
@@ -555,24 +570,26 @@ describe("hooks/manager", () => {
     });
 
     it("removes specific policies from config when names provided", async () => {
-      const { readHooksConfig, writeHooksConfig } = await import("../../src/hooks/hooks-config");
-      vi.mocked(readHooksConfig).mockReturnValue({
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
         enabledPolicies: ["block-sudo", "block-rm-rf", "sanitize-jwt"],
       });
 
       const { removeHooks } = await import("../../src/hooks/manager");
       await removeHooks(["block-sudo"]);
 
-      expect(writeHooksConfig).toHaveBeenCalledWith({
-        enabledPolicies: ["block-rm-rf", "sanitize-jwt"],
-      });
+      expect(writeScopedHooksConfig).toHaveBeenCalledWith(
+        { enabledPolicies: ["block-rm-rf", "sanitize-jwt"] },
+        "user",
+        undefined,
+      );
       // Should NOT write to settings file
       expect(writeFileSync).not.toHaveBeenCalled();
     });
 
     it("warns about policies not currently enabled", async () => {
-      const { readHooksConfig } = await import("../../src/hooks/hooks-config");
-      vi.mocked(readHooksConfig).mockReturnValue({ enabledPolicies: ["block-sudo"] });
+      const { readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({ enabledPolicies: ["block-sudo"] });
 
       const { removeHooks } = await import("../../src/hooks/manager");
       await removeHooks(["block-rm-rf"]);
@@ -604,6 +621,10 @@ describe("hooks/manager", () => {
         return "{}";
       });
 
+      // Mock scoped config reads so the clear-all logic finds something to clear
+      const { readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({ enabledPolicies: ["block-sudo"] });
+
       const { removeHooks } = await import("../../src/hooks/manager");
       await removeHooks(undefined, "all");
 
@@ -616,9 +637,9 @@ describe("hooks/manager", () => {
         expect(written.hooks).toBeUndefined();
       }
 
-      // Should clear policy config
-      const { writeHooksConfig } = await import("../../src/hooks/hooks-config");
-      expect(writeHooksConfig).toHaveBeenCalledWith({ enabledPolicies: [] });
+      // Should clear policy config across scopes
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      expect(writeScopedHooksConfig).toHaveBeenCalled();
     });
     it("removeHooks with cwd targets that directory", async () => {
       const customProjectPath = resolve("/tmp/my-project", ".claude", "settings.json");
@@ -649,8 +670,8 @@ describe("hooks/manager", () => {
     });
 
     it("fires hooks_removed telemetry for policy-only removal", async () => {
-      const { readHooksConfig } = await import("../../src/hooks/hooks-config");
-      vi.mocked(readHooksConfig).mockReturnValue({
+      const { readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
         enabledPolicies: ["block-sudo", "block-rm-rf", "sanitize-jwt"],
       });
 
@@ -691,10 +712,10 @@ describe("hooks/manager", () => {
       };
       vi.mocked(readFileSync).mockReturnValue(JSON.stringify(settings));
 
-      // readHooksConfig is module-mocked; configure it to return the policies that
+      // readScopedHooksConfig is module-mocked; configure it to return the policies that
       // were enabled before removal (used in the telemetry policies_removed field).
-      const { readHooksConfig } = await import("../../src/hooks/hooks-config");
-      vi.mocked(readHooksConfig).mockReturnValue({ enabledPolicies: ["sanitize-jwt", "block-sudo"] });
+      const { readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({ enabledPolicies: ["sanitize-jwt", "block-sudo"] });
 
       const { removeHooks } = await import("../../src/hooks/manager");
       const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");

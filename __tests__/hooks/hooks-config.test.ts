@@ -191,4 +191,97 @@ describe("hooks/hooks-config", () => {
       expect(config.policyParams).toBeUndefined();
     });
   });
+
+  describe("getConfigPathForScope", () => {
+    it("returns global path for user scope", async () => {
+      const { getConfigPathForScope } = await import("../../src/hooks/hooks-config");
+      expect(getConfigPathForScope("user")).toBe(
+        resolve(homedir(), ".failproofai", "policies-config.json"),
+      );
+    });
+
+    it("returns project path for project scope", async () => {
+      const { getConfigPathForScope } = await import("../../src/hooks/hooks-config");
+      expect(getConfigPathForScope("project", "/tmp/my-project")).toBe(
+        resolve("/tmp/my-project", ".failproofai", "policies-config.json"),
+      );
+    });
+
+    it("returns local path for local scope", async () => {
+      const { getConfigPathForScope } = await import("../../src/hooks/hooks-config");
+      expect(getConfigPathForScope("local", "/tmp/my-project")).toBe(
+        resolve("/tmp/my-project", ".failproofai", "policies-config.local.json"),
+      );
+    });
+  });
+
+  describe("readScopedHooksConfig", () => {
+    it("reads from project scope path", async () => {
+      const projectPath = resolve("/tmp/proj", ".failproofai", "policies-config.json");
+      vi.mocked(existsSync).mockImplementation((p) => String(p) === projectPath);
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        if (String(p) === projectPath) return JSON.stringify({ enabledPolicies: ["block-sudo"] });
+        throw new Error("ENOENT");
+      });
+      const { readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readScopedHooksConfig("project", "/tmp/proj");
+      expect(config.enabledPolicies).toEqual(["block-sudo"]);
+    });
+
+    it("returns empty config when scope file does not exist", async () => {
+      vi.mocked(existsSync).mockReturnValue(false);
+      const { readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readScopedHooksConfig("project", "/tmp/proj");
+      expect(config).toEqual({ enabledPolicies: [] });
+    });
+
+    it("reads from user scope (global path)", async () => {
+      const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
+      vi.mocked(existsSync).mockImplementation((p) => String(p) === globalPath);
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        if (String(p) === globalPath) return JSON.stringify({ enabledPolicies: ["sanitize-jwt"] });
+        throw new Error("ENOENT");
+      });
+      const { readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readScopedHooksConfig("user");
+      expect(config.enabledPolicies).toEqual(["sanitize-jwt"]);
+    });
+  });
+
+  describe("writeScopedHooksConfig", () => {
+    it("writes to project scope path", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      writeScopedHooksConfig({ enabledPolicies: ["block-sudo"] }, "project", "/tmp/proj");
+      const [path, content] = vi.mocked(writeFileSync).mock.calls[0];
+      expect(path).toBe(resolve("/tmp/proj", ".failproofai", "policies-config.json"));
+      expect(JSON.parse(content as string).enabledPolicies).toEqual(["block-sudo"]);
+    });
+
+    it("writes to local scope path", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      writeScopedHooksConfig({ enabledPolicies: ["block-rm-rf"] }, "local", "/tmp/proj");
+      const [path] = vi.mocked(writeFileSync).mock.calls[0];
+      expect(path).toBe(resolve("/tmp/proj", ".failproofai", "policies-config.local.json"));
+    });
+
+    it("writes to user scope (global path)", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      writeScopedHooksConfig({ enabledPolicies: ["sanitize-jwt"] }, "user");
+      const [path] = vi.mocked(writeFileSync).mock.calls[0];
+      expect(path).toBe(resolve(homedir(), ".failproofai", "policies-config.json"));
+    });
+
+    it("creates directory if it does not exist", async () => {
+      vi.mocked(existsSync).mockReturnValue(false);
+      const { writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      writeScopedHooksConfig({ enabledPolicies: [] }, "project", "/tmp/proj");
+      expect(mkdirSync).toHaveBeenCalledWith(
+        resolve("/tmp/proj", ".failproofai"),
+        { recursive: true },
+      );
+    });
+  });
 });
