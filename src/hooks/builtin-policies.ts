@@ -86,7 +86,7 @@ const PUBLISH_CMD_RE = /(?:npm\s+publish|bun\s+publish|pnpm\s+publish|yarn\s+npm
 
 // protectEnvVars
 const ENV_PRINTENV_RE = /(?:^|\s|;|&&|\|\|)(?:env|printenv)(?:\s|$|;|&&|\|)/;
-const ECHO_ENV_RE = /echo\s+.*\$[A-Za-z_]/;
+const ECHO_ENV_RE = /echo\s+.*\$\{?[A-Za-z_]/;
 const EXPORT_RE = /(?:^|\s|;|&&|\|\|)export\s+\w+/;
 const PS_ENV_VAR_RE = /\$env:[A-Za-z_]/i;
 const PS_CHILDITEM_ENV_RE = /(?:Get-ChildItem|dir|gci|ls)\s+Env:/i;
@@ -103,7 +103,7 @@ const PS_ELEVATION_RE = /Start-Process\s+.*-Verb\s+RunAs/i;
 const RUNAS_RE = /(?:^|;|&&|\|\|)\s*runas\s/i;
 
 // blockCurlPipeSh
-const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh)/;
+const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh|dash|ksh|csh|tcsh|fish|ash)/;
 const PS_WEB_PIPE_RE = /(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s*(?:Invoke-Expression|iex)/i;
 
 // blockForcePush
@@ -440,7 +440,8 @@ function rmTargetIsAllowed(cmd: string, allowPaths: string[]): boolean {
     if (rmIdx < 0) continue;
     // Only validate recursive rm segments — non-recursive rm has no catastrophic-deletion risk
     const flagTokens = tokens.slice(rmIdx + 1).filter((t) => /^-[^-]/.test(t));
-    if (!/r/i.test(flagTokens.join(""))) continue;
+    const longFlagsInSeg = tokens.slice(rmIdx + 1).filter((t) => /^--/.test(t));
+    if (!/r/i.test(flagTokens.join("")) && !longFlagsInSeg.some(f => /^--recursive$/i.test(f))) continue;
     const pathArgs = tokens.slice(rmIdx + 1).filter((t) => !t.startsWith("-"));
     for (const target of pathArgs) {
       const normalized = target.replace(/\/\*$/, "").replace(/\/+$/, "") || "/";
@@ -465,7 +466,7 @@ function rmTargetIsAllowed(cmd: string, allowPaths: string[]): boolean {
 function blockRmRf(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  const hasDestructivePath = /(?:\/\s*$|\/\*|~)/.test(cmd);
+  const hasDestructivePath = /(?:\/\s*$|\/\*|~|(?:^|\s)\/[a-zA-Z_][\w.-]*\/?(?:\s|$))/.test(cmd);
 
   // Combined flags in one token: rm -rf /, rm -fr /
   if (hasDestructivePath && (
@@ -481,7 +482,10 @@ function blockRmRf(ctx: PolicyContext): PolicyResult {
   if (hasDestructivePath && /\brm\b/.test(cmd)) {
     const tokens = parseArgvTokens(cmd);
     const shortFlags = tokens.filter((t) => /^-[^-]/.test(t)).join("");
-    if (/r/i.test(shortFlags) && /f/.test(shortFlags)) {
+    const longFlags = tokens.filter((t) => /^--/.test(t));
+    const hasRecursive = /r/i.test(shortFlags) || longFlags.some(f => /^--recursive$/i.test(f));
+    const hasForce = /f/.test(shortFlags) || longFlags.some(f => /^--force$/i.test(f));
+    if (hasRecursive && hasForce) {
       const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
       if (rmTargetIsAllowed(cmd, allowPaths)) return allow();
       return deny("Catastrophic deletion blocked");

@@ -72,7 +72,7 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("SessionStart", {});
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("");
+    expect(result.stderr).toBe("nope");
     expect(result.reason).toBe("nope");
   });
 
@@ -326,7 +326,7 @@ describe("hooks/policy-evaluator", () => {
   });
 
   describe("Stop event deny format", () => {
-    it("Stop deny uses exit code 2 with empty stdout", async () => {
+    it("Stop deny uses exit code 2 with reason in stderr", async () => {
       registerPolicy("stop-blocker", "desc", () => ({
         decision: "deny",
         reason: "changes not committed",
@@ -335,7 +335,7 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("");
+      expect(result.stderr).toBe("changes not committed");
       expect(result.decision).toBe("deny");
       expect(result.reason).toBe("changes not committed");
     });

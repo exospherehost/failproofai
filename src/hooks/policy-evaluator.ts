@@ -123,7 +123,7 @@ export async function evaluatePolicies(
       return {
         exitCode: 2,
         stdout: "",
-        stderr: "",
+        stderr: reason,
         policyName: policy.name,
         reason,
         decision: "deny",
