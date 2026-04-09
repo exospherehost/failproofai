@@ -17,5 +17,8 @@ export default defineConfig({
     // forks pool: true process isolation — tests spawn subprocesses,
     // thread workers share globalThis which can interfere.
     pool: "forks",
+    env: {
+      FAILPROOFAI_TELEMETRY_DISABLED: "1",
+    },
   },
 });

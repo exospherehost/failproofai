@@ -13,6 +13,8 @@ concurrency:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    env:
+      FAILPROOFAI_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v6
 
@@ -79,11 +81,12 @@ jobs:
       fail-fast: false
       matrix:
         env-config:
-          - { name: default,            env: {} }
-          - { name: telemetry-disabled, env: { FAILPROOFAI_TELEMETRY_DISABLED: "1" } }
-          - { name: log-debug,          env: { FAILPROOFAI_LOG_LEVEL: debug } }
-          - { name: hook-log-file,      env: { FAILPROOFAI_HOOK_LOG_FILE: "1" } }
-    env: ${{ matrix.env-config.env }}
+          - { name: default,       env: {} }
+          - { name: log-debug,     env: { FAILPROOFAI_LOG_LEVEL: debug } }
+          - { name: hook-log-file, env: { FAILPROOFAI_HOOK_LOG_FILE: "1" } }
+    env:
+      FAILPROOFAI_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v6
 
@@ -106,6 +109,7 @@ jobs:
 
       - name: Test (${{ matrix.env-config.name }})
         uses: nick-fields/retry@v4
+        env: ${{ matrix.env-config.env }}
         with:
           max_attempts: 3
           timeout_minutes: 10
@@ -113,6 +117,9 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      FAILPROOFAI_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v6
 
@@ -144,6 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FAILPROOFAI_TELEMETRY_DISABLED: "1"
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v6
 
