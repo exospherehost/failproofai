@@ -83,7 +83,7 @@ function SessionCell({ sessionId, transcriptPath }: { sessionId?: string; transc
 
 // -- Badge Components --
 
-function DecisionBadge({ decision }: { decision: "allow" | "deny" | "instruct" }) {
+function DecisionBadge({ decision, hasMessage }: { decision: "allow" | "deny" | "instruct"; hasMessage?: boolean }) {
   if (decision === "deny") {
     return (
       <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide uppercase bg-red-500/10 text-red-400 border border-red-500/20">
@@ -97,6 +97,15 @@ function DecisionBadge({ decision }: { decision: "allow" | "deny" | "instruct" }
       <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide uppercase bg-amber-500/10 text-amber-400 border border-amber-500/20">
         <ShieldAlert className="h-3 w-3" />
         Instruct
+      </span>
+    );
+  }
+  if (decision === "allow" && hasMessage) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.65rem] font-semibold tracking-wide uppercase bg-sky-500/10 text-sky-400 border border-sky-500/20">
+        <ShieldCheck className="h-3 w-3" />
+        Allow
+        <span className="text-[0.55rem] font-normal normal-case">(note)</span>
       </span>
     );
   }
@@ -270,6 +279,12 @@ function DetailPanel({
               </span>
             </div>
           </div>
+          {item.policyNames && item.policyNames.length > 1 && (
+            <div>
+              <span className="text-muted-foreground">Policies: </span>
+              <span className="font-mono text-foreground">{item.policyNames.join(", ")}</span>
+            </div>
+          )}
           {item.reason && (
             <div>
               <span className="text-muted-foreground">Full reason: </span>
@@ -469,6 +484,7 @@ function ActivityTab({
                   const isDeny = item.decision === "deny";
                   const isExpanded = expandedRow === i;
                   const isInstruct = item.decision === "instruct";
+                  const isAllowWithMessage = item.decision === "allow" && !!item.reason;
                   return (
                     <React.Fragment key={`${item.timestamp}-${i}`}>
                       <tr
@@ -478,9 +494,11 @@ function ActivityTab({
                             ? "bg-red-500/[0.03] hover:bg-red-500/[0.07] border-l-2 border-l-red-500/40"
                             : isInstruct
                               ? "bg-amber-500/[0.03] hover:bg-amber-500/[0.07] border-l-2 border-l-amber-500/40"
-                              : i % 2 === 0
-                                ? "hover:bg-muted/30"
-                                : "bg-muted/[0.04] hover:bg-muted/30"
+                              : isAllowWithMessage
+                                ? "bg-sky-500/[0.02] hover:bg-sky-500/[0.05] border-l-2 border-l-sky-500/30"
+                                : i % 2 === 0
+                                  ? "hover:bg-muted/30"
+                                  : "bg-muted/[0.04] hover:bg-muted/30"
                         } ${isExpanded ? "bg-muted/20" : ""}`}
                       >
                         <td className="px-4 py-2">
@@ -491,7 +509,7 @@ function ActivityTab({
                           />
                         </td>
                         <td className="px-3 py-2">
-                          <DecisionBadge decision={item.decision} />
+                          <DecisionBadge decision={item.decision} hasMessage={isAllowWithMessage} />
                         </td>
                         <td className="px-3 py-2">
                           <EventTypeBadge eventType={item.eventType} />
@@ -500,7 +518,14 @@ function ActivityTab({
                           {item.toolName ?? "\u2014"}
                         </td>
                         <td className="px-3 py-2 font-mono text-foreground">
-                          {item.policyName ?? "\u2014"}
+                          {item.policyNames && item.policyNames.length > 1 ? (
+                            <span title={item.policyNames.join(", ")}>
+                              {item.policyNames[0]}
+                              <span className="text-muted-foreground text-[0.6rem]"> +{item.policyNames.length - 1}</span>
+                            </span>
+                          ) : (
+                            item.policyName ?? "\u2014"
+                          )}
                         </td>
                         <td
                           className="px-3 py-2 text-muted-foreground truncate max-w-[240px]"
