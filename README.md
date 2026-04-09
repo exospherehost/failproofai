@@ -197,8 +197,9 @@ failproofai policies --install --custom ./my-policies.js
 
 | Function | Effect |
 |----------|--------|
-| `allow()` | Permit the tool call |
-| `deny(message)` | Block the tool call; message shown to Claude |
+| `allow()` | Permit the operation |
+| `allow(message)` | Permit and send informational context to Claude |
+| `deny(message)` | Block the operation; message shown to Claude |
 | `instruct(message)` | Add context to Claude's prompt; does not block |
 
 ### Context object (`ctx`)

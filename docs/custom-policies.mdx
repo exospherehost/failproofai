@@ -79,13 +79,41 @@ customPolicies.add({
 
 | Function | Effect | Use when |
 |----------|--------|----------|
-| `allow()` | Permit the tool call | The action is safe to proceed |
-| `deny(message)` | Block the tool call | The agent should not take this action |
-| `instruct(message)` | Add context to Claude's prompt | Give the agent extra context to stay on track |
+| `allow()` | Permit the operation silently | The action is safe, no message needed |
+| `allow(message)` | Permit and send context to Claude | Pass informational feedback (e.g. "All checks passed") |
+| `deny(message)` | Block the operation | The agent should not take this action |
+| `instruct(message)` | Add context without blocking | Give the agent extra context to stay on track |
 
-`deny(message)` - the message appears to Claude prefixed with `"Blocked by failproofai:"`.
+`allow(message)` - the message is passed to Claude as additional context. Unlike `instruct`, it does not warn or require action — it's purely informational. Use it for status confirmations like "All CI checks passed" or explanations like "No git remote configured, skipping push check". Multiple `allow` messages from different policies accumulate.
 
-`instruct(message)` - the message is appended to Claude's context for the current tool call. Multiple `instruct` returns from different hooks accumulate; a single `deny` short-circuits all further evaluation.
+`deny(message)` - the message appears to Claude prefixed with `"Blocked by failproofai:"`. A single `deny` short-circuits all further evaluation.
+
+`instruct(message)` - the message is appended to Claude's context for the current tool call. Multiple `instruct` returns from different hooks accumulate.
+
+### Informational allow messages
+
+Use `allow(message)` when a policy completes successfully and you want to confirm that to Claude, or when a check is skipped and you want to explain why:
+
+```js
+customPolicies.add({
+  name: "confirm-branch-status",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    const cwd = ctx.session?.cwd;
+    if (!cwd) return allow("No working directory, skipping branch check.");
+
+    // ... check branch status ...
+    if (allPushed) {
+      return allow("Branch is up to date with remote.");
+    }
+    return deny("Unpushed changes detected.");
+  },
+});
+```
+
+<Note>
+`allow(message)` is available since v0.0.2-beta.3. Earlier versions only support `allow()` without arguments.
+</Note>
 
 ### `PolicyContext` fields
 

@@ -51,6 +51,9 @@ export async function evaluatePolicies(
   let instructPolicyName: string | null = null;
   let instructReason: string | null = null;
 
+  // Track informational messages from allow decisions
+  const allowMessages: string[] = [];
+
   for (const policy of policies) {
     // Inject params: merge policyParams[policy.name] over schema defaults
     const schema = POLICY_PARAMS_MAP.get(policy.name);
@@ -133,6 +136,11 @@ export async function evaluatePolicies(
       instructReason = result.reason ?? `Instruction from policy: ${policy.name}`;
       hookLogInfo(`instruct by "${policy.name}": ${instructReason}`);
     }
+
+    // Accumulate informational messages from allow decisions
+    if (result.decision === "allow" && result.reason) {
+      allowMessages.push(result.reason);
+    }
   }
 
   // No deny — check if we accumulated an instruct
@@ -166,6 +174,16 @@ export async function evaluatePolicies(
     };
   }
 
-  // All policies allowed
+  // All policies allowed — pass along any informational messages
+  if (allowMessages.length > 0) {
+    const combined = allowMessages.join("\n");
+    const response = {
+      hookSpecificOutput: {
+        hookEventName: eventType,
+        additionalContext: combined,
+      },
+    };
+    return { exitCode: 0, stdout: JSON.stringify(response), stderr: "", policyName: null, reason: combined, decision: "allow" };
+  }
   return { exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow" };
 }

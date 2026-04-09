@@ -100,7 +100,18 @@ The handler enforces a 1 MB stdin limit. Payloads exceeding this are discarded a
 
 **Allow:**
 - Exit code: `0`
-- Empty stdout
+- Empty stdout (no message)
+
+**Allow with message:**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "All CI checks passed on branch 'feat/my-feature'."
+  }
+}
+```
+- Exit code: `0`
+- Messages from multiple policies are joined with newlines
 
 ### Processing pipeline
 
@@ -117,6 +128,7 @@ stdin JSON
   → evaluate all policies (builtins first, then custom)
       → first deny short-circuits
       → instruct decisions accumulate
+      → allow messages accumulate
   → write JSON decision to stdout
   → persist event to ~/.failproofai/hook-activity.jsonl
   → exit

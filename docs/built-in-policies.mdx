@@ -1,10 +1,10 @@
 ---
 title: Built-in Policies
-description: "All 26 built-in policies that catch common agent failure modes"
+description: "All 30 built-in policies that catch common agent failure modes"
 icon: shield
 ---
 
-failproofai ships with 26 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Eight policies accept parameters that let you tune their behavior without writing code.
+failproofai ships with 30 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Nine policies accept parameters that let you tune their behavior without writing code. Four beta workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
 
 ---
 
@@ -21,8 +21,9 @@ Policies are grouped into categories:
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [Database](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [Warnings](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
+| [Workflow (beta)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
 
-Policies prefixed with `block-` stop the agent from proceeding. Policies prefixed with `warn-` give the agent additional context so it can self-correct. Policies prefixed with `sanitize-` scrub sensitive data from tool output before the agent sees it.
+Policies prefixed with `block-` stop the agent from proceeding. Policies prefixed with `warn-` give the agent additional context so it can self-correct. Policies prefixed with `sanitize-` scrub sensitive data from tool output before the agent sees it. Policies prefixed with `require-` block the Stop event until conditions are met.
 
 ---
 
@@ -429,15 +430,102 @@ No parameters.
 
 ---
 
+## Workflow (beta)
+
+Enforce a disciplined end-of-session workflow. These policies fire on the **Stop** event and deny Claude from stopping until each condition is met. They follow a natural dependency chain: commit → push → PR → CI. If a policy denies, later policies in the chain are skipped (deny short-circuits).
+
+All workflow policies are **fail-open**: if the required tool is not available (e.g. `gh` not installed, no git remote), the policy allows with an informational message explaining why the check was skipped.
+
+### `require-commit-before-stop`
+
+**Event:** Stop  
+**Default:** Denies stopping when there are uncommitted changes (modified, staged, or untracked files). Returns an informational message when the working directory is clean.
+
+No parameters.
+
+---
+
+### `require-push-before-stop`
+
+**Event:** Stop  
+**Default:** Denies stopping when there are unpushed commits or when the current branch has no remote tracking branch. Suggests `git push -u` to create a tracking branch if needed. Fails open if no remote is configured.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `remote` | `string` | `"origin"` | Remote name to push to. |
+
+**Example:**
+
+```json
+{
+  "policyParams": {
+    "require-push-before-stop": {
+      "remote": "upstream"
+    }
+  }
+}
+```
+
+---
+
+### `require-pr-before-stop`
+
+**Event:** Stop  
+**Default:** Denies stopping when no pull request exists for the current branch, or when the existing PR is closed/merged. Instructs Claude to create a PR with `gh pr create`.
+
+No parameters.
+
+<Note>
+This policy requires [GitHub CLI](https://cli.github.com/) (`gh`) to be installed and authenticated.
+Run `gh auth login` with a personal access token that has `repo` scope for read access to
+pull requests. If `gh` is not installed or not authenticated, the policy fails open and reports the reason to Claude.
+</Note>
+
+---
+
+### `require-ci-green-before-stop`
+
+**Event:** Stop  
+**Default:** Denies stopping when CI checks are failing or still running on the current branch. Treats `skipped` conclusions as success. Returns an informational message when all checks pass.
+
+No parameters.
+
+<Note>
+This policy requires [GitHub CLI](https://cli.github.com/) (`gh`) to be installed and authenticated.
+Run `gh auth login` with a personal access token that has `repo` scope for read access to
+Actions workflow runs. If `gh` is not installed or not authenticated, the policy fails open and reports the reason to Claude.
+</Note>
+
+---
+
 ## Beta policies
 
-Some policies are marked `beta` and are not installed by default. To include them:
+Some policies are marked `beta` and are not installed by default. Beta policies may have rough edges or generate false positives. They graduate to stable in future releases.
+
+**Current beta policies:**
+
+- `require-commit-before-stop` — commit all changes before stopping
+- `require-push-before-stop` — push all commits to remote
+- `require-pr-before-stop` — ensure a PR exists for the branch
+- `require-ci-green-before-stop` — all CI checks must pass
+
+Together, these enforce a **commit → push → PR → CI** workflow.
+
+To install all beta policies:
 
 ```bash
 failproofai policies --install --beta
 ```
 
-Beta policies may have rough edges or generate false positives. Run `failproofai policies` to see which policies carry the beta flag.
+Or install specific workflow policies:
+
+```bash
+failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
+```
+
+Run `failproofai policies` to see which policies carry the beta flag.
 
 ---
 

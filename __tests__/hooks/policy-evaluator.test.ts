@@ -189,6 +189,78 @@ describe("hooks/policy-evaluator", () => {
     expect(result.reason).toBe("first warning");
   });
 
+  describe("allow with message", () => {
+    it("returns additionalContext when allow has a reason", async () => {
+      registerPolicy("info", "desc", () => ({
+        decision: "allow",
+        reason: "All checks passed",
+      }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Read" });
+      expect(result.exitCode).toBe(0);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toBe("All checks passed");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.additionalContext).toBe("All checks passed");
+    });
+
+    it("combines multiple allow messages with newline", async () => {
+      registerPolicy("info1", "desc", () => ({
+        decision: "allow",
+        reason: "Commit check passed",
+      }), { events: ["Stop"] });
+      registerPolicy("info2", "desc", () => ({
+        decision: "allow",
+        reason: "Push check passed",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.exitCode).toBe(0);
+      expect(result.decision).toBe("allow");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.additionalContext).toBe("Commit check passed\nPush check passed");
+    });
+
+    it("returns empty stdout when allow has no reason (backward-compatible)", async () => {
+      registerPolicy("ok", "desc", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
+      expect(result.exitCode).toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.reason).toBeNull();
+    });
+
+    it("deny still takes precedence over allow with message", async () => {
+      registerPolicy("info", "desc", () => ({
+        decision: "allow",
+        reason: "looks good",
+      }), { events: ["PreToolUse"] });
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked",
+      }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("blocker");
+    });
+
+    it("instruct takes precedence over allow with message", async () => {
+      registerPolicy("info", "desc", () => ({
+        decision: "allow",
+        reason: "looks good",
+      }), { events: ["PreToolUse"] });
+      registerPolicy("advisor", "desc", () => ({
+        decision: "instruct",
+        reason: "be careful",
+      }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
+      expect(result.decision).toBe("instruct");
+      expect(result.policyName).toBe("advisor");
+    });
+  });
+
   describe("params injection", () => {
     it("injects schema defaults into ctx.params when no policyParams in config", async () => {
       let capturedParams: unknown = null;
