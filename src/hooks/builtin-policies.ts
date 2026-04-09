@@ -3,7 +3,7 @@
  */
 import { resolve, join } from "node:path";
 import { readFile, writeFile, stat, open } from "node:fs/promises";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
 import { allow, deny, instruct } from "./policy-helpers";
@@ -838,7 +838,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
     // Check if remote tracking branch exists
     let hasTracking = false;
     try {
-      execSync(`git rev-parse --verify ${remote}/${branch}`, {
+      execFileSync("git", ["rev-parse", "--verify", `${remote}/${branch}`], {
         cwd,
         encoding: "utf8",
         timeout: 3000,
@@ -856,7 +856,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
     }
 
     // Check for unpushed commits
-    const unpushed = execSync(`git log ${remote}/${branch}..HEAD --oneline`, {
+    const unpushed = execFileSync("git", ["log", `${remote}/${branch}..HEAD`, "--oneline"], {
       cwd,
       encoding: "utf8",
       timeout: 5000,
@@ -883,7 +883,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
   try {
     // Check if gh CLI is available
     try {
-      execSync("which gh", { cwd, encoding: "utf8", timeout: 3000 });
+      execSync("gh --version", { cwd, encoding: "utf8", timeout: 3000 });
     } catch {
       return allow("GitHub CLI (gh) not installed, skipping PR check.");
     }
@@ -928,7 +928,7 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
   try {
     // Check if gh CLI is available
     try {
-      execSync("which gh", { cwd, encoding: "utf8", timeout: 3000 });
+      execSync("gh --version", { cwd, encoding: "utf8", timeout: 3000 });
     } catch {
       return allow("GitHub CLI (gh) not installed, skipping CI check.");
     }
@@ -936,8 +936,9 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     const branch = getCurrentBranch(cwd);
     if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping CI check.");
 
-    const runsJson = execSync(
-      `gh run list --branch ${branch} --limit 5 --json status,conclusion,name`,
+    const runsJson = execFileSync(
+      "gh",
+      ["run", "list", "--branch", branch, "--limit", "5", "--json", "status,conclusion,name"],
       {
         cwd,
         encoding: "utf8",

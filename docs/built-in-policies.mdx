@@ -23,7 +23,10 @@ Policies are grouped into categories:
 | [Warnings](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
 | [Workflow (beta)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
 
-Policies prefixed with `block-` stop the agent from proceeding. Policies prefixed with `warn-` give the agent additional context so it can self-correct. Policies prefixed with `sanitize-` scrub sensitive data from tool output before the agent sees it. Policies prefixed with `require-` block the Stop event until conditions are met.
+- **`block-`** — stop the agent from proceeding.
+- **`warn-`** — give the agent additional context so it can self-correct.
+- **`sanitize-`** — scrub sensitive data from tool output before the agent sees it.
+- **`require-`** — block the Stop event until conditions are met.
 
 ---
 

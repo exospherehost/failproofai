@@ -85,7 +85,7 @@ customPolicies.add({
 
 `deny(message)` - the message appears to Claude prefixed with `"Blocked by failproofai:"`. A single `deny` short-circuits all further evaluation.
 
-`instruct(message)` - the message is appended to Claude's context for the current tool call. Multiple `instruct` returns from different hooks accumulate.
+`instruct(message)` - the message is appended to Claude's context for the current tool call. The first `instruct` wins — subsequent `instruct` returns from other policies are ignored.
 
 ### Informational allow messages (beta)
 
@@ -158,7 +158,7 @@ Policies are evaluated in this order:
 2. Custom policies (in `.add()` order)
 
 <Note>
-The first `deny` short-circuits all subsequent policies. All `instruct` returns accumulate into a single message regardless of which policy produced them.
+The first `deny` short-circuits all subsequent policies. The first `instruct` wins — subsequent `instruct` returns are ignored.
 </Note>
 
 ---
