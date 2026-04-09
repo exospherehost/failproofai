@@ -177,12 +177,10 @@ export async function evaluatePolicies(
   // All policies allowed — pass along any informational messages
   if (allowMessages.length > 0) {
     const combined = allowMessages.join("\n");
-    const response = {
-      hookSpecificOutput: {
-        hookEventName: eventType,
-        additionalContext: combined,
-      },
-    };
+    const supportsHookSpecificOutput = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
+    const response = supportsHookSpecificOutput
+      ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: combined } }
+      : { reason: combined };
     return { exitCode: 0, stdout: JSON.stringify(response), stderr: "", policyName: null, reason: combined, decision: "allow" };
   }
   return { exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow" };

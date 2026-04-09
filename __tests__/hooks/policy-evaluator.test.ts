@@ -218,7 +218,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
       const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.additionalContext).toBe("Commit check passed\nPush check passed");
+      expect(parsed.reason).toBe("Commit check passed\nPush check passed");
     });
 
     it("returns empty stdout when allow has no reason (backward-compatible)", async () => {
@@ -401,11 +401,10 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
       const parsed = JSON.parse(result.stdout);
-      const ctx = parsed.hookSpecificOutput.additionalContext;
-      expect(ctx).toContain("All changes committed");
-      expect(ctx).toContain("All commits pushed");
-      expect(ctx).toContain("PR #42 exists");
-      expect(ctx).toContain("All CI checks passed");
+      expect(parsed.reason).toContain("All changes committed");
+      expect(parsed.reason).toContain("All commits pushed");
+      expect(parsed.reason).toContain("PR #42 exists");
+      expect(parsed.reason).toContain("All CI checks passed");
     });
 
     it("allow messages from early policies are discarded when a later policy denies", async () => {
@@ -453,7 +452,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
       const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.additionalContext).toBe("CI is green");
+      expect(parsed.reason).toBe("CI is green");
     });
 
     it("policy that throws is skipped — subsequent policies still run", async () => {
