@@ -898,6 +898,41 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
     const branch = getCurrentBranch(cwd);
     if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping PR check.");
 
+    const baseBranch = (ctx.params?.baseBranch as string) ?? "main";
+
+    // If on the base branch itself, no PR is needed
+    if (branch === baseBranch) {
+      return allow(`On base branch "${baseBranch}", skipping PR check.`);
+    }
+
+    // Check if branch has diverged from base in any meaningful way
+    try {
+      const ahead = execFileSync(
+        "git",
+        ["log", `origin/${baseBranch}..HEAD`, "--oneline"],
+        { cwd, encoding: "utf8", timeout: 5000 },
+      ).trim();
+
+      if (!ahead) {
+        // No commits ahead — branch is fully merged (regular merge / fast-forward)
+        return allow(`No commits ahead of origin/${baseBranch}, skipping PR check.`);
+      }
+
+      // Commits exist but might be from a squash-merged PR.
+      // Check actual file diff — if trees are identical, work is already in main.
+      const diff = execFileSync(
+        "git",
+        ["diff", "--stat", `origin/${baseBranch}`, "HEAD"],
+        { cwd, encoding: "utf8", timeout: 5000 },
+      ).trim();
+
+      if (!diff) {
+        return allow(`No file changes compared to origin/${baseBranch}, skipping PR check.`);
+      }
+    } catch {
+      // origin/{baseBranch} ref missing or git error — fall through to gh pr view
+    }
+
     // Check if a PR exists for this branch
     let prJson: string;
     try {
@@ -1289,6 +1324,13 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     defaultEnabled: false,
     category: "Workflow",
     beta: true,
+    params: {
+      baseBranch: {
+        type: "string",
+        description: "Base branch to compare against (default: main)",
+        default: "main",
+      },
+    } satisfies PolicyParamsSchema,
   },
   {
     name: "require-ci-green-before-stop",
