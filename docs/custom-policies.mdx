@@ -1,10 +1,10 @@
 ---
-title: Custom Hooks
+title: Custom Policies
 description: "Write your own policies in JavaScript - enforce conventions, prevent drift, detect failures, integrate with external systems"
 icon: code
 ---
 
-Custom hooks let you write policies for any agent behavior: enforce project conventions, prevent drift, gate destructive operations, detect stuck agents, or integrate with Slack, approval workflows, and more. They use the same hook event system and `allow`, `deny`, `instruct` decisions as built-in policies.
+Custom policies let you write rules for any agent behavior: enforce project conventions, prevent drift, gate destructive operations, detect stuck agents, or integrate with Slack, approval workflows, and more. They use the same hook event system and `allow`, `deny`, `instruct` decisions as built-in policies.
 
 ---
 
@@ -40,13 +40,13 @@ failproofai policies --install --custom ./my-policies.js
 ## Installing and updating
 
 ```bash
-# Install with a custom hooks file
+# Install with a custom policies file
 failproofai policies --install --custom ./my-policies.js
 
-# Replace the hooks file path
+# Replace the policies file path
 failproofai policies --install --custom ./new-policies.js
 
-# Remove the custom hooks path from config
+# Remove the custom policies path from config
 failproofai policies --uninstall --custom
 ```
 
@@ -64,7 +64,7 @@ import { customPolicies, allow, deny, instruct } from "failproofai";
 
 ### `customPolicies.add(hook)`
 
-Registers a hook. Call this as many times as needed for multiple hooks in the same file.
+Registers a policy. Call this as many times as needed for multiple policies in the same file.
 
 ```ts
 customPolicies.add({
@@ -118,20 +118,20 @@ customPolicies.add({
 
 ## Evaluation order
 
-Hooks are evaluated in this order:
+Policies are evaluated in this order:
 
 1. Built-in policies (in definition order)
-2. Custom hooks (in `.add()` order)
+2. Custom policies (in `.add()` order)
 
 <Note>
-The first `deny` short-circuits all subsequent hooks. All `instruct` returns accumulate into a single message regardless of which hook produced them.
+The first `deny` short-circuits all subsequent policies. All `instruct` returns accumulate into a single message regardless of which policy produced them.
 </Note>
 
 ---
 
 ## Transitive imports
 
-Custom hook files can import local modules using relative paths:
+Custom policy files can import local modules using relative paths:
 
 ```js
 // my-policies.js
@@ -152,9 +152,9 @@ All relative imports reachable from the entry file are resolved. This is impleme
 
 ---
 
-## Hook event type filtering
+## Event type filtering
 
-Use `match.events` to limit when a hook fires:
+Use `match.events` to limit when a policy fires:
 
 ```js
 customPolicies.add({
@@ -174,18 +174,18 @@ Omit `match` entirely to fire on every event type.
 
 ## Error handling and failure modes
 
-Custom hooks are **fail-open**: errors never block built-in policies or crash the hook handler.
+Custom policies are **fail-open**: errors never block built-in policies or crash the hook handler.
 
 | Failure | Behavior |
 |---------|----------|
-| `customPoliciesPath` not set | No custom hooks run; built-ins continue normally |
+| `customPoliciesPath` not set | No custom policies run; built-ins continue normally |
 | File not found | Warning logged to `~/.failproofai/hook.log`; built-ins continue |
-| Syntax/import error | Error logged to `~/.failproofai/hook.log`; all custom hooks skipped |
+| Syntax/import error | Error logged to `~/.failproofai/hook.log`; all custom policies skipped |
 | `fn` throws at runtime | Error logged; that hook treated as `allow`; other hooks continue |
 | `fn` takes longer than 10s | Timeout logged; treated as `allow` |
 
 <Tip>
-To debug custom hook errors, watch the log file:
+To debug custom policy errors, watch the log file:
 
 ```bash
 tail -f ~/.failproofai/hook.log
@@ -194,7 +194,7 @@ tail -f ~/.failproofai/hook.log
 
 ---
 
-## Full example: multiple hooks
+## Full example: multiple policies
 
 ```js
 // my-policies.js
@@ -249,9 +249,9 @@ export { customPolicies };
 
 ---
 
-## Examples in the repository
+## Examples
 
-The `examples/` directory contains ready-to-run hook files:
+The `examples/` directory contains ready-to-run policy files:
 
 | File | Contents |
 |------|----------|
