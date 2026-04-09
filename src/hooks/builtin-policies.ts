@@ -103,7 +103,7 @@ const PS_ELEVATION_RE = /Start-Process\s+.*-Verb\s+RunAs/i;
 const RUNAS_RE = /(?:^|;|&&|\|\|)\s*runas\s/i;
 
 // blockCurlPipeSh
-const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh|dash|ksh|csh|tcsh|fish|ash)/;
+const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh|dash|ksh|csh|tcsh|fish|ash)\b/;
 const PS_WEB_PIPE_RE = /(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s*(?:Invoke-Expression|iex)/i;
 
 // blockForcePush
@@ -466,7 +466,10 @@ function rmTargetIsAllowed(cmd: string, allowPaths: string[]): boolean {
 function blockRmRf(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  const hasDestructivePath = /(?:\/\s*$|\/\*|~|(?:^|\s)\/[a-zA-Z_][\w.-]*\/?(?:\s|$))/.test(cmd);
+  const hasDestructivePath = parseArgvTokens(cmd).some((token) => {
+    const normalized = token.replace(/\/\*$/, "").replace(/\/+$/, "") || (token.startsWith("/") ? "/" : "");
+    return normalized === "/" || normalized === "~" || /^\/[A-Za-z_][\w.-]*$/.test(normalized);
+  });
 
   // Combined flags in one token: rm -rf /, rm -fr /
   if (hasDestructivePath && (

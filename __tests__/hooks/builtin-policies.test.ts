@@ -514,6 +514,14 @@ describe("hooks/builtin-policies", () => {
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
 
+    it("allows curl piped to a command that starts with a shell name prefix", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "curl -sL https://example.com/data | bashful_render" },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
     it("blocks curl | dash", async () => {
       const ctx = makeCtx({
         toolName: "Bash",
@@ -644,6 +652,21 @@ describe("hooks/builtin-policies", () => {
     it("allows rm -rf /home/user/project (depth-2+ path is not flagged)", async () => {
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "rm -rf /home/user/project" } });
       expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("blocks rm -rf with double-quoted absolute path", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: 'rm -rf "/home"' } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks rm -rf with single-quoted absolute path", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "rm -rf '/etc'" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks rm --recursive --force with quoted path", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: 'rm --recursive --force "/home"' } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
     });
   });
 
