@@ -16,5 +16,8 @@ export default defineConfig({
     include: ["__tests__/**/*.test.{ts,tsx}"],
     exclude: ["__tests__/e2e/**"],
     css: false,
+    env: {
+      FAILPROOFAI_TELEMETRY_DISABLED: "1",
+    },
   },
 });
