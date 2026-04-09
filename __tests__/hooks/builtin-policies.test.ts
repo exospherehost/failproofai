@@ -1592,6 +1592,47 @@ describe("hooks/builtin-policies", () => {
     });
   });
 
+  describe("workflow policy metadata", () => {
+    const workflowPolicies = BUILTIN_POLICIES.filter((p) => p.category === "Workflow");
+
+    it("all 4 workflow policies exist", () => {
+      expect(workflowPolicies).toHaveLength(4);
+      const names = workflowPolicies.map((p) => p.name).sort();
+      expect(names).toEqual([
+        "require-ci-green-before-stop",
+        "require-commit-before-stop",
+        "require-pr-before-stop",
+        "require-push-before-stop",
+      ]);
+    });
+
+    it("all workflow policies are marked beta", () => {
+      for (const p of workflowPolicies) {
+        expect(p.beta).toBe(true);
+      }
+    });
+
+    it("all workflow policies are disabled by default", () => {
+      for (const p of workflowPolicies) {
+        expect(p.defaultEnabled).toBe(false);
+      }
+    });
+
+    it("all workflow policies match the Stop event only", () => {
+      for (const p of workflowPolicies) {
+        expect(p.match.events).toEqual(["Stop"]);
+      }
+    });
+
+    it("only require-push-before-stop has params schema", () => {
+      const withParams = workflowPolicies.filter((p) => p.params);
+      expect(withParams).toHaveLength(1);
+      expect(withParams[0].name).toBe("require-push-before-stop");
+      expect(withParams[0].params!.remote).toBeDefined();
+      expect(withParams[0].params!.remote.default).toBe("origin");
+    });
+  });
+
   describe("require-commit-before-stop", () => {
     const policy = BUILTIN_POLICIES.find((p) => p.name === "require-commit-before-stop")!;
 
@@ -1599,8 +1640,44 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockReset();
     });
 
-    it("denies when uncommitted changes exist", async () => {
+    it("denies when there are modified files", async () => {
       vi.mocked(execSync).mockReturnValue("M  src/index.ts\n");
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("uncommitted changes");
+    });
+
+    it("denies when there are untracked files", async () => {
+      vi.mocked(execSync).mockReturnValue("?? newfile.ts\n");
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+    });
+
+    it("denies when there are staged but uncommitted files", async () => {
+      vi.mocked(execSync).mockReturnValue("A  staged-file.ts\n");
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+    });
+
+    it("denies when there are deleted files", async () => {
+      vi.mocked(execSync).mockReturnValue("D  removed.ts\n");
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+    });
+
+    it("denies when there are renamed files", async () => {
+      vi.mocked(execSync).mockReturnValue("R  old.ts -> new.ts\n");
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+    });
+
+    it("denies with mixed status output (modified + untracked)", async () => {
+      vi.mocked(execSync).mockReturnValue("M  src/index.ts\n?? newfile.ts\n A staged.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("deny");
@@ -1615,8 +1692,15 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("committed");
     });
 
+    it("allows when status is whitespace only (treated as clean)", async () => {
+      vi.mocked(execSync).mockReturnValue("   \n  \n");
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+    });
+
     it("allows with reason when not in a git repo", async () => {
-      vi.mocked(execSync).mockImplementation(() => { throw new Error("not a git repository"); });
+      vi.mocked(execSync).mockImplementation(() => { throw new Error("fatal: not a git repository"); });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/not-a-repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
@@ -1630,11 +1714,28 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("No working directory");
     });
 
-    it("denies when there are untracked files", async () => {
-      vi.mocked(execSync).mockReturnValue("?? newfile.ts\n");
+    it("allows with reason when session has no cwd", async () => {
+      const ctx = makeCtx({ eventType: "Stop", session: undefined });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No working directory");
+    });
+
+    it("fail-open when execSync throws an unexpected error", async () => {
+      vi.mocked(execSync).mockImplementation(() => { throw new Error("Permission denied"); });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
+    });
+
+    it("passes cwd to execSync", async () => {
+      vi.mocked(execSync).mockReturnValue("");
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/my/project" } });
+      await policy.fn(ctx);
+      expect(execSync).toHaveBeenCalledWith(
+        "git status --porcelain",
+        expect.objectContaining({ cwd: "/my/project" }),
+      );
     });
   });
 
@@ -1646,7 +1747,7 @@ describe("hooks/builtin-policies", () => {
       clearGitBranchCache();
     });
 
-    it("denies when there are unpushed commits", async () => {
+    it("denies when there are unpushed commits (plural message)", async () => {
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("git remote")) return "origin\n";
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
@@ -1658,6 +1759,22 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("deny");
       expect(result.reason).toContain("2 unpushed commits");
+      expect(result.reason).toContain("git push");
+    });
+
+    it("denies with singular message for 1 unpushed commit", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("git remote")) return "origin\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --verify")) return "abc\n";
+        if (typeof cmd === "string" && cmd.includes("git log")) return "abc123 fix\n";
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("1 unpushed commit");
+      expect(result.reason).not.toContain("commits");
     });
 
     it("denies when no tracking branch exists", async () => {
@@ -1671,6 +1788,21 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("deny");
       expect(result.reason).toContain("push -u");
+      expect(result.reason).toContain("new-feature");
+    });
+
+    it("deny message includes branch name and remote", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("git remote")) return "origin\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "my-feature\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --verify")) throw new Error("not found");
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain('"my-feature"');
+      expect(result.reason).toContain('"origin"');
     });
 
     it("allows with message when all commits are pushed", async () => {
@@ -1685,10 +1817,19 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
       expect(result.reason).toContain("pushed");
+      expect(result.reason).toContain('"origin"');
     });
 
     it("allows with reason when no remote configured", async () => {
       vi.mocked(execSync).mockReturnValue("");
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No git remote");
+    });
+
+    it("allows with reason when git remote returns only whitespace", async () => {
+      vi.mocked(execSync).mockReturnValue("  \n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
@@ -1707,6 +1848,13 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("Detached HEAD");
     });
 
+    it("allows with reason when cwd is not available", async () => {
+      const ctx = makeCtx({ eventType: "Stop" });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No working directory");
+    });
+
     it("uses custom remote param", async () => {
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("git remote")) return "upstream\n";
@@ -1718,6 +1866,56 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("deny");
       expect(result.reason).toContain("upstream");
+    });
+
+    it("uses custom remote in rev-parse --verify command", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("git remote")) return "upstream\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --verify upstream/feat")) return "abc\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --verify")) throw new Error("not found");
+        if (typeof cmd === "string" && cmd.includes("git log upstream/feat..HEAD")) return "";
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" }, params: { remote: "upstream" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain('"upstream"');
+    });
+
+    it("fail-open when outer try/catch fires (git remote throws)", async () => {
+      vi.mocked(execSync).mockImplementation(() => { throw new Error("git: command not found"); });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("Could not check push status");
+    });
+
+    it("handles multiple remotes (uses first line)", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("git remote")) return "origin\nupstream\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --verify")) return "abc\n";
+        if (typeof cmd === "string" && cmd.includes("git log")) return "";
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      // With multiple remotes, the trimmed result is still truthy
+      expect(result.decision).toBe("allow");
+    });
+
+    it("handles branch with slash characters", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("git remote")) return "origin\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/deep/nested/branch\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --verify")) return "abc\n";
+        if (typeof cmd === "string" && cmd.includes("git log")) return "";
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
     });
   });
 
@@ -1733,7 +1931,7 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
-        if (typeof cmd === "string" && cmd.includes("gh pr view")) throw new Error("no PR");
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) throw new Error("no pull requests found");
         return "";
       });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
@@ -1741,6 +1939,19 @@ describe("hooks/builtin-policies", () => {
       expect(result.decision).toBe("deny");
       expect(result.reason).toContain("No pull request");
       expect(result.reason).toContain("gh pr create");
+    });
+
+    it("deny message includes the branch name", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "my-feature\n";
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) throw new Error("no PR");
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain('"my-feature"');
     });
 
     it("allows with message when PR is open", async () => {
@@ -1754,6 +1965,7 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
       expect(result.reason).toContain("PR #42");
+      expect(result.reason).toContain("https://github.com/org/repo/pull/42");
     });
 
     it("denies when PR is closed", async () => {
@@ -1767,6 +1979,20 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("deny");
       expect(result.reason).toContain("closed");
+      expect(result.reason).toContain("gh pr create");
+    });
+
+    it("denies when PR is merged", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) return JSON.stringify({ number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" });
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("merged");
     });
 
     it("allows with reason when gh is not installed", async () => {
@@ -1790,6 +2016,52 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
       expect(result.reason).toContain("Detached HEAD");
+    });
+
+    it("allows with reason when cwd is not available", async () => {
+      const ctx = makeCtx({ eventType: "Stop" });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No working directory");
+    });
+
+    it("allows with reason when getCurrentBranch returns null (not a git repo)", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) throw new Error("not a git repo");
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      // getCurrentBranch returns null -> outer catch -> fail-open
+      expect(result.decision).toBe("allow");
+    });
+
+    it("fail-open when gh pr view returns malformed JSON", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) return "not json {{{";
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      // JSON.parse throws -> outer catch -> fail-open
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("Could not check PR status");
+    });
+
+    it("handles branch names with special characters", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "user/fix-123-issue\n";
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) return JSON.stringify({ number: 99, url: "https://github.com/org/repo/pull/99", state: "OPEN" });
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("PR #99");
     });
   });
 
@@ -1815,7 +2087,25 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("deny");
       expect(result.reason).toContain("failing");
-      expect(result.reason).toContain("test");
+      expect(result.reason).toContain('"test"');
+    });
+
+    it("denies listing multiple failed checks by name", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) return JSON.stringify([
+          { status: "completed", conclusion: "failure", name: "test" },
+          { status: "completed", conclusion: "failure", name: "lint" },
+          { status: "completed", conclusion: "success", name: "build" },
+        ]);
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain('"test"');
+      expect(result.reason).toContain('"lint"');
     });
 
     it("denies when CI checks are in progress", async () => {
@@ -1831,6 +2121,69 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("deny");
       expect(result.reason).toContain("still running");
+      expect(result.reason).toContain('"test"');
+    });
+
+    it("denies when CI checks are queued", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) return JSON.stringify([
+          { status: "queued", conclusion: "", name: "deploy" },
+        ]);
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("still running");
+    });
+
+    it("denies when CI checks are waiting", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) return JSON.stringify([
+          { status: "waiting", conclusion: "", name: "approval-gate" },
+        ]);
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("still running");
+    });
+
+    it("denies when CI has a cancelled conclusion (not success/skipped)", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) return JSON.stringify([
+          { status: "completed", conclusion: "cancelled", name: "deploy" },
+        ]);
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("failing");
+    });
+
+    it("failing checks take priority over pending checks", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) return JSON.stringify([
+          { status: "completed", conclusion: "failure", name: "test" },
+          { status: "in_progress", conclusion: "", name: "build" },
+        ]);
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      // Failure check comes first in code, so message says "failing" not "running"
+      expect(result.reason).toContain("failing");
     });
 
     it("allows with message when all CI checks pass", async () => {
@@ -1847,6 +2200,7 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
       expect(result.reason).toContain("All CI checks passed");
+      expect(result.reason).toContain('"feat/branch"');
     });
 
     it("treats skipped conclusions as success", async () => {
@@ -1856,6 +2210,21 @@ describe("hooks/builtin-policies", () => {
         if (typeof cmd === "string" && cmd.includes("gh run list")) return JSON.stringify([
           { status: "completed", conclusion: "skipped", name: "optional-check" },
           { status: "completed", conclusion: "success", name: "build" },
+        ]);
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+    });
+
+    it("allows when all checks are skipped", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) return JSON.stringify([
+          { status: "completed", conclusion: "skipped", name: "deploy" },
+          { status: "completed", conclusion: "skipped", name: "e2e" },
         ]);
         return "";
       });
@@ -1875,11 +2244,24 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("gh");
     });
 
-    it("allows with reason when no CI runs exist", async () => {
+    it("allows with reason when no CI runs exist (empty array)", async () => {
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
         if (typeof cmd === "string" && cmd.includes("gh run list")) return "[]";
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No CI runs");
+    });
+
+    it("allows with reason when gh run list returns empty string", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) return "";
         return "";
       });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
@@ -1900,7 +2282,14 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("Detached HEAD");
     });
 
-    it("allows with reason on malformed JSON", async () => {
+    it("allows with reason when cwd is not available", async () => {
+      const ctx = makeCtx({ eventType: "Stop" });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No working directory");
+    });
+
+    it("allows with reason on malformed JSON from gh", async () => {
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
@@ -1911,6 +2300,52 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
       expect(result.reason).toContain("Could not check CI status");
+    });
+
+    it("fail-open when gh run list command throws", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) throw new Error("network timeout");
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("Could not check CI status");
+    });
+
+    it("includes branch name in deny message", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "my-feature\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list")) return JSON.stringify([
+          { status: "completed", conclusion: "failure", name: "lint" },
+        ]);
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain('"my-feature"');
+    });
+
+    it("passes branch name to gh run list --branch flag", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("which gh")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/test\n";
+        if (typeof cmd === "string" && cmd.includes("gh run list --branch feat/test")) return JSON.stringify([
+          { status: "completed", conclusion: "success", name: "test" },
+        ]);
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(execSync).toHaveBeenCalledWith(
+        expect.stringContaining("--branch feat/test"),
+        expect.anything(),
+      );
     });
   });
 });

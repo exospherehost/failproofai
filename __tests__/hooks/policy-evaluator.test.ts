@@ -324,4 +324,150 @@ describe("hooks/policy-evaluator", () => {
       expect(capturedParams).toEqual({});
     });
   });
+
+  describe("Stop event deny format", () => {
+    it("Stop deny uses exit code 2 with empty stdout", async () => {
+      registerPolicy("stop-blocker", "desc", () => ({
+        decision: "deny",
+        reason: "changes not committed",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.exitCode).toBe(2);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toBe("changes not committed");
+    });
+
+    it("Stop deny short-circuits subsequent policies", async () => {
+      const secondPolicyCalled = { value: false };
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked first",
+      }), { events: ["Stop"] });
+      registerPolicy("second", "desc", () => {
+        secondPolicyCalled.value = true;
+        return { decision: "allow" };
+      }, { events: ["Stop"] });
+
+      await evaluatePolicies("Stop", {});
+      expect(secondPolicyCalled.value).toBe(false);
+    });
+  });
+
+  describe("workflow policy chain integration", () => {
+    it("first deny short-circuits — later workflow policies do not run", async () => {
+      const policyCalls: string[] = [];
+
+      registerPolicy("require-commit", "desc", () => {
+        policyCalls.push("commit");
+        return { decision: "deny", reason: "uncommitted changes" };
+      }, { events: ["Stop"] });
+      registerPolicy("require-push", "desc", () => {
+        policyCalls.push("push");
+        return { decision: "deny", reason: "unpushed commits" };
+      }, { events: ["Stop"] });
+      registerPolicy("require-pr", "desc", () => {
+        policyCalls.push("pr");
+        return { decision: "deny", reason: "no PR" };
+      }, { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("require-commit");
+      expect(policyCalls).toEqual(["commit"]);
+    });
+
+    it("all workflow policies allow with messages — messages accumulate", async () => {
+      registerPolicy("wf-commit", "desc", () => ({
+        decision: "allow",
+        reason: "All changes committed",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-push", "desc", () => ({
+        decision: "allow",
+        reason: "All commits pushed",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-pr", "desc", () => ({
+        decision: "allow",
+        reason: "PR #42 exists",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-ci", "desc", () => ({
+        decision: "allow",
+        reason: "All CI checks passed",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.exitCode).toBe(0);
+      expect(result.decision).toBe("allow");
+      const parsed = JSON.parse(result.stdout);
+      const ctx = parsed.hookSpecificOutput.additionalContext;
+      expect(ctx).toContain("All changes committed");
+      expect(ctx).toContain("All commits pushed");
+      expect(ctx).toContain("PR #42 exists");
+      expect(ctx).toContain("All CI checks passed");
+    });
+
+    it("allow messages from early policies are discarded when a later policy denies", async () => {
+      registerPolicy("wf-commit", "desc", () => ({
+        decision: "allow",
+        reason: "All changes committed",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-push", "desc", () => ({
+        decision: "deny",
+        reason: "unpushed commits",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("wf-push");
+      expect(result.reason).toBe("unpushed commits");
+    });
+
+    it("instruct on Stop takes precedence over allow messages", async () => {
+      registerPolicy("wf-commit", "desc", () => ({
+        decision: "allow",
+        reason: "All committed",
+      }), { events: ["Stop"] });
+      registerPolicy("wf-instruct", "desc", () => ({
+        decision: "instruct",
+        reason: "Please verify tests",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.decision).toBe("instruct");
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toBe("Please verify tests");
+    });
+
+    it("mixed allow (no message) and allow (with message) — only messages returned", async () => {
+      registerPolicy("silent", "desc", () => ({
+        decision: "allow",
+      }), { events: ["Stop"] });
+      registerPolicy("informative", "desc", () => ({
+        decision: "allow",
+        reason: "CI is green",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.exitCode).toBe(0);
+      expect(result.decision).toBe("allow");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.additionalContext).toBe("CI is green");
+    });
+
+    it("policy that throws is skipped — subsequent policies still run", async () => {
+      registerPolicy("thrower", "desc", () => {
+        throw new Error("unexpected crash");
+      }, { events: ["Stop"] });
+      registerPolicy("checker", "desc", () => ({
+        decision: "deny",
+        reason: "uncommitted",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {});
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("checker");
+    });
+  });
 });
