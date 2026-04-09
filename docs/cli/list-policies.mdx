@@ -1,13 +1,13 @@
 ---
 title: List policies
-description: "See which policies are enabled, their parameters, and custom hooks"
+description: "See which policies are enabled, their parameters, and custom policies"
 ---
 
 ```bash
 failproofai policies
 ```
 
-Shows all policies with their status, configured parameters, and custom hooks.
+Shows all policies with their status, configured parameters, and custom policies.
 
 ## Sample output
 
@@ -23,7 +23,7 @@ Failproof AI Hook Policies (user)
   ✓       sanitize-api-keys             Redact API keys from output
             additionalPatterns: [{ regex: "MY_TOKEN_...", label: "..." }]
 
-  ── Custom Hooks (/home/alice/myproject/my-policies.js) ──────────────
+  ── Custom Policies (/home/alice/myproject/my-policies.js) ──────────────
   ✓       require-jira-ticket           Block commits without ticket
   ✓       approval-gate                 Approval gate for destructive ops
 ```
