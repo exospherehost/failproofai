@@ -200,8 +200,11 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
       expect(result.reason).toBe("All checks passed");
+      expect(result.policyName).toBe("info");
+      expect(result.policyNames).toEqual(["info"]);
       const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.additionalContext).toBe("All checks passed");
+      expect(parsed.hookSpecificOutput.additionalContext).toBe("Note from failproofai: All checks passed");
+      expect(result.stderr).toContain("[failproofai] info: All checks passed");
     });
 
     it("combines multiple allow messages with newline", async () => {
@@ -217,8 +220,12 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
+      expect(result.policyName).toBe("info1");
+      expect(result.policyNames).toEqual(["info1", "info2"]);
       const parsed = JSON.parse(result.stdout);
       expect(parsed.reason).toBe("Commit check passed\nPush check passed");
+      expect(result.stderr).toContain("[failproofai] info1: Commit check passed");
+      expect(result.stderr).toContain("[failproofai] info2: Push check passed");
     });
 
     it("returns empty stdout when allow has no reason (backward-compatible)", async () => {
@@ -227,7 +234,10 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
       expect(result.reason).toBeNull();
+      expect(result.policyName).toBeNull();
+      expect(result.policyNames).toBeUndefined();
     });
 
     it("deny still takes precedence over allow with message", async () => {
@@ -400,6 +410,7 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
+      expect(result.policyNames).toEqual(["wf-commit", "wf-push", "wf-pr", "wf-ci"]);
       const parsed = JSON.parse(result.stdout);
       expect(parsed.reason).toContain("All changes committed");
       expect(parsed.reason).toContain("All commits pushed");
@@ -451,6 +462,8 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
+      expect(result.policyName).toBe("informative");
+      expect(result.policyNames).toEqual(["informative"]);
       const parsed = JSON.parse(result.stdout);
       expect(parsed.reason).toBe("CI is green");
     });

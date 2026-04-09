@@ -13,6 +13,7 @@ export interface EvaluationResult {
   stdout: string;
   stderr: string;
   policyName: string | null;
+  policyNames?: string[];
   reason: string | null;
   decision: "allow" | "deny" | "instruct";
 }
@@ -51,8 +52,8 @@ export async function evaluatePolicies(
   let instructPolicyName: string | null = null;
   let instructReason: string | null = null;
 
-  // Track informational messages from allow decisions
-  const allowMessages: string[] = [];
+  // Track informational messages from allow decisions (with policy attribution)
+  const allowEntries: Array<{ policyName: string; reason: string }> = [];
 
   for (const policy of policies) {
     // Inject params: merge policyParams[policy.name] over schema defaults
@@ -139,7 +140,7 @@ export async function evaluatePolicies(
 
     // Accumulate informational messages from allow decisions
     if (result.decision === "allow" && result.reason) {
-      allowMessages.push(result.reason);
+      allowEntries.push({ policyName: policy.name, reason: result.reason });
     }
   }
 
@@ -175,13 +176,17 @@ export async function evaluatePolicies(
   }
 
   // All policies allowed — pass along any informational messages
-  if (allowMessages.length > 0) {
-    const combined = allowMessages.join("\n");
+  if (allowEntries.length > 0) {
+    const combined = allowEntries.map((e) => e.reason).join("\n");
+    const policyNames = allowEntries.map((e) => e.policyName);
     const supportsHookSpecificOutput = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
     const response = supportsHookSpecificOutput
-      ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: combined } }
+      ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: `Note from failproofai: ${combined}` } }
       : { reason: combined };
-    return { exitCode: 0, stdout: JSON.stringify(response), stderr: "", policyName: null, reason: combined, decision: "allow" };
+    const stderrMsg = allowEntries
+      .map((e) => `[failproofai] ${e.policyName}: ${e.reason}`)
+      .join("\n");
+    return { exitCode: 0, stdout: JSON.stringify(response), stderr: stderrMsg + "\n", policyName: policyNames[0], policyNames, reason: combined, decision: "allow" };
   }
   return { exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow" };
 }
