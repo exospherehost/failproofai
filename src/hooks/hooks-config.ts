@@ -151,8 +151,8 @@ export interface ResolvedLlmConfig {
   model: string;
 }
 
-export function readLlmConfig(): ResolvedLlmConfig | null {
-  const config = readHooksConfig();
+export function readLlmConfig(cwd?: string): ResolvedLlmConfig | null {
+  const config = readMergedHooksConfig(cwd);
   const baseUrl =
     process.env.FAILPROOFAI_LLM_BASE_URL ?? config.llm?.baseUrl ?? "https://api.openai.com/v1";
   const apiKey = process.env.FAILPROOFAI_LLM_API_KEY ?? config.llm?.apiKey;
