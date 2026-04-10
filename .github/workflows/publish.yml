@@ -9,10 +9,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       id-token: write
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -36,23 +38,79 @@ jobs:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
 
-      - name: Determine dist-tag
-        id: dist-tag
+      - name: Resolve version and dist-tag
+        id: version
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [[ "$VERSION" == *-* ]]; then
-            echo "tag=beta" >> "$GITHUB_OUTPUT"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+
+          # Determine the publish version
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            PUBLISH_VERSION="$TAG_VERSION"
           else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
+            PUBLISH_VERSION="$PKG_VERSION"
           fi
-          echo "Publishing $VERSION with tag: $(grep tag= "$GITHUB_OUTPUT" | cut -d= -f2)"
+
+          # Determine dist-tag
+          if [[ "$PUBLISH_VERSION" == *-* ]]; then
+            DIST_TAG="beta"
+          else
+            DIST_TAG="latest"
+          fi
+
+          # Compute the next development version
+          if [[ "$PUBLISH_VERSION" == *-beta.* ]]; then
+            BASE="${PUBLISH_VERSION%-beta.*}"
+            BETA_NUM="${PUBLISH_VERSION##*-beta.}"
+            NEXT_BETA=$((BETA_NUM + 1))
+            NEXT_VERSION="${BASE}-beta.${NEXT_BETA}"
+          elif [[ "$PUBLISH_VERSION" == *-* ]]; then
+            echo "::warning::Non-beta prerelease '$PUBLISH_VERSION' — skipping auto-bump"
+            NEXT_VERSION=""
+          else
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$PUBLISH_VERSION"
+            NEXT_PATCH=$((PATCH + 1))
+            NEXT_VERSION="${MAJOR}.${MINOR}.${NEXT_PATCH}-beta.0"
+          fi
+
+          echo "publish_version=$PUBLISH_VERSION" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=$DIST_TAG" >> "$GITHUB_OUTPUT"
+          echo "next_version=$NEXT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "pkg_version=$PKG_VERSION" >> "$GITHUB_OUTPUT"
+
+          echo "Package.json version: $PKG_VERSION"
+          echo "Publishing: $PUBLISH_VERSION (tag: $DIST_TAG)"
+          echo "Next version: $NEXT_VERSION"
+
+      - name: Set publish version in package.json
+        if: steps.version.outputs.publish_version != steps.version.outputs.pkg_version
+        run: |
+          npm version "${{ steps.version.outputs.publish_version }}" --no-git-tag-version
+          echo "Updated package.json to ${{ steps.version.outputs.publish_version }}"
 
       - name: Publish
-        run: npm publish --provenance --tag ${{ steps.dist-tag.outputs.tag }}
+        run: npm publish --provenance --tag ${{ steps.version.outputs.dist_tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Publish alias packages
-        run: node scripts/publish-aliases.mjs --dist-tag ${{ steps.dist-tag.outputs.tag }}
+        run: node scripts/publish-aliases.mjs --dist-tag ${{ steps.version.outputs.dist_tag }}
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Bump version for next development cycle
+        if: steps.version.outputs.next_version != ''
+        env:
+          NEXT_VERSION: ${{ steps.version.outputs.next_version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git fetch origin main
+          git checkout main
+
+          npm version "$NEXT_VERSION" --no-git-tag-version
+
+          git add package.json
+          git commit -m "chore: bump version to $NEXT_VERSION [skip ci]"
+          git push origin main
