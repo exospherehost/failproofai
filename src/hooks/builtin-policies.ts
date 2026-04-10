@@ -842,6 +842,41 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
     const branch = getCurrentBranch(cwd);
     if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping push check.");
 
+    const baseBranch = (ctx.params?.baseBranch as string) ?? "main";
+
+    // If on the base branch itself, no push of a feature branch is needed
+    if (branch === baseBranch) {
+      return allow(`On base branch "${baseBranch}", skipping push check.`);
+    }
+
+    // Check if branch has diverged from base in any meaningful way
+    try {
+      const ahead = execFileSync(
+        "git",
+        ["log", `${remote}/${baseBranch}..HEAD`, "--oneline"],
+        { cwd, encoding: "utf8", timeout: 5000 },
+      ).trim();
+
+      if (!ahead) {
+        // No commits ahead — branch is fully merged (regular merge / fast-forward)
+        return allow(`No commits ahead of ${remote}/${baseBranch}, skipping push check.`);
+      }
+
+      // Commits exist but might be from a squash-merged PR.
+      // Check actual file diff — if trees are identical, work is already in base.
+      const diff = execFileSync(
+        "git",
+        ["diff", "--stat", `${remote}/${baseBranch}`, "HEAD"],
+        { cwd, encoding: "utf8", timeout: 5000 },
+      ).trim();
+
+      if (!diff) {
+        return allow(`No file changes compared to ${remote}/${baseBranch}, skipping push check.`);
+      }
+    } catch {
+      // remote/{baseBranch} ref missing — fall through to existing push checks
+    }
+
     // Check if remote tracking branch exists
     let hasTracking = false;
     try {
@@ -1313,6 +1348,11 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
         type: "string",
         description: "Remote name to push to (default: origin)",
         default: "origin",
+      },
+      baseBranch: {
+        type: "string",
+        description: "Base branch to compare against (default: main)",
+        default: "main",
       },
     } satisfies PolicyParamsSchema,
   },

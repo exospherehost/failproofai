@@ -1735,6 +1735,8 @@ describe("hooks/builtin-policies", () => {
       const pushPolicy = withParams.find((p) => p.name === "require-push-before-stop")!;
       expect(pushPolicy.params!.remote).toBeDefined();
       expect(pushPolicy.params!.remote.default).toBe("origin");
+      expect(pushPolicy.params!.baseBranch).toBeDefined();
+      expect(pushPolicy.params!.baseBranch.default).toBe("main");
 
       const prPolicy = withParams.find((p) => p.name === "require-pr-before-stop")!;
       expect(prPolicy.params!.baseBranch).toBeDefined();
@@ -1864,9 +1866,16 @@ describe("hooks/builtin-policies", () => {
       branch?: string;
       hasTracking?: boolean;
       unpushedOutput?: string;
+      baseBranch?: string;
+      commitsAheadOfBase?: string;
+      fileDiffVsBase?: string;
+      baseRefExists?: boolean;
     }) {
+      const remote = opts.remote ?? "origin";
+      const baseBranch = opts.baseBranch ?? "main";
+
       vi.mocked(execSync).mockImplementation((cmd: string) => {
-        if (typeof cmd === "string" && cmd.includes("git remote")) return `${opts.remote ?? "origin"}\n`;
+        if (typeof cmd === "string" && cmd.includes("git remote")) return `${remote}\n`;
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return `${opts.branch ?? "feat/branch"}\n`;
         return "";
       });
@@ -1876,7 +1885,17 @@ describe("hooks/builtin-policies", () => {
           if (opts.hasTracking === false) throw new Error("not found");
           return "abc\n";
         }
+        // Base branch comparison: log {remote}/{baseBranch}..HEAD
+        if (joined.includes("log") && joined.includes(`${remote}/${baseBranch}..HEAD`)) {
+          if (opts.baseRefExists === false) throw new Error("unknown revision");
+          return opts.commitsAheadOfBase ?? "abc123 some commit\n";
+        }
+        // Tracking branch comparison: log {remote}/{branch}..HEAD
         if (joined.includes("log")) return opts.unpushedOutput ?? "";
+        // Diff against base
+        if (joined.includes("diff") && joined.includes("--stat")) {
+          return opts.fileDiffVsBase ?? " src/index.ts | 2 +-\n";
+        }
         return "";
       });
     }
@@ -1979,6 +1998,9 @@ describe("hooks/builtin-policies", () => {
         const joined = args?.join(" ") ?? "";
         if (joined.includes("--verify") && joined.includes("upstream/feat")) return "abc\n";
         if (joined.includes("--verify")) throw new Error("not found");
+        // Base branch check — return commits so early-exit doesn't trigger
+        if (joined.includes("log") && joined.includes("upstream/main..HEAD")) return "x1 commit\n";
+        if (joined.includes("diff") && joined.includes("--stat")) return " file.ts | 1 +\n";
         if (joined.includes("upstream/feat..HEAD")) return "";
         return "";
       });
@@ -2013,6 +2035,54 @@ describe("hooks/builtin-policies", () => {
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
+    });
+
+    it("allows when on the base branch (main)", async () => {
+      mockPushScenario({ branch: "main" });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain('base branch "main"');
+    });
+
+    it("allows when on a custom base branch", async () => {
+      mockPushScenario({ branch: "develop", baseBranch: "develop" });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" }, params: { baseBranch: "develop" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain('base branch "develop"');
+    });
+
+    it("allows when no commits ahead of base branch (regular merge)", async () => {
+      mockPushScenario({ commitsAheadOfBase: "" });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No commits ahead of origin/main");
+    });
+
+    it("allows when commits ahead but no file diff (squash merge)", async () => {
+      mockPushScenario({ commitsAheadOfBase: "x1 old commit\n", fileDiffVsBase: "" });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No file changes compared to origin/main");
+    });
+
+    it("falls through to existing logic when origin/{baseBranch} ref does not exist", async () => {
+      mockPushScenario({ baseRefExists: false, hasTracking: true, unpushedOutput: "" });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("pushed");
+    });
+
+    it("uses custom baseBranch param for git log comparison", async () => {
+      mockPushScenario({ baseBranch: "develop", commitsAheadOfBase: "" });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" }, params: { baseBranch: "develop" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("origin/develop");
     });
   });
 
