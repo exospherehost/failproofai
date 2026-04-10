@@ -270,6 +270,12 @@ function DetailPanel({
               </span>
             </div>
           </div>
+          {item.policyNames && item.policyNames.length > 1 && (
+            <div>
+              <span className="text-muted-foreground">Policies: </span>
+              <span className="font-mono text-foreground">{item.policyNames.join(", ")}</span>
+            </div>
+          )}
           {item.reason && (
             <div>
               <span className="text-muted-foreground">Full reason: </span>
@@ -500,7 +506,14 @@ function ActivityTab({
                           {item.toolName ?? "\u2014"}
                         </td>
                         <td className="px-3 py-2 font-mono text-foreground">
-                          {item.policyName ?? "\u2014"}
+                          {item.policyNames && item.policyNames.length > 1 ? (
+                            <span title={item.policyNames.join(", ")}>
+                              {item.policyNames[0]}
+                              <span className="text-muted-foreground text-[0.6rem]"> +{item.policyNames.length - 1}</span>
+                            </span>
+                          ) : (
+                            item.policyName ?? "\u2014"
+                          )}
                         </td>
                         <td
                           className="px-3 py-2 text-muted-foreground truncate max-w-[240px]"

@@ -17,7 +17,7 @@
 
 The easiest way to manage policies that keep your AI agents reliable, on-task, and running autonomously - for **Claude Code** & the **Agents SDK**.
 
-- **26 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
+- **30 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
 - **Custom Policies** - Write your own reliability rules in JavaScript. Use the `allow`/`deny`/`instruct` API to enforce conventions, prevent drift, gate operations, or integrate with external systems.
 - **Easy Configuration** - Tune any policy without writing code. Set allowlists, protected branches, thresholds per-project or globally. Three-scope config merges automatically.
 - **Agent Monitor** - See what your agents did while you were away. Browse sessions, inspect every tool call, and review exactly where policies fired.
@@ -197,8 +197,9 @@ failproofai policies --install --custom ./my-policies.js
 
 | Function | Effect |
 |----------|--------|
-| `allow()` | Permit the tool call |
-| `deny(message)` | Block the tool call; message shown to Claude |
+| `allow()` | Permit the operation |
+| `allow(message)` | Permit and send informational context to Claude *(beta)* |
+| `deny(message)` | Block the operation; message shown to Claude |
 | `instruct(message)` | Add context to Claude's prompt; does not block |
 
 ### Context object (`ctx`)
@@ -234,12 +235,25 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](docs/getting-started.mdx) | Installation and first steps |
-| [Built-in Policies](docs/built-in-policies.mdx) | All 26 built-in policies with parameters |
-| [Custom Hooks](docs/custom-hooks.mdx) | Write your own policies |
+| [Built-in Policies](docs/built-in-policies.mdx) | All 30 built-in policies with parameters |
+| [Custom Policies](docs/custom-policies.mdx) | Write your own policies |
 | [Configuration](docs/configuration.mdx) | Config file format and scope merging |
 | [Dashboard](docs/dashboard.mdx) | Monitor sessions and review policy activity |
 | [Architecture](docs/architecture.mdx) | How the hook system works |
 | [Testing](docs/testing.mdx) | Running tests and writing new ones |
+
+### Run docs locally
+
+```bash
+docker build -f Dockerfile.docs -t failproofai-docs .
+docker run --rm -p 3000:3000 failproofai-docs
+```
+
+Opens the Mintlify docs site at `http://localhost:3000`. The container watches for changes if you mount the docs directory:
+
+```bash
+docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
+```
 
 ---
 

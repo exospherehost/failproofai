@@ -43,6 +43,7 @@ export interface HookActivityEntry {
   eventType: string;
   toolName: string | null;
   policyName: string | null;
+  policyNames?: string[];
   decision: "allow" | "deny" | "instruct";
   reason: string | null;
   durationMs: number;
@@ -186,7 +187,11 @@ function updateStats(entry: HookActivityEntry): void {
   const s = readStoredStats();
   s.totalEvents += 1;
   if (entry.decision === "deny") s.denyCount += 1;
-  if (entry.policyName) {
+  if (entry.policyNames && entry.policyNames.length > 0) {
+    for (const name of entry.policyNames) {
+      s.policyMap[name] = (s.policyMap[name] ?? 0) + 1;
+    }
+  } else if (entry.policyName) {
     s.policyMap[entry.policyName] = (s.policyMap[entry.policyName] ?? 0) + 1;
   }
   // Write atomically: write to a PID-unique temp file then rename — prevents partial reads.

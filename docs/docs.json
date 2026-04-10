@@ -28,7 +28,7 @@
             "group": "Core Concepts",
             "pages": [
               "built-in-policies",
-              "custom-hooks",
+              "custom-policies",
               "configuration"
             ]
           },

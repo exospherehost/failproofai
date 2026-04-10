@@ -134,6 +134,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
       eventType,
       toolName: (parsed.tool_name as string) ?? null,
       policyName: result.policyName,
+      policyNames: result.policyNames,
       decision: result.decision,
       reason: result.reason,
       durationMs,

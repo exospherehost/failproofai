@@ -102,6 +102,22 @@ The handler enforces a 1 MB stdin limit. Payloads exceeding this are discarded a
 - Exit code: `0`
 - Empty stdout
 
+**Allow with message (beta):**
+
+Since v0.0.2-beta.3, `allow(message)` lets a policy send informational context back to Claude even when the operation is permitted. The hook handler writes the following JSON to **stdout** (not a config file — this is the handler's response to Claude Code, just like deny and instruct responses above):
+
+```json
+// Written to stdout by the hook handler process
+{
+  "hookSpecificOutput": {
+    "additionalContext": "All CI checks passed on branch 'feat/my-feature'."
+  }
+}
+```
+- Exit code: `0` (operation is allowed)
+- When multiple policies return `allow` with a message, their messages are joined with newlines into a single `additionalContext` string
+- If no policy provides a message, stdout is empty (same as before)
+
 ### Processing pipeline
 
 `src/hooks/handler.ts` implements the full pipeline:
@@ -112,11 +128,12 @@ stdin JSON
   → extract session metadata (session_id, cwd, tool_name, tool_input, etc.)
   → readMergedHooksConfig(cwd)    ← merges project + local + global config
   → register enabled builtin policies with resolved params
-  → load custom hooks from customPoliciesPath (if set)
-  → register custom hooks into policy registry
+  → load custom policies from customPoliciesPath (if set)
+  → register custom policies into policy registry
   → evaluate all policies (builtins first, then custom)
       → first deny short-circuits
       → instruct decisions accumulate
+      → allow messages accumulate
   → write JSON decision to stdout
   → persist event to ~/.failproofai/hook-activity.jsonl
   → exit
@@ -193,7 +210,7 @@ Pattern matching inside policies uses parsed command tokens (argv), not raw stri
 
 ---
 
-## Custom hooks
+## Custom policies
 
 `src/hooks/custom-hooks-registry.ts` implements a `globalThis`-backed registry:
 
@@ -208,7 +225,7 @@ export function getCustomHooks(): CustomHook[] { ... }
 export function clearCustomHooks(): void { ... }  // used in tests
 ```
 
-`src/hooks/custom-hooks-loader.ts` loads the user's hooks file:
+`src/hooks/custom-hooks-loader.ts` loads the user's policy file:
 
 1. Read `customPoliciesPath` from config; skip if absent.
 2. Resolve to absolute path; check file exists.
@@ -220,7 +237,7 @@ export function clearCustomHooks(): void { ... }  // used in tests
 
 On any error (file not found, syntax error, import failure), the error is logged to `~/.failproofai/hook.log` and the loader returns an empty array. Built-in policies are unaffected.
 
-Custom hooks are evaluated after all built-in policies. A custom hook `deny` still short-circuits further custom hooks (but all built-ins have already run by that point).
+Custom policies are evaluated after all built-in policies. A custom policy `deny` still short-circuits further custom policies (but all built-ins have already run by that point).
 
 ---
 

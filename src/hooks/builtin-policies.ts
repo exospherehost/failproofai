@@ -3,7 +3,7 @@
  */
 import { resolve, join } from "node:path";
 import { readFile, writeFile, stat, open } from "node:fs/promises";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
 import { allow, deny, instruct } from "./policy-helpers";
@@ -86,7 +86,7 @@ const PUBLISH_CMD_RE = /(?:npm\s+publish|bun\s+publish|pnpm\s+publish|yarn\s+npm
 
 // protectEnvVars
 const ENV_PRINTENV_RE = /(?:^|\s|;|&&|\|\|)(?:env|printenv)(?:\s|$|;|&&|\|)/;
-const ECHO_ENV_RE = /echo\s+.*\$[A-Za-z_]/;
+const ECHO_ENV_RE = /echo\s+.*\$\{?[A-Za-z_]/;
 const EXPORT_RE = /(?:^|\s|;|&&|\|\|)export\s+\w+/;
 const PS_ENV_VAR_RE = /\$env:[A-Za-z_]/i;
 const PS_CHILDITEM_ENV_RE = /(?:Get-ChildItem|dir|gci|ls)\s+Env:/i;
@@ -103,7 +103,7 @@ const PS_ELEVATION_RE = /Start-Process\s+.*-Verb\s+RunAs/i;
 const RUNAS_RE = /(?:^|;|&&|\|\|)\s*runas\s/i;
 
 // blockCurlPipeSh
-const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh)/;
+const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh|dash|ksh|csh|tcsh|fish|ash)\b/;
 const PS_WEB_PIPE_RE = /(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s*(?:Invoke-Expression|iex)/i;
 
 // blockForcePush
@@ -145,11 +145,28 @@ const TMUX_DETACH_RE = /\btmux\s+(?:new-session|new)\b[^|&;]*-d\b/;
 const DISOWN_RE = /\bdisown\b/;
 const BACKGROUND_AMPERSAND_RE = /(?<![&|])\s?&\s*(?:$|#|;)/;
 
-// blockWorkOnMain: caches the current branch per cwd to avoid repeated execSync calls.
+// Caches the current branch per cwd to avoid repeated execSync calls.
 // Trade-off: if the user switches branches externally mid-session, the cache serves
 // the stale value until the process restarts. This is acceptable since branch switches
 // during an active Claude session are rare.
 const gitBranchCache = new Map<string, string>();
+
+function getCurrentBranch(cwd: string): string | null {
+  try {
+    let branch = gitBranchCache.get(cwd);
+    if (branch === undefined) {
+      branch = execSync("git rev-parse --abbrev-ref HEAD", {
+        cwd,
+        encoding: "utf8",
+        timeout: 3000,
+      }).trim();
+      gitBranchCache.set(cwd, branch);
+    }
+    return branch || null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Check if a command matches an allow pattern using token-by-token comparison.
@@ -423,7 +440,8 @@ function rmTargetIsAllowed(cmd: string, allowPaths: string[]): boolean {
     if (rmIdx < 0) continue;
     // Only validate recursive rm segments — non-recursive rm has no catastrophic-deletion risk
     const flagTokens = tokens.slice(rmIdx + 1).filter((t) => /^-[^-]/.test(t));
-    if (!/r/i.test(flagTokens.join(""))) continue;
+    const longFlagsInSeg = tokens.slice(rmIdx + 1).filter((t) => /^--/.test(t));
+    if (!/r/i.test(flagTokens.join("")) && !longFlagsInSeg.some(f => /^--recursive$/i.test(f))) continue;
     const pathArgs = tokens.slice(rmIdx + 1).filter((t) => !t.startsWith("-"));
     for (const target of pathArgs) {
       const normalized = target.replace(/\/\*$/, "").replace(/\/+$/, "") || "/";
@@ -448,7 +466,10 @@ function rmTargetIsAllowed(cmd: string, allowPaths: string[]): boolean {
 function blockRmRf(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
-  const hasDestructivePath = /(?:\/\s*$|\/\*|~)/.test(cmd);
+  const hasDestructivePath = parseArgvTokens(cmd).some((token) => {
+    const normalized = token.replace(/\/\*$/, "").replace(/\/+$/, "") || (token.startsWith("/") ? "/" : "");
+    return normalized === "/" || normalized === "~" || /^\/[A-Za-z_][\w.-]*$/.test(normalized);
+  });
 
   // Combined flags in one token: rm -rf /, rm -fr /
   if (hasDestructivePath && (
@@ -464,7 +485,10 @@ function blockRmRf(ctx: PolicyContext): PolicyResult {
   if (hasDestructivePath && /\brm\b/.test(cmd)) {
     const tokens = parseArgvTokens(cmd);
     const shortFlags = tokens.filter((t) => /^-[^-]/.test(t)).join("");
-    if (/r/i.test(shortFlags) && /f/.test(shortFlags)) {
+    const longFlags = tokens.filter((t) => /^--/.test(t));
+    const hasRecursive = /r/i.test(shortFlags) || longFlags.some(f => /^--recursive$/i.test(f));
+    const hasForce = /f/.test(shortFlags) || longFlags.some(f => /^--force$/i.test(f));
+    if (hasRecursive && hasForce) {
       const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
       if (rmTargetIsAllowed(cmd, allowPaths)) return allow();
       return deny("Catastrophic deletion blocked");
@@ -627,24 +651,14 @@ function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
   const cwd = ctx.session?.cwd;
   if (!cwd) return allow();
 
-  try {
-    let branch = gitBranchCache.get(cwd);
-    if (branch === undefined) {
-      branch = execSync("git rev-parse --abbrev-ref HEAD", {
-        cwd,
-        encoding: "utf8",
-        timeout: 3000,
-      }).trim();
-      gitBranchCache.set(cwd, branch);
-    }
-    const protectedBranches = ((ctx.params?.protectedBranches ?? ["main", "master"]) as string[]);
-    if (protectedBranches.includes(branch)) {
-      return deny(
-        `Git ${cmd.match(/git\s+(\S+)/)?.[1] ?? "operation"} on ${branch} is blocked. Create a feature branch first.`,
-      );
-    }
-  } catch {
-    return allow();
+  const branch = getCurrentBranch(cwd);
+  if (!branch) return allow();
+
+  const protectedBranches = ((ctx.params?.protectedBranches ?? ["main", "master"]) as string[]);
+  if (protectedBranches.includes(branch)) {
+    return deny(
+      `Git ${cmd.match(/git\s+(\S+)/)?.[1] ?? "operation"} on ${branch} is blocked. Create a feature branch first.`,
+    );
   }
   return allow();
 }
@@ -784,6 +798,265 @@ function warnBackgroundProcess(ctx: PolicyContext): PolicyResult {
     );
   }
   return allow();
+}
+
+// -- Workflow (Stop event) policies --
+
+function requireCommitBeforeStop(ctx: PolicyContext): PolicyResult {
+  const cwd = ctx.session?.cwd;
+  if (!cwd) return allow("No working directory available, skipping commit check.");
+
+  try {
+    const status = execSync("git status --porcelain", {
+      cwd,
+      encoding: "utf8",
+      timeout: 5000,
+    }).trim();
+
+    if (status.length > 0) {
+      return deny(
+        "You have uncommitted changes in the working directory. Commit all changes before stopping.",
+      );
+    }
+    return allow("All changes are committed.");
+  } catch {
+    return allow("Not a git repository, skipping commit check.");
+  }
+}
+
+function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
+  const cwd = ctx.session?.cwd;
+  if (!cwd) return allow("No working directory available, skipping push check.");
+
+  try {
+    const remotes = execSync("git remote", {
+      cwd,
+      encoding: "utf8",
+      timeout: 3000,
+    }).trim();
+
+    if (!remotes) return allow("No git remote configured, skipping push check.");
+
+    const remote = (ctx.params?.remote as string) ?? "origin";
+
+    const branch = getCurrentBranch(cwd);
+    if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping push check.");
+
+    const baseBranch = (ctx.params?.baseBranch as string) ?? "main";
+
+    // If on the base branch itself, no push of a feature branch is needed
+    if (branch === baseBranch) {
+      return allow(`On base branch "${baseBranch}", skipping push check.`);
+    }
+
+    // Check if branch has diverged from base in any meaningful way
+    try {
+      const ahead = execFileSync(
+        "git",
+        ["log", `${remote}/${baseBranch}..HEAD`, "--oneline"],
+        { cwd, encoding: "utf8", timeout: 5000 },
+      ).trim();
+
+      if (!ahead) {
+        // No commits ahead — branch is fully merged (regular merge / fast-forward)
+        return allow(`No commits ahead of ${remote}/${baseBranch}, skipping push check.`);
+      }
+
+      // Commits exist but might be from a squash-merged PR.
+      // Check actual file diff — if trees are identical, work is already in base.
+      const diff = execFileSync(
+        "git",
+        ["diff", "--stat", `${remote}/${baseBranch}`, "HEAD"],
+        { cwd, encoding: "utf8", timeout: 5000 },
+      ).trim();
+
+      if (!diff) {
+        return allow(`No file changes compared to ${remote}/${baseBranch}, skipping push check.`);
+      }
+    } catch {
+      // remote/{baseBranch} ref missing — fall through to existing push checks
+    }
+
+    // Check if remote tracking branch exists
+    let hasTracking = false;
+    try {
+      execFileSync("git", ["rev-parse", "--verify", `${remote}/${branch}`], {
+        cwd,
+        encoding: "utf8",
+        timeout: 3000,
+      });
+      hasTracking = true;
+    } catch {
+      // Remote tracking branch does not exist
+    }
+
+    if (!hasTracking) {
+      return deny(
+        `Branch "${branch}" has not been pushed to remote "${remote}". ` +
+        `Push your branch with: git push -u ${remote} ${branch}`,
+      );
+    }
+
+    // Check for unpushed commits
+    const unpushed = execFileSync("git", ["log", `${remote}/${branch}..HEAD`, "--oneline"], {
+      cwd,
+      encoding: "utf8",
+      timeout: 5000,
+    }).trim();
+
+    if (unpushed.length > 0) {
+      const commitCount = unpushed.split("\n").length;
+      return deny(
+        `You have ${commitCount} unpushed commit${commitCount > 1 ? "s" : ""} on branch "${branch}". ` +
+        `Push your changes with: git push`,
+      );
+    }
+
+    return allow(`All commits pushed to "${remote}".`);
+  } catch {
+    return allow("Could not check push status, skipping.");
+  }
+}
+
+function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
+  const cwd = ctx.session?.cwd;
+  if (!cwd) return allow("No working directory available, skipping PR check.");
+
+  try {
+    // Check if gh CLI is available
+    try {
+      execSync("gh --version", { cwd, encoding: "utf8", timeout: 3000 });
+    } catch {
+      return allow("GitHub CLI (gh) not installed, skipping PR check.");
+    }
+
+    const branch = getCurrentBranch(cwd);
+    if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping PR check.");
+
+    const baseBranch = (ctx.params?.baseBranch as string) ?? "main";
+
+    // If on the base branch itself, no PR is needed
+    if (branch === baseBranch) {
+      return allow(`On base branch "${baseBranch}", skipping PR check.`);
+    }
+
+    // Check if branch has diverged from base in any meaningful way
+    try {
+      const ahead = execFileSync(
+        "git",
+        ["log", `origin/${baseBranch}..HEAD`, "--oneline"],
+        { cwd, encoding: "utf8", timeout: 5000 },
+      ).trim();
+
+      if (!ahead) {
+        // No commits ahead — branch is fully merged (regular merge / fast-forward)
+        return allow(`No commits ahead of origin/${baseBranch}, skipping PR check.`);
+      }
+
+      // Commits exist but might be from a squash-merged PR.
+      // Check actual file diff — if trees are identical, work is already in main.
+      const diff = execFileSync(
+        "git",
+        ["diff", "--stat", `origin/${baseBranch}`, "HEAD"],
+        { cwd, encoding: "utf8", timeout: 5000 },
+      ).trim();
+
+      if (!diff) {
+        return allow(`No file changes compared to origin/${baseBranch}, skipping PR check.`);
+      }
+    } catch {
+      // origin/{baseBranch} ref missing or git error — fall through to gh pr view
+    }
+
+    // Check if a PR exists for this branch
+    let prJson: string;
+    try {
+      prJson = execSync("gh pr view --json number,url,state", {
+        cwd,
+        encoding: "utf8",
+        timeout: 15000,
+      }).trim();
+    } catch {
+      // gh pr view exits non-zero when no PR exists
+      return deny(
+        `No pull request found for branch "${branch}". ` +
+        `Create one with: gh pr create`,
+      );
+    }
+
+    const pr = JSON.parse(prJson) as { number: number; url: string; state: string };
+
+    if (pr.state === "OPEN") {
+      return allow(`PR #${pr.number} exists: ${pr.url}`);
+    }
+
+    return deny(
+      `Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Create a new PR with: gh pr create`,
+    );
+  } catch {
+    return allow("Could not check PR status, skipping.");
+  }
+}
+
+function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
+  const cwd = ctx.session?.cwd;
+  if (!cwd) return allow("No working directory available, skipping CI check.");
+
+  try {
+    // Check if gh CLI is available
+    try {
+      execSync("gh --version", { cwd, encoding: "utf8", timeout: 3000 });
+    } catch {
+      return allow("GitHub CLI (gh) not installed, skipping CI check.");
+    }
+
+    const branch = getCurrentBranch(cwd);
+    if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping CI check.");
+
+    const runsJson = execFileSync(
+      "gh",
+      ["run", "list", "--branch", branch, "--limit", "5", "--json", "status,conclusion,name"],
+      {
+        cwd,
+        encoding: "utf8",
+        timeout: 15000,
+      },
+    ).trim();
+
+    if (!runsJson || runsJson === "[]") return allow(`No CI runs found for branch "${branch}".`);
+
+    const runs = JSON.parse(runsJson) as Array<{
+      status: string;
+      conclusion: string;
+      name: string;
+    }>;
+
+    if (runs.length === 0) return allow(`No CI runs found for branch "${branch}".`);
+
+    const failing = runs.filter(
+      (r) => r.status === "completed" && r.conclusion !== "success" && r.conclusion !== "skipped",
+    );
+    if (failing.length > 0) {
+      const names = failing.map((r) => `"${r.name}"`).join(", ");
+      return deny(
+        `CI checks are failing on branch "${branch}": ${names}. Fix the failing checks before stopping.`,
+      );
+    }
+
+    const pending = runs.filter(
+      (r) => r.status === "in_progress" || r.status === "queued" || r.status === "waiting",
+    );
+    if (pending.length > 0) {
+      const names = pending.map((r) => `"${r.name}"`).join(", ");
+      return deny(
+        `CI checks are still running on branch "${branch}": ${names}. Wait for all checks to complete and verify they pass.`,
+      );
+    }
+
+    return allow(`All CI checks passed on branch "${branch}".`);
+  } catch {
+    return allow("Could not check CI status, skipping.");
+  }
 }
 
 // -- Registry --
@@ -1052,6 +1325,61 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     match: { events: ["PreToolUse"] },
     defaultEnabled: false,
     category: "AI Behavior",
+  },
+  {
+    name: "require-commit-before-stop",
+    description: "Require all changes to be committed before Claude stops",
+    fn: requireCommitBeforeStop,
+    match: { events: ["Stop"] },
+    defaultEnabled: false,
+    category: "Workflow",
+    beta: true,
+  },
+  {
+    name: "require-push-before-stop",
+    description: "Require all commits to be pushed to remote before Claude stops",
+    fn: requirePushBeforeStop,
+    match: { events: ["Stop"] },
+    defaultEnabled: false,
+    category: "Workflow",
+    beta: true,
+    params: {
+      remote: {
+        type: "string",
+        description: "Remote name to push to (default: origin)",
+        default: "origin",
+      },
+      baseBranch: {
+        type: "string",
+        description: "Base branch to compare against (default: main)",
+        default: "main",
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "require-pr-before-stop",
+    description: "Require a pull request to exist for the current branch before Claude stops",
+    fn: requirePrBeforeStop,
+    match: { events: ["Stop"] },
+    defaultEnabled: false,
+    category: "Workflow",
+    beta: true,
+    params: {
+      baseBranch: {
+        type: "string",
+        description: "Base branch to compare against (default: main)",
+        default: "main",
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "require-ci-green-before-stop",
+    description: "Require CI checks to pass on the current branch before Claude stops",
+    fn: requireCiGreenBeforeStop,
+    match: { events: ["Stop"] },
+    defaultEnabled: false,
+    category: "Workflow",
+    beta: true,
   },
 ];
 

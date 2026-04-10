@@ -34,6 +34,11 @@ export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages =
                 Failproof AI
               </h1>
             </a>
+            {process.env.NEXT_PUBLIC_APP_VERSION && (
+              <span className="text-[0.6rem] font-mono leading-none text-muted-foreground/70 border border-border/60 rounded-md px-1.5 py-0.5 select-none tracking-wide">
+                v{process.env.NEXT_PUBLIC_APP_VERSION}
+              </span>
+            )}
 
             <div className="w-px h-8 bg-border ml-2" />
 

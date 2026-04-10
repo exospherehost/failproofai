@@ -4,7 +4,7 @@ description: "Config file format, three-scope system, and merge rules"
 icon: gear
 ---
 
-failproofai uses JSON configuration files to control which policies are active, how they behave, and where custom hooks are loaded from. Configuration is designed to be easy to share with your team - commit it to your repo and every developer gets the same agent safety net.
+failproofai uses JSON configuration files to control which policies are active, how they behave, and where custom policies are loaded from. Configuration is designed to be easy to share with your team - commit it to your repo and every developer gets the same agent safety net.
 
 ---
 
@@ -122,7 +122,7 @@ Type: `string` (absolute path)
 
 Path to a JavaScript file containing custom hook policies. This is set automatically by `failproofai policies --install --custom <path>` (the path is resolved to absolute before being stored).
 
-The file is loaded fresh on every hook event - there is no caching. See [Custom Hooks](/custom-hooks) for authoring details.
+The file is loaded fresh on every hook event - there is no caching. See [Custom Policies](/custom-policies) for authoring details.
 
 ### `llm`
 

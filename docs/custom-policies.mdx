@@ -1,10 +1,10 @@
 ---
-title: Custom Hooks
+title: Custom Policies
 description: "Write your own policies in JavaScript - enforce conventions, prevent drift, detect failures, integrate with external systems"
 icon: code
 ---
 
-Custom hooks let you write policies for any agent behavior: enforce project conventions, prevent drift, gate destructive operations, detect stuck agents, or integrate with Slack, approval workflows, and more. They use the same hook event system and `allow`, `deny`, `instruct` decisions as built-in policies.
+Custom policies let you write rules for any agent behavior: enforce project conventions, prevent drift, gate destructive operations, detect stuck agents, or integrate with Slack, approval workflows, and more. They use the same hook event system and `allow`, `deny`, `instruct` decisions as built-in policies.
 
 ---
 
@@ -40,13 +40,13 @@ failproofai policies --install --custom ./my-policies.js
 ## Installing and updating
 
 ```bash
-# Install with a custom hooks file
+# Install with a custom policies file
 failproofai policies --install --custom ./my-policies.js
 
-# Replace the hooks file path
+# Replace the policies file path
 failproofai policies --install --custom ./new-policies.js
 
-# Remove the custom hooks path from config
+# Remove the custom policies path from config
 failproofai policies --uninstall --custom
 ```
 
@@ -64,7 +64,7 @@ import { customPolicies, allow, deny, instruct } from "failproofai";
 
 ### `customPolicies.add(hook)`
 
-Registers a hook. Call this as many times as needed for multiple hooks in the same file.
+Registers a policy. Call this as many times as needed for multiple policies in the same file.
 
 ```ts
 customPolicies.add({
@@ -79,13 +79,47 @@ customPolicies.add({
 
 | Function | Effect | Use when |
 |----------|--------|----------|
-| `allow()` | Permit the tool call | The action is safe to proceed |
-| `deny(message)` | Block the tool call | The agent should not take this action |
-| `instruct(message)` | Add context to Claude's prompt | Give the agent extra context to stay on track |
+| `allow()` | Permit the operation silently | The action is safe, no message needed |
+| `deny(message)` | Block the operation | The agent should not take this action |
+| `instruct(message)` | Add context without blocking | Give the agent extra context to stay on track |
 
-`deny(message)` - the message appears to Claude prefixed with `"Blocked by failproofai:"`.
+`deny(message)` - the message appears to Claude prefixed with `"Blocked by failproofai:"`. A single `deny` short-circuits all further evaluation.
 
-`instruct(message)` - the message is appended to Claude's context for the current tool call. Multiple `instruct` returns from different hooks accumulate; a single `deny` short-circuits all further evaluation.
+`instruct(message)` - the message is appended to Claude's context for the current tool call. The first `instruct` wins — subsequent `instruct` returns from other policies are ignored.
+
+### Informational allow messages (beta)
+
+<Note>
+`allow(message)` is a beta feature available since v0.0.2-beta.3. The API may change in future releases. Earlier versions only support `allow()` without arguments.
+</Note>
+
+`allow(message)` permits the operation **and** sends an informational message back to Claude. The message is delivered as `additionalContext` in the hook handler's stdout response — the same mechanism used by `instruct`, but semantically different: it's a status update, not a warning.
+
+| Function | Effect | Use when |
+|----------|--------|----------|
+| `allow(message)` | Permit and send context to Claude | Confirm a check passed, or explain why a check was skipped |
+
+Use cases:
+- **Status confirmations:** `allow("All CI checks passed.")` — tells Claude everything is green
+- **Fail-open explanations:** `allow("GitHub CLI not installed, skipping CI check.")` — tells Claude why a check was skipped so it has full context
+- **Multiple messages accumulate:** if several policies each return `allow(message)`, all messages are joined with newlines and delivered together
+
+```js
+customPolicies.add({
+  name: "confirm-branch-status",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    const cwd = ctx.session?.cwd;
+    if (!cwd) return allow("No working directory, skipping branch check.");
+
+    // ... check branch status ...
+    if (allPushed) {
+      return allow("Branch is up to date with remote.");
+    }
+    return deny("Unpushed changes detected.");
+  },
+});
+```
 
 ### `PolicyContext` fields
 
@@ -118,20 +152,20 @@ customPolicies.add({
 
 ## Evaluation order
 
-Hooks are evaluated in this order:
+Policies are evaluated in this order:
 
 1. Built-in policies (in definition order)
-2. Custom hooks (in `.add()` order)
+2. Custom policies (in `.add()` order)
 
 <Note>
-The first `deny` short-circuits all subsequent hooks. All `instruct` returns accumulate into a single message regardless of which hook produced them.
+The first `deny` short-circuits all subsequent policies. The first `instruct` wins — subsequent `instruct` returns are ignored.
 </Note>
 
 ---
 
 ## Transitive imports
 
-Custom hook files can import local modules using relative paths:
+Custom policy files can import local modules using relative paths:
 
 ```js
 // my-policies.js
@@ -152,9 +186,9 @@ All relative imports reachable from the entry file are resolved. This is impleme
 
 ---
 
-## Hook event type filtering
+## Event type filtering
 
-Use `match.events` to limit when a hook fires:
+Use `match.events` to limit when a policy fires:
 
 ```js
 customPolicies.add({
@@ -174,18 +208,18 @@ Omit `match` entirely to fire on every event type.
 
 ## Error handling and failure modes
 
-Custom hooks are **fail-open**: errors never block built-in policies or crash the hook handler.
+Custom policies are **fail-open**: errors never block built-in policies or crash the hook handler.
 
 | Failure | Behavior |
 |---------|----------|
-| `customPoliciesPath` not set | No custom hooks run; built-ins continue normally |
+| `customPoliciesPath` not set | No custom policies run; built-ins continue normally |
 | File not found | Warning logged to `~/.failproofai/hook.log`; built-ins continue |
-| Syntax/import error | Error logged to `~/.failproofai/hook.log`; all custom hooks skipped |
+| Syntax/import error | Error logged to `~/.failproofai/hook.log`; all custom policies skipped |
 | `fn` throws at runtime | Error logged; that hook treated as `allow`; other hooks continue |
 | `fn` takes longer than 10s | Timeout logged; treated as `allow` |
 
 <Tip>
-To debug custom hook errors, watch the log file:
+To debug custom policy errors, watch the log file:
 
 ```bash
 tail -f ~/.failproofai/hook.log
@@ -194,7 +228,7 @@ tail -f ~/.failproofai/hook.log
 
 ---
 
-## Full example: multiple hooks
+## Full example: multiple policies
 
 ```js
 // my-policies.js
@@ -249,9 +283,9 @@ export { customPolicies };
 
 ---
 
-## Examples in the repository
+## Examples
 
-The `examples/` directory contains ready-to-run hook files:
+The `examples/` directory contains ready-to-run policy files:
 
 | File | Contents |
 |------|----------|
