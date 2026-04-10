@@ -117,6 +117,21 @@ describe("hooks/handler", () => {
     expect(registerBuiltinPolicies).toHaveBeenCalledWith(["block-sudo"]);
   });
 
+  it("passes session cwd to loadCustomHooks for relative customPoliciesPath resolution", async () => {
+    const sessionPayload = JSON.stringify({
+      cwd: "/home/user/project",
+    });
+    mockStdin(sessionPayload);
+    const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+
+    await handleHookEvent("PreToolUse");
+
+    expect(loadCustomHooks).toHaveBeenCalledWith(
+      undefined,
+      expect.objectContaining({ sessionCwd: "/home/user/project" }),
+    );
+  });
+
   it("persists hook activity for every evaluation", async () => {
     mockStdin();
     const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");

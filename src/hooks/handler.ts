@@ -71,7 +71,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   registerBuiltinPolicies(config.enabledPolicies);
 
   // Load and register custom hooks (layer 2, after builtins)
-  const customHooksList = await loadCustomHooks(config.customPoliciesPath);
+  const customHooksList = await loadCustomHooks(config.customPoliciesPath, { sessionCwd: session.cwd });
   for (const hook of customHooksList) {
     const hookName = hook.name;
     const fn: PolicyFunction = async (ctx): Promise<PolicyResult> => {

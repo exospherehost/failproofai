@@ -71,7 +71,8 @@ export async function resolveLocalImport(
 
 /**
  * Create an ESM shim that re-exports from the CJS dist module.
- * Includes all public API exports: createApp, customHooks, allow, deny, instruct.
+ * Exports the full public API of failproofai: customPolicies, allow, deny, instruct,
+ * getCustomHooks, clearCustomHooks.
  */
 export async function createEsmShim(
   distIndex: string,
@@ -80,10 +81,9 @@ export async function createEsmShim(
   const shimPath = distIndex + ".__failproofai_esm_shim__.mjs";
   const shimCode = [
     `import _cjs from '${distUrl}';`,
-    `export const createApp = _cjs.createApp;`,
-    `export const getQueueCondition = _cjs.getQueueCondition;`,
-    `export const clearQueueCondition = _cjs.clearQueueCondition;`,
     `export const customPolicies = _cjs.customPolicies;`,
+    `export const getCustomHooks = _cjs.getCustomHooks;`,
+    `export const clearCustomHooks = _cjs.clearCustomHooks;`,
     `export const allow = _cjs.allow;`,
     `export const deny = _cjs.deny;`,
     `export const instruct = _cjs.instruct;`,

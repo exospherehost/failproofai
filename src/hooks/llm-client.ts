@@ -30,9 +30,9 @@ export interface ChatCompletionResponse {
 
 export async function chatCompletion(
   messages: ChatMessage[],
-  options?: ChatCompletionOptions,
+  options?: ChatCompletionOptions & { cwd?: string },
 ): Promise<ChatCompletionResponse> {
-  const config = readLlmConfig();
+  const config = readLlmConfig(options?.cwd);
   if (!config) {
     throw new Error(
       "No LLM API key configured. Set FAILPROOFAI_LLM_API_KEY or configure llm.apiKey in policies-config.json",

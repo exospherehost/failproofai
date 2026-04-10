@@ -17,13 +17,13 @@ const LOADING_KEY = "__FAILPROOFAI_LOADING_HOOKS__";
 
 export async function loadCustomHooks(
   customPoliciesPath: string | undefined,
-  opts?: { strict?: boolean },
+  opts?: { strict?: boolean; sessionCwd?: string },
 ): Promise<CustomHook[]> {
   if (!customPoliciesPath) return [];
 
   const absPath = isAbsolute(customPoliciesPath)
     ? customPoliciesPath
-    : resolve(process.cwd(), customPoliciesPath);
+    : resolve(opts?.sessionCwd ?? process.cwd(), customPoliciesPath);
 
   if (!existsSync(absPath)) {
     if (opts?.strict) throw new Error(`Custom hooks file not found: ${absPath}`);
