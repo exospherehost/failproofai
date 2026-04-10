@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import type { HooksConfig } from "./policy-types";
+import type { HookScope } from "./types";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
 function readConfigAt(path: string): Partial<HooksConfig> {
@@ -93,6 +94,50 @@ export function readHooksConfig(): HooksConfig {
 
 export function writeHooksConfig(config: HooksConfig): void {
   const configPath = getConfigPath();
+  const dir = dirname(configPath);
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true });
+  }
+  writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n", "utf8");
+}
+
+/**
+ * Resolve the policies-config path for a specific scope.
+ */
+export function getConfigPathForScope(scope: HookScope, cwd?: string): string {
+  const base = cwd ? resolve(cwd) : process.cwd();
+  switch (scope) {
+    case "user":
+      return resolve(homedir(), ".failproofai", "policies-config.json");
+    case "project":
+      return resolve(base, ".failproofai", "policies-config.json");
+    case "local":
+      return resolve(base, ".failproofai", "policies-config.local.json");
+  }
+}
+
+/**
+ * Read hooks config from a single specific scope (not merged).
+ */
+export function readScopedHooksConfig(scope: HookScope, cwd?: string): HooksConfig {
+  const configPath = getConfigPathForScope(scope, cwd);
+  if (!existsSync(configPath)) {
+    return { enabledPolicies: [] };
+  }
+  try {
+    const raw = readFileSync(configPath, "utf8");
+    return JSON.parse(raw) as HooksConfig;
+  } catch (err) {
+    hookLogWarn(`failed to parse config at ${configPath}: ${err instanceof Error ? err.message : String(err)}`);
+    return { enabledPolicies: [] };
+  }
+}
+
+/**
+ * Write hooks config to the scope-appropriate path.
+ */
+export function writeScopedHooksConfig(config: HooksConfig, scope: HookScope, cwd?: string): void {
+  const configPath = getConfigPathForScope(scope, cwd);
   const dir = dirname(configPath);
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true });

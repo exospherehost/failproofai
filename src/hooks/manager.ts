@@ -15,7 +15,7 @@ import {
   type ClaudeSettings,
 } from "./types";
 import { promptPolicySelection } from "./install-prompt";
-import { readHooksConfig, writeHooksConfig, readMergedHooksConfig } from "./hooks-config";
+import { readMergedHooksConfig, readScopedHooksConfig, writeScopedHooksConfig } from "./hooks-config";
 import type { HooksConfig } from "./policy-types";
 import { BUILTIN_POLICIES } from "./builtin-policies";
 import { loadCustomHooks } from "./custom-hooks-loader";
@@ -203,7 +203,7 @@ export async function installHooks(
   const binaryPath = resolveFailproofaiBinary();
 
   // Capture existing config before overwriting (used for telemetry diff)
-  const previousConfig = readHooksConfig();
+  const previousConfig = readScopedHooksConfig(scope, cwd);
   const previousEnabled = new Set(previousConfig.enabledPolicies);
 
   let selectedPolicies: string[];
@@ -251,7 +251,7 @@ export async function installHooks(
       `\nValidated ${validatedHooks.length} custom hook(s): ${validatedHooks.map((h) => h.name).join(", ")}`,
     );
   }
-  writeHooksConfig(configToWrite);
+  writeScopedHooksConfig(configToWrite, scope, cwd);
   console.log(`\nEnabled ${selectedPolicies.length} policy(ies): ${selectedPolicies.join(", ")}`);
   if (removeCustomHooks) {
     console.log("Custom hooks path cleared.");
@@ -355,18 +355,21 @@ export async function installHooks(
  * @param opts.betaOnly — set to true when removing only beta policies (adds beta_only flag to telemetry)
  */
 export async function removeHooks(policyNames?: string[], scope: HookScope | "all" = "user", cwd?: string, opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean }): Promise<void> {
+  // Resolve the effective config scope ("all" falls back to "user" for config reads/writes)
+  const configScope: HookScope = scope === "all" ? "user" : scope;
+
   // Clear custom hooks path if requested
   if (opts?.removeCustomHooks) {
-    const config = readHooksConfig();
+    const config = readScopedHooksConfig(configScope, cwd);
     delete config.customPoliciesPath;
-    writeHooksConfig(config);
+    writeScopedHooksConfig(config, configScope, cwd);
     console.log("Custom hooks path cleared.");
   }
 
   // Remove specific policies from config (keep hooks installed)
   if (policyNames && policyNames.length > 0 && !(policyNames.length === 1 && policyNames[0] === "all")) {
     validatePolicyNames(policyNames);
-    const config = readHooksConfig();
+    const config = readScopedHooksConfig(configScope, cwd);
     const removeSet = new Set(policyNames);
     const remaining = config.enabledPolicies.filter((p) => !removeSet.has(p));
     const notEnabled = policyNames.filter((p) => !config.enabledPolicies.includes(p));
@@ -382,7 +385,7 @@ export async function removeHooks(policyNames?: string[], scope: HookScope | "al
       enabledPolicies: remaining,
       ...(filteredParams && Object.keys(filteredParams).length > 0 ? { policyParams: filteredParams } : {}),
     };
-    writeHooksConfig(updatedConfig);
+    writeScopedHooksConfig(updatedConfig, configScope, cwd);
 
     // Telemetry: track policy-only removal from config
     try {
@@ -410,7 +413,7 @@ export async function removeHooks(policyNames?: string[], scope: HookScope | "al
   }
 
   // Capture enabled policies before clearing (used for accurate telemetry below)
-  const configBeforeRemoval = readHooksConfig();
+  const configBeforeRemoval = readScopedHooksConfig(configScope, cwd);
 
   // Remove all failproofai hooks from Claude Code settings
   const scopesToRemove: HookScope[] = scope === "all" ? [...HOOK_SCOPES] : [scope];
@@ -472,10 +475,19 @@ export async function removeHooks(policyNames?: string[], scope: HookScope | "al
   }
 
   // Clear policy config when removing from all scopes, or when no hooks remain in any scope
-  if (scope === "all" || !HOOK_SCOPES.some((s) => hooksInstalledInSettings(s, cwd))) {
-    const existingForClear = readHooksConfig();
-    const { customPoliciesPath: _drop, policyParams: _dropParams, ...restClear } = existingForClear;
-    writeHooksConfig({ ...restClear, enabledPolicies: [] });
+  if (scope === "all") {
+    // Clear config across all three scopes
+    for (const s of HOOK_SCOPES) {
+      const existing = readScopedHooksConfig(s, cwd);
+      if (existing.enabledPolicies.length > 0 || existing.customPoliciesPath || existing.policyParams) {
+        const { customPoliciesPath: _drop, policyParams: _dropParams, ...rest } = existing;
+        writeScopedHooksConfig({ ...rest, enabledPolicies: [] }, s, cwd);
+      }
+    }
+  } else if (!HOOK_SCOPES.some((s) => hooksInstalledInSettings(s, cwd))) {
+    const existing = readScopedHooksConfig(configScope, cwd);
+    const { customPoliciesPath: _drop, policyParams: _dropParams, ...rest } = existing;
+    writeScopedHooksConfig({ ...rest, enabledPolicies: [] }, configScope, cwd);
   }
 }
 
