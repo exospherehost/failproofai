@@ -42,6 +42,7 @@ export function RefreshButton({ className }: RefreshButtonProps) {
       )}
     >
       <button
+        suppressHydrationWarning
         onClick={handleRefresh}
         title="Refresh"
         className={cn(
@@ -61,6 +62,7 @@ export function RefreshButton({ className }: RefreshButtonProps) {
       <div className="inline-flex items-center gap-0.5" role="group" aria-label="Auto-refresh interval">
         {AUTO_REFRESH_OPTIONS.map((opt) => (
           <button
+            suppressHydrationWarning
             key={opt.value}
             onClick={() => setAutoInterval(opt.value)}
             aria-pressed={autoInterval === opt.value}

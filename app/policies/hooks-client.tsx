@@ -1182,6 +1182,7 @@ function TabBar({
     <div className="inline-flex items-center rounded-md border border-border bg-muted/30 p-0.5 mb-5">
       {tabs.map((tab) => (
         <button
+          suppressHydrationWarning
           key={tab.id}
           onClick={() => onChange(tab.id)}
           className={`px-3 py-1.5 text-xs font-medium rounded transition-all ${
@@ -1257,6 +1258,7 @@ export default function HooksClient({ initialTab = "activity" }: { initialTab?: 
               <span className="block text-xs text-muted-foreground/50 mt-0.5">
                 To configure policies,{" "}
                 <button
+                  suppressHydrationWarning
                   className="underline underline-offset-2 hover:text-foreground transition-colors"
                   onClick={() => handleTabChange("policies")}
                 >
