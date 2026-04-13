@@ -3,6 +3,7 @@
 ## Unreleased (0.0.2-beta.7)
 
 ### Features
+- Configurable `hint` field in `policyParams` — append custom guidance to deny/instruct messages without modifying policies
 - Auto-bump version after release (#73)
 
 ### Fixes
