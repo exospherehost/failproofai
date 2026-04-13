@@ -3,7 +3,7 @@
  */
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, basename } from "node:path";
 import { homedir, platform, arch, release, hostname } from "node:os";
 import {
   HOOK_EVENT_TYPES,
@@ -667,15 +667,15 @@ export async function listHooks(cwd?: string): Promise<void> {
       try {
         const hooks = await loadCustomHooks(file);
         if (hooks.length === 0) {
-          const filename = file.split("/").pop() ?? file;
+          const filename = basename(file);
           console.log(`  \x1B[31m\u2717\x1B[0m       ${filename.padEnd(nameColWidth)}\x1B[31mfailed to load\x1B[0m`);
         } else {
-          const filename = file.split("/").pop() ?? file;
+          const filename = basename(file);
           const hookSummary = hooks.map((h) => h.name).join(", ");
           console.log(`  \x1B[32m\u2713\x1B[0m       ${filename.padEnd(nameColWidth)}${hooks.length} hook(s): ${hookSummary}`);
         }
       } catch {
-        const filename = file.split("/").pop() ?? file;
+        const filename = basename(file);
         console.log(`  \x1B[31m\u2717\x1B[0m       ${filename.padEnd(nameColWidth)}\x1B[31merror\x1B[0m`);
       }
     }

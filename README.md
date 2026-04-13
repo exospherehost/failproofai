@@ -220,7 +220,7 @@ Custom hooks support transitive local imports, async/await, and access to `proce
 
 Drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` and they're automatically loaded — no `--custom` flag or config changes needed. Works like git hooks: drop a file, it just works.
 
-```
+```text
 # Project level — committed to git, shared with the team
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs

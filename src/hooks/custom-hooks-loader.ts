@@ -181,10 +181,15 @@ export async function loadAllCustomHooks(
     );
   }
 
-  // Tag convention hooks so the handler can register them with a "convention/" prefix
-  const conventionHookNames = new Set(conventionSources.flatMap((s) => s.hookNames));
+  // Tag convention hooks so the handler can register them with a "convention/" prefix.
+  // Track by object reference (not name) to avoid mis-tagging an explicit custom hook
+  // that happens to share the same name as a convention hook.
+  const conventionHookRefs = new Set<CustomHook>();
+  for (const hook of allHooks.slice(hooksBeforeConvention)) {
+    conventionHookRefs.add(hook);
+  }
   for (const hook of allHooks) {
-    if (conventionHookNames.has(hook.name)) {
+    if (conventionHookRefs.has(hook)) {
       (hook as CustomHook & { __conventionSource?: boolean }).__conventionSource = true;
     }
   }
