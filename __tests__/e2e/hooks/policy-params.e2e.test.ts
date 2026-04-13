@@ -4,7 +4,7 @@
  * Tests that policyParams in config are correctly injected into policy functions
  * via policy-evaluator.ts, overriding schema defaults.
  */
-import { describe, it } from "vitest";
+import { describe, it, expect } from "vitest";
 import { runHook, assertAllow, assertPreToolUseDeny, assertPostToolUseDeny, assertInstruct } from "../helpers/hook-runner";
 import { createFixtureEnv } from "../helpers/fixture-env";
 import { Payloads } from "../helpers/payloads";
