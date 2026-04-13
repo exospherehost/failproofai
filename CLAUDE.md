@@ -130,6 +130,20 @@ __tests__/                   Unit + e2e tests (vitest)
 examples/                    Sample custom policy files
 ```
 
+## Changelog
+
+Every PR **must** include an update to `CHANGELOG.md`. Add your entry under the
+`## Unreleased` section at the top. Use the appropriate subsection:
+
+- **Features** for new functionality
+- **Fixes** for bug fixes
+- **Docs** for documentation-only changes
+- **Dependencies** for dependency bumps
+
+Each entry should be a single line: a short description followed by the PR number
+(e.g. `- Add foo support (#123)`). When a release is cut, the `Unreleased` section gets
+renamed to the version and date, and a fresh `## Unreleased` heading is added.
+
 ## Version bumps
 
 When bumping the version, update **only** `package.json` (root). The CI version-consistency
