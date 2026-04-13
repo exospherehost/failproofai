@@ -31,6 +31,16 @@ export interface FixtureEnv {
    * Returns the absolute path (suitable for use as customPoliciesPath in config).
    */
   writeHook(filename: string, content: string): string;
+  /**
+   * Write a convention policy file into .failproofai/policies/.
+   * Returns the absolute path.
+   *
+   * @param filename - e.g. "deny-policies.mjs"
+   * @param content  - JS/TS source code
+   * @param scope    - "project" → {cwd}/.failproofai/policies/ (default)
+   *                   "global"  → {home}/.failproofai/policies/
+   */
+  writePolicyFile(filename: string, content: string, scope?: "project" | "global"): string;
 }
 
 export function createFixtureEnv(): FixtureEnv {
@@ -67,6 +77,15 @@ export function createFixtureEnv(): FixtureEnv {
       const hooksDir = join(cwd, ".hooks");
       mkdirSync(hooksDir, { recursive: true });
       const filePath = join(hooksDir, filename);
+      writeFileSync(filePath, content, "utf8");
+      return filePath;
+    },
+
+    writePolicyFile(filename: string, content: string, scope: "project" | "global" = "project"): string {
+      const base = scope === "global" ? home : cwd;
+      const dir = join(base, ".failproofai", "policies");
+      mkdirSync(dir, { recursive: true });
+      const filePath = join(dir, filename);
       writeFileSync(filePath, content, "utf8");
       return filePath;
     },

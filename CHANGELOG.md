@@ -3,6 +3,7 @@
 ## Unreleased (0.0.2-beta.7)
 
 ### Features
+- Convention-based policy auto-discovery: drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` at project or user level for automatic loading — no config changes needed (#88)
 - Auto-bump version after release (#73)
 
 ### Fixes

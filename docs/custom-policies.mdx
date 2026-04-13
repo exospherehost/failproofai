@@ -37,7 +37,33 @@ failproofai policies --install --custom ./my-policies.js
 
 ---
 
-## Installing and updating
+## Two ways to load custom policies
+
+### Option 1: Convention-based (recommended, v0.0.2-beta.7+)
+
+Drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` and they're automatically loaded — no flags or config changes needed. This works like git hooks: drop a file, it just works.
+
+```
+# Project level — committed to git, shared with the team
+.failproofai/policies/security-policies.mjs
+.failproofai/policies/workflow-policies.mjs
+
+# User level — personal, applies to all projects
+~/.failproofai/policies/my-policies.mjs
+```
+
+**How it works:**
+- Both project and user directories are scanned (union — not first-scope-wins)
+- Files are loaded alphabetically within each directory. Prefix with `01-`, `02-` to control order
+- Only files matching `*policies.{js,mjs,ts}` are loaded; other files are ignored
+- Each file is loaded independently (fail-open per file)
+- Works alongside explicit `--custom` and built-in policies
+
+<Tip>
+Convention policies are the easiest way to share policies across a team. Commit `.failproofai/policies/` to git and every team member gets them automatically.
+</Tip>
+
+### Option 2: Explicit file path
 
 ```bash
 # Install with a custom policies file
@@ -51,6 +77,14 @@ failproofai policies --uninstall --custom
 ```
 
 The resolved absolute path is stored in `policies-config.json` as `customPoliciesPath`. The file is loaded fresh on every hook event - there is no caching between events.
+
+### Using both together
+
+Convention policies and the explicit `--custom` file can coexist. Load order:
+
+1. Explicit `customPoliciesPath` file (if configured)
+2. Project convention files (`{cwd}/.failproofai/policies/`, alphabetical)
+3. User convention files (`~/.failproofai/policies/`, alphabetical)
 
 ---
 
@@ -155,7 +189,9 @@ customPolicies.add({
 Policies are evaluated in this order:
 
 1. Built-in policies (in definition order)
-2. Custom policies (in `.add()` order)
+2. Explicit custom policies from `customPoliciesPath` (in `.add()` order)
+3. Convention policies from project `.failproofai/policies/` (files alphabetical, `.add()` order within)
+4. Convention policies from user `~/.failproofai/policies/` (files alphabetical, `.add()` order within)
 
 <Note>
 The first `deny` short-circuits all subsequent policies. The first `instruct` wins — subsequent `instruct` returns are ignored.
@@ -212,11 +248,13 @@ Custom policies are **fail-open**: errors never block built-in policies or crash
 
 | Failure | Behavior |
 |---------|----------|
-| `customPoliciesPath` not set | No custom policies run; built-ins continue normally |
+| `customPoliciesPath` not set | No explicit custom policies run; convention policies and built-ins continue normally |
 | File not found | Warning logged to `~/.failproofai/hook.log`; built-ins continue |
-| Syntax/import error | Error logged to `~/.failproofai/hook.log`; all custom policies skipped |
+| Syntax/import error (explicit) | Error logged to `~/.failproofai/hook.log`; explicit custom policies skipped |
+| Syntax/import error (convention) | Error logged; that file skipped, other convention files still load |
 | `fn` throws at runtime | Error logged; that hook treated as `allow`; other hooks continue |
 | `fn` takes longer than 10s | Timeout logged; treated as `allow` |
+| Convention directory missing | No convention policies run; no error |
 
 <Tip>
 To debug custom policy errors, watch the log file:
@@ -291,9 +329,25 @@ The `examples/` directory contains ready-to-run policy files:
 |------|----------|
 | `examples/policies-basic.js` | Five starter policies covering common agent failure modes |
 | `examples/policies-advanced/index.js` | Advanced patterns: transitive imports, async calls, output scrubbing, and session-end hooks |
+| `examples/convention-policies/security-policies.mjs` | Convention-based security policies (block .env writes, prevent git history rewriting) |
+| `examples/convention-policies/workflow-policies.mjs` | Convention-based workflow policies (test reminders, audit file writes) |
 
-Install the basic examples:
+### Using explicit file examples
 
 ```bash
 failproofai policies --install --custom ./examples/policies-basic.js
 ```
+
+### Using convention-based examples
+
+```bash
+# Copy to project level
+mkdir -p .failproofai/policies
+cp examples/convention-policies/*.mjs .failproofai/policies/
+
+# Or copy to user level
+mkdir -p ~/.failproofai/policies
+cp examples/convention-policies/*.mjs ~/.failproofai/policies/
+```
+
+No install command needed — the files are picked up automatically on the next hook event.

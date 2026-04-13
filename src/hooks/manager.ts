@@ -18,7 +18,7 @@ import { promptPolicySelection } from "./install-prompt";
 import { readMergedHooksConfig, readScopedHooksConfig, writeScopedHooksConfig } from "./hooks-config";
 import type { HooksConfig } from "./policy-types";
 import { BUILTIN_POLICIES } from "./builtin-policies";
-import { loadCustomHooks } from "./custom-hooks-loader";
+import { loadCustomHooks, discoverPolicyFiles } from "./custom-hooks-loader";
 import { trackHookEvent } from "./hook-telemetry";
 import { getInstanceId, hashToId } from "../../lib/telemetry-id";
 import { CliError } from "../cli-error";
@@ -646,6 +646,37 @@ export async function listHooks(cwd?: string): Promise<void> {
         for (const hook of hooks) {
           console.log(`  \x1B[32m\u2713\x1B[0m       ${hook.name.padEnd(descColWidth)}${hook.description ?? ""}`);
         }
+      }
+    }
+    console.log();
+  }
+
+  // Convention Policies section (.failproofai/policies/*policies.{js,mjs,ts})
+  const base = cwd ? resolve(cwd) : process.cwd();
+  const conventionDirs: { label: string; dir: string }[] = [
+    { label: "Project", dir: resolve(base, ".failproofai", "policies") },
+    { label: "User", dir: resolve(homedir(), ".failproofai", "policies") },
+  ];
+
+  for (const { label, dir } of conventionDirs) {
+    const files = discoverPolicyFiles(dir);
+    if (files.length === 0) continue;
+
+    console.log(`\n  \u2500\u2500 Convention Policies \u2014 ${label} (${dir}) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500`);
+    for (const file of files) {
+      try {
+        const hooks = await loadCustomHooks(file);
+        if (hooks.length === 0) {
+          const filename = file.split("/").pop() ?? file;
+          console.log(`  \x1B[31m\u2717\x1B[0m       ${filename.padEnd(nameColWidth)}\x1B[31mfailed to load\x1B[0m`);
+        } else {
+          const filename = file.split("/").pop() ?? file;
+          const hookSummary = hooks.map((h) => h.name).join(", ");
+          console.log(`  \x1B[32m\u2713\x1B[0m       ${filename.padEnd(nameColWidth)}${hooks.length} hook(s): ${hookSummary}`);
+        }
+      } catch {
+        const filename = file.split("/").pop() ?? file;
+        console.log(`  \x1B[31m\u2717\x1B[0m       ${filename.padEnd(nameColWidth)}\x1B[31merror\x1B[0m`);
       }
     }
     console.log();

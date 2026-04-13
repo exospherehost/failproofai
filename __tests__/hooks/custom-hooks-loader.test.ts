@@ -21,7 +21,7 @@ vi.mock("../../src/hooks/loader-utils", () => ({
 
 vi.mock("node:fs", async () => {
   const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
-  return { ...actual, existsSync: vi.fn() };
+  return { ...actual, existsSync: vi.fn(), readdirSync: vi.fn(() => []) };
 });
 
 describe("hooks/custom-hooks-loader", () => {
@@ -135,5 +135,103 @@ describe("hooks/custom-hooks-loader", () => {
     // Import will fail (no real mjs file), so returns []
     const result = await loadCustomHooks("/path/to/hooks.js");
     expect(Array.isArray(result)).toBe(true);
+  });
+});
+
+describe("discoverPolicyFiles", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("returns [] when directory does not exist", async () => {
+    const { existsSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    const { discoverPolicyFiles } = await import("../../src/hooks/custom-hooks-loader");
+    expect(discoverPolicyFiles("/nonexistent/dir")).toEqual([]);
+  });
+
+  it("returns only *policies.{js,mjs,ts} files, sorted alphabetically", async () => {
+    const { existsSync, readdirSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockReturnValue([
+      { name: "z-policies.js", isFile: () => true, isDirectory: () => false },
+      { name: "a-policies.mjs", isFile: () => true, isDirectory: () => false },
+      { name: "utils.js", isFile: () => true, isDirectory: () => false },
+      { name: "b-policies.ts", isFile: () => true, isDirectory: () => false },
+      { name: "readme.md", isFile: () => true, isDirectory: () => false },
+      { name: "data.json", isFile: () => true, isDirectory: () => false },
+    ] as never);
+
+    const { discoverPolicyFiles } = await import("../../src/hooks/custom-hooks-loader");
+    const files = discoverPolicyFiles("/some/dir");
+
+    expect(files).toHaveLength(3);
+    expect(files[0]).toContain("a-policies.mjs");
+    expect(files[1]).toContain("b-policies.ts");
+    expect(files[2]).toContain("z-policies.js");
+  });
+
+  it("ignores subdirectories even if they match the naming pattern", async () => {
+    const { existsSync, readdirSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(true);
+    vi.mocked(readdirSync).mockReturnValue([
+      { name: "real-policies.js", isFile: () => true, isDirectory: () => false },
+      { name: "dir-policies.js", isFile: () => false, isDirectory: () => true },
+    ] as never);
+
+    const { discoverPolicyFiles } = await import("../../src/hooks/custom-hooks-loader");
+    const files = discoverPolicyFiles("/some/dir");
+
+    expect(files).toHaveLength(1);
+    expect(files[0]).toContain("real-policies.js");
+  });
+});
+
+describe("loadAllCustomHooks", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("returns empty hooks and no convention sources when nothing configured", async () => {
+    const { existsSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    const { getCustomHooks } = await import("../../src/hooks/custom-hooks-registry");
+    vi.mocked(getCustomHooks).mockReturnValue([]);
+
+    const { loadAllCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+    const result = await loadAllCustomHooks(undefined, { sessionCwd: "/tmp/fake" });
+
+    expect(result.hooks).toEqual([]);
+    expect(result.conventionSources).toEqual([]);
+  });
+
+  it("calls clearCustomHooks exactly once", async () => {
+    const { existsSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    const { clearCustomHooks, getCustomHooks } = await import("../../src/hooks/custom-hooks-registry");
+    vi.mocked(getCustomHooks).mockReturnValue([]);
+
+    const { loadAllCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+    await loadAllCustomHooks(undefined, { sessionCwd: "/tmp/fake" });
+
+    expect(clearCustomHooks).toHaveBeenCalledTimes(1);
+  });
+
+  it("logs warning when customPoliciesPath does not exist", async () => {
+    const { existsSync } = await import("node:fs");
+    vi.mocked(existsSync).mockReturnValue(false);
+
+    const { getCustomHooks } = await import("../../src/hooks/custom-hooks-registry");
+    vi.mocked(getCustomHooks).mockReturnValue([]);
+
+    const { hookLogWarn } = await import("../../src/hooks/hook-logger");
+    const { loadAllCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+
+    await loadAllCustomHooks("/nonexistent/file.js", { sessionCwd: "/tmp/fake" });
+
+    expect(hookLogWarn).toHaveBeenCalledWith(expect.stringContaining("not found"));
   });
 });
