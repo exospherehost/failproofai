@@ -216,6 +216,21 @@ failproofai policies --install --custom ./my-policies.js
 
 Custom hooks support transitive local imports, async/await, and access to `process.env`. Errors are fail-open (logged to `~/.failproofai/hook.log`, built-in policies continue). See [docs/custom-hooks.mdx](docs/custom-hooks.mdx) for the full guide.
 
+### Convention-based policies (v0.0.2-beta.7+)
+
+Drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` and they're automatically loaded — no `--custom` flag or config changes needed. Works like git hooks: drop a file, it just works.
+
+```
+# Project level — committed to git, shared with the team
+.failproofai/policies/security-policies.mjs
+.failproofai/policies/workflow-policies.mjs
+
+# User level — personal, applies to all projects
+~/.failproofai/policies/my-policies.mjs
+```
+
+Both levels load (union). Files are loaded alphabetically within each directory. Prefix with `01-`, `02-`, etc. to control order. See [examples/convention-policies/](examples/convention-policies/) for ready-to-use examples.
+
 ---
 
 ## Telemetry

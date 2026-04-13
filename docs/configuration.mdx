@@ -124,6 +124,23 @@ Path to a JavaScript file containing custom hook policies. This is set automatic
 
 The file is loaded fresh on every hook event - there is no caching. See [Custom Policies](/custom-policies) for authoring details.
 
+### Convention-based policies (v0.0.2-beta.7+)
+
+In addition to the explicit `customPoliciesPath`, failproofai automatically discovers and loads policy files from `.failproofai/policies/` directories:
+
+| Level | Directory | Scope |
+|-------|-----------|-------|
+| Project | `.failproofai/policies/` | Shared with team via version control |
+| User | `~/.failproofai/policies/` | Personal, applies to all projects |
+
+**File matching:** Only files matching `*policies.{js,mjs,ts}` are loaded (e.g. `security-policies.mjs`, `workflow-policies.js`). Other files in the directory are ignored.
+
+**No config needed:** Convention policies require no entries in `policies-config.json`. Just drop files into the directory and they're picked up on the next hook event.
+
+**Union loading:** Both project and user convention directories are scanned. All matching files from both levels are loaded (unlike `customPoliciesPath` which uses first-scope-wins).
+
+See [Custom Policies](/custom-policies) for more details and examples.
+
 ### `llm`
 
 Type: `object` (optional)

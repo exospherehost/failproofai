@@ -11,7 +11,8 @@ import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
 import { evaluatePolicies } from "./policy-evaluator";
 import { clearPolicies, registerPolicy } from "./policy-registry";
-import { loadCustomHooks } from "./custom-hooks-loader";
+import { loadAllCustomHooks } from "./custom-hooks-loader";
+import type { CustomHook } from "./policy-types";
 import { persistHookActivity } from "./hook-activity-store";
 import { trackHookEvent } from "./hook-telemetry";
 import { getInstanceId } from "../../lib/telemetry-id";
@@ -71,9 +72,14 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   registerBuiltinPolicies(config.enabledPolicies);
 
   // Load and register custom hooks (layer 2, after builtins)
-  const customHooksList = await loadCustomHooks(config.customPoliciesPath, { sessionCwd: session.cwd });
+  const loadResult = await loadAllCustomHooks(config.customPoliciesPath, { sessionCwd: session.cwd });
+  const customHooksList = loadResult.hooks;
+  const conventionHookNames = new Set(loadResult.conventionSources.flatMap((s) => s.hookNames));
+
   for (const hook of customHooksList) {
     const hookName = hook.name;
+    const isConvention = (hook as CustomHook & { __conventionSource?: boolean }).__conventionSource === true;
+    const prefix = isConvention ? "convention" : "custom";
     const fn: PolicyFunction = async (ctx): Promise<PolicyResult> => {
       try {
         const result = await Promise.race([
@@ -86,17 +92,18 @@ export async function handleHookEvent(eventType: string): Promise<number> {
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         const isTimeout = msg === "timeout";
-        hookLogWarn(`custom hook "${hookName}" failed: ${msg}`);
+        hookLogWarn(`${prefix} hook "${hookName}" failed: ${msg}`);
         void trackHookEvent(getInstanceId(), "custom_hook_error", {
           hook_name: hookName,
           error_type: isTimeout ? "timeout" : "exception",
           event_type: eventType,
+          is_convention_policy: isConvention,
         });
         return { decision: "allow" };
       }
     };
     registerPolicy(
-      `custom/${hookName}`,
+      `${prefix}/${hookName}`,
       hook.description ?? "",
       fn,
       hook.match ?? {},
@@ -113,7 +120,18 @@ export async function handleHookEvent(eventType: string): Promise<number> {
     });
   }
 
-  hookLogInfo(`event=${eventType} policies=${config.enabledPolicies.length} custom=${customHooksList.length}`);
+  // Fire telemetry for convention-based policy discovery
+  if (loadResult.conventionSources.length > 0) {
+    void trackHookEvent(getInstanceId(), "convention_policies_loaded", {
+      event_type: eventType,
+      project_file_count: loadResult.conventionSources.filter((s) => s.scope === "project").length,
+      user_file_count: loadResult.conventionSources.filter((s) => s.scope === "user").length,
+      convention_hook_count: conventionHookNames.size,
+      convention_hook_names: [...conventionHookNames],
+    });
+  }
+
+  hookLogInfo(`event=${eventType} policies=${config.enabledPolicies.length} custom=${customHooksList.length} convention=${conventionHookNames.size}`);
 
   // Evaluate policies
   const result = await evaluatePolicies(eventType as HookEventType, parsed, session, config);
@@ -152,8 +170,9 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   if (result.decision === "deny" || result.decision === "instruct") {
     try {
       const isCustomHook = result.policyName?.startsWith("custom/") ?? false;
+      const isConventionPolicy = result.policyName?.startsWith("convention/") ?? false;
       const hasCustomParams =
-        !isCustomHook && !!(result.policyName && config.policyParams?.[result.policyName]);
+        !isCustomHook && !isConventionPolicy && !!(result.policyName && config.policyParams?.[result.policyName]);
       const paramKeysOverridden = hasCustomParams
         ? Object.keys(config.policyParams![result.policyName!])
         : [];
@@ -164,6 +183,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
         policy_name: result.policyName,
         decision: result.decision,
         is_custom_hook: isCustomHook,
+        is_convention_policy: isConventionPolicy,
         has_custom_params: hasCustomParams,
         param_keys_overridden: paramKeysOverridden,
       });
