@@ -80,7 +80,11 @@ export async function evaluatePolicies(
     }
 
     if (result.decision === "deny") {
-      const reason = result.reason ?? `Blocked by policy: ${policy.name}`;
+      let reason = result.reason ?? `Blocked by policy: ${policy.name}`;
+      const denyHint = config?.policyParams?.[policy.name]?.hint;
+      if (typeof denyHint === "string" && denyHint) {
+        reason = `${reason}. ${denyHint}`;
+      }
       hookLogInfo(`deny by "${policy.name}": ${reason}`);
 
       const displayTool = ctx.toolName ?? "unknown tool";
@@ -134,7 +138,12 @@ export async function evaluatePolicies(
     // Accumulate first instruct (does not short-circuit — later policies can still deny)
     if (result.decision === "instruct" && !instructPolicyName) {
       instructPolicyName = policy.name;
-      instructReason = result.reason ?? `Instruction from policy: ${policy.name}`;
+      let reason = result.reason ?? `Instruction from policy: ${policy.name}`;
+      const instructHint = config?.policyParams?.[policy.name]?.hint;
+      if (typeof instructHint === "string" && instructHint) {
+        reason = `${reason}. ${instructHint}`;
+      }
+      instructReason = reason;
       hookLogInfo(`instruct by "${policy.name}": ${instructReason}`);
     }
 

@@ -5,6 +5,7 @@
 ### Features
 - Check third-party bot statuses (CodeRabbit, SonarCloud, etc.) in `require-ci-green-before-stop` policy (#90)
 - Convention-based policy auto-discovery: drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` at project or user level for automatic loading — no config changes needed (#89)
+- Configurable `hint` field in `policyParams` — append custom guidance to deny/instruct messages without modifying policies (#90)
 - Auto-bump version after release (#73)
 
 ### Fixes

@@ -116,6 +116,35 @@ If a policy has parameters but you don't specify them, the policy's built-in def
 
 Unknown keys inside a policy's params block are silently ignored at hook-fire time but flagged as warnings when you run `failproofai policies`.
 
+#### `hint` (cross-cutting)
+
+Type: `string` (optional)
+
+A message appended to the reason when a policy returns `deny` or `instruct`. Use it to give Claude actionable guidance without modifying the policy itself.
+
+Works with any policy type — built-in, custom (`custom/`), or convention (`convention/`).
+
+```json
+{
+  "policyParams": {
+    "block-force-push": {
+      "hint": "Try creating a fresh branch instead."
+    },
+    "block-sudo": {
+      "allowPatterns": ["sudo apt-get"],
+      "hint": "Use apt-get directly without sudo."
+    },
+    "custom/my-policy": {
+      "hint": "Ask the user for approval first."
+    }
+  }
+}
+```
+
+When `block-force-push` denies, Claude sees: *"Force-pushing is blocked. Try creating a fresh branch instead."*
+
+Non-string values and empty strings are silently ignored. If `hint` is not set, behavior is unchanged (backward-compatible).
+
 ### `customPoliciesPath`
 
 Type: `string` (absolute path)

@@ -482,4 +482,194 @@ describe("hooks/policy-evaluator", () => {
       expect(result.policyName).toBe("checker");
     });
   });
+
+  describe("hint appending", () => {
+    it("appends hint to deny reason for PreToolUse", async () => {
+      registerPolicy("block-force-push", "desc", () => ({
+        decision: "deny",
+        reason: "Force-pushing is blocked",
+      }), { events: ["PreToolUse"] });
+
+      const config = {
+        enabledPolicies: ["block-force-push"],
+        policyParams: { "block-force-push": { hint: "Try creating a fresh branch instead." } },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash", tool_input: { command: "git push --force" } }, undefined, config);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toBe("Force-pushing is blocked. Try creating a fresh branch instead.");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("Try creating a fresh branch instead.");
+    });
+
+    it("appends hint to deny reason for PostToolUse", async () => {
+      registerPolicy("scrubber", "desc", () => ({
+        decision: "deny",
+        reason: "Secret detected",
+      }), { events: ["PostToolUse"] });
+
+      const config = {
+        enabledPolicies: ["scrubber"],
+        policyParams: { scrubber: { hint: "Remove the secret before retrying." } },
+      };
+      const result = await evaluatePolicies("PostToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toBe("Secret detected. Remove the secret before retrying.");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.additionalContext).toContain("Remove the secret before retrying.");
+    });
+
+    it("appends hint to deny reason for other event types (exit 2)", async () => {
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "nope",
+      }), { events: ["SessionStart"] });
+
+      const config = {
+        enabledPolicies: ["blocker"],
+        policyParams: { blocker: { hint: "Ask admin for access." } },
+      };
+      const result = await evaluatePolicies("SessionStart", {}, undefined, config);
+      expect(result.exitCode).toBe(2);
+      expect(result.reason).toBe("nope. Ask admin for access.");
+      expect(result.stderr).toBe("nope. Ask admin for access.");
+    });
+
+    it("appends hint to instruct reason", async () => {
+      registerPolicy("advisor", "desc", () => ({
+        decision: "instruct",
+        reason: "Large file detected",
+      }), { events: ["PreToolUse"] });
+
+      const config = {
+        enabledPolicies: ["advisor"],
+        policyParams: { advisor: { hint: "Consider splitting into smaller files." } },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Write" }, undefined, config);
+      expect(result.decision).toBe("instruct");
+      expect(result.reason).toBe("Large file detected. Consider splitting into smaller files.");
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.additionalContext).toContain("Consider splitting into smaller files.");
+    });
+
+    it("appends hint to instruct reason on Stop event", async () => {
+      registerPolicy("verify", "desc", () => ({
+        decision: "instruct",
+        reason: "Unsatisfied intents",
+      }), { events: ["Stop"] });
+
+      const config = {
+        enabledPolicies: ["verify"],
+        policyParams: { verify: { hint: "Run the test suite first." } },
+      };
+      const result = await evaluatePolicies("Stop", {}, undefined, config);
+      expect(result.exitCode).toBe(2);
+      expect(result.decision).toBe("instruct");
+      expect(result.reason).toBe("Unsatisfied intents. Run the test suite first.");
+      expect(result.stderr).toBe("Unsatisfied intents. Run the test suite first.");
+    });
+
+    it("does not alter reason when no hint is configured", async () => {
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked",
+      }), { events: ["PreToolUse"] });
+
+      const config = { enabledPolicies: ["blocker"] };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result.reason).toBe("blocked");
+    });
+
+    it("does not alter reason when policyParams has no hint key", async () => {
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked",
+      }), { events: ["PreToolUse"] });
+
+      const config = {
+        enabledPolicies: ["blocker"],
+        policyParams: { blocker: { someOtherParam: "value" } },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result.reason).toBe("blocked");
+    });
+
+    it("ignores hint when it is not a string (number)", async () => {
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked",
+      }), { events: ["PreToolUse"] });
+
+      const config = {
+        enabledPolicies: ["blocker"],
+        policyParams: { blocker: { hint: 123 } },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result.reason).toBe("blocked");
+    });
+
+    it("ignores hint when it is an empty string", async () => {
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked",
+      }), { events: ["PreToolUse"] });
+
+      const config = {
+        enabledPolicies: ["blocker"],
+        policyParams: { blocker: { hint: "" } },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result.reason).toBe("blocked");
+    });
+
+    it("works with custom/ prefixed policy names", async () => {
+      registerPolicy("custom/my-hook", "custom", () => ({
+        decision: "deny",
+        reason: "custom block",
+      }), { events: ["PreToolUse"] }, -1);
+
+      const config = {
+        enabledPolicies: [],
+        policyParams: { "custom/my-hook": { hint: "Ask the user for approval." } },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result.reason).toBe("custom block. Ask the user for approval.");
+    });
+
+    it("works with convention/ prefixed policy names", async () => {
+      registerPolicy("convention/my-policy", "convention", () => ({
+        decision: "deny",
+        reason: "convention block",
+      }), { events: ["PreToolUse"] }, -1);
+
+      const config = {
+        enabledPolicies: [],
+        policyParams: { "convention/my-policy": { hint: "Check project CLAUDE.md." } },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result.reason).toBe("convention block. Check project CLAUDE.md.");
+    });
+
+    it("hint on instruct does not affect subsequent deny", async () => {
+      registerPolicy("advisor", "desc", () => ({
+        decision: "instruct",
+        reason: "heads up",
+      }), { events: ["PreToolUse"] });
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "hard block",
+      }), { events: ["PreToolUse"] });
+
+      const config = {
+        enabledPolicies: ["advisor", "blocker"],
+        policyParams: {
+          advisor: { hint: "instruct hint" },
+          blocker: { hint: "deny hint" },
+        },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      // Deny still takes precedence
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toBe("hard block. deny hint");
+    });
+  });
 });

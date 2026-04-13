@@ -121,6 +121,10 @@ customPolicies.add({
 
 `instruct(message)` - the message is appended to Claude's context for the current tool call. The first `instruct` wins — subsequent `instruct` returns from other policies are ignored.
 
+<Tip>
+You can append extra guidance to any `deny` or `instruct` message by adding a `hint` field in `policyParams` — no code change needed. This works for custom (`custom/`) and convention (`convention/`) policies too. See [Configuration → hint](/configuration#hint-cross-cutting) for details.
+</Tip>
+
 ### Informational allow messages (beta)
 
 <Note>
