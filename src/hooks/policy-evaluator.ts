@@ -45,7 +45,14 @@ export async function evaluatePolicies(
   hookLogInfo(`evaluating ${policies.length} policies for ${eventType}`);
 
   if (policies.length === 0) {
-    return { exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow" };
+    return {
+      exitCode: 0,
+      stdout: session?.integration === "cursor" ? JSON.stringify({ continue: true, permission: "allow" }) : "",
+      stderr: "",
+      policyName: null,
+      reason: null,
+      decision: "allow",
+    };
   }
 
   const baseCtx: PolicyContext = {
@@ -96,13 +103,19 @@ export async function evaluatePolicies(
       const displayTool = ctx.toolName ?? "unknown tool";
 
       if (eventType === "PreToolUse") {
-        const response = {
+        const response: any = {
           hookSpecificOutput: {
             hookEventName: eventType,
             permissionDecision: "deny",
             permissionDecisionReason: `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`,
           },
         };
+        if (session?.integration === "cursor") {
+          response.continue = false;
+          response.permission = "deny";
+          response.userMessage = response.hookSpecificOutput.permissionDecisionReason;
+          response.agentMessage = `Action blocked by security policy: ${reason}`;
+        }
         return {
           exitCode: 0,
           stdout: JSON.stringify(response),
@@ -114,12 +127,15 @@ export async function evaluatePolicies(
       }
 
       if (eventType === "PostToolUse") {
-        const response = {
+        const response: any = {
           hookSpecificOutput: {
             hookEventName: eventType,
             additionalContext: `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`,
           },
         };
+        if (session?.integration === "cursor") {
+          response.agentMessage = response.hookSpecificOutput.additionalContext;
+        }
         return {
           exitCode: 0,
           stdout: JSON.stringify(response),
@@ -143,8 +159,8 @@ export async function evaluatePolicies(
 
       // Other event types: exit 2
       return {
-        exitCode: 2,
-        stdout: "",
+        exitCode: session?.integration === "cursor" ? 0 : 2,
+        stdout: session?.integration === "cursor" ? JSON.stringify({ continue: false, permission: "deny", userMessage: reason }) : "",
         stderr: reason,
         policyName: policy.name,
         reason,
@@ -190,12 +206,15 @@ export async function evaluatePolicies(
       };
     }
 
-    const response = {
+    const response: any = {
       hookSpecificOutput: {
         hookEventName: eventType,
         additionalContext: `Instruction from failproofai: ${combined}`,
       },
     };
+    if (session?.integration === "cursor") {
+      response.agentMessage = response.hookSpecificOutput.additionalContext;
+    }
     return {
       exitCode: 0,
       stdout: JSON.stringify(response),
@@ -212,13 +231,23 @@ export async function evaluatePolicies(
     const combined = allowEntries.map((e) => e.reason).join("\n");
     const policyNames = allowEntries.map((e) => e.policyName);
     const supportsHookSpecificOutput = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
-    const response = supportsHookSpecificOutput
+    const response: any = supportsHookSpecificOutput
       ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: `Note from failproofai: ${combined}` } }
       : { reason: combined };
+    if (session?.integration === "cursor" && supportsHookSpecificOutput) {
+      response.agentMessage = response.hookSpecificOutput.additionalContext;
+    }
     const stderrMsg = allowEntries
       .map((e) => `[failproofai] ${e.policyName}: ${e.reason}`)
       .join("\n");
     return { exitCode: 0, stdout: JSON.stringify(response), stderr: stderrMsg + "\n", policyName: policyNames[0], policyNames, reason: combined, decision: "allow" };
   }
-  return { exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow" };
+  return {
+    exitCode: 0,
+    stdout: session?.integration === "cursor" ? JSON.stringify({ continue: true, permission: "allow" }) : "",
+    stderr: "",
+    policyName: null,
+    reason: null,
+    decision: "allow",
+  };
 }

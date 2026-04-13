@@ -101,3 +101,52 @@ export const Payloads = {
     };
   },
 };
+
+export const CursorPayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: SESSION_ID,
+        workspace_roots: [cwd],
+        integration: "cursor",
+        hook_event_name: "preToolUse", // Note: cursor uses camelCase in payload too
+        tool_name: "run_terminal_command",
+        tool_input: { command },
+      };
+    },
+
+    write(filePath: string, content: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: SESSION_ID,
+        workspace_roots: [cwd],
+        integration: "cursor",
+        hook_event_name: "afterFileEdit",
+        tool_name: "edit_file",
+        tool_input: { file_path: filePath, content },
+      };
+    },
+  },
+
+  postToolUse: {
+    bash(command: string, output: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: SESSION_ID,
+        workspace_roots: [cwd],
+        integration: "cursor",
+        hook_event_name: "postToolUse",
+        tool_name: "run_terminal_command",
+        tool_input: { command },
+        tool_result: output,
+      };
+    },
+  },
+
+  stop(cwd: string): Record<string, unknown> {
+    return {
+      session_id: SESSION_ID,
+      workspace_roots: [cwd],
+      integration: "cursor",
+      hook_event_name: "stop",
+    };
+  },
+};

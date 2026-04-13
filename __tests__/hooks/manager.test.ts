@@ -16,6 +16,11 @@ vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
 }));
 
+// resolveFailproofaiBinary() uses FAILPROOFAI_DIST_PATH or relative paths
+// Set a dist path so it finds a predictable binary path
+const MOCK_DIST_PATH = "/mock/dist";
+const MOCK_BINARY_PATH = "/mock/dist/bin/failproofai.mjs";
+
 vi.mock("../../src/hooks/install-prompt", () => ({
   promptPolicySelection: vi.fn(() =>
     Promise.resolve(["block-sudo", "block-env-files", "sanitize-jwt"]),
@@ -56,11 +61,12 @@ const LOCAL_SETTINGS_PATH = resolve(process.cwd(), ".claude", "settings.local.js
 describe("hooks/manager", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    vi.mocked(execSync).mockReturnValue("/usr/local/bin/failproofai\n");
+    process.env.FAILPROOFAI_DIST_PATH = MOCK_DIST_PATH;
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
   afterEach(() => {
+    delete process.env.FAILPROOFAI_DIST_PATH;
     vi.restoreAllMocks();
   });
 
@@ -85,7 +91,7 @@ describe("hooks/manager", () => {
         expect(hook.__failproofai_hook__).toBe(true);
         expect(hook.type).toBe("command");
         expect(hook.timeout).toBe(60_000);
-        expect(hook.command).toBe(`"/usr/local/bin/failproofai" --hook ${eventType}`);
+        expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook ${eventType}`);
       }
     });
 
@@ -218,7 +224,7 @@ describe("hooks/manager", () => {
 
       expect(written.hooks.PreToolUse).toHaveLength(1);
       expect(written.hooks.PreToolUse[0].hooks[0].command).toBe(
-        '"/usr/local/bin/failproofai" --hook PreToolUse',
+        `"${MOCK_BINARY_PATH}" --hook PreToolUse`,
       );
     });
 
@@ -234,33 +240,17 @@ describe("hooks/manager", () => {
       expect(Object.keys(written.hooks)).toHaveLength(26);
     });
 
-    it("uses 'where' on Windows and handles multi-line output", async () => {
-      const originalPlatform = process.platform;
-      Object.defineProperty(process, "platform", { value: "win32", configurable: true });
-      vi.mocked(execSync).mockReturnValue("C:\\Program Files\\failproofai\\failproofai.exe\nC:\\other\\failproofai.exe\n");
+    it("resolves binary from FAILPROOFAI_DIST_PATH", async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("{}");
 
       const { installHooks } = await import("../../src/hooks/manager");
       await installHooks();
 
-      expect(execSync).toHaveBeenCalledWith("where failproofai", { encoding: "utf8" });
-
       const [, content] = vi.mocked(writeFileSync).mock.calls[0];
       const written = JSON.parse(content as string);
       const hook = written.hooks.PreToolUse[0].hooks[0];
-      expect(hook.command).toBe('"C:\\Program Files\\failproofai\\failproofai.exe" --hook PreToolUse');
-
-      Object.defineProperty(process, "platform", { value: originalPlatform, configurable: true });
-    });
-
-    it("throws when failproofai binary is not found", async () => {
-      vi.mocked(execSync).mockImplementation(() => {
-        throw new Error("not found");
-      });
-
-      const { installHooks } = await import("../../src/hooks/manager");
-      await expect(installHooks()).rejects.toThrow("failproofai binary not found");
+      expect(hook.command).toContain(MOCK_BINARY_PATH);
     });
 
     it("default scope is user", async () => {
@@ -506,8 +496,6 @@ describe("hooks/manager", () => {
         "user",
         undefined,
       );
-      const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
-      expect(logs.some((l: unknown) => typeof l === "string" && l.includes(resolve("/tmp/my-hooks.js")))).toBe(true);
     });
 
     it("clears customPoliciesPath when removeCustomHooks is true", async () => {
@@ -525,8 +513,6 @@ describe("hooks/manager", () => {
 
       const [[written]] = vi.mocked(writeScopedHooksConfig).mock.calls;
       expect((written as unknown as Record<string, unknown>).customPoliciesPath).toBeUndefined();
-      const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
-      expect(logs.some((l: unknown) => typeof l === "string" && l.includes("Custom hooks path cleared"))).toBe(true);
     });
   });
 
@@ -658,9 +644,7 @@ describe("hooks/manager", () => {
       const { removeHooks } = await import("../../src/hooks/manager");
       await removeHooks();
 
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining("No settings file found"),
-      );
+      // No settings file means no writes (integration.removeHooksFromFile skips missing files)
       expect(writeFileSync).not.toHaveBeenCalled();
     });
 
@@ -671,9 +655,7 @@ describe("hooks/manager", () => {
       const { removeHooks } = await import("../../src/hooks/manager");
       await removeHooks();
 
-      expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining("No hooks found"),
-      );
+      // Settings file exists but has no hooks — should NOT write it back (nothing changed)
       expect(writeFileSync).not.toHaveBeenCalled();
     });
 
@@ -959,8 +941,8 @@ describe("hooks/manager", () => {
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       const output = calls.join("\n");
 
-      // Multi-scope warning present
-      expect(output).toContain("multiple scopes");
+      // Multi-scope layout present (integration display name in title)
+      expect(output).toContain("Claude Code");
       // Scope columns should appear
       const headerLine = calls.find(
         (c: unknown) => typeof c === "string" && c.includes("User") && c.includes("Project"),

@@ -106,6 +106,8 @@ COMMANDS
     --beta                         Remove only beta policies
     --custom, -c                   Clear the customPoliciesPath from config
 
+  --integration claude-code|cursor  Target platform (default: claude-code)
+
   policies --help, -h            Show this help for the policies command
 
   login                          Authenticate with the failproofai cloud (Google OAuth)
@@ -130,6 +132,8 @@ EXAMPLES
   failproofai policies -i -c ./my-policies.js
   failproofai policies --uninstall block-sudo
   failproofai policies --uninstall --custom
+  failproofai policies --install --integration cursor
+  failproofai policies --integration cursor
 
 LINKS
   ⭐ Star us:      https://github.com/exospherehost/failproofai
@@ -156,6 +160,17 @@ LINKS
     const isUninstall = subArgs.includes("--uninstall")  || subArgs.includes("-u");
     const isHelp      = subArgs.includes("--help")       || subArgs.includes("-h");
 
+    // Parse --integration flag (shared across install/uninstall/list)
+    const integrationIdx = subArgs.indexOf("--integration");
+    const integrationArg = integrationIdx >= 0 ? subArgs[integrationIdx + 1] : "claude-code";
+    if (integrationIdx >= 0 && (!integrationArg || integrationArg.startsWith("-"))) {
+      throw new CliError("Missing value for --integration. Valid values: claude-code, cursor");
+    }
+    const { INTEGRATION_TYPES } = await import("../src/hooks/types");
+    if (integrationIdx >= 0 && !INTEGRATION_TYPES.includes(integrationArg)) {
+      throw new CliError(`Invalid integration: ${integrationArg}. Valid values: ${INTEGRATION_TYPES.join(", ")}`);
+    }
+
     if (isHelp) {
       console.log(`
 failproofai policies — manage Failproof AI policies
@@ -165,16 +180,21 @@ USAGE
   failproofai policies --install, -i         Enable policies
   failproofai policies --uninstall, -u       Disable policies or remove hooks
 
+OPTIONS (shared)
+  --integration claude-code|cursor  Target platform (default: claude-code)
+
 OPTIONS (install)
   [names...]                     Specific policy names to enable (omit for interactive)
-  --scope user|project|local     Config scope to write to (default: user)
+  --scope <scope>                Config scope to write to (default: user)
+    Claude Code scopes:  user | project | local
+    Cursor scopes:       user | project
   --beta                         Include beta policies
   --custom, -c <path>            Path to a JS file of custom policies
                                  (skips interactive prompt; validates file first)
 
 OPTIONS (uninstall)
   [names...]                     Specific policy names to disable (omit to remove hooks)
-  --scope user|project|local|all Config scope to remove from (default: user)
+  --scope <scope>|all            Config scope to remove from (default: user)
   --beta                         Remove only beta policies
   --custom, -c                   Clear the customPoliciesPath from config
 
@@ -187,20 +207,28 @@ EXAMPLES
   failproofai policies --uninstall block-sudo
   failproofai policies -u
   failproofai policies --uninstall --custom
+
+  # Cursor integration
+  failproofai policies --install --integration cursor
+  failproofai policies --uninstall --integration cursor --scope project
+  failproofai policies --integration cursor
 `.trimStart());
       process.exit(0);
     }
 
     if (isInstall) {
       const { installHooks } = await import("../src/hooks/manager");
+      const { getIntegration } = await import("../src/hooks/integrations");
+      const integ = getIntegration(integrationArg);
+      const validScopes = [...integ.scopes];
 
       const scopeIdx = subArgs.indexOf("--scope");
       const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
       if (scopeIdx >= 0 && (!scope || scope.startsWith("-"))) {
-        throw new CliError("Missing value for --scope. Valid values: user, project, local");
+        throw new CliError(`Missing value for --scope. Valid values: ${validScopes.join(", ")}`);
       }
-      if (scopeIdx >= 0 && !["user", "project", "local"].includes(scope)) {
-        throw new CliError(`Invalid scope: ${scope}. Valid values: user, project, local`);
+      if (scopeIdx >= 0 && !validScopes.includes(scope)) {
+        throw new CliError(`Invalid scope: ${scope}. Valid values for ${integ.displayName}: ${validScopes.join(", ")}`);
       }
 
       const customIdx = subArgs.includes("--custom") ? subArgs.indexOf("--custom")
@@ -214,12 +242,13 @@ EXAMPLES
       const includeBeta = subArgs.includes("--beta");
 
       // Collect positional policy names — args that don't start with - and aren't
-      // values consumed by --scope or --custom/-c (tracked by index, not value,
-      // so a policy named "user" isn't incorrectly dropped by the default scope).
+      // values consumed by --scope, --custom/-c, or --integration (tracked by index,
+      // not value, so a policy named "user" isn't incorrectly dropped).
       const consumedIdxs = new Set();
       if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
       if (customIdx >= 0) consumedIdxs.add(customIdx + 1);
-      const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c"]);
+      if (integrationIdx >= 0) consumedIdxs.add(integrationIdx + 1);
+      const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c", "--integration"]);
       const unknownInstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
       if (unknownInstallFlag) {
         throw new CliError(`Unknown flag: ${unknownInstallFlag}\nRun \`failproofai policies --help\` for usage.`);
@@ -244,20 +273,25 @@ EXAMPLES
         includeBeta,
         undefined,
         customPoliciesPath,
+        false,
+        integrationArg,
       );
       process.exit(0);
     }
 
     if (isUninstall) {
       const { removeHooks } = await import("../src/hooks/manager");
+      const { getIntegration } = await import("../src/hooks/integrations");
+      const integ = getIntegration(integrationArg);
+      const validScopes = [...integ.scopes, "all"];
 
       const scopeIdx = subArgs.indexOf("--scope");
       const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
       if (scopeIdx >= 0 && (!scope || scope.startsWith("-"))) {
-        throw new CliError("Missing value for --scope. Valid values: user, project, local, all");
+        throw new CliError(`Missing value for --scope. Valid values: ${validScopes.join(", ")}`);
       }
-      if (scopeIdx >= 0 && !["user", "project", "local", "all"].includes(scope)) {
-        throw new CliError(`Invalid scope: ${scope}. Valid values: user, project, local, all`);
+      if (scopeIdx >= 0 && !validScopes.includes(scope)) {
+        throw new CliError(`Invalid scope: ${scope}. Valid values for ${integ.displayName}: ${validScopes.join(", ")}`);
       }
 
       const betaOnly = subArgs.includes("--beta");
@@ -265,7 +299,8 @@ EXAMPLES
 
       const consumedIdxs = new Set();
       if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
-      const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c"]);
+      if (integrationIdx >= 0) consumedIdxs.add(integrationIdx + 1);
+      const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c", "--integration"]);
       const unknownUninstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
       if (unknownUninstallFlag) {
         throw new CliError(`Unknown flag: ${unknownUninstallFlag}\nRun \`failproofai policies --help\` for usage.`);
@@ -279,7 +314,7 @@ EXAMPLES
         policyNames.length > 0 ? policyNames : undefined,
         scope,
         undefined,
-        { betaOnly, removeCustomHooks },
+        { betaOnly, removeCustomHooks, integration: integrationArg },
       );
       process.exit(0);
     }
@@ -287,7 +322,7 @@ EXAMPLES
     // Default: list policies
     // Accept --list as a no-op alias (common intuition), reject all other unknown flags
     // and unexpected positional args (e.g. "hi").
-    const knownListFlags = new Set(["--install", "-i", "--uninstall", "-u", "--help", "-h", "--list"]);
+    const knownListFlags = new Set(["--install", "-i", "--uninstall", "-u", "--help", "-h", "--list", "--integration", "--scope"]);
     const unknownListArg = subArgs.find((a) => a.startsWith("-") && !knownListFlags.has(a));
     if (unknownListArg) {
       throw new CliError(
@@ -295,7 +330,9 @@ EXAMPLES
         `Run \`failproofai policies --help\` for usage.`
       );
     }
-    const positionalArgs = subArgs.filter((a) => !a.startsWith("-"));
+    const listConsumedIdxs = new Set();
+    if (integrationIdx >= 0) listConsumedIdxs.add(integrationIdx + 1);
+    const positionalArgs = subArgs.filter((a, idx) => !a.startsWith("-") && !listConsumedIdxs.has(idx));
     if (positionalArgs.length > 0) {
       throw new CliError(
         `Unexpected argument: ${positionalArgs[0]}\n` +
@@ -304,7 +341,7 @@ EXAMPLES
     }
 
     const { listHooks } = await import("../src/hooks/manager");
-    await listHooks();
+    await listHooks(undefined, integrationArg);
     process.exit(0);
   }
 

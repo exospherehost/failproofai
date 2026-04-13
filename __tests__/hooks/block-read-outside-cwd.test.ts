@@ -34,7 +34,7 @@ describe("block-read-outside-cwd policy", () => {
   it("exists in BUILTIN_POLICIES", () => {
     expect(policy).toBeDefined();
     expect(policy.defaultEnabled).toBe(false);
-    expect(policy.match.toolNames).toEqual(["Read", "Glob", "Grep", "Bash"]);
+    expect(policy.match.toolNames).toEqual(["Read", "Glob", "Grep", "Bash", "run_terminal_command", "Terminal"]);
   });
 
   it("allows Read with file_path inside cwd", async () => {

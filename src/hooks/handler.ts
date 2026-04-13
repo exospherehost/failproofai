@@ -5,7 +5,7 @@
  * ~/.failproofai/policies-config.json, evaluates matching policies, persists
  * activity to disk, and returns the appropriate exit code + stdout response.
  */
-import type { HookEventType, SessionMetadata } from "./types";
+import type { HookEventType, SessionMetadata, IntegrationType } from "./types";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
 import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
@@ -21,7 +21,7 @@ import { hookLogInfo, hookLogWarn } from "./hook-logger";
 export async function handleHookEvent(eventType: string): Promise<number> {
   const startTime = performance.now();
 
-  // Read stdin payload (Claude passes JSON)
+  // Read stdin payload (Claude/Cursor passes JSON)
   const MAX_STDIN_BYTES = 1_048_576; // 1 MB
   let payload = "";
   try {
@@ -40,12 +40,21 @@ export async function handleHookEvent(eventType: string): Promise<number> {
         chunks.push(chunk);
       });
       process.stdin.on("end", () => resolve(chunks.join("")));
+      
+      // Handle the case where stdin is not a pipe or is empty
+      setTimeout(() => {
+        if (chunks.length === 0) resolve("");
+      }, 100);
+
       process.stdin.on("error", reject);
-      // If stdin is already closed or not piped, resolve immediately
       if (process.stdin.readableEnded) resolve("");
     });
   } catch {
     hookLogWarn(`stdin read failed for ${eventType}`);
+  }
+
+  if (!payload) {
+    hookLogWarn(`stdin is empty for ${eventType} - Cursor Agent might not be piping context`);
   }
 
   let parsed: Record<string, unknown> = {};
@@ -57,6 +66,28 @@ export async function handleHookEvent(eventType: string): Promise<number> {
     }
   }
 
+  // Normalize Cursor payload: workspace_roots → cwd fallback
+  if (!parsed.cwd && Array.isArray(parsed.workspace_roots) && parsed.workspace_roots.length > 0) {
+    parsed.cwd = parsed.workspace_roots[0] as string;
+  }
+
+  // Attempt to detect integration
+  let integration: IntegrationType = (parsed.integration as IntegrationType);
+  if (!integration) {
+    const hookName = (parsed.hook_event_name as string) || "";
+    if (
+      Array.isArray(parsed.workspace_roots) ||
+      hookName.startsWith("before") ||
+      hookName.startsWith("after") ||
+      hookName === "preToolUse" ||
+      hookName === "postToolUse"
+    ) {
+      integration = "cursor";
+    } else {
+      integration = "claude-code";
+    }
+  }
+
   // Extract session metadata from payload
   const session: SessionMetadata = {
     sessionId: parsed.session_id as string | undefined,
@@ -64,6 +95,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
     cwd: parsed.cwd as string | undefined,
     permissionMode: parsed.permission_mode as string | undefined,
     hookEventName: parsed.hook_event_name as string | undefined,
+    integration,
   };
 
   // Load enabled policies (merge across project/local/global scopes)

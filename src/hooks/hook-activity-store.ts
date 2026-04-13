@@ -52,6 +52,7 @@ export interface HookActivityEntry {
   cwd?: string;
   permissionMode?: string;
   hookEventName?: string;
+  integration?: string;
 }
 
 export interface HookActivityFilters {

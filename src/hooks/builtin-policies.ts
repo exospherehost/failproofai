@@ -19,12 +19,35 @@ function isClaudeSettingsFile(resolved: string): boolean {
   return /[\\/]\.claude[\\/]settings(?:\.[^/\\]+)?\.json$/.test(resolved);
 }
 
+function isBashTool(toolName: string | undefined): boolean {
+  if (!toolName) return true; // Assume shell if tool name is missing
+  const lower = toolName.toLowerCase();
+  return (
+    lower === "bash" ||
+    lower === "shell" ||
+    lower === "terminal" ||
+    lower.includes("command") ||
+    lower === "run_terminal_command"
+  );
+}
+
 function getCommand(ctx: PolicyContext): string {
-  return (ctx.toolInput?.command as string) ?? "";
+  return (
+    (ctx.toolInput?.command as string) ??
+    (ctx.toolInput?.cmd as string) ??
+    (ctx.toolInput?.input as string) ??
+    ""
+  );
 }
 
 function getFilePath(ctx: PolicyContext): string {
-  return (ctx.toolInput?.file_path as string) ?? "";
+  return (
+    (ctx.toolInput?.file_path as string) ??
+    (ctx.toolInput?.filePath as string) ??
+    (ctx.toolInput?.path as string) ??
+    (ctx.toolInput?.relative_path as string) ??
+    ""
+  );
 }
 
 /**
@@ -361,7 +384,7 @@ function sanitizeBearerTokens(ctx: PolicyContext): PolicyResult {
 }
 
 function warnDestructiveSql(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (!SQL_TOOL_RE.test(cmd)) return allow();
 
@@ -397,7 +420,7 @@ function warnLargeFileWrite(ctx: PolicyContext): PolicyResult {
 }
 
 function warnPackagePublish(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (PUBLISH_CMD_RE.test(cmd)) {
     return instruct(
@@ -408,7 +431,7 @@ function warnPackagePublish(ctx: PolicyContext): PolicyResult {
 }
 
 function protectEnvVars(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   // Block: env, printenv, echo $VAR, export VAR=
   if (ENV_PRINTENV_RE.test(cmd)) {
@@ -448,14 +471,14 @@ function blockEnvFiles(ctx: PolicyContext): PolicyResult {
     return deny("Access to .env file blocked");
   }
   // Check Bash commands referencing .env files
-  if (ctx.toolName === "Bash" && ENV_CMD_RE.test(cmd)) {
+  if (isBashTool(ctx.toolName) && ENV_CMD_RE.test(cmd)) {
     return deny("Command references .env file");
   }
   return allow();
 }
 
 function blockSudo(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx).trimStart();
   if (SUDO_RE.test(cmd) || cmd.startsWith("sudo ")) {
     // Check allowPatterns — match against parsed tokens, not raw string
@@ -475,7 +498,7 @@ function blockSudo(ctx: PolicyContext): PolicyResult {
 }
 
 function blockCurlPipeSh(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (CURL_PIPE_SH_RE.test(cmd)) {
     return deny("Piping downloads to shell is blocked");
@@ -496,7 +519,7 @@ function extractGitPushArgs(cmd: string): string[] {
 }
 
 function blockPushMaster(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const protectedBranches = ((ctx.params?.protectedBranches ?? ["main", "master"]) as string[]);
   if (protectedBranches.length === 0) return allow();
   const args = extractGitPushArgs(getCommand(ctx));
@@ -552,7 +575,7 @@ function rmTargetIsAllowed(cmd: string, allowPaths: string[]): boolean {
 }
 
 function blockRmRf(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   const hasDestructivePath = parseArgvTokens(cmd).some((token) => {
     const normalized = token.replace(/\/\*$/, "").replace(/\/+$/, "") || (token.startsWith("/") ? "/" : "");
@@ -594,7 +617,7 @@ function blockRmRf(ctx: PolicyContext): PolicyResult {
 }
 
 function blockForcePush(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const args = extractGitPushArgs(getCommand(ctx));
   if (args.some((a) => FORCE_PUSH_RE.test(a))) {
     return deny("Force-pushing is blocked");
@@ -684,7 +707,7 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
   const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
 
   // For Bash tool: check read-like commands for absolute paths outside cwd
-  if (ctx.toolName === "Bash") {
+  if (isBashTool(ctx.toolName)) {
     const cmd = getCommand(ctx);
     if (!READ_LIKE_CMDS.test(cmd)) return allow();
 
@@ -734,7 +757,7 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
 }
 
 function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (!GIT_COMMIT_MERGE_RE.test(cmd)) return allow();
 
@@ -754,7 +777,7 @@ function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
 }
 
 function blockFailproofaiCommands(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
 
   // Block direct failproofai CLI invocations
@@ -809,7 +832,7 @@ async function warnRepeatedToolCalls(ctx: PolicyContext): Promise<PolicyResult> 
 }
 
 function warnGitAmend(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (GIT_AMEND_RE.test(cmd)) {
     return instruct(
@@ -820,7 +843,7 @@ function warnGitAmend(ctx: PolicyContext): PolicyResult {
 }
 
 function warnGitStashDrop(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (GIT_STASH_DROP_RE.test(cmd)) {
     return instruct(
@@ -831,7 +854,7 @@ function warnGitStashDrop(ctx: PolicyContext): PolicyResult {
 }
 
 function warnAllFilesStaged(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (GIT_ADD_ALL_RE.test(cmd)) {
     return instruct(
@@ -842,7 +865,7 @@ function warnAllFilesStaged(ctx: PolicyContext): PolicyResult {
 }
 
 function warnSchemaAlteration(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (!SQL_TOOL_RE.test(cmd)) return allow();
   if (SCHEMA_ALTER_RE.test(cmd)) {
@@ -854,7 +877,7 @@ function warnSchemaAlteration(ctx: PolicyContext): PolicyResult {
 }
 
 function warnGlobalPackageInstall(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   const isGlobal =
     NPM_GLOBAL_RE.test(cmd) ||
@@ -941,7 +964,7 @@ function preferPackageManager(ctx: PolicyContext): PolicyResult {
 }
 
 function warnBackgroundProcess(ctx: PolicyContext): PolicyResult {
-  if (ctx.toolName !== "Bash") return allow();
+  if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   const isBackground =
     NOHUP_RE.test(cmd) ||
@@ -1314,7 +1337,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "protect-env-vars",
     description: "Prevent commands that read environment variables",
     fn: protectEnvVars,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: true,
     category: "Environment",
   },
@@ -1330,7 +1353,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-read-outside-cwd",
     description: "Block file reads outside the session working directory",
     fn: blockReadOutsideCwd,
-    match: { events: ["PreToolUse"], toolNames: ["Read", "Glob", "Grep", "Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Read", "Glob", "Grep", "Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Environment",
     params: {
@@ -1345,7 +1368,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-sudo",
     description: "Block sudo commands",
     fn: blockSudo,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: true,
     category: "Dangerous Commands",
     params: {
@@ -1360,7 +1383,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-curl-pipe-sh",
     description: "Block piping downloads to shell",
     fn: blockCurlPipeSh,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: true,
     category: "Dangerous Commands",
   },
@@ -1368,7 +1391,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-rm-rf",
     description: "Prevent catastrophic deletions",
     fn: blockRmRf,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Dangerous Commands",
     params: {
@@ -1383,7 +1406,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-failproofai-commands",
     description: "Block failproofai CLI commands and uninstallation",
     fn: blockFailproofaiCommands,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: true,
     category: "Dangerous Commands",
   },
@@ -1406,7 +1429,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-push-master",
     description: "Block pushing to main/master",
     fn: blockPushMaster,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: true,
     category: "Git",
     params: {
@@ -1421,7 +1444,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-force-push",
     description: "Prevent force-pushing to any branch",
     fn: blockForcePush,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Git",
   },
@@ -1429,7 +1452,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-work-on-main",
     description: "Block git commits and merges on main/master branch",
     fn: blockWorkOnMain,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Git",
     params: {
@@ -1444,7 +1467,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "warn-git-amend",
     description: "Warns before amending git commits, which rewrites history",
     fn: warnGitAmend,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Git",
   },
@@ -1452,7 +1475,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "warn-git-stash-drop",
     description: "Warns before permanently deleting stashed changes",
     fn: warnGitStashDrop,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Git",
   },
@@ -1460,7 +1483,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "warn-all-files-staged",
     description: "Warns before staging all working tree files with git add -A / . / --all",
     fn: warnAllFilesStaged,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Git",
   },
@@ -1468,7 +1491,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "warn-destructive-sql",
     description: "Warn before executing destructive SQL (DROP/TRUNCATE/DELETE without WHERE) via database clients",
     fn: warnDestructiveSql,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Database",
   },
@@ -1476,7 +1499,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "warn-schema-alteration",
     description: "Warns before SQL schema changes (ALTER TABLE with column or rename operations)",
     fn: warnSchemaAlteration,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Database",
   },
@@ -1484,7 +1507,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "warn-package-publish",
     description: "Warn before publishing packages to public registries (npm, PyPI, crates.io, RubyGems, etc.)",
     fn: warnPackagePublish,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Packages & System",
   },
@@ -1492,7 +1515,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "warn-global-package-install",
     description: "Warns before installing packages globally (npm -g, cargo install, etc.)",
     fn: warnGlobalPackageInstall,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Packages & System",
   },
@@ -1535,7 +1558,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "warn-background-process",
     description: "Warns before starting detached or background processes",
     fn: warnBackgroundProcess,
-    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
     defaultEnabled: false,
     category: "Packages & System",
   },
