@@ -116,6 +116,35 @@ If a policy has parameters but you don't specify them, the policy's built-in def
 
 Unknown keys inside a policy's params block are silently ignored at hook-fire time but flagged as warnings when you run `failproofai policies`.
 
+#### `hint` (cross-cutting)
+
+Type: `string` (optional)
+
+A message appended to the reason when a policy returns `deny` or `instruct`. Use it to give Claude actionable guidance without modifying the policy itself.
+
+Works with any policy type — built-in, custom (`custom/`), or convention (`convention/`).
+
+```json
+{
+  "policyParams": {
+    "block-force-push": {
+      "hint": "Try creating a fresh branch instead."
+    },
+    "block-sudo": {
+      "allowPatterns": ["sudo apt-get"],
+      "hint": "Use apt-get directly without sudo."
+    },
+    "custom/my-policy": {
+      "hint": "Ask the user for approval first."
+    }
+  }
+}
+```
+
+When `block-force-push` denies, Claude sees: *"Force-pushing is blocked. Try creating a fresh branch instead."*
+
+Non-string values and empty strings are silently ignored. If `hint` is not set, behavior is unchanged (backward-compatible).
+
 ### `customPoliciesPath`
 
 Type: `string` (absolute path)
@@ -123,6 +152,23 @@ Type: `string` (absolute path)
 Path to a JavaScript file containing custom hook policies. This is set automatically by `failproofai policies --install --custom <path>` (the path is resolved to absolute before being stored).
 
 The file is loaded fresh on every hook event - there is no caching. See [Custom Policies](/custom-policies) for authoring details.
+
+### Convention-based policies (v0.0.2-beta.7+)
+
+In addition to the explicit `customPoliciesPath`, failproofai automatically discovers and loads policy files from `.failproofai/policies/` directories:
+
+| Level | Directory | Scope |
+|-------|-----------|-------|
+| Project | `.failproofai/policies/` | Shared with team via version control |
+| User | `~/.failproofai/policies/` | Personal, applies to all projects |
+
+**File matching:** Only files matching `*policies.{js,mjs,ts}` are loaded (e.g. `security-policies.mjs`, `workflow-policies.js`). Other files in the directory are ignored.
+
+**No config needed:** Convention policies require no entries in `policies-config.json`. Just drop files into the directory and they're picked up on the next hook event.
+
+**Union loading:** Both project and user convention directories are scanned. All matching files from both levels are loaded (unlike `customPoliciesPath` which uses first-scope-wins).
+
+See [Custom Policies](/custom-policies) for more details and examples.
 
 ### `llm`
 

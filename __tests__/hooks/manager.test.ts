@@ -46,6 +46,7 @@ vi.mock("../../lib/telemetry-id", () => ({
 
 vi.mock("../../src/hooks/custom-hooks-loader", () => ({
   loadCustomHooks: vi.fn(() => Promise.resolve([])),
+  discoverPolicyFiles: vi.fn(() => []),
 }));
 
 const USER_SETTINGS_PATH = resolve(homedir(), ".claude", "settings.json");

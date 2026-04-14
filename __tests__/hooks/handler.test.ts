@@ -27,7 +27,7 @@ vi.mock("../../src/hooks/policy-registry", () => ({
 }));
 
 vi.mock("../../src/hooks/custom-hooks-loader", () => ({
-  loadCustomHooks: vi.fn(() => Promise.resolve([])),
+  loadAllCustomHooks: vi.fn(() => Promise.resolve({ hooks: [], conventionSources: [] })),
 }));
 
 vi.mock("../../src/hooks/hook-activity-store", () => ({
@@ -117,16 +117,16 @@ describe("hooks/handler", () => {
     expect(registerBuiltinPolicies).toHaveBeenCalledWith(["block-sudo"]);
   });
 
-  it("passes session cwd to loadCustomHooks for relative customPoliciesPath resolution", async () => {
+  it("passes session cwd to loadAllCustomHooks for relative customPoliciesPath resolution", async () => {
     const sessionPayload = JSON.stringify({
       cwd: "/home/user/project",
     });
     mockStdin(sessionPayload);
-    const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+    const { loadAllCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
 
     await handleHookEvent("PreToolUse");
 
-    expect(loadCustomHooks).toHaveBeenCalledWith(
+    expect(loadAllCustomHooks).toHaveBeenCalledWith(
       undefined,
       expect.objectContaining({ sessionCwd: "/home/user/project" }),
     );
@@ -196,6 +196,7 @@ describe("hooks/handler", () => {
           policy_name: "block-sudo",
           decision: "deny",
           is_custom_hook: false,
+          is_convention_policy: false,
           has_custom_params: false,
           param_keys_overridden: [],
         },
@@ -226,6 +227,7 @@ describe("hooks/handler", () => {
           policy_name: "warn-repeated-tool-calls",
           decision: "instruct",
           is_custom_hook: false,
+          is_convention_policy: false,
           has_custom_params: false,
           param_keys_overridden: [],
         },
@@ -344,11 +346,14 @@ describe("hooks/handler", () => {
     });
 
     it("fires custom_hooks_loaded with count, names, and event types when custom hooks are present", async () => {
-      const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
-      vi.mocked(loadCustomHooks).mockResolvedValueOnce([
-        { name: "hook-a", fn: async () => ({ decision: "allow" as const }), match: { events: ["PreToolUse" as never] } },
-        { name: "hook-b", fn: async () => ({ decision: "allow" as const }), match: { events: ["Stop" as never] } },
-      ]);
+      const { loadAllCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+      vi.mocked(loadAllCustomHooks).mockResolvedValueOnce({
+        hooks: [
+          { name: "hook-a", fn: async () => ({ decision: "allow" as const }), match: { events: ["PreToolUse" as never] } },
+          { name: "hook-b", fn: async () => ({ decision: "allow" as const }), match: { events: ["Stop" as never] } },
+        ],
+        conventionSources: [],
+      });
       mockStdin();
       const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
 
@@ -376,10 +381,13 @@ describe("hooks/handler", () => {
     });
 
     it("fires custom_hook_error with error_type exception when hook throws", async () => {
-      const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
-      vi.mocked(loadCustomHooks).mockResolvedValueOnce([
-        { name: "bad-hook", fn: async () => { throw new Error("oops"); } },
-      ]);
+      const { loadAllCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+      vi.mocked(loadAllCustomHooks).mockResolvedValueOnce({
+        hooks: [
+          { name: "bad-hook", fn: async () => { throw new Error("oops"); } },
+        ],
+        conventionSources: [],
+      });
       const { registerPolicy } = await import("../../src/hooks/policy-registry");
       const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
 
@@ -397,15 +405,18 @@ describe("hooks/handler", () => {
       expect(trackHookEvent).toHaveBeenCalledWith(
         "test-instance-id",
         "custom_hook_error",
-        { hook_name: "bad-hook", error_type: "exception", event_type: "PreToolUse" },
+        { hook_name: "bad-hook", error_type: "exception", event_type: "PreToolUse", is_convention_policy: false },
       );
     });
 
     it("fires custom_hook_error with error_type timeout when hook times out", async () => {
-      const { loadCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
-      vi.mocked(loadCustomHooks).mockResolvedValueOnce([
-        { name: "slow-hook", fn: async () => { throw new Error("timeout"); } },
-      ]);
+      const { loadAllCustomHooks } = await import("../../src/hooks/custom-hooks-loader");
+      vi.mocked(loadAllCustomHooks).mockResolvedValueOnce({
+        hooks: [
+          { name: "slow-hook", fn: async () => { throw new Error("timeout"); } },
+        ],
+        conventionSources: [],
+      });
       const { registerPolicy } = await import("../../src/hooks/policy-registry");
       const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
 
@@ -423,7 +434,7 @@ describe("hooks/handler", () => {
       expect(trackHookEvent).toHaveBeenCalledWith(
         "test-instance-id",
         "custom_hook_error",
-        { hook_name: "slow-hook", error_type: "timeout", event_type: "PreToolUse" },
+        { hook_name: "slow-hook", error_type: "timeout", event_type: "PreToolUse", is_convention_policy: false },
       );
     });
 

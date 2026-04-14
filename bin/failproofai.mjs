@@ -97,6 +97,11 @@ COMMANDS
   --version, -v                  Print version and exit
   --help, -h                     Show this help message
 
+CONVENTION POLICIES
+  Drop *policies.{js,mjs,ts} files into .failproofai/policies/ for auto-loading.
+  Works at project level (.failproofai/policies/) and user level (~/.failproofai/policies/).
+  No --custom flag or config changes needed — just drop files and they're picked up.
+
 EXAMPLES
   failproofai policies
   failproofai policies --install
