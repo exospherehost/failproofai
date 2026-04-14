@@ -5,6 +5,9 @@
 ### Features
 - Use portable `npx -y failproofai` command for project-scope hooks, making `.claude/settings.json` committable to git (#96)
 
+### Fixes
+- Fix hooks not working in failproofai's own repo by using local binary instead of npx (#98)
+
 ## 0.0.2-beta.8 — 2026-04-14
 
 ### Features

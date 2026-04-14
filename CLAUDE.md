@@ -8,6 +8,20 @@
 - **Package manager:** bun (`bun install`, `bun run <script>`). Do not use npm/yarn to
   install deps locally.
 
+## Dev hooks (this repo only)
+
+This repo's `.claude/settings.json` uses `bun ./bin/failproofai.mjs --hook <EventType>`
+instead of the standard `npx -y failproofai` command. This is because `npx -y failproofai`
+creates a self-referencing conflict when run inside the failproofai project itself.
+
+For all other repos, the recommended approach is `npx -y failproofai`, installed via:
+```bash
+failproofai policies --install --scope project
+```
+
+Do **not** run `failproofai policies --install --scope project` from this repo — it will
+overwrite the local binary path back to `npx -y failproofai`.
+
 ## Workflow rules
 
 ### One PR per branch
