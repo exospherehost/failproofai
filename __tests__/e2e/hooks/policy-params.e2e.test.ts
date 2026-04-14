@@ -308,50 +308,8 @@ describe("policyParams hint", () => {
     // Should not have ". 42" appended
     expect(reason).not.toContain("42");
   });
-});
 
-// ── hint — cross-cutting policyParams field ─────────────────────────────────
-
-describe("policyParams hint", () => {
-  it("appends hint to deny message for PreToolUse", () => {
-    const env = createFixtureEnv();
-    env.writeConfig({
-      enabledPolicies: ["block-sudo"],
-      policyParams: { "block-sudo": { hint: "Use apt-get directly instead." } },
-    });
-    const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm -rf /", env.cwd), { homeDir: env.home });
-    assertPreToolUseDeny(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    expect(output.permissionDecisionReason).toContain("Use apt-get directly instead.");
-  });
-
-  it("appends hint to instruct message for PreToolUse", () => {
-    const env = createFixtureEnv();
-    env.writeConfig({
-      enabledPolicies: ["warn-large-file-write"],
-      policyParams: { "warn-large-file-write": { thresholdKb: 100, hint: "Split into smaller files." } },
-    });
-    const content = "x".repeat(150 * 1024); // 150KB > 100KB threshold
-    const result = runHook("PreToolUse", Payloads.preToolUse.write(`${env.cwd}/out.txt`, content, env.cwd), { homeDir: env.home });
-    assertInstruct(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    expect(output.additionalContext).toContain("Split into smaller files.");
-  });
-
-  it("deny message is unchanged when no hint is configured", () => {
-    const env = createFixtureEnv();
-    env.writeConfig({
-      enabledPolicies: ["block-sudo"],
-    });
-    const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm -rf /", env.cwd), { homeDir: env.home });
-    assertPreToolUseDeny(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    const reason = output.permissionDecisionReason as string;
-    expect(reason).toContain("failproofai because:");
-    expect(reason).not.toContain(". .");
-  });
-
-  it("appends hint to PostToolUse deny message", () => {
+  it("appends hint to PostToolUse deny message (sanitize-jwt)", () => {
     const env = createFixtureEnv();
     env.writeConfig({
       enabledPolicies: ["sanitize-jwt"],
@@ -363,19 +321,6 @@ describe("policyParams hint", () => {
     assertPostToolUseDeny(result);
     const hookOutput = result.parsed?.hookSpecificOutput as Record<string, unknown>;
     expect(hookOutput.additionalContext).toContain("Redact the token before sharing.");
-  });
-
-  it("ignores non-string hint value", () => {
-    const env = createFixtureEnv();
-    env.writeConfig({
-      enabledPolicies: ["block-sudo"],
-      policyParams: { "block-sudo": { hint: 42 } },
-    });
-    const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm -rf /", env.cwd), { homeDir: env.home });
-    assertPreToolUseDeny(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    const reason = output.permissionDecisionReason as string;
-    expect(reason).not.toContain("42");
   });
 });
 

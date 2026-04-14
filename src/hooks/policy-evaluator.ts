@@ -8,6 +8,14 @@ import { BUILTIN_POLICIES } from "./builtin-policies";
 import { getPoliciesForEvent } from "./policy-registry";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
+function appendHint(baseReason: string, hint: unknown): string {
+  const base = baseReason.trim();
+  const normalizedHint = typeof hint === "string" ? hint.trim() : "";
+  if (!normalizedHint) return base;
+  if (!base) return normalizedHint;
+  return `${base}. ${normalizedHint}`;
+}
+
 export interface EvaluationResult {
   exitCode: number;
   stdout: string;
@@ -80,11 +88,10 @@ export async function evaluatePolicies(
     }
 
     if (result.decision === "deny") {
-      let reason = result.reason ?? `Blocked by policy: ${policy.name}`;
-      const denyHint = config?.policyParams?.[policy.name]?.hint;
-      if (typeof denyHint === "string" && denyHint) {
-        reason = `${reason}. ${denyHint}`;
-      }
+      const reason = appendHint(
+        result.reason ?? `Blocked by policy: ${policy.name}`,
+        config?.policyParams?.[policy.name]?.hint,
+      );
       hookLogInfo(`deny by "${policy.name}": ${reason}`);
 
       const displayTool = ctx.toolName ?? "unknown tool";
@@ -138,12 +145,10 @@ export async function evaluatePolicies(
     // Accumulate first instruct (does not short-circuit — later policies can still deny)
     if (result.decision === "instruct" && !instructPolicyName) {
       instructPolicyName = policy.name;
-      let reason = result.reason ?? `Instruction from policy: ${policy.name}`;
-      const instructHint = config?.policyParams?.[policy.name]?.hint;
-      if (typeof instructHint === "string" && instructHint) {
-        reason = `${reason}. ${instructHint}`;
-      }
-      instructReason = reason;
+      instructReason = appendHint(
+        result.reason ?? `Instruction from policy: ${policy.name}`,
+        config?.policyParams?.[policy.name]?.hint,
+      );
       hookLogInfo(`instruct by "${policy.name}": ${instructReason}`);
     }
 
