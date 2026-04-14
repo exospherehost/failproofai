@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook SessionStart",
+            "command": "bun ./bin/failproofai.mjs --hook SessionStart",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook SessionEnd",
+            "command": "bun ./bin/failproofai.mjs --hook SessionEnd",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook UserPromptSubmit",
+            "command": "bun ./bin/failproofai.mjs --hook UserPromptSubmit",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook PreToolUse",
+            "command": "bun ./bin/failproofai.mjs --hook PreToolUse",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook PermissionRequest",
+            "command": "bun ./bin/failproofai.mjs --hook PermissionRequest",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook PermissionDenied",
+            "command": "bun ./bin/failproofai.mjs --hook PermissionDenied",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -77,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook PostToolUse",
+            "command": "bun ./bin/failproofai.mjs --hook PostToolUse",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook PostToolUseFailure",
+            "command": "bun ./bin/failproofai.mjs --hook PostToolUseFailure",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook Notification",
+            "command": "bun ./bin/failproofai.mjs --hook Notification",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -113,7 +113,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook SubagentStart",
+            "command": "bun ./bin/failproofai.mjs --hook SubagentStart",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -125,7 +125,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook SubagentStop",
+            "command": "bun ./bin/failproofai.mjs --hook SubagentStop",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -137,7 +137,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook TaskCreated",
+            "command": "bun ./bin/failproofai.mjs --hook TaskCreated",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -149,7 +149,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook TaskCompleted",
+            "command": "bun ./bin/failproofai.mjs --hook TaskCompleted",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -161,7 +161,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook Stop",
+            "command": "bun ./bin/failproofai.mjs --hook Stop",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -173,7 +173,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook StopFailure",
+            "command": "bun ./bin/failproofai.mjs --hook StopFailure",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -185,7 +185,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook TeammateIdle",
+            "command": "bun ./bin/failproofai.mjs --hook TeammateIdle",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -197,7 +197,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook InstructionsLoaded",
+            "command": "bun ./bin/failproofai.mjs --hook InstructionsLoaded",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -209,7 +209,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook ConfigChange",
+            "command": "bun ./bin/failproofai.mjs --hook ConfigChange",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -221,7 +221,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook CwdChanged",
+            "command": "bun ./bin/failproofai.mjs --hook CwdChanged",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -233,7 +233,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook FileChanged",
+            "command": "bun ./bin/failproofai.mjs --hook FileChanged",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -245,7 +245,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook WorktreeCreate",
+            "command": "bun ./bin/failproofai.mjs --hook WorktreeCreate",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -257,7 +257,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook WorktreeRemove",
+            "command": "bun ./bin/failproofai.mjs --hook WorktreeRemove",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -269,7 +269,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook PreCompact",
+            "command": "bun ./bin/failproofai.mjs --hook PreCompact",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -281,7 +281,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook PostCompact",
+            "command": "bun ./bin/failproofai.mjs --hook PostCompact",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -293,7 +293,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook Elicitation",
+            "command": "bun ./bin/failproofai.mjs --hook Elicitation",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -305,7 +305,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx -y failproofai --hook ElicitationResult",
+            "command": "bun ./bin/failproofai.mjs --hook ElicitationResult",
             "timeout": 60000,
             "__failproofai_hook__": true
           }

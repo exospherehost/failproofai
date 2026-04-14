@@ -8,16 +8,40 @@ on:
       - 'docs/**/*.mdx'
       - 'README.md'
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Ignore cache and re-translate everything'
+        type: boolean
+        default: false
+      languages:
+        description: 'Comma-separated language codes (leave empty for all)'
+        type: string
+        default: ''
 
 concurrency:
   group: translate-docs
 
 jobs:
-  translate:
+  prepare:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    outputs:
+      languages: ${{ steps.langs.outputs.languages }}
+    steps:
+      - id: langs
+        run: |
+          if [ -n "${{ inputs.languages }}" ]; then
+            echo "languages=$(echo '${{ inputs.languages }}' | jq -Rc 'split(",") | map(gsub("\\s"; ""))')" >> "$GITHUB_OUTPUT"
+          else
+            echo 'languages=["zh","ja","ko","es","pt-br","de","fr","ru","hi","tr","vi","it","ar","he"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  translate:
+    needs: prepare
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lang: ${{ fromJson(needs.prepare.outputs.languages) }}
 
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
@@ -47,8 +71,86 @@ jobs:
           key: translation-cache-${{ hashFiles('scripts/translate-docs/.translation-cache.json') }}
           restore-keys: translation-cache-
 
-      - name: Run translations
-        run: bun run translate --tier 3
+      - name: Translate ${{ matrix.lang }}
+        run: bun run translate --languages ${{ matrix.lang }} ${{ inputs.force == true && '--force' || '' }}
+
+      - name: Upload translated files
+        uses: actions/upload-artifact@v4
+        with:
+          name: translations-${{ matrix.lang }}
+          path: |
+            docs/${{ matrix.lang }}/
+            docs/i18n/README.${{ matrix.lang }}.md
+          retention-days: 1
+          if-no-files-found: warn
+
+      - name: Upload cache fragment
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-${{ matrix.lang }}
+          path: scripts/translate-docs/.translation-cache.json
+          retention-days: 1
+
+  consolidate:
+    needs: [prepare, translate]
+    if: always() && needs.translate.result != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all translations
+        uses: actions/download-artifact@v4
+        with:
+          pattern: translations-*
+          merge-multiple: true
+
+      - name: Download cache fragments
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cache-*
+          path: cache-fragments/
+
+      - name: Merge translation caches
+        run: |
+          node -e "
+          const fs = require('fs');
+          const path = require('path');
+          const dir = 'cache-fragments';
+          const merged = { sourceHash: '', lastUpdated: '', translations: {} };
+          let baseLoaded = false;
+          for (const sub of fs.readdirSync(dir).sort()) {
+            const f = path.join(dir, sub, '.translation-cache.json');
+            if (!fs.existsSync(f)) continue;
+            const data = JSON.parse(fs.readFileSync(f, 'utf-8'));
+            // Load base entries from the first fragment (all fragments share the same base)
+            if (!baseLoaded) {
+              Object.assign(merged.translations, data.translations);
+              baseLoaded = true;
+            }
+            // Each fragment is authoritative only for its own language.
+            // Extract lang from directory name: 'cache-zh' -> 'zh'
+            const lang = sub.replace('cache-', '');
+            const suffix = '::' + lang;
+            for (const [key, value] of Object.entries(data.translations)) {
+              if (key.endsWith(suffix)) {
+                merged.translations[key] = value;
+              }
+            }
+            if (data.lastUpdated > merged.lastUpdated) {
+              merged.lastUpdated = data.lastUpdated;
+            }
+          }
+          fs.mkdirSync('scripts/translate-docs', { recursive: true });
+          fs.writeFileSync(
+            'scripts/translate-docs/.translation-cache.json',
+            JSON.stringify(merged, null, 2)
+          );
+          console.log('Merged ' + Object.keys(merged.translations).length + ' cache entries');
+          "
 
       - name: Save translation cache
         uses: actions/cache/save@v4
@@ -71,7 +173,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Check for existing open translate PR
           EXISTING=$(gh pr list --base main --search "[auto] update translations" --state open --json number --jq length)
           if [ "$EXISTING" -gt 0 ]; then
             echo "Translation PR already open. Skipping."
@@ -90,7 +191,7 @@ jobs:
           Automated translation update triggered by changes to English documentation sources.
 
           - Only changed pages were re-translated (content-hash cache)
-          - All 14 languages across 3 tiers"
+          - All 14 languages across 3 tiers (parallel matrix)"
 
           gh pr create \
             --title "[auto] update translations" \
