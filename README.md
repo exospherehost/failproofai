@@ -276,6 +276,16 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
+## Note for failproofai contributors
+
+This repo's `.claude/settings.json` uses `bun ./bin/failproofai.mjs --hook <EventType>` instead of the standard `npx -y failproofai` command. This is because running `npx -y failproofai` inside the failproofai project itself creates a self-referencing conflict.
+
+For all other repos, the recommended approach is `npx -y failproofai`, installed via:
+
+```bash
+failproofai policies --install --scope project
+```
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
