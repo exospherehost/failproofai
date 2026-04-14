@@ -70,6 +70,7 @@ jobs:
 
   consolidate:
     needs: translate
+    if: always() && needs.translate.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
       contents: write

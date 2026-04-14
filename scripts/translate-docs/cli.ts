@@ -7,7 +7,7 @@ import { LANGUAGES, getLanguagesByTier, getLanguageByCode } from "./config";
 import { getEnglishMdxPages, translateMdxPage } from "./mdx-translator";
 import { translateReadme } from "./readme-translator";
 import { updateDocsJson, readDocsConfig } from "./mintlify-nav";
-import { readCache, writeCache, isCached, setCacheEntry, contentHash } from "./cache";
+import { readCache, writeCache, isCached, setCacheEntry } from "./cache";
 import type { TranslationResult } from "./types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -168,6 +168,21 @@ async function main() {
   // Read cache once upfront — filter unchanged files before starting work
   const cache = readCache();
 
+  // Concurrency limiter to avoid overwhelming the Anthropic API
+  const MAX_CONCURRENT = 10;
+  async function runWithConcurrency<T>(tasks: (() => Promise<T>)[]): Promise<T[]> {
+    const results: T[] = [];
+    let i = 0;
+    async function next(): Promise<void> {
+      while (i < tasks.length) {
+        const idx = i++;
+        results[idx] = await tasks[idx]();
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(MAX_CONCURRENT, tasks.length) }, () => next()));
+    return results;
+  }
+
   // Translate docs
   if (!args["readme-only"]) {
     const pages = getEnglishMdxPages();
@@ -178,6 +193,12 @@ async function main() {
         })
       : pages;
 
+    // Read each page once and reuse across languages
+    const pageContents = new Map<string, string>();
+    for (const page of filteredPages) {
+      pageContents.set(page, readFileSync(page, "utf-8"));
+    }
+
     // Split into cached (skip) and uncached (need translation) upfront
     type PageTask = { page: string; relPath: string; lang: string };
     const cachedTasks: PageTask[] = [];
@@ -187,7 +208,7 @@ async function main() {
       for (const page of filteredPages) {
         const relPath = relative(DOCS_DIR, page);
         const task = { page, relPath, lang };
-        if (!isForce && !isDryRun && isCached(cache, relPath, lang, readFileSync(page, "utf-8"))) {
+        if (!isForce && !isDryRun && isCached(cache, relPath, lang, pageContents.get(page)!)) {
           cachedTasks.push(task);
         } else {
           uncachedTasks.push(task);
@@ -211,39 +232,32 @@ async function main() {
       });
     }
 
-    // Translate uncached pages in parallel
+    // Translate uncached pages with concurrency limit
     if (uncachedTasks.length > 0) {
-      const settlements = await Promise.allSettled(
-        uncachedTasks.map(async ({ page, relPath, lang }) => {
-          const result = await translateMdxPage(page, lang, {
-            force: isForce,
-            dryRun: isDryRun,
-            model,
-            cache,
-          });
-          const status = isDryRun
-            ? "would translate"
-            : `translated (${result.inputTokens}+${result.outputTokens} tokens)`;
-          console.log(`  ${relPath} [${lang}] -> ${status}`);
-          return { result, relPath, lang, page };
+      const taskResults = await runWithConcurrency(
+        uncachedTasks.map(({ page, relPath, lang }) => async () => {
+          try {
+            const result = await translateMdxPage(page, lang, {
+              force: isForce,
+              dryRun: isDryRun,
+              model,
+              cache,
+            });
+            const status = isDryRun
+              ? "would translate"
+              : `translated (${result.inputTokens}+${result.outputTokens} tokens)`;
+            console.log(`  ${relPath} [${lang}] -> ${status}`);
+            results.push(result);
+            if (!result.cached && !isDryRun) {
+              setCacheEntry(cache, relPath, lang, pageContents.get(page)!, result.inputTokens, result.outputTokens);
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            errors.push({ lang, source: relPath, error: msg });
+            console.error(`  ${relPath} [${lang}] -> ERROR: ${msg}`);
+          }
         }),
       );
-
-      for (const settlement of settlements) {
-        if (settlement.status === "fulfilled") {
-          const { result, relPath, lang, page } = settlement.value;
-          results.push(result);
-          // Batch cache update — accumulate in memory
-          if (!result.cached && !isDryRun) {
-            setCacheEntry(cache, relPath, lang, readFileSync(page, "utf-8"), result.inputTokens, result.outputTokens);
-          }
-        } else {
-          const msg = settlement.reason instanceof Error ? settlement.reason.message : String(settlement.reason);
-          // Extract lang/source from the error if possible
-          errors.push({ lang: "unknown", source: "unknown", error: msg });
-          console.error(`  ERROR: ${msg}`);
-        }
-      }
     }
   }
 
@@ -251,7 +265,7 @@ async function main() {
   if (!args["docs-only"]) {
     console.log(`\nTranslating README...`);
 
-    // Split cached vs uncached
+    // Read README once
     const readmeSource = readFileSync(join(DOCS_DIR, "..", "README.md"), "utf-8");
     const uncachedLangs: string[] = [];
     for (const lang of langCodes) {
@@ -271,36 +285,31 @@ async function main() {
     }
 
     if (uncachedLangs.length > 0) {
-      const settlements = await Promise.allSettled(
-        uncachedLangs.map(async (lang) => {
-          const langConfig = getLanguageByCode(lang)!;
-          const result = await translateReadme(lang, {
-            force: isForce,
-            dryRun: isDryRun,
-            model,
-            cache,
-          });
-          const status = isDryRun
-            ? "would translate"
-            : `translated (${result.inputTokens}+${result.outputTokens} tokens)`;
-          console.log(`  README.${lang}.md -> ${langConfig.nativeName}: ${status}`);
-          return { result, lang };
+      await runWithConcurrency(
+        uncachedLangs.map((lang) => async () => {
+          try {
+            const langConfig = getLanguageByCode(lang)!;
+            const result = await translateReadme(lang, {
+              force: isForce,
+              dryRun: isDryRun,
+              model,
+              cache,
+            });
+            const status = isDryRun
+              ? "would translate"
+              : `translated (${result.inputTokens}+${result.outputTokens} tokens)`;
+            console.log(`  README.${lang}.md -> ${langConfig.nativeName}: ${status}`);
+            results.push(result);
+            if (!result.cached && !isDryRun) {
+              setCacheEntry(cache, "README.md", lang, readmeSource, result.inputTokens, result.outputTokens);
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            errors.push({ lang, source: "README.md", error: msg });
+            console.error(`  README.${lang}.md -> ERROR: ${msg}`);
+          }
         }),
       );
-
-      for (const settlement of settlements) {
-        if (settlement.status === "fulfilled") {
-          const { result, lang } = settlement.value;
-          results.push(result);
-          if (!result.cached && !isDryRun) {
-            setCacheEntry(cache, "README.md", lang, readmeSource, result.inputTokens, result.outputTokens);
-          }
-        } else {
-          const msg = settlement.reason instanceof Error ? settlement.reason.message : String(settlement.reason);
-          errors.push({ lang: "unknown", source: "README.md", error: msg });
-          console.error(`  README ERROR: ${msg}`);
-        }
-      }
     }
   }
 
