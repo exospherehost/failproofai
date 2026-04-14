@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook SessionStart",
+            "command": "npx -y failproofai --hook SessionStart",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook SessionEnd",
+            "command": "npx -y failproofai --hook SessionEnd",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook UserPromptSubmit",
+            "command": "npx -y failproofai --hook UserPromptSubmit",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PreToolUse",
+            "command": "npx -y failproofai --hook PreToolUse",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PermissionRequest",
+            "command": "npx -y failproofai --hook PermissionRequest",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PermissionDenied",
+            "command": "npx -y failproofai --hook PermissionDenied",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -77,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PostToolUse",
+            "command": "npx -y failproofai --hook PostToolUse",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PostToolUseFailure",
+            "command": "npx -y failproofai --hook PostToolUseFailure",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook Notification",
+            "command": "npx -y failproofai --hook Notification",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -113,7 +113,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook SubagentStart",
+            "command": "npx -y failproofai --hook SubagentStart",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -125,7 +125,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook SubagentStop",
+            "command": "npx -y failproofai --hook SubagentStop",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -137,7 +137,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook TaskCreated",
+            "command": "npx -y failproofai --hook TaskCreated",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -149,7 +149,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook TaskCompleted",
+            "command": "npx -y failproofai --hook TaskCompleted",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -161,7 +161,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook Stop",
+            "command": "npx -y failproofai --hook Stop",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -173,7 +173,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook StopFailure",
+            "command": "npx -y failproofai --hook StopFailure",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -185,7 +185,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook TeammateIdle",
+            "command": "npx -y failproofai --hook TeammateIdle",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -197,7 +197,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook InstructionsLoaded",
+            "command": "npx -y failproofai --hook InstructionsLoaded",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -209,7 +209,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook ConfigChange",
+            "command": "npx -y failproofai --hook ConfigChange",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -221,7 +221,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook CwdChanged",
+            "command": "npx -y failproofai --hook CwdChanged",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -233,7 +233,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook FileChanged",
+            "command": "npx -y failproofai --hook FileChanged",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -245,7 +245,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook WorktreeCreate",
+            "command": "npx -y failproofai --hook WorktreeCreate",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -257,7 +257,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook WorktreeRemove",
+            "command": "npx -y failproofai --hook WorktreeRemove",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -269,7 +269,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PreCompact",
+            "command": "npx -y failproofai --hook PreCompact",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -281,7 +281,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PostCompact",
+            "command": "npx -y failproofai --hook PostCompact",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -293,7 +293,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook Elicitation",
+            "command": "npx -y failproofai --hook Elicitation",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -305,7 +305,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook ElicitationResult",
+            "command": "npx -y failproofai --hook ElicitationResult",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
