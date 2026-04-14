@@ -1,0 +1,299 @@
+---
+title: カスタムポリシー
+description: "JavaScriptで独自のポリシーを記述する — 規約の強制、ドリフトの防止、障害の検出、外部システムとの連携など"
+icon: code
+---
+
+カスタムポリシーを使うと、エージェントの任意の動作に対してルールを記述できます。プロジェクト規約の強制、ドリフトの防止、破壊的な操作のゲート制御、スタックしたエージェントの検出、Slackや承認ワークフローとの連携など、さまざまなユースケースに対応します。組み込みポリシーと同じフックイベントシステムおよび `allow`、`deny`、`instruct` の判定を使用します。
+
+---
+
+## クイックサンプル
+
+```js
+// my-policies.js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+
+customPolicies.add({
+  name: "no-production-writes",
+  description: "Block writes to paths containing 'production'",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Write" && ctx.toolName !== "Edit") return allow();
+    const path = ctx.toolInput?.file_path ?? "";
+    if (path.includes("production")) {
+      return deny("Writes to production paths are blocked");
+    }
+    return allow();
+  },
+});
+```
+
+インストール:
+
+```bash
+failproofai policies --install --custom ./my-policies.js
+```
+
+---
+
+## インストールと更新
+
+```bash
+# カスタムポリシーファイルをインストール
+failproofai policies --install --custom ./my-policies.js
+
+# ポリシーファイルのパスを変更
+failproofai policies --install --custom ./new-policies.js
+
+# 設定からカスタムポリシーのパスを削除
+failproofai policies --uninstall --custom
+```
+
+解決済みの絶対パスは `policies-config.json` の `customPoliciesPath` に保存されます。ファイルはフックイベントごとに新たに読み込まれます — イベント間でのキャッシュはありません。
+
+---
+
+## API
+
+### インポート
+
+```js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+```
+
+### `customPolicies.add(hook)`
+
+ポリシーを登録します。同一ファイル内で複数のポリシーを登録する場合は、必要な回数だけ呼び出してください。
+
+```ts
+customPolicies.add({
+  name: string;                         // 必須 - 一意の識別子
+  description?: string;                 // `failproofai policies` の出力に表示される
+  match?: { events?: HookEventType[] }; // イベントタイプでフィルタリング; 省略するとすべてにマッチ
+  fn: (ctx: PolicyContext) => PolicyResult | Promise<PolicyResult>;
+});
+```
+
+### 判定ヘルパー
+
+| 関数 | 効果 | 使いどころ |
+|----------|--------|----------|
+| `allow()` | 操作をサイレントに許可する | アクションが安全で、メッセージが不要な場合 |
+| `deny(message)` | 操作をブロックする | エージェントがこのアクションを実行すべきでない場合 |
+| `instruct(message)` | ブロックせずにコンテキストを追加する | エージェントに軌道修正のための追加情報を与える場合 |
+
+`deny(message)` — メッセージは `"Blocked by failproofai:"` というプレフィックス付きで Claude に表示されます。1つの `deny` が発生すると、それ以降の評価はすべてショートサーキットされます。
+
+`instruct(message)` — メッセージは現在のツール呼び出しに対する Claude のコンテキストに追記されます。最初の `instruct` が優先され、他のポリシーからのそれ以降の `instruct` の戻り値は無視されます。
+
+### 情報提供用のallowメッセージ（ベータ）
+
+<Note>
+`allow(message)` は v0.0.2-beta.3 以降で利用可能なベータ機能です。APIは将来のリリースで変更される可能性があります。それ以前のバージョンは引数なしの `allow()` のみをサポートしています。
+</Note>
+
+`allow(message)` は操作を許可し**つつ**、情報提供用のメッセージを Claude に送信します。メッセージはフックハンドラーの stdout レスポンスにおける `additionalContext` として配信されます — `instruct` と同じメカニズムを使用しますが、意味的には異なります。これは警告ではなく、ステータスの通知です。
+
+| 関数 | 効果 | 使いどころ |
+|----------|--------|----------|
+| `allow(message)` | 許可しつつClaudeにコンテキストを送信する | チェックが通過したことを確認、またはチェックをスキップした理由を説明する場合 |
+
+ユースケース:
+- **ステータス確認:** `allow("All CI checks passed.")` — すべてが正常であることを Claude に伝える
+- **フェイルオープンの説明:** `allow("GitHub CLI not installed, skipping CI check.")` — チェックをスキップした理由を Claude に伝え、完全なコンテキストを提供する
+- **複数メッセージの集約:** 複数のポリシーがそれぞれ `allow(message)` を返した場合、すべてのメッセージが改行で結合されてまとめて配信される
+
+```js
+customPolicies.add({
+  name: "confirm-branch-status",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    const cwd = ctx.session?.cwd;
+    if (!cwd) return allow("No working directory, skipping branch check.");
+
+    // ... check branch status ...
+    if (allPushed) {
+      return allow("Branch is up to date with remote.");
+    }
+    return deny("Unpushed changes detected.");
+  },
+});
+```
+
+### `PolicyContext` のフィールド
+
+| フィールド | 型 | 説明 |
+|-------|------|-------------|
+| `eventType` | `string` | `"PreToolUse"`、`"PostToolUse"`、`"Notification"`、`"Stop"` |
+| `toolName` | `string \| undefined` | 呼び出されるツール（例: `"Bash"`、`"Write"`、`"Read"`） |
+| `toolInput` | `Record<string, unknown> \| undefined` | ツールの入力パラメータ |
+| `payload` | `Record<string, unknown>` | Claude Code からの生のイベントペイロード全体 |
+| `session` | `SessionMetadata \| undefined` | セッションコンテキスト（下記参照） |
+
+### `SessionMetadata` のフィールド
+
+| フィールド | 型 | 説明 |
+|-------|------|-------------|
+| `sessionId` | `string` | Claude Code のセッション識別子 |
+| `cwd` | `string` | Claude Code セッションの作業ディレクトリ |
+| `transcriptPath` | `string` | セッションの JSONL トランスクリプトファイルへのパス |
+
+### イベントタイプ
+
+| イベント | 発火タイミング | `toolInput` の内容 |
+|-------|--------------|----------------------|
+| `PreToolUse` | Claude がツールを実行する前 | ツールの入力（例: Bash の場合 `{ command: "..." }`） |
+| `PostToolUse` | ツールの実行完了後 | ツールの入力 + `tool_result`（出力） |
+| `Notification` | Claude が通知を送信するとき | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` — フックは常に `allow()` を返す必要があり、通知をブロックすることはできません |
+| `Stop` | Claude セッションが終了するとき | 空 |
+
+---
+
+## 評価順序
+
+ポリシーは以下の順序で評価されます:
+
+1. 組み込みポリシー（定義順）
+2. カスタムポリシー（`.add()` の呼び出し順）
+
+<Note>
+最初の `deny` が発生すると、それ以降のすべてのポリシーがショートサーキットされます。最初の `instruct` が優先され、それ以降の `instruct` の戻り値は無視されます。
+</Note>
+
+---
+
+## トランジティブインポート
+
+カスタムポリシーファイルは、相対パスを使ってローカルモジュールをインポートできます:
+
+```js
+// my-policies.js
+import { isBlockedPath } from "./utils.js";
+import { checkApproval } from "./approval-client.js";
+
+customPolicies.add({
+  name: "approval-gate",
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const approved = await checkApproval(ctx.toolInput?.command, ctx.session?.sessionId);
+    return approved ? allow() : deny("Approval required for this command");
+  },
+});
+```
+
+エントリーファイルから到達可能なすべての相対インポートが解決されます。これは、`from "failproofai"` のインポートを実際の dist パスに書き換え、ESM 互換性を確保するために一時的な `.mjs` ファイルを作成することで実装されています。
+
+---
+
+## イベントタイプのフィルタリング
+
+`match.events` を使って、ポリシーが発火するタイミングを限定できます:
+
+```js
+customPolicies.add({
+  name: "require-summary-on-stop",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    // セッション終了時にのみ発火
+    // ctx.session.transcriptPath にセッションの完全なログが含まれる
+    return allow();
+  },
+});
+```
+
+`match` を完全に省略すると、すべてのイベントタイプで発火します。
+
+---
+
+## エラーハンドリングとフェイルモード
+
+カスタムポリシーは**フェイルオープン**です。エラーが発生しても、組み込みポリシーをブロックしたりフックハンドラーをクラッシュさせることはありません。
+
+| 障害 | 動作 |
+|---------|----------|
+| `customPoliciesPath` が未設定 | カスタムポリシーは実行されず、組み込みポリシーは通常どおり継続する |
+| ファイルが見つからない | `~/.failproofai/hook.log` に警告が記録され、組み込みポリシーは継続する |
+| 構文/インポートエラー | `~/.failproofai/hook.log` にエラーが記録され、すべてのカスタムポリシーがスキップされる |
+| 実行時に `fn` が例外をスロー | エラーが記録され、そのフックは `allow` として扱われ、他のフックは継続する |
+| `fn` の実行が10秒を超えた場合 | タイムアウトが記録され、`allow` として扱われる |
+
+<Tip>
+カスタムポリシーのエラーをデバッグするには、ログファイルを監視してください:
+
+```bash
+tail -f ~/.failproofai/hook.log
+```
+</Tip>
+
+---
+
+## 完全なサンプル: 複数ポリシー
+
+```js
+// my-policies.js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+
+// Prevent agent from writing to secrets/ directory
+customPolicies.add({
+  name: "block-secrets-dir",
+  description: "Prevent agent from writing to secrets/ directory",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
+    const path = ctx.toolInput?.file_path ?? "";
+    if (path.includes("secrets/")) return deny("Writing to secrets/ is not permitted");
+    return allow();
+  },
+});
+
+// Keep the agent on track: verify tests before committing
+customPolicies.add({
+  name: "remind-test-before-commit",
+  description: "Keep the agent on track: verify tests pass before committing",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = ctx.toolInput?.command ?? "";
+    if (/git\s+commit/.test(cmd)) {
+      return instruct("Verify all tests pass before committing. Run `bun test` if you haven't already.");
+    }
+    return allow();
+  },
+});
+
+// Prevent unplanned dependency changes during freeze
+customPolicies.add({
+  name: "dependency-freeze",
+  description: "Prevent unplanned dependency changes during freeze period",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = ctx.toolInput?.command ?? "";
+    const isInstall = /^(npm install|yarn add|bun add|pnpm add)\s+\S/.test(cmd);
+    if (isInstall && process.env.DEPENDENCY_FREEZE === "1") {
+      return deny("Package installs are frozen. Unset DEPENDENCY_FREEZE to allow.");
+    }
+    return allow();
+  },
+});
+
+export { customPolicies };
+```
+
+---
+
+## サンプル集
+
+`examples/` ディレクトリには、すぐに使えるポリシーファイルが含まれています:
+
+| ファイル | 内容 |
+|------|----------|
+| `examples/policies-basic.js` | エージェントの一般的な障害モードをカバーする5つのスターターポリシー |
+| `examples/policies-advanced/index.js` | 高度なパターン: トランジティブインポート、非同期呼び出し、出力のスクラビング、セッション終了フック |
+
+基本サンプルのインストール:
+
+```bash
+failproofai policies --install --custom ./examples/policies-basic.js
+```

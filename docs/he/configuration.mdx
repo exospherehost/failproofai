@@ -1,0 +1,176 @@
+---
+title: תצורה
+description: "פורמט קובץ תצורה, מערכת שלושת ההיקפים וכללי מיזוג"
+icon: gear
+---
+
+failproofai משתמש בקובצי תצורה מסוג JSON כדי לשלוט באילו מדיניות פעילות, כיצד הן מתנהגות ומהיכן נטענות מדיניות מותאמות אישית. התצורה מתוכננת להיות קלה לשיתוף עם הצוות - בצעו commit לריפו שלכם וכל מפתח יקבל את אותה רשת הגנה לסוכן.
+
+---
+
+## היקפי תצורה
+
+קיימים שלושה היקפי תצורה, המוערכים לפי סדר עדיפויות:
+
+| היקף | נתיב קובץ | מטרה |
+|------|-----------|------|
+| **project** | `.failproofai/policies-config.json` | הגדרות לכל ריפו, מועלות לבקרת גרסאות |
+| **local** | `.failproofai/policies-config.local.json` | עקיפות אישיות לכל ריפו, נכלל ב-gitignore |
+| **global** | `~/.failproofai/policies-config.json` | ברירות מחדל ברמת המשתמש לכל הפרויקטים |
+
+כאשר failproofai מקבל אירוע hook, הוא טוען וממזג את שלושת הקבצים הקיימים עבור ספריית העבודה הנוכחית.
+
+### כללי מיזוג
+
+**`enabledPolicies`** - האיחוד של כל שלושת ההיקפים. מדיניות שמופעלת בכל רמה שהיא תהיה פעילה.
+
+```text
+project:  ["block-sudo"]
+local:    ["block-rm-rf"]
+global:   ["block-sudo", "sanitize-api-keys"]
+
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← deduplicated union
+```
+
+**`policyParams`** - ההיקף הראשון שמגדיר פרמטרים עבור מדיניות נתונה גובר לחלוטין. אין מיזוג עמוק של ערכים בתוך פרמטרי המדיניות.
+
+```text
+project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← project wins, global ignored
+```
+
+```text
+project:  (no block-sudo entry)
+local:    (no block-sudo entry)
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← falls through to global
+```
+
+**`customPoliciesPath`** - ההיקף הראשון שמגדיר אותו גובר.
+
+**`llm`** - ההיקף הראשון שמגדיר אותו גובר.
+
+---
+
+## פורמט קובץ תצורה
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "sanitize-jwt",
+    "block-env-files",
+    "block-read-outside-cwd"
+  ],
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    },
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "prod"]
+    },
+    "block-rm-rf": {
+      "allowPaths": ["/tmp"]
+    },
+    "block-read-outside-cwd": {
+      "allowPaths": ["/shared/data", "/opt/company"]
+    },
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
+      ]
+    },
+    "warn-large-file-write": {
+      "thresholdKb": 512
+    }
+  },
+  "customPoliciesPath": "/home/alice/myproject/my-policies.js"
+}
+```
+
+---
+
+## עיון בשדות
+
+### `enabledPolicies`
+
+סוג: `string[]`
+
+רשימת שמות המדיניות להפעלה. השמות חייבים להתאים בדיוק למזהי המדיניות המוצגים על ידי `failproofai policies`. ראו [מדיניות מובנית](/he/built-in-policies) לרשימה המלאה.
+
+מדיניות שאינה ב-`enabledPolicies` אינה פעילה, גם אם יש לה ערכים ב-`policyParams`.
+
+### `policyParams`
+
+סוג: `Record<string, Record<string, unknown>>`
+
+עקיפות פרמטרים לכל מדיניות. המפתח החיצוני הוא שם המדיניות; המפתחות הפנימיים ספציפיים לכל מדיניות. כל מדיניות מתעדת את הפרמטרים הזמינים שלה ב[מדיניות מובנית](/he/built-in-policies).
+
+אם למדיניות יש פרמטרים אך לא הגדרתם אותם, ייעשה שימוש בברירות המחדל המובנות של המדיניות. משתמשים שאינם מגדירים `policyParams` כלל יקבלו התנהגות זהה לגרסאות קודמות.
+
+מפתחות לא מוכרים בתוך בלוק הפרמטרים של מדיניות יתעלמו מהם בשקט בעת הפעלת ה-hook, אך יסומנו כאזהרות בעת הרצת `failproofai policies`.
+
+### `customPoliciesPath`
+
+סוג: `string` (נתיב מוחלט)
+
+נתיב לקובץ JavaScript המכיל מדיניות hook מותאמות אישית. שדה זה מוגדר אוטומטית על ידי `failproofai policies --install --custom <path>` (הנתיב מומר לנתיב מוחלט לפני האחסון).
+
+הקובץ נטען מחדש בכל אירוע hook - אין שמירת מטמון. ראו [מדיניות מותאמת אישית](/he/custom-policies) לפרטי כתיבה.
+
+### `llm`
+
+סוג: `object` (אופציונלי)
+
+תצורת לקוח LLM עבור מדיניות שמבצעות קריאות AI. אינה נדרשת ברוב ההגדרות.
+
+```json
+{
+  "llm": {
+    "model": "claude-sonnet-4-6",
+    "apiKey": "sk-ant-..."
+  }
+}
+```
+
+---
+
+## ניהול תצורה מה-CLI
+
+הפקודות `policies --install` ו-`policies --uninstall` כותבות ל-`settings.json` של Claude Code (נקודות כניסה ל-hook), בעוד ש-`policies-config.json` הוא הקובץ שאתם מנהלים ישירות. השניים נפרדים:
+
+- **`settings.json`** - מורה ל-Claude Code לקרוא ל-`failproofai --hook <event>` בכל שימוש בכלי
+- **`policies-config.json`** - מורה ל-failproofai אילו מדיניות להעריך ועם אילו פרמטרים
+
+ניתן לערוך את `policies-config.json` ישירות בכל עת; השינויים נכנסים לתוקף מיד באירוע ה-hook הבא ללא צורך בהפעלה מחדש.
+
+---
+
+## דוגמה: תצורה ברמת פרויקט עם ברירות מחדל לצוות
+
+בצעו commit של `.failproofai/policies-config.json` לריפו שלכם:
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "block-env-files"
+  ],
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "hotfix"]
+    }
+  }
+}
+```
+
+כל מפתח יכול לאחר מכן ליצור `.failproofai/policies-config.local.json` (נכלל ב-gitignore) עבור עקיפות אישיות מבלי להשפיע על חברי הצוות.

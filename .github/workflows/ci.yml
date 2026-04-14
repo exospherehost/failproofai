@@ -147,6 +147,22 @@ jobs:
           timeout_minutes: 10
           command: bun run build
 
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Mintlify CLI
+        run: npm install -g mintlify
+
+      - name: Validate docs
+        working-directory: docs
+        run: mintlify validate
+
   test-e2e:
     runs-on: ubuntu-latest
     env:

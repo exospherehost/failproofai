@@ -1,0 +1,57 @@
+---
+title: Failproof AI
+description: "管理让您的 AI 智能体保持可靠且自主运行的钩子与策略"
+---
+
+[![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
+
+让您的 AI 智能体保持可靠且自主运行的钩子与策略——适用于 **Claude Code** 和 **Agents SDK**。
+
+AI 智能体的失败方式往往有迹可循：执行破坏性命令、泄露密钥、偏离任务、陷入循环，或直接推送到主分支。若无人看管，小问题会不断扩大。
+
+Failproof AI 通过**策略**来解决这些问题——这些规则会介入智能体的每一次工具调用，能够**检测故障**、**进行缓解**（拦截、指令纠正、内容净化），并在需要人工介入时**向您发出警报**。本地仪表板让您可以随时回顾所有操作记录。
+
+所有处理均在本地完成，数据不会离开您的设备。
+
+## 快速上手
+
+<CardGroup cols={2}>
+
+<Card title="26 条内置策略" icon="shield" href="/zh/built-in-policies">
+  开箱即用：拦截破坏性命令、防止密钥泄露、将智能体限制在项目边界内，以及更多功能。
+</Card>
+
+<Card title="自定义策略" icon="code" href="/zh/custom-policies">
+  使用简洁的 allow / deny / instruct API，用 JavaScript 编写您自己的规则。
+</Card>
+
+<Card title="智能体监控" icon="chart-line" href="/zh/dashboard">
+  查看智能体在您离开期间的操作记录。浏览会话、检查工具调用、查看策略触发情况。
+</Card>
+
+<Card title="便捷配置" icon="gear" href="/zh/configuration">
+  无需编写代码即可调整任意策略。按项目或全局设置允许列表、受保护分支或阈值。
+</Card>
+
+</CardGroup>
+
+## 快速开始
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+```bash
+failproofai policies --install   # 启用策略
+failproofai                      # 启动仪表板
+```
+
+完整操作指南请参阅[入门指南](/zh/getting-started)。

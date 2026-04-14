@@ -1,0 +1,546 @@
+---
+title: 기본 제공 정책
+description: "에이전트의 일반적인 실패 유형을 감지하는 30가지 기본 제공 정책"
+icon: shield
+---
+
+failproofai에는 에이전트의 일반적인 실패 유형을 감지하는 30가지 기본 제공 정책이 포함되어 있습니다. 각 정책은 특정 훅 이벤트 유형과 도구 이름에 따라 실행됩니다. 9가지 정책은 코드 작성 없이 동작을 조정할 수 있는 파라미터를 지원합니다. 4가지 베타 워크플로우 정책은 Claude가 중지하기 전에 커밋 → 푸시 → PR → CI 파이프라인을 강제합니다.
+
+---
+
+## 개요
+
+정책은 다음 카테고리로 분류됩니다:
+
+| 카테고리 | 정책 | 훅 유형 |
+|----------|------|---------|
+| [위험한 명령어](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
+| [시크릿 (새니타이저)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
+| [환경](#environment) | block-env-files, protect-env-vars | PreToolUse |
+| [파일 접근](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
+| [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
+| [데이터베이스](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
+| [경고](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
+| [워크플로우 (베타)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+
+- **`block-`** — 에이전트의 진행을 차단합니다.
+- **`warn-`** — 에이전트가 스스로 수정할 수 있도록 추가 컨텍스트를 제공합니다.
+- **`sanitize-`** — 에이전트에게 전달되기 전에 도구 출력에서 민감한 데이터를 제거합니다.
+- **`require-`** — 조건이 충족될 때까지 Stop 이벤트를 차단합니다.
+
+---
+
+## 위험한 명령어
+
+에이전트가 되돌리기 어렵거나 호스트 시스템에 손상을 줄 수 있는 작업을 실행하지 못하도록 방지합니다.
+
+### `block-sudo`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `sudo` 명령어를 포함하는 모든 명령을 거부합니다.
+
+`sudo` 키워드가 포함된 호출을 차단합니다. 패턴 매칭은 원시 문자열이 아닌 파싱된 명령 토큰에 대해 수행되므로, 셸 연산자 삽입을 통한 우회를 방지합니다.
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `allowPatterns` | `string[]` | `[]` | 허용되는 정확한 명령어 접두사. 각 항목은 파싱된 argv 토큰과 대조하여 매칭됩니다. |
+
+**예시:**
+
+```json
+{
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    }
+  }
+}
+```
+
+이 설정에서 `sudo systemctl status nginx`는 허용되지만, `sudo rm /etc/hosts`는 거부됩니다.
+
+<Note>
+패턴은 원시 명령 문자열이 아닌 파싱된 토큰과 대조하여 매칭됩니다. 이를 통해 셸 연산자 추가를 통한 우회를 방지합니다 (예: `sudo systemctl status x; rm -rf /`는 `sudo systemctl status *`와 매칭되지 않음).
+</Note>
+
+---
+
+### `block-rm-rf`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `rm -rf`, `rm -fr` 및 이와 유사한 재귀 삭제 형식을 거부합니다.
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `allowPaths` | `string[]` | `[]` | 재귀적으로 삭제해도 안전한 경로 (예: `/tmp`). |
+
+**예시:**
+
+```json
+{
+  "policyParams": {
+    "block-rm-rf": {
+      "allowPaths": ["/tmp", "/var/cache"]
+    }
+  }
+}
+```
+
+---
+
+### `block-curl-pipe-sh`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `curl <url> | bash`, `curl <url> | sh`, `wget <url> | bash` 및 이와 유사한 패턴을 거부합니다.
+
+파라미터 없음.
+
+---
+
+### `block-failproofai-commands`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** failproofai 자체를 제거하거나 비활성화하는 명령어를 거부합니다 (예: `npm uninstall failproofai`, `failproofai policies --uninstall`).
+
+파라미터 없음.
+
+---
+
+## 시크릿 (새니타이저)
+
+에이전트가 자격 증명을 컨텍스트나 출력에 노출하지 못하도록 방지합니다. 새니타이저 정책은 **PostToolUse** 이벤트에서 실행됩니다. Claude가 Bash 명령을 실행하거나 파일을 읽거나 다른 도구를 호출할 때, 이 정책들은 출력이 Claude에게 반환되기 전에 검사합니다. 시크릿 패턴이 감지되면, 해당 정책은 출력이 다시 전달되지 않도록 거부 결정을 반환합니다.
+
+### `sanitize-jwt`
+
+**이벤트:** PostToolUse (모든 도구)  
+**기본값:** JWT 토큰(`.`으로 구분된 세 개의 base64url 세그먼트)을 redact 처리합니다.
+
+파라미터 없음.
+
+---
+
+### `sanitize-api-keys`
+
+**이벤트:** PostToolUse (모든 도구)  
+**기본값:** 일반적인 API 키 형식을 redact 처리합니다: Anthropic(`sk-ant-`), OpenAI(`sk-`), GitHub PAT(`ghp_`), AWS 액세스 키(`AKIA`), Stripe 키(`sk_live_`, `sk_test_`), Google API 키(`AIza`).
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | 시크릿으로 처리할 추가 정규식 패턴. |
+
+**예시:**
+
+```json
+{
+  "policyParams": {
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo internal API key" },
+        { "regex": "pat_[0-9a-f]{40}", "label": "Internal PAT" }
+      ]
+    }
+  }
+}
+```
+
+---
+
+### `sanitize-connection-strings`
+
+**이벤트:** PostToolUse (모든 도구)  
+**기본값:** 자격 증명이 포함된 데이터베이스 연결 문자열을 redact 처리합니다 (예: `postgresql://user:password@host/db`).
+
+파라미터 없음.
+
+---
+
+### `sanitize-private-key-content`
+
+**이벤트:** PostToolUse (모든 도구)  
+**기본값:** PEM 블록(`-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----` 등)을 redact 처리합니다.
+
+파라미터 없음.
+
+---
+
+### `sanitize-bearer-tokens`
+
+**이벤트:** PostToolUse (모든 도구)  
+**기본값:** 토큰이 20자 이상인 `Authorization: Bearer <token>` 헤더를 redact 처리합니다.
+
+파라미터 없음.
+
+---
+
+## 환경
+
+에이전트가 민감한 환경 설정을 읽거나 노출하지 못하도록 보호합니다.
+
+### `block-env-files`
+
+**이벤트:** PreToolUse (Bash, Read)  
+**기본값:** `cat .env` 명령, `.env`를 파일 경로로 하는 `Read` 도구 호출 등을 통해 `.env` 파일을 읽는 것을 거부합니다.
+
+`.envrc`나 다른 환경 관련 파일은 차단하지 않으며, 정확히 `.env`로 명명된 파일만 차단합니다.
+
+파라미터 없음.
+
+---
+
+### `protect-env-vars`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** 환경 변수를 출력하는 명령을 거부합니다: `printenv`, `env`, `echo $VAR`.
+
+파라미터 없음.
+
+---
+
+## 파일 접근
+
+에이전트가 프로젝트 경계 내에서만 작업하고 민감한 파일에 접근하지 못하도록 합니다.
+
+### `block-read-outside-cwd`
+
+**이벤트:** PreToolUse (Read, Bash)  
+**기본값:** 현재 작업 디렉토리(프로젝트 루트) 외부의 파일 읽기를 거부합니다.
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `allowPaths` | `string[]` | `[]` | 현재 작업 디렉토리 외부에 있더라도 허용되는 절대 경로 접두사. |
+
+**예시:**
+
+```json
+{
+  "policyParams": {
+    "block-read-outside-cwd": {
+      "allowPaths": ["/shared/data", "/opt/company/config"]
+    }
+  }
+}
+```
+
+---
+
+### `block-secrets-write`
+
+**이벤트:** PreToolUse (Write, Edit)  
+**기본값:** 개인 키 및 인증서에 일반적으로 사용되는 파일에 대한 쓰기를 거부합니다: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `additionalPatterns` | `string[]` | `[]` | 차단할 추가 파일명 패턴 (glob 형식). |
+
+**예시:**
+
+```json
+{
+  "policyParams": {
+    "block-secrets-write": {
+      "additionalPatterns": [".token", ".secret"]
+    }
+  }
+}
+```
+
+---
+
+## Git
+
+되돌리기 어려운 실수로 인한 푸시, 강제 푸시, 브랜치 오류를 방지합니다.
+
+### `block-push-master`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `git push origin main` 및 `git push origin master`를 거부합니다.
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `protectedBranches` | `string[]` | `["main", "master"]` | 직접 푸시할 수 없는 브랜치 이름. |
+
+**예시:**
+
+```json
+{
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "master", "release", "prod"]
+    }
+  }
+}
+```
+
+<Tip>
+모든 브랜치에 대한 푸시를 허용하려면 (사실상 `enabledPolicies`에서 정책을 제거하지 않고 비활성화), `protectedBranches: []`로 설정하세요.
+</Tip>
+
+---
+
+### `block-work-on-main`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `main` 또는 `master` 브랜치를 직접 체크아웃하는 것을 거부합니다.
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `protectedBranches` | `string[]` | `["main", "master"]` | 직접 체크아웃할 수 없는 브랜치 이름. |
+
+---
+
+### `block-force-push`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `git push --force` 및 `git push -f`를 거부합니다.
+
+파라미터 없음.
+
+---
+
+### `warn-git-amend`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `git commit --amend` 실행 시 Claude에게 신중하게 진행하도록 지시합니다. 명령을 차단하지는 않습니다.
+
+파라미터 없음.
+
+---
+
+### `warn-git-stash-drop`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `git stash drop` 실행 전에 Claude가 확인하도록 지시합니다. 명령을 차단하지는 않습니다.
+
+파라미터 없음.
+
+---
+
+### `warn-all-files-staged`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `git add -A` 또는 `git add .` 실행 시 Claude가 스테이징하려는 내용을 검토하도록 지시합니다. 명령을 차단하지는 않습니다.
+
+파라미터 없음.
+
+---
+
+## 데이터베이스
+
+데이터베이스에 대한 파괴적인 SQL 작업이 실행되기 전에 감지합니다.
+
+### `warn-destructive-sql`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `DROP TABLE`, `DROP DATABASE`, 또는 `WHERE` 절 없는 `DELETE`가 포함된 SQL 실행 전에 Claude가 확인하도록 지시합니다.
+
+파라미터 없음.
+
+---
+
+### `warn-schema-alteration`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `ALTER TABLE` 구문 실행 전에 Claude가 확인하도록 지시합니다.
+
+파라미터 없음.
+
+---
+
+## 경고
+
+파괴적이지는 않지만 위험할 수 있는 작업 전에 에이전트에게 추가 컨텍스트를 제공합니다.
+
+### `warn-large-file-write`
+
+**이벤트:** PreToolUse (Write)  
+**기본값:** 1024 KB보다 큰 파일을 쓰기 전에 Claude가 확인하도록 지시합니다.
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `thresholdKb` | `number` | `1024` | 경고가 발생하는 파일 크기 임계값 (킬로바이트). |
+
+**예시:**
+
+```json
+{
+  "policyParams": {
+    "warn-large-file-write": {
+      "thresholdKb": 256
+    }
+  }
+}
+```
+
+<Note>
+훅 핸들러는 페이로드에 대해 1 MB stdin 제한을 적용합니다. 소용량 콘텐츠로 이 정책을 테스트하려면 `thresholdKb`를 1024보다 훨씬 낮은 값으로 설정하세요.
+</Note>
+
+---
+
+### `warn-package-publish`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `npm publish` 실행 전에 Claude가 확인하도록 지시합니다.
+
+파라미터 없음.
+
+---
+
+### `warn-background-process`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `nohup`, `&`, `disown`, 또는 `screen`을 통해 백그라운드 프로세스를 시작할 때 Claude에게 주의하도록 지시합니다.
+
+파라미터 없음.
+
+---
+
+### `warn-global-package-install`
+
+**이벤트:** PreToolUse (Bash)  
+**기본값:** `npm install -g`, `yarn global add`, 또는 가상 환경 없이 `pip install` 실행 전에 Claude가 확인하도록 지시합니다.
+
+파라미터 없음.
+
+---
+
+## AI 동작
+
+에이전트가 멈추거나 예상치 못한 동작을 할 때 감지합니다.
+
+### `warn-repeated-tool-calls`
+
+**이벤트:** PreToolUse (모든 도구)  
+**기본값:** 동일한 도구가 동일한 파라미터로 3회 이상 호출될 때 Claude에게 재고하도록 지시합니다 — 에이전트가 루프에 갇혔다는 일반적인 신호입니다.
+
+파라미터 없음.
+
+---
+
+## 워크플로우 (베타)
+
+세션 종료 시 엄격한 워크플로우를 강제합니다. 이 정책들은 **Stop** 이벤트에서 실행되며, 각 조건이 충족될 때까지 Claude의 중지를 거부합니다. 커밋 → 푸시 → PR → CI의 자연스러운 의존성 체인을 따릅니다. 정책이 거부하면 체인의 이후 정책은 건너뜁니다 (거부 단락 처리).
+
+모든 워크플로우 정책은 **fail-open** 방식입니다: 필요한 도구를 사용할 수 없는 경우 (예: `gh`가 설치되지 않음, git 원격 없음), 정책은 확인이 건너뛰어진 이유를 설명하는 정보 메시지와 함께 허용합니다.
+
+### `require-commit-before-stop`
+
+**이벤트:** Stop  
+**기본값:** 커밋되지 않은 변경 사항(수정됨, 스테이징됨, 추적되지 않는 파일)이 있을 때 중지를 거부합니다. 작업 디렉토리가 깨끗할 때는 정보 메시지를 반환합니다.
+
+파라미터 없음.
+
+---
+
+### `require-push-before-stop`
+
+**이벤트:** Stop  
+**기본값:** 푸시되지 않은 커밋이 있거나 현재 브랜치에 원격 추적 브랜치가 없을 때 중지를 거부합니다. 필요한 경우 추적 브랜치를 생성하기 위해 `git push -u` 사용을 제안합니다. 원격이 설정되어 있지 않으면 fail-open 처리합니다.
+
+**파라미터:**
+
+| 파라미터 | 타입 | 기본값 | 설명 |
+|---------|------|--------|------|
+| `remote` | `string` | `"origin"` | 푸시할 원격 이름. |
+
+**예시:**
+
+```json
+{
+  "policyParams": {
+    "require-push-before-stop": {
+      "remote": "upstream"
+    }
+  }
+}
+```
+
+---
+
+### `require-pr-before-stop`
+
+**이벤트:** Stop  
+**기본값:** 현재 브랜치에 대한 풀 리퀘스트가 없거나 기존 PR이 닫혔거나 병합된 경우 중지를 거부합니다. Claude에게 `gh pr create`로 PR을 생성하도록 지시합니다.
+
+파라미터 없음.
+
+<Note>
+이 정책은 [GitHub CLI](https://cli.github.com/) (`gh`)가 설치되고 인증된 상태여야 합니다.
+풀 리퀘스트 읽기 접근을 위해 `repo` 스코프를 가진 개인 액세스 토큰으로 `gh auth login`을 실행하세요. `gh`가 설치되지 않았거나 인증되지 않은 경우, 정책은 fail-open 처리되며 그 이유를 Claude에게 알립니다.
+</Note>
+
+---
+
+### `require-ci-green-before-stop`
+
+**이벤트:** Stop  
+**기본값:** 현재 브랜치의 CI 검사가 실패하거나 아직 실행 중일 때 중지를 거부합니다. `skipped` 결론은 성공으로 처리합니다. 모든 검사가 통과되면 정보 메시지를 반환합니다.
+
+파라미터 없음.
+
+<Note>
+이 정책은 [GitHub CLI](https://cli.github.com/) (`gh`)가 설치되고 인증된 상태여야 합니다.
+Actions 워크플로우 실행에 대한 읽기 접근을 위해 `repo` 스코프를 가진 개인 액세스 토큰으로 `gh auth login`을 실행하세요. `gh`가 설치되지 않았거나 인증되지 않은 경우, 정책은 fail-open 처리되며 그 이유를 Claude에게 알립니다.
+</Note>
+
+---
+
+## 베타 정책
+
+일부 정책은 `beta`로 표시되며 기본적으로 설치되지 않습니다. 베타 정책은 거친 부분이 있거나 오탐(false positive)이 발생할 수 있습니다. 이후 릴리스에서 안정 버전으로 승격됩니다.
+
+**현재 베타 정책:**
+
+- `require-commit-before-stop` — 중지 전에 모든 변경 사항 커밋
+- `require-push-before-stop` — 모든 커밋을 원격에 푸시
+- `require-pr-before-stop` — 브랜치에 대한 PR 존재 확인
+- `require-ci-green-before-stop` — 모든 CI 검사 통과 필요
+
+이들을 함께 사용하면 **커밋 → 푸시 → PR → CI** 워크플로우가 강제됩니다.
+
+모든 베타 정책을 설치하려면:
+
+```bash
+failproofai policies --install --beta
+```
+
+또는 특정 워크플로우 정책을 설치하려면:
+
+```bash
+failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
+```
+
+`failproofai policies`를 실행하면 베타 플래그가 있는 정책을 확인할 수 있습니다.
+
+---
+
+## 개별 정책 비활성화
+
+설정의 `enabledPolicies`에서 특정 정책을 제거하거나, 대시보드의 Policies 탭에서 비활성화하세요.
+
+```json
+{
+  "enabledPolicies": [
+    "block-rm-rf",
+    "sanitize-api-keys"
+  ]
+}
+```
+
+`enabledPolicies`에 나열되지 않은 정책은 `policyParams` 항목이 존재하더라도 실행되지 않습니다.

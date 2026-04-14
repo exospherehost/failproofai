@@ -1,0 +1,260 @@
+---
+title: الاختبار
+description: "اختبارات الوحدة، والاختبارات الشاملة، وأدوات مساعدة للاختبار"
+icon: flask-vial
+---
+
+يحتوي failproofai على مجموعتين من الاختبارات: **اختبارات الوحدة** (سريعة، تعمل بمحاكاة) و**الاختبارات الشاملة من طرف إلى طرف** (استدعاءات حقيقية للعمليات الفرعية).
+
+---
+
+## تشغيل الاختبارات
+
+```bash
+# تشغيل جميع اختبارات الوحدة مرة واحدة
+bun run test:run
+
+# تشغيل اختبارات الوحدة في وضع المراقبة
+bun run test
+
+# تشغيل الاختبارات الشاملة (تتطلب إعدادًا - انظر أدناه)
+bun run test:e2e
+
+# فحص الأنواع دون بناء
+bunx tsc --noEmit
+
+# فحص الأسلوب البرمجي
+bun run lint
+```
+
+---
+
+## اختبارات الوحدة
+
+تقع اختبارات الوحدة في `__tests__/` وتستخدم [Vitest](https://vitest.dev) مع `happy-dom`.
+
+```text
+__tests__/
+  hooks/
+    builtin-policies.test.ts      # منطق السياسات لكل سياسة مدمجة
+    hooks-config.test.ts          # تحميل الإعدادات ودمج النطاقات
+    policy-evaluator.test.ts      # حقن المعاملات وترتيب التقييم
+    custom-hooks-registry.test.ts # سجل globalThis: الإضافة والجلب والمسح
+    custom-hooks-loader.test.ts   # محمل ESM، الاستيرادات المتعدية، معالجة الأخطاء
+    manager.test.ts               # عمليات التثبيت والإزالة والإدراج
+  components/
+    sessions-list.test.tsx        # مكوّن قائمة الجلسات
+    project-list.test.tsx         # مكوّن قائمة المشاريع
+    ...
+  lib/
+    logger.test.ts
+    paths.test.ts
+    date-filters.test.ts
+    telemetry.test.ts
+    ...
+  actions/
+    get-hooks-config.test.ts
+    get-hook-activity.test.ts
+    ...
+  contexts/
+    ThemeContext.test.tsx
+    AutoRefreshContext.test.tsx
+```
+
+### كتابة اختبار وحدة لسياسة
+
+```typescript
+import { describe, it, expect, beforeEach } from "vitest";
+import { getBuiltinPolicies } from "../../src/hooks/builtin-policies";
+import { allow, deny } from "../../src/hooks/policy-types";
+
+describe("block-sudo", () => {
+  const policy = getBuiltinPolicies().find((p) => p.name === "block-sudo")!;
+
+  it("denies sudo commands", () => {
+    const ctx = {
+      eventType: "PreToolUse" as const,
+      payload: {},
+      toolName: "Bash",
+      toolInput: { command: "sudo apt install nodejs" },
+      params: { allowPatterns: [] },
+    };
+    expect(policy.fn(ctx)).toEqual(deny("sudo command blocked by failproofai"));
+  });
+
+  it("allows non-sudo commands", () => {
+    const ctx = {
+      eventType: "PreToolUse" as const,
+      payload: {},
+      toolName: "Bash",
+      toolInput: { command: "ls -la" },
+      params: { allowPatterns: [] },
+    };
+    expect(policy.fn(ctx)).toEqual(allow());
+  });
+
+  it("allows patterns in allowPatterns", () => {
+    const ctx = {
+      eventType: "PreToolUse" as const,
+      payload: {},
+      toolName: "Bash",
+      toolInput: { command: "sudo systemctl status nginx" },
+      params: { allowPatterns: ["sudo systemctl status"] },
+    };
+    expect(policy.fn(ctx)).toEqual(allow());
+  });
+});
+```
+
+---
+
+## الاختبارات الشاملة من طرف إلى طرف
+
+تستدعي الاختبارات الشاملة الملف الثنائي الحقيقي لـ failproofai كعملية فرعية، وتُمرر حمولة JSON إلى stdin، وتتحقق من مخرجات stdout ورمز الخروج. وهذا يختبر مسار التكامل الكامل الذي يستخدمه Claude Code.
+
+### الإعداد
+
+تشغّل الاختبارات الشاملة الملف الثنائي مباشرةً من مصدر المستودع. قبل التشغيل الأول، ابنِ حزمة CJS التي تستخدمها ملفات الخطافات المخصصة عند الاستيراد من `'failproofai'`:
+
+```bash
+bun build src/index.ts --outdir dist --target node --format cjs
+```
+
+ثم شغّل الاختبارات:
+
+```bash
+bun run test:e2e
+```
+
+أعد بناء `dist/` في كل مرة تُغيّر فيها واجهة برمجة الخطافات العامة (`src/hooks/custom-hooks-registry.ts`، أو `src/hooks/policy-helpers.ts`، أو `src/hooks/policy-types.ts`).
+
+### هيكل الاختبارات الشاملة
+
+```text
+__tests__/e2e/
+  helpers/
+    hook-runner.ts      # تشغيل الملف الثنائي، تمرير حمولة JSON، التقاط رمز الخروج + stdout + stderr
+    fixture-env.ts      # أدلة مؤقتة معزولة لكل اختبار مع ملفات الإعداد
+    payloads.ts         # مصانع حمولات دقيقة مطابقة لـ Claude لكل نوع حدث
+  hooks/
+    builtin-policies.e2e.test.ts   # كل سياسة مدمجة مع عملية فرعية حقيقية
+    custom-hooks.e2e.test.ts       # تحميل الخطافات المخصصة وتقييمها
+    config-scopes.e2e.test.ts      # دمج الإعدادات عبر نطاقات المشروع/المحلي/العام
+    policy-params.e2e.test.ts      # حقن المعاملات لكل سياسة قابلة للمعامَلة
+```
+
+### استخدام أدوات الاختبارات الشاملة المساعدة
+
+**`FixtureEnv`** - بيئة معزولة لكل اختبار:
+
+```typescript
+import { createFixtureEnv } from "../helpers/fixture-env";
+
+const env = createFixtureEnv();
+// env.cwd    - دليل مؤقت؛ مرره كـ payload.cwd لاستخدام .failproofai/policies-config.json
+// env.home   - دليل منزلي معزول؛ لا يتسرب ~/.failproofai الحقيقي
+
+env.writeConfig({
+  enabledPolicies: ["block-sudo"],
+  policyParams: {
+    "block-sudo": { allowPatterns: ["sudo systemctl status"] },
+  },
+});
+```
+
+تُسجّل `createFixtureEnv()` تنظيف `afterEach` تلقائيًا.
+
+**`runHook`** - استدعاء الملف الثنائي:
+
+```typescript
+import { runHook } from "../helpers/hook-runner";
+import { Payloads } from "../helpers/payloads";
+
+const result = await runHook(
+  "PreToolUse",
+  Payloads.preToolUse.bash("sudo apt install nodejs", env.cwd),
+  { homeDir: env.home }
+);
+
+expect(result.exitCode).toBe(0);
+expect(result.parsed?.hookSpecificOutput?.permissionDecision).toBe("deny");
+```
+
+**`Payloads`** - مصانع حمولات جاهزة للاستخدام:
+
+```typescript
+Payloads.preToolUse.bash(command, cwd)
+Payloads.preToolUse.write(filePath, content, cwd)
+Payloads.preToolUse.read(filePath, cwd)
+Payloads.postToolUse.bash(command, output, cwd)
+Payloads.postToolUse.read(filePath, content, cwd)
+Payloads.notification(message, cwd)
+Payloads.stop(cwd)
+```
+
+### كتابة اختبار شامل
+
+```typescript
+import { describe, it, expect } from "vitest";
+import { createFixtureEnv } from "../helpers/fixture-env";
+import { runHook } from "../helpers/hook-runner";
+import { Payloads } from "../helpers/payloads";
+
+describe("block-rm-rf (E2E)", () => {
+  it("denies rm -rf", async () => {
+    const env = createFixtureEnv();
+    env.writeConfig({ enabledPolicies: ["block-rm-rf"] });
+
+    const result = await runHook(
+      "PreToolUse",
+      Payloads.preToolUse.bash("rm -rf /", env.cwd),
+      { homeDir: env.home }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.parsed?.hookSpecificOutput?.permissionDecision).toBe("deny");
+  });
+
+  it("allows non-recursive rm", async () => {
+    const env = createFixtureEnv();
+    env.writeConfig({ enabledPolicies: ["block-rm-rf"] });
+
+    const result = await runHook(
+      "PreToolUse",
+      Payloads.preToolUse.bash("rm /tmp/file.txt", env.cwd),
+      { homeDir: env.home }
+    );
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("");  // allow → مخرجات stdout فارغة
+  });
+});
+```
+
+### أشكال استجابة الاختبارات الشاملة
+
+| القرار | رمز الخروج | stdout |
+|--------|-----------|--------|
+| رفض `PreToolUse` | `0` | `{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"..."}}` |
+| رفض `PostToolUse` | `0` | `{"hookSpecificOutput":{"additionalContext":"Blocked ... because: ..."}}` |
+| توجيه (غير Stop) | `0` | `{"hookSpecificOutput":{"additionalContext":"Instruction from failproofai: ..."}}` |
+| توجيه Stop | `2` | stdout فارغ؛ السبب في stderr |
+| السماح | `0` | سلسلة فارغة |
+
+### إعداد Vitest
+
+تستخدم الاختبارات الشاملة `vitest.config.e2e.mts` مع الخيارات التالية:
+
+- `environment: "node"` - لا حاجة إلى متغيرات عامة للمتصفح
+- `pool: "forks"` - عزل حقيقي للعمليات (تُنشئ الاختبارات عمليات فرعية)
+- `testTimeout: 20_000` - 20 ثانية لكل اختبار (بدء تشغيل الملف الثنائي + تقييم الخطاف)
+
+يُعدّ تجميع `forks` مهمًا: العمال القائمون على الخيوط يتشاركون `globalThis`، مما قد يتعارض مع الاختبارات التي تُنشئ عمليات فرعية. أما العمليات الفرعية المستقلة فتتجنب هذه المشكلة.
+
+---
+
+## التكامل المستمر
+
+يجب اجتياز تشغيل CI الكامل (`bun run lint && bunx tsc --noEmit && bun run test:run && bun run build`) قبل الدمج. تعمل مجموعة الاختبارات الشاملة كوظيفة CI منفصلة بالتوازي.
+
+راجع [Contributing](../CONTRIBUTING.md) للاطلاع على قائمة التحقق الكاملة قبل الدمج.
