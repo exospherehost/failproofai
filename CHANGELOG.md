@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Features
+- Add `changelog-check` convention policy to remind agent to update CHANGELOG before committing
+
 ### Docs
 - Document cross-cutting `hint` param in built-in policies reference and add `block-force-push` hint example
 - Add `block-force-push` hint to project config suggesting fresh branch as alternative
