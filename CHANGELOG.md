@@ -3,7 +3,8 @@
 ## Unreleased
 
 ### Features
-- Add `changelog-check` convention policy to remind agent to update CHANGELOG before committing
+- Add `changelog-check`, `docs-check`, and `pr-description-check` convention policies
+- Track `.claude/settings.json` in git
 
 ### Docs
 - Document cross-cutting `hint` param in built-in policies reference and add `block-force-push` hint example

@@ -40,7 +40,8 @@ yarn-error.log*
 next-env.d.ts
 
 # claude
-.claude
+.claude/*
+!.claude/settings.json
 
 # cursor
 .cursor
