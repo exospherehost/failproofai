@@ -2318,17 +2318,35 @@ describe("hooks/builtin-policies", () => {
       clearGitBranchCache();
     });
 
-    function mockCiScenario(branch: string, ghRunListResult: string | Error) {
+    function mockCiScenario(
+      branch: string,
+      ghRunListResult: string | Error,
+      options?: { checkRunsResult?: string | Error; headSha?: string },
+    ) {
+      const headSha = options?.headSha ?? "deadbeef0000";
+      const checkRunsResult = options?.checkRunsResult ?? "[]";
+
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("gh --version")) return "gh version 2.40.0\n";
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return `${branch}\n`;
+        if (typeof cmd === "string" && cmd.includes("rev-parse HEAD")) return `${headSha}\n`;
         return "";
       });
-      if (ghRunListResult instanceof Error) {
-        vi.mocked(execFileSync).mockImplementation(() => { throw ghRunListResult; });
-      } else {
-        vi.mocked(execFileSync).mockReturnValue(ghRunListResult);
-      }
+
+      vi.mocked(execFileSync).mockImplementation((file: string, args?: readonly string[]) => {
+        const argsArr = args ?? [];
+        // gh run list
+        if (file === "gh" && argsArr.includes("run")) {
+          if (ghRunListResult instanceof Error) throw ghRunListResult;
+          return ghRunListResult;
+        }
+        // gh api (check-runs)
+        if (file === "gh" && argsArr.includes("api")) {
+          if (checkRunsResult instanceof Error) throw checkRunsResult;
+          return checkRunsResult;
+        }
+        return "";
+      });
     }
 
     it("denies when CI checks are failing", async () => {
@@ -2487,20 +2505,22 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("No working directory");
     });
 
-    it("allows with reason on malformed JSON from gh", async () => {
+    it("allows with reason on malformed JSON from gh run list", async () => {
+      // Malformed JSON is caught by the inner try/catch; continues to check third-party checks
       mockCiScenario("feat/branch", "not json");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("Could not check CI status");
+      expect(result.reason).toContain("No CI runs");
     });
 
     it("fail-open when gh run list command throws", async () => {
+      // gh run list failure is caught by the inner try/catch; continues to check third-party checks
       mockCiScenario("feat/branch", new Error("network timeout"));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("Could not check CI status");
+      expect(result.reason).toContain("No CI runs");
     });
 
     it("includes branch name in deny message", async () => {
@@ -2525,6 +2545,136 @@ describe("hooks/builtin-policies", () => {
         expect.arrayContaining(["--branch", "feat/test"]),
         expect.anything(),
       );
+    });
+
+    // -- Third-party check run tests --
+
+    it("denies when a third-party check is failing while Actions checks pass", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        {
+          checkRunsResult: JSON.stringify([
+            { name: "CodeRabbit", status: "completed", conclusion: "failure" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("failing");
+      expect(result.reason).toContain('"CodeRabbit"');
+    });
+
+    it("denies when a third-party check is in progress", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        {
+          checkRunsResult: JSON.stringify([
+            { name: "SonarCloud", status: "in_progress", conclusion: "" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("still running");
+      expect(result.reason).toContain('"SonarCloud"');
+    });
+
+    it("allows when both workflow runs and third-party checks pass", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        {
+          checkRunsResult: JSON.stringify([
+            { name: "CodeRabbit", status: "completed", conclusion: "success" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("All CI checks passed");
+    });
+
+    it("deny message includes names from both workflow and third-party failures", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "failure", name: "test" },
+        ]),
+        {
+          checkRunsResult: JSON.stringify([
+            { name: "CodeRabbit", status: "completed", conclusion: "failure" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain('"test"');
+      expect(result.reason).toContain('"CodeRabbit"');
+    });
+
+    it("fail-open when Checks API errors but gh run list succeeds", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        { checkRunsResult: new Error("API rate limit") },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("All CI checks passed");
+    });
+
+    it("fail-open when HEAD sha cannot be obtained", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("gh --version")) return "gh version 2.40.0\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse HEAD")) throw new Error("not a git repo");
+        return "";
+      });
+      vi.mocked(execFileSync).mockImplementation((file: string, args?: readonly string[]) => {
+        const argsArr = args ?? [];
+        if (file === "gh" && argsArr.includes("run")) {
+          return JSON.stringify([
+            { status: "completed", conclusion: "success", name: "build" },
+          ]);
+        }
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("All CI checks passed");
+    });
+
+    it("treats skipped third-party checks as success", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        {
+          checkRunsResult: JSON.stringify([
+            { name: "Codecov", status: "completed", conclusion: "skipped" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
     });
   });
 });
