@@ -1,0 +1,548 @@
+---
+title: Chính Sách Tích Hợp Sẵn
+description: "Toàn bộ 30 chính sách tích hợp sẵn giúp phát hiện các lỗi phổ biến của agent"
+icon: shield
+---
+
+failproofai đi kèm với 30 chính sách tích hợp sẵn giúp phát hiện các lỗi phổ biến của agent. Mỗi chính sách kích hoạt trên một loại sự kiện hook và tên công cụ cụ thể. Chín chính sách hỗ trợ tham số cho phép bạn tinh chỉnh hành vi mà không cần viết code. Bốn chính sách workflow beta bắt buộc thực hiện pipeline commit → push → PR → CI trước khi Claude dừng lại.
+
+---
+
+## Tổng quan
+
+Các chính sách được nhóm theo danh mục:
+
+| Danh mục | Chính sách | Loại hook |
+|----------|----------|-----------|
+| [Lệnh nguy hiểm](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
+| [Bí mật (sanitizers)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
+| [Môi trường](#environment) | block-env-files, protect-env-vars | PreToolUse |
+| [Truy cập tệp](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
+| [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
+| [Cơ sở dữ liệu](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
+| [Cảnh báo](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
+| [Workflow (beta)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+
+- **`block-`** — ngăn agent tiếp tục thực thi.
+- **`warn-`** — cung cấp thêm ngữ cảnh cho agent để tự điều chỉnh.
+- **`sanitize-`** — loại bỏ dữ liệu nhạy cảm khỏi đầu ra của công cụ trước khi agent nhìn thấy.
+- **`require-`** — chặn sự kiện Stop cho đến khi các điều kiện được đáp ứng.
+
+---
+
+## Lệnh nguy hiểm
+
+Ngăn agent thực thi các thao tác khó hoàn tác hoặc có thể gây hại cho hệ thống máy chủ.
+
+### `block-sudo`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Từ chối mọi lệnh `sudo`.
+
+Chặn các lời gọi có chứa từ khóa `sudo`. Việc khớp mẫu được thực hiện trên các token lệnh đã phân tích, không phải chuỗi thô, để ngăn chặn việc bypass thông qua shell operator injection.
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `allowPatterns` | `string[]` | `[]` | Tiền tố lệnh chính xác được cho phép. Mỗi mục được khớp với các token argv đã phân tích. |
+
+**Ví dụ:**
+
+```json
+{
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    }
+  }
+}
+```
+
+Với cấu hình này, `sudo systemctl status nginx` được cho phép, nhưng `sudo rm /etc/hosts` bị từ chối.
+
+<Note>
+Các mẫu được khớp với các token đã phân tích, không phải chuỗi lệnh thô. Điều này ngăn chặn việc bypass thông qua các shell operator được nối thêm (ví dụ: `sudo systemctl status x; rm -rf /` không khớp với `sudo systemctl status *`).
+</Note>
+
+---
+
+### `block-rm-rf`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Từ chối `rm -rf`, `rm -fr` và các dạng xóa đệ quy tương tự.
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `allowPaths` | `string[]` | `[]` | Các đường dẫn được phép xóa đệ quy (ví dụ: `/tmp`). |
+
+**Ví dụ:**
+
+```json
+{
+  "policyParams": {
+    "block-rm-rf": {
+      "allowPaths": ["/tmp", "/var/cache"]
+    }
+  }
+}
+```
+
+---
+
+### `block-curl-pipe-sh`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Từ chối `curl <url> | bash`, `curl <url> | sh`, `wget <url> | bash` và các mẫu tương tự.
+
+Không có tham số.
+
+---
+
+### `block-failproofai-commands`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Từ chối các lệnh sẽ gỡ cài đặt hoặc vô hiệu hóa failproofai (ví dụ: `npm uninstall failproofai`, `failproofai policies --uninstall`).
+
+Không có tham số.
+
+---
+
+## Bí mật (sanitizers)
+
+Ngăn agent làm rò rỉ thông tin xác thực vào ngữ cảnh hoặc đầu ra. Các chính sách sanitizer kích hoạt trên sự kiện **PostToolUse**. Khi Claude chạy lệnh Bash, đọc tệp hoặc gọi bất kỳ công cụ nào, các chính sách này kiểm tra đầu ra trước khi trả về cho Claude. Nếu phát hiện mẫu bí mật, chính sách trả về quyết định từ chối để ngăn đầu ra được truyền lại.
+
+### `sanitize-jwt`
+
+**Sự kiện:** PostToolUse (tất cả công cụ)  
+**Mặc định:** Che giấu JWT token (ba đoạn base64url được phân tách bằng `.`).
+
+Không có tham số.
+
+---
+
+### `sanitize-api-keys`
+
+**Sự kiện:** PostToolUse (tất cả công cụ)  
+**Mặc định:** Che giấu các định dạng API key phổ biến: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), AWS access keys (`AKIA`), Stripe keys (`sk_live_`, `sk_test_`) và Google API keys (`AIza`).
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Các mẫu regex bổ sung để xử lý như bí mật. |
+
+**Ví dụ:**
+
+```json
+{
+  "policyParams": {
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo internal API key" },
+        { "regex": "pat_[0-9a-f]{40}", "label": "Internal PAT" }
+      ]
+    }
+  }
+}
+```
+
+---
+
+### `sanitize-connection-strings`
+
+**Sự kiện:** PostToolUse (tất cả công cụ)  
+**Mặc định:** Che giấu các chuỗi kết nối cơ sở dữ liệu có chứa thông tin xác thực nhúng (ví dụ: `postgresql://user:password@host/db`).
+
+Không có tham số.
+
+---
+
+### `sanitize-private-key-content`
+
+**Sự kiện:** PostToolUse (tất cả công cụ)  
+**Mặc định:** Che giấu các khối PEM (`-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----`, v.v.).
+
+Không có tham số.
+
+---
+
+### `sanitize-bearer-tokens`
+
+**Sự kiện:** PostToolUse (tất cả công cụ)  
+**Mặc định:** Che giấu các header `Authorization: Bearer <token>` trong đó token có 20 ký tự trở lên.
+
+Không có tham số.
+
+---
+
+## Môi trường
+
+Bảo vệ cấu hình môi trường nhạy cảm khỏi bị agent đọc hoặc tiết lộ.
+
+### `block-env-files`
+
+**Sự kiện:** PreToolUse (Bash, Read)  
+**Mặc định:** Từ chối đọc tệp `.env` thông qua `cat .env`, lời gọi công cụ `Read` với `.env` là đường dẫn tệp, v.v.
+
+Không chặn `.envrc` hoặc các tệp liên quan đến môi trường khác — chỉ chặn các tệp có tên chính xác là `.env`.
+
+Không có tham số.
+
+---
+
+### `protect-env-vars`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Từ chối các lệnh in biến môi trường: `printenv`, `env`, `echo $VAR`.
+
+Không có tham số.
+
+---
+
+## Truy cập tệp
+
+Giữ agent hoạt động trong phạm vi dự án và tránh xa các tệp nhạy cảm.
+
+### `block-read-outside-cwd`
+
+**Sự kiện:** PreToolUse (Read, Bash)  
+**Mặc định:** Từ chối đọc các tệp nằm ngoài thư mục làm việc hiện tại (thư mục gốc của dự án).
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `allowPaths` | `string[]` | `[]` | Tiền tố đường dẫn tuyệt đối được phép truy cập dù nằm ngoài cwd. |
+
+**Ví dụ:**
+
+```json
+{
+  "policyParams": {
+    "block-read-outside-cwd": {
+      "allowPaths": ["/shared/data", "/opt/company/config"]
+    }
+  }
+}
+```
+
+---
+
+### `block-secrets-write`
+
+**Sự kiện:** PreToolUse (Write, Edit)  
+**Mặc định:** Từ chối ghi vào các tệp thường dùng cho private key và certificate: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `additionalPatterns` | `string[]` | `[]` | Các mẫu tên tệp bổ sung (kiểu glob) cần chặn. |
+
+**Ví dụ:**
+
+```json
+{
+  "policyParams": {
+    "block-secrets-write": {
+      "additionalPatterns": [".token", ".secret"]
+    }
+  }
+}
+```
+
+---
+
+## Git
+
+Ngăn các thao tác push, force-push và lỗi branch không mong muốn vốn khó hoàn tác.
+
+### `block-push-master`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Từ chối `git push origin main` và `git push origin master`.
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `protectedBranches` | `string[]` | `["main", "master"]` | Các tên branch không thể push trực tiếp. |
+
+**Ví dụ:**
+
+```json
+{
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "master", "release", "prod"]
+    }
+  }
+}
+```
+
+<Tip>
+Để cho phép push lên tất cả các branch (thực chất là vô hiệu hóa chính sách này mà không cần xóa khỏi `enabledPolicies`), đặt `protectedBranches: []`.
+</Tip>
+
+---
+
+### `block-work-on-main`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Từ chối checkout trực tiếp branch `main` hoặc `master`.
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `protectedBranches` | `string[]` | `["main", "master"]` | Các tên branch không thể checkout trực tiếp. |
+
+---
+
+### `block-force-push`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Từ chối `git push --force` và `git push -f`.
+
+Không có tham số.
+
+---
+
+### `warn-git-amend`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Hướng dẫn Claude thực hiện cẩn thận khi chạy `git commit --amend`. Không chặn lệnh.
+
+Không có tham số.
+
+---
+
+### `warn-git-stash-drop`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Hướng dẫn Claude xác nhận trước khi chạy `git stash drop`. Không chặn lệnh.
+
+Không có tham số.
+
+---
+
+### `warn-all-files-staged`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Hướng dẫn Claude xem lại những gì đang stage khi chạy `git add -A` hoặc `git add .`. Không chặn lệnh.
+
+Không có tham số.
+
+---
+
+## Cơ sở dữ liệu
+
+Phát hiện các thao tác SQL nguy hiểm trước khi chúng được thực thi trên cơ sở dữ liệu.
+
+### `warn-destructive-sql`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Hướng dẫn Claude xác nhận trước khi chạy SQL chứa `DROP TABLE`, `DROP DATABASE` hoặc `DELETE` không có mệnh đề `WHERE`.
+
+Không có tham số.
+
+---
+
+### `warn-schema-alteration`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Hướng dẫn Claude xác nhận trước khi chạy câu lệnh `ALTER TABLE`.
+
+Không có tham số.
+
+---
+
+## Cảnh báo
+
+Cung cấp thêm ngữ cảnh cho agent trước các thao tác có thể rủi ro nhưng không mang tính hủy hoại.
+
+### `warn-large-file-write`
+
+**Sự kiện:** PreToolUse (Write)  
+**Mặc định:** Hướng dẫn Claude xác nhận trước khi ghi các tệp lớn hơn 1024 KB.
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `thresholdKb` | `number` | `1024` | Ngưỡng kích thước tệp tính bằng kilobyte mà vượt qua sẽ phát cảnh báo. |
+
+**Ví dụ:**
+
+```json
+{
+  "policyParams": {
+    "warn-large-file-write": {
+      "thresholdKb": 256
+    }
+  }
+}
+```
+
+<Note>
+Hook handler áp dụng giới hạn stdin 1 MB cho payload. Để kiểm thử chính sách này với nội dung nhỏ, hãy đặt `thresholdKb` ở giá trị thấp hơn nhiều so với 1024.
+</Note>
+
+---
+
+### `warn-package-publish`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Hướng dẫn Claude xác nhận trước khi chạy `npm publish`.
+
+Không có tham số.
+
+---
+
+### `warn-background-process`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Hướng dẫn Claude cẩn thận khi khởi chạy tiến trình nền thông qua `nohup`, `&`, `disown` hoặc `screen`.
+
+Không có tham số.
+
+---
+
+### `warn-global-package-install`
+
+**Sự kiện:** PreToolUse (Bash)  
+**Mặc định:** Hướng dẫn Claude xác nhận trước khi chạy `npm install -g`, `yarn global add` hoặc `pip install` không có virtual environment.
+
+Không có tham số.
+
+---
+
+## Hành vi AI
+
+Phát hiện khi agent bị kẹt hoặc hoạt động bất thường.
+
+### `warn-repeated-tool-calls`
+
+**Sự kiện:** PreToolUse (tất cả công cụ)  
+**Mặc định:** Hướng dẫn Claude xem xét lại khi cùng một công cụ được gọi từ 3 lần trở lên với các tham số giống hệt nhau — dấu hiệu phổ biến cho thấy agent đang bị kẹt trong vòng lặp.
+
+Không có tham số.
+
+---
+
+## Workflow (beta)
+
+Bắt buộc thực hiện workflow cuối phiên làm việc có kỷ luật. Các chính sách này kích hoạt trên sự kiện **Stop** và từ chối Claude dừng lại cho đến khi từng điều kiện được đáp ứng. Chúng tuân theo chuỗi phụ thuộc tự nhiên: commit → push → PR → CI. Nếu một chính sách từ chối, các chính sách tiếp theo trong chuỗi sẽ bị bỏ qua (từ chối ngắn mạch).
+
+Tất cả chính sách workflow đều **fail-open**: nếu công cụ bắt buộc không khả dụng (ví dụ: `gh` chưa cài đặt, không có git remote), chính sách cho phép tiếp tục kèm thông báo giải thích lý do bỏ qua kiểm tra.
+
+### `require-commit-before-stop`
+
+**Sự kiện:** Stop  
+**Mặc định:** Từ chối dừng khi có các thay đổi chưa được commit (tệp đã sửa đổi, đã stage hoặc chưa được theo dõi). Trả về thông báo thông tin khi thư mục làm việc sạch.
+
+Không có tham số.
+
+---
+
+### `require-push-before-stop`
+
+**Sự kiện:** Stop  
+**Mặc định:** Từ chối dừng khi có các commit chưa push hoặc khi branch hiện tại không có remote tracking branch. Gợi ý `git push -u` để tạo tracking branch nếu cần. Fail open nếu không có remote nào được cấu hình.
+
+**Tham số:**
+
+| Tham số | Kiểu | Mặc định | Mô tả |
+|-------|------|---------|-------------|
+| `remote` | `string` | `"origin"` | Tên remote để push đến. |
+
+**Ví dụ:**
+
+```json
+{
+  "policyParams": {
+    "require-push-before-stop": {
+      "remote": "upstream"
+    }
+  }
+}
+```
+
+---
+
+### `require-pr-before-stop`
+
+**Sự kiện:** Stop  
+**Mặc định:** Từ chối dừng khi không có pull request nào tồn tại cho branch hiện tại, hoặc khi PR hiện có đã bị đóng/merge. Hướng dẫn Claude tạo PR bằng `gh pr create`.
+
+Không có tham số.
+
+<Note>
+Chính sách này yêu cầu [GitHub CLI](https://cli.github.com/) (`gh`) phải được cài đặt và xác thực.
+Chạy `gh auth login` với personal access token có quyền `repo` để đọc
+pull requests. Nếu `gh` chưa được cài đặt hoặc chưa xác thực, chính sách fail open và báo cáo lý do cho Claude.
+</Note>
+
+---
+
+### `require-ci-green-before-stop`
+
+**Sự kiện:** Stop  
+**Mặc định:** Từ chối dừng khi CI checks đang thất bại hoặc vẫn đang chạy trên branch hiện tại. Xử lý kết luận `skipped` như thành công. Trả về thông báo thông tin khi tất cả kiểm tra đều vượt qua.
+
+Không có tham số.
+
+<Note>
+Chính sách này yêu cầu [GitHub CLI](https://cli.github.com/) (`gh`) phải được cài đặt và xác thực.
+Chạy `gh auth login` với personal access token có quyền `repo` để đọc
+các lần chạy workflow Actions. Nếu `gh` chưa được cài đặt hoặc chưa xác thực, chính sách fail open và báo cáo lý do cho Claude.
+</Note>
+
+---
+
+## Chính sách beta
+
+Một số chính sách được đánh dấu `beta` và không được cài đặt theo mặc định. Các chính sách beta có thể còn thô và tạo ra kết quả dương tính giả. Chúng sẽ được nâng cấp lên stable trong các phiên bản tương lai.
+
+**Các chính sách beta hiện tại:**
+
+- `require-commit-before-stop` — commit tất cả thay đổi trước khi dừng
+- `require-push-before-stop` — push tất cả commit lên remote
+- `require-pr-before-stop` — đảm bảo có PR tồn tại cho branch
+- `require-ci-green-before-stop` — tất cả CI checks phải vượt qua
+
+Cùng nhau, chúng bắt buộc thực hiện workflow **commit → push → PR → CI**.
+
+Để cài đặt tất cả chính sách beta:
+
+```bash
+failproofai policies --install --beta
+```
+
+Hoặc cài đặt các chính sách workflow cụ thể:
+
+```bash
+failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
+```
+
+Chạy `failproofai policies` để xem chính sách nào mang cờ beta.
+
+---
+
+## Vô hiệu hóa từng chính sách
+
+Xóa một chính sách cụ thể khỏi `enabledPolicies` trong cấu hình của bạn, hoặc tắt nó trong tab Policies của dashboard.
+
+```json
+{
+  "enabledPolicies": [
+    "block-rm-rf",
+    "sanitize-api-keys"
+  ]
+}
+```
+
+Các chính sách không được liệt kê trong `enabledPolicies` sẽ không chạy, kể cả khi có mục `policyParams` dành cho chúng.

@@ -1,0 +1,332 @@
+---
+title: Kiến trúc
+description: "Cách hook handler, nạp cấu hình và đánh giá chính sách hoạt động bên trong"
+icon: sitemap
+---
+
+Tài liệu này giải thích cách failproofai hoạt động bên trong: cách hệ thống hook chặn các lệnh gọi công cụ của agent, cách cấu hình được nạp và hợp nhất, cách chính sách được đánh giá, và cách dashboard giám sát hoạt động của agent.
+
+---
+
+## Tổng quan
+
+failproofai có hai hệ thống con độc lập:
+
+1. **Hook handler** - Một tiến trình con CLI nhanh mà Claude Code gọi trước mỗi lần agent sử dụng công cụ. Đánh giá các chính sách và trả về quyết định.
+2. **Agent Monitor (Dashboard)** - Ứng dụng web Next.js dùng để giám sát các phiên agent và quản lý chính sách.
+
+Cả hai hệ thống con đều dùng chung các tệp cấu hình trong `~/.failproofai/` và thư mục `.failproofai/` của dự án, nhưng chúng chạy như các tiến trình riêng biệt và chỉ giao tiếp qua hệ thống tệp.
+
+---
+
+## Hook handler
+
+### Tích hợp với Claude Code
+
+Khi bạn chạy `failproofai policies --install`, nó sẽ ghi các mục như sau vào `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "failproofai --hook PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [ ... ]
+  }
+}
+```
+
+Claude Code sau đó gọi `failproofai --hook PreToolUse` như một tiến trình con trước mỗi lần gọi công cụ, truyền một payload JSON qua stdin.
+
+### Định dạng payload
+
+```json
+{
+  "session_id": "abc123",
+  "transcript_path": "/home/user/.claude/projects/myproject/sessions/abc123.jsonl",
+  "cwd": "/home/user/myproject",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "sudo apt install nodejs" }
+}
+```
+
+Với các sự kiện `PostToolUse`, payload còn chứa `tool_result` với đầu ra của công cụ.
+
+Handler áp đặt giới hạn stdin là 1 MB. Các payload vượt quá giới hạn này sẽ bị loại bỏ và tất cả các chính sách mặc nhiên cho phép.
+
+### Định dạng phản hồi
+
+**Deny (PreToolUse):**
+```json
+{
+  "hookSpecificOutput": {
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Blocked by failproofai: sudo command blocked"
+  }
+}
+```
+
+**Deny (PostToolUse):**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "Blocked by failproofai because: API key detected in output"
+  }
+}
+```
+
+**Instruct (bất kỳ sự kiện nào ngoại trừ Stop):**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "Instruction from failproofai: Verify tests pass before committing."
+  }
+}
+```
+
+**Sự kiện Stop — instruct:**
+- Mã thoát: `2`
+- Lý do được ghi vào stderr (không phải stdout)
+
+**Allow:**
+- Mã thoát: `0`
+- stdout rỗng
+
+**Allow kèm thông điệp (beta):**
+
+Kể từ v0.0.2-beta.3, `allow(message)` cho phép một chính sách gửi thông tin ngữ cảnh về cho Claude ngay cả khi thao tác được phép. Hook handler ghi JSON sau vào **stdout** (không phải tệp cấu hình — đây là phản hồi của handler tới Claude Code, giống như các phản hồi deny và instruct bên trên):
+
+```json
+// Written to stdout by the hook handler process
+{
+  "hookSpecificOutput": {
+    "additionalContext": "All CI checks passed on branch 'feat/my-feature'."
+  }
+}
+```
+- Mã thoát: `0` (thao tác được cho phép)
+- Khi nhiều chính sách trả về `allow` kèm thông điệp, các thông điệp của chúng được nối với nhau bằng ký tự xuống dòng thành một chuỗi `additionalContext` duy nhất
+- Nếu không có chính sách nào cung cấp thông điệp, stdout rỗng (như trước đây)
+
+### Pipeline xử lý
+
+`src/hooks/handler.ts` triển khai pipeline đầy đủ:
+
+```text
+stdin JSON
+  → phân tích cú pháp payload (tối đa 1 MB)
+  → trích xuất metadata phiên (session_id, cwd, tool_name, tool_input, v.v.)
+  → readMergedHooksConfig(cwd)    ← hợp nhất cấu hình project + local + global
+  → đăng ký các chính sách builtin đã bật với các params đã được phân giải
+  → nạp các chính sách tùy chỉnh từ customPoliciesPath (nếu có)
+  → đăng ký các chính sách tùy chỉnh vào policy registry
+  → đánh giá tất cả chính sách (builtin trước, sau đó custom)
+      → deny đầu tiên sẽ dừng vòng lặp ngay lập tức
+      → các quyết định instruct được tích lũy
+      → các thông điệp allow được tích lũy
+  → ghi quyết định JSON vào stdout
+  → lưu sự kiện vào ~/.failproofai/hook-activity.jsonl
+  → thoát
+```
+
+Toàn bộ quá trình chạy trong dưới 100ms với các payload thông thường, không có lệnh gọi LLM nào.
+
+---
+
+## Nạp cấu hình
+
+`src/hooks/hooks-config.ts` triển khai cơ chế nạp cấu hình ba phạm vi.
+
+```text
+[1] {cwd}/.failproofai/policies-config.json        ← project  (ưu tiên cao nhất)
+[2] {cwd}/.failproofai/policies-config.local.json  ← local
+[3] ~/.failproofai/policies-config.json             ← global   (ưu tiên thấp nhất)
+```
+
+Logic hợp nhất:
+- `enabledPolicies` - hợp nhất không trùng lặp từ cả ba tệp
+- `policyParams` - theo từng chính sách, tệp đầu tiên định nghĩa sẽ được ưu tiên hoàn toàn
+- `customPoliciesPath` - tệp đầu tiên định nghĩa sẽ được dùng
+- `llm` - tệp đầu tiên định nghĩa sẽ được dùng
+
+Dashboard web sử dụng `readHooksConfig()` (chỉ global) để đọc và ghi, vì nó không được gọi với cwd của dự án.
+
+---
+
+## Đánh giá chính sách
+
+`src/hooks/policy-evaluator.ts` chạy các chính sách theo thứ tự.
+
+Với mỗi chính sách:
+
+1. Tra cứu schema `params` của chính sách (nếu có).
+2. Đọc `policyParams[policy.name]` từ cấu hình đã hợp nhất.
+3. Hợp nhất các giá trị do người dùng cung cấp với các giá trị mặc định trong schema để tạo ra `ctx.params`.
+4. Gọi `policy.fn(ctx)` với ngữ cảnh đã được phân giải.
+5. Nếu kết quả là `deny`, dừng ngay lập tức và trả về quyết định đó.
+6. Nếu kết quả là `instruct`, tích lũy thông điệp và tiếp tục.
+7. Nếu kết quả là `allow`, tiếp tục sang chính sách tiếp theo.
+
+Sau khi tất cả chính sách đã chạy:
+- Nếu có bất kỳ `deny` nào được trả về, phát ra phản hồi deny.
+- Nếu có bất kỳ kết quả `instruct` nào được thu thập, phát ra một phản hồi instruct duy nhất với tất cả các thông điệp được nối lại.
+- Nếu không, phát ra phản hồi allow (stdout rỗng, thoát 0).
+
+---
+
+## Chính sách tích hợp sẵn
+
+`src/hooks/builtin-policies.ts` định nghĩa tất cả 26 chính sách tích hợp sẵn dưới dạng các đối tượng `BuiltinPolicyDefinition`:
+
+```typescript
+interface BuiltinPolicyDefinition {
+  name: string;
+  description: string;
+  fn: (ctx: PolicyContext) => PolicyResult;
+  match: {
+    events: HookEventType[];
+    tools?: string[];
+  };
+  defaultEnabled: boolean;
+  category: string;
+  beta?: boolean;
+  params?: PolicyParamsSchema;
+}
+```
+
+Các chính sách chấp nhận `params` khai báo một `PolicyParamsSchema` với các kiểu dữ liệu và giá trị mặc định cho từng tham số. Policy evaluator tiêm các giá trị đã phân giải vào `ctx.params` trước khi gọi `fn`. Các hàm chính sách đọc `ctx.params` mà không cần kiểm tra null vì các giá trị mặc định luôn được áp dụng trước.
+
+Việc so khớp mẫu bên trong các chính sách sử dụng các token lệnh đã được phân tích (argv), không phải so khớp chuỗi thô. Điều này ngăn chặn việc vượt qua bằng cách chèn toán tử shell (ví dụ: một mẫu cho `sudo systemctl status *` không thể bị vượt qua bằng cách thêm `; rm -rf /` vào lệnh).
+
+---
+
+## Chính sách tùy chỉnh
+
+`src/hooks/custom-hooks-registry.ts` triển khai một registry dựa trên `globalThis`:
+
+```typescript
+const REGISTRY_KEY = "__failproofai_custom_hooks__";
+
+export const customPolicies = {
+  add(hook: CustomHook): void { ... }
+};
+
+export function getCustomHooks(): CustomHook[] { ... }
+export function clearCustomHooks(): void { ... }  // used in tests
+```
+
+`src/hooks/custom-hooks-loader.ts` nạp tệp chính sách của người dùng:
+
+1. Đọc `customPoliciesPath` từ cấu hình; bỏ qua nếu không có.
+2. Phân giải thành đường dẫn tuyệt đối; kiểm tra tệp có tồn tại không.
+3. Viết lại tất cả các import `from "failproofai"` sang đường dẫn dist thực tế để `customPolicies` phân giải tới cùng một registry `globalThis`.
+4. Viết lại đệ quy các import cục bộ bắc cầu để đảm bảo tương thích ESM.
+5. Ghi các tệp `.mjs` tạm thời và `import()` tệp đầu vào.
+6. Gọi `getCustomHooks()` để lấy các hook đã đăng ký.
+7. Dọn dẹp tất cả các tệp tạm trong khối `finally`.
+
+Khi xảy ra bất kỳ lỗi nào (tệp không tìm thấy, lỗi cú pháp, lỗi import), lỗi được ghi vào `~/.failproofai/hook.log` và trình nạp trả về mảng rỗng. Các chính sách tích hợp sẵn không bị ảnh hưởng.
+
+Các chính sách tùy chỉnh được đánh giá sau tất cả các chính sách tích hợp sẵn. Một chính sách tùy chỉnh `deny` vẫn dừng các chính sách tùy chỉnh tiếp theo (nhưng tất cả các chính sách tích hợp sẵn đã chạy xong tại thời điểm đó).
+
+---
+
+## Ghi nhật ký hoạt động
+
+Sau mỗi sự kiện hook, handler thêm một dòng JSONL vào `~/.failproofai/hook-activity.jsonl`:
+
+```json
+{
+  "timestamp": "2026-04-06T12:34:56.789Z",
+  "sessionId": "abc123",
+  "eventType": "PreToolUse",
+  "toolName": "Bash",
+  "policyName": "block-sudo",
+  "decision": "deny",
+  "reason": "sudo command blocked by failproofai",
+  "durationMs": 12
+}
+```
+
+Mỗi dòng tương ứng với một chính sách đưa ra quyết định không phải allow. Các quyết định allow không được ghi lại (để giữ cho tệp nhỏ gọn).
+
+---
+
+## Kiến trúc Dashboard
+
+Dashboard là ứng dụng **Next.js 16** sử dụng App Router với React Server Components và Server Actions.
+
+```text
+app/
+  layout.tsx                  ← Layout gốc (theme, telemetry, nav)
+  projects/page.tsx           ← Server component: liệt kê tất cả dự án Claude
+  project/[name]/page.tsx     ← Server component: liệt kê các phiên trong dự án
+  project/[name]/session/
+    [sessionId]/page.tsx      ← Server component: hiển thị trình xem phiên
+  policies/page.tsx           ← Client component: quản lý chính sách + nhật ký hoạt động
+  actions/
+    get-hooks-config.ts       ← Đọc cấu hình + danh sách chính sách
+    update-hooks-config.ts    ← Bật/tắt chính sách
+    update-policy-params.ts   ← Cập nhật tham số chính sách
+    get-hook-activity.ts      ← Phân trang/tìm kiếm nhật ký hoạt động
+    install-hooks-web.ts      ← Cài đặt/gỡ bỏ hook từ trình duyệt
+  api/
+    download/[project]/[session]/route.ts   ← Xuất phiên dưới dạng ZIP/JSONL
+```
+
+**Luồng dữ liệu:**
+
+- Các thành phần trang gọi `lib/projects.ts` và `lib/log-entries.ts` để đọc dữ liệu dự án/phiên trực tiếp từ hệ thống tệp (không có tầng API cho việc đọc).
+- Trang Policies sử dụng Server Actions cho tất cả các thao tác thay đổi dữ liệu (bật/tắt, cập nhật params, cài đặt/gỡ bỏ).
+- Session viewer phân tích định dạng transcript JSONL của Claude và hiển thị timeline các thông điệp và lệnh gọi công cụ.
+
+**Các quyết định thiết kế chính:**
+
+- Không có cơ sở dữ liệu — tất cả trạng thái lâu dài được lưu trong các tệp thông thường (`~/.failproofai/`, `~/.claude/projects/`).
+- Server Actions cho các thao tác thay đổi dữ liệu — không cần REST API cho các thao tác CRUD.
+- React Server Components cho các trang đọc — tải ban đầu nhanh hơn, không có client bundle cho việc lấy dữ liệu.
+- Client components chỉ dùng khi cần tương tác (bật/tắt chính sách, tìm kiếm hoạt động, xem nhật ký).
+
+---
+
+## Bố cục tệp
+
+```text
+failproofai/
+├── bin/
+│   └── failproofai.mjs           # CLI router (hook / dashboard / install / v.v.)
+├── src/hooks/
+│   ├── handler.ts                # Pipeline sự kiện hook
+│   ├── builtin-policies.ts       # 26 định nghĩa chính sách
+│   ├── policy-evaluator.ts       # Engine thực thi chính sách
+│   ├── policy-registry.ts        # Đăng ký và tra cứu chính sách
+│   ├── policy-types.ts           # Các interface TypeScript
+│   ├── hooks-config.ts           # Nạp cấu hình đa phạm vi
+│   ├── custom-hooks-registry.ts  # Registry hook dựa trên globalThis
+│   ├── custom-hooks-loader.ts    # Trình nạp ESM cho các hook JS của người dùng
+│   ├── manager.ts                # Các thao tác install / remove / list
+│   ├── install-prompt.ts         # Prompt chọn chính sách tương tác
+│   ├── hook-logger.ts            # Ghi nhật ký vào hook.log
+│   ├── hook-activity-store.ts    # Lưu hoạt động vào hook-activity.jsonl
+│   └── llm-client.ts             # LLM API client (dùng cho các chính sách hỗ trợ AI)
+├── app/                          # Dashboard Next.js (các trang + server actions)
+├── lib/                          # Các tiện ích dùng chung
+│   ├── projects.ts               # Liệt kê các dự án Claude từ hệ thống tệp
+│   ├── log-entries.ts            # Phân tích định dạng JSONL transcript của Claude
+│   ├── paths.ts                  # Phân giải đường dẫn hệ thống
+│   └── ...
+├── components/                   # Các thành phần UI React dùng chung
+├── contexts/                     # Các React context provider (theme, auto-refresh, telemetry)
+├── examples/                     # Các tệp hook tùy chỉnh mẫu
+└── __tests__/                    # Các bài kiểm tra đơn vị và E2E
+```

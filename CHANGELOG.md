@@ -7,6 +7,7 @@
 ### Features
 - Add `changelog-check`, `docs-check`, and `pr-description-check` convention policies
 - Track `.claude/settings.json` in git
+- Add multilingual documentation with 14 languages and automated translation tooling (#93)
 
 ### Fixes
 - Accumulate all `instruct` messages instead of only delivering the first one

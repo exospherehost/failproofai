@@ -1,0 +1,176 @@
+---
+title: 設定
+description: "設定ファイルのフォーマット、3スコープシステム、およびマージルール"
+icon: gear
+---
+
+failproofaiはJSON設定ファイルを使用して、有効なポリシー、その動作、カスタムポリシーの読み込み元を制御します。設定はチームと共有しやすい設計になっています。リポジトリにコミットすれば、すべての開発者が同じエージェントセーフティネットを利用できます。
+
+---
+
+## 設定スコープ
+
+設定スコープは3つあり、優先順位の高い順に評価されます。
+
+| スコープ | ファイルパス | 用途 |
+|-------|-----------|---------|
+| **project** | `.failproofai/policies-config.json` | リポジトリごとの設定。バージョン管理にコミット |
+| **local** | `.failproofai/policies-config.local.json` | 個人用のリポジトリごとのオーバーライド。gitignore対象 |
+| **global** | `~/.failproofai/policies-config.json` | すべてのプロジェクトに適用されるユーザーレベルのデフォルト |
+
+failproofaiはフックイベントを受け取ると、カレントワーキングディレクトリに存在する3つのファイルをすべて読み込んでマージします。
+
+### マージルール
+
+**`enabledPolicies`** — 3つのスコープの和集合になります。いずれかのレベルで有効化されたポリシーはアクティブになります。
+
+```text
+project:  ["block-sudo"]
+local:    ["block-rm-rf"]
+global:   ["block-sudo", "sanitize-api-keys"]
+
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← 重複排除された和集合
+```
+
+**`policyParams`** — あるポリシーのパラメータを最初に定義したスコープがそのまま適用されます。ポリシーのパラメータ内での深いマージは行われません。
+
+```text
+project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← project が優先、global は無視
+```
+
+```text
+project:  (block-sudo のエントリなし)
+local:    (block-sudo のエントリなし)
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← global にフォールスルー
+```
+
+**`customPoliciesPath`** — 最初に定義したスコープが優先されます。
+
+**`llm`** — 最初に定義したスコープが優先されます。
+
+---
+
+## 設定ファイルのフォーマット
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "sanitize-jwt",
+    "block-env-files",
+    "block-read-outside-cwd"
+  ],
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    },
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "prod"]
+    },
+    "block-rm-rf": {
+      "allowPaths": ["/tmp"]
+    },
+    "block-read-outside-cwd": {
+      "allowPaths": ["/shared/data", "/opt/company"]
+    },
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
+      ]
+    },
+    "warn-large-file-write": {
+      "thresholdKb": 512
+    }
+  },
+  "customPoliciesPath": "/home/alice/myproject/my-policies.js"
+}
+```
+
+---
+
+## フィールドリファレンス
+
+### `enabledPolicies`
+
+型: `string[]`
+
+有効化するポリシー名のリスト。名前は `failproofai policies` で表示されるポリシー識別子と完全に一致する必要があります。全一覧は [組み込みポリシー](/ja/built-in-policies) を参照してください。
+
+`enabledPolicies` に含まれていないポリシーは、`policyParams` にエントリがあっても無効になります。
+
+### `policyParams`
+
+型: `Record<string, Record<string, unknown>>`
+
+ポリシーごとのパラメータオーバーライド。外側のキーはポリシー名、内側のキーはポリシー固有のものです。各ポリシーで利用可能なパラメータは [組み込みポリシー](/ja/built-in-policies) に記載されています。
+
+ポリシーにパラメータがあっても指定しない場合は、そのポリシーの組み込みデフォルト値が使用されます。`policyParams` をまったく設定しないユーザーは、以前のバージョンと同じ動作になります。
+
+ポリシーのparamsブロック内の未知のキーは、フックの実行時には黙って無視されますが、`failproofai policies` を実行すると警告として表示されます。
+
+### `customPoliciesPath`
+
+型: `string`（絶対パス）
+
+カスタムフックポリシーを含むJavaScriptファイルへのパス。`failproofai policies --install --custom <path>` を実行すると自動的に設定されます（保存前にパスが絶対パスに解決されます）。
+
+このファイルはフックイベントのたびに新たに読み込まれ、キャッシュは行われません。作成方法については [カスタムポリシー](/ja/custom-policies) を参照してください。
+
+### `llm`
+
+型: `object`（省略可能）
+
+AIコールを行うポリシー向けのLLMクライアント設定。ほとんどの環境では不要です。
+
+```json
+{
+  "llm": {
+    "model": "claude-sonnet-4-6",
+    "apiKey": "sk-ant-..."
+  }
+}
+```
+
+---
+
+## CLIからの設定管理
+
+`policies --install` および `policies --uninstall` コマンドは Claude Code の `settings.json`（フックのエントリポイント）に書き込みを行います。一方、`policies-config.json` は直接管理するファイルです。この2つは別物です。
+
+- **`settings.json`** — ツールが使用されるたびに `failproofai --hook <event>` を呼び出すよう Claude Code に指示する
+- **`policies-config.json`** — どのポリシーをどのパラメータで評価するかを failproofai に指示する
+
+`policies-config.json` はいつでも直接編集できます。変更は次のフックイベント時に即座に反映され、再起動は不要です。
+
+---
+
+## 例：チームデフォルトを含むプロジェクトレベルの設定
+
+`.failproofai/policies-config.json` をリポジトリにコミットします。
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "block-env-files"
+  ],
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "hotfix"]
+    }
+  }
+}
+```
+
+各開発者はチームメンバーに影響を与えることなく、個人用のオーバーライドとして `.failproofai/policies-config.local.json`（gitignore対象）を作成できます。

@@ -1,0 +1,253 @@
+---
+title: 使用例
+description: "Claude Code および Agents SDK 向けフックのセットアップ方法"
+icon: book-open
+---
+
+一般的なシナリオですぐに使えるサンプル集です。各サンプルでは、インストール方法と期待される動作を説明しています。
+
+---
+
+## Claude Code 向けフックのセットアップ
+
+Failproof AI は、Claude Code の[フックシステム](https://docs.anthropic.com/en/docs/claude-code/hooks)を通じて連携します。`failproofai policies --install` を実行すると、Claude Code の `settings.json` にフックコマンドが登録され、ツール呼び出しのたびに起動するようになります。
+
+<Steps>
+  <Step title="failproofai をインストールする">
+    ```bash
+    npm install -g failproofai
+    ```
+  </Step>
+  <Step title="すべての組み込みポリシーを有効にする">
+    ```bash
+    failproofai policies --install
+    ```
+  </Step>
+  <Step title="フックが登録されていることを確認する">
+    ```bash
+    cat ~/.claude/settings.json | grep failproofai
+    ```
+
+    `PreToolUse`、`PostToolUse`、`Notification`、`Stop` イベントのフックエントリが表示されるはずです。
+  </Step>
+  <Step title="Claude Code を起動する">
+    ```bash
+    claude
+    ```
+
+    ポリシーがすべてのツール呼び出しで自動的に実行されるようになります。Claude に `sudo rm -rf /` を実行するよう指示してみてください — ブロックされます。
+  </Step>
+</Steps>
+
+---
+
+## Agents SDK 向けフックのセットアップ
+
+[Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk) を使って開発している場合、同じフックシステムをプログラムから利用できます。
+
+<Steps>
+  <Step title="プロジェクトに failproofai をインストールする">
+    ```bash
+    npm install failproofai
+    ```
+  </Step>
+  <Step title="エージェントにフックを設定する">
+    エージェントプロセスを作成する際にフックコマンドを渡します。フックは Claude Code と同様に stdin/stdout JSON 経由で起動します。
+
+    ```bash
+    failproofai --hook PreToolUse   # 各ツールの実行前に呼び出される
+    failproofai --hook PostToolUse  # 各ツールの実行後に呼び出される
+    ```
+  </Step>
+  <Step title="エージェント用のカスタムポリシーを作成する">
+    ```javascript
+    import { customPolicies, allow, deny } from "failproofai";
+
+    customPolicies.add({
+      name: "limit-to-project-dir",
+      description: "Keep the agent inside the project directory",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        const path = String(ctx.toolInput?.file_path ?? "");
+        if (path.startsWith("/") && !path.startsWith(ctx.session?.cwd ?? "")) {
+          return deny("Agent is restricted to the project directory");
+        }
+        return allow();
+      },
+    });
+    ```
+  </Step>
+  <Step title="カスタムポリシーをインストールする">
+    ```bash
+    failproofai policies --install --custom ./my-agent-policies.js
+    ```
+  </Step>
+</Steps>
+
+---
+
+## 破壊的なコマンドをブロックする
+
+最も一般的なセットアップです。エージェントが取り返しのつかない操作を行うのを防ぎます。
+
+```bash
+failproofai policies --install block-sudo block-rm-rf block-force-push block-curl-pipe-sh
+```
+
+各ポリシーの説明:
+- `block-sudo` — すべての `sudo` コマンドをブロック
+- `block-rm-rf` — 再帰的なファイル削除をブロック
+- `block-force-push` — `git push --force` をブロック
+- `block-curl-pipe-sh` — リモートスクリプトをシェルにパイプする操作をブロック
+
+---
+
+## シークレットの漏洩を防ぐ
+
+エージェントがツールの出力から認証情報を参照・漏洩しないようにします。
+
+```bash
+failproofai policies --install sanitize-api-keys sanitize-jwt sanitize-connection-strings sanitize-bearer-tokens
+```
+
+これらは `PostToolUse` で起動します。ツールの実行後、エージェントに渡される前に出力をスクラブします。
+
+---
+
+## エージェントが待機中のときに Slack へ通知する
+
+通知フックを使って、アイドル状態のアラートを Slack に転送します。
+
+```javascript
+import { customPolicies, allow, instruct } from "failproofai";
+
+customPolicies.add({
+  name: "slack-on-idle",
+  description: "Alert Slack when the agent is waiting for input",
+  match: { events: ["Notification"] },
+  fn: async (ctx) => {
+    const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+    if (!webhookUrl) return allow();
+
+    const message = String(ctx.payload?.message ?? "Agent is waiting");
+    const project = ctx.session?.cwd ?? "unknown";
+
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: `*${message}*\nProject: \`${project}\``,
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+    } catch {
+      // Slack に到達できなくてもエージェントをブロックしない
+    }
+
+    return allow();
+  },
+});
+```
+
+インストール:
+
+```bash
+SLACK_WEBHOOK_URL=https://hooks.slack.com/... failproofai policies --install --custom ./slack-alerts.js
+```
+
+---
+
+## エージェントをブランチに留める
+
+エージェントが他のブランチに切り替えたり、保護されたブランチにプッシュしたりするのを防ぎます。
+
+```javascript
+import { customPolicies, allow, deny } from "failproofai";
+
+customPolicies.add({
+  name: "stay-on-branch",
+  description: "Prevent the agent from checking out other branches",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = String(ctx.toolInput?.command ?? "");
+    if (/git\s+checkout\s+(?!-b)/.test(cmd)) {
+      return deny("Stay on the current branch. Create a new branch with -b if needed.");
+    }
+    return allow();
+  },
+});
+```
+
+---
+
+## コミット前にテストを要求する
+
+コミットの前にテストを実行するようエージェントに促します。
+
+```javascript
+import { customPolicies, allow, instruct } from "failproofai";
+
+customPolicies.add({
+  name: "test-before-commit",
+  description: "Remind the agent to run tests before committing",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = String(ctx.toolInput?.command ?? "");
+    if (/git\s+commit/.test(cmd)) {
+      return instruct("Run tests before committing. Use `npm test` or `bun test` first.");
+    }
+    return allow();
+  },
+});
+```
+
+---
+
+## 本番リポジトリをロックダウンする
+
+プロジェクトレベルの設定をコミットして、チームの全開発者が同じポリシーを適用できるようにします。
+
+リポジトリに `.failproofai/policies-config.json` を作成します:
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-force-push",
+    "block-push-master",
+    "block-env-files",
+    "sanitize-api-keys",
+    "sanitize-jwt"
+  ],
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "production"]
+    }
+  }
+}
+```
+
+コミットします:
+
+```bash
+git add .failproofai/policies-config.json
+git commit -m "Add failproofai team policies"
+```
+
+failproofai をインストールしているすべてのチームメンバーが、これらのルールを自動的に適用できるようになります。
+
+---
+
+## その他の使用例
+
+リポジトリの [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) ディレクトリには以下のファイルが含まれています:
+
+| ファイル | 内容 |
+|------|---------------|
+| `policies-basic.js` | 入門ポリシー — 本番環境への書き込み、force push、パイプ経由スクリプトのブロック |
+| `policies-notification.js` | アイドル通知とセッション終了時の Slack アラート |
+| `policies-advanced/index.js` | トランジティブインポート、非同期フック、PostToolUse 出力スクラブ、Stop イベント処理 |

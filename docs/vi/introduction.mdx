@@ -1,0 +1,57 @@
+---
+title: Failproof AI
+description: "Quản lý hooks và policies giúp AI agents của bạn hoạt động ổn định và tự động"
+---
+
+[![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
+
+Hooks và policies giúp AI agents của bạn hoạt động ổn định và tự động - dành cho **Claude Code** và **Agents SDK**.
+
+AI agents thất bại theo những cách có thể dự đoán được. Chúng chạy các lệnh nguy hiểm, làm lộ bí mật, lạc đề, bị kẹt trong vòng lặp, hoặc push thẳng lên nhánh main. Khi không có người giám sát, những lỗi nhỏ sẽ dần leo thang thành sự cố lớn.
+
+Failproof AI giải quyết vấn đề này bằng **policies** - các quy tắc móc vào từng lệnh gọi công cụ của agent, có khả năng **phát hiện lỗi**, **xử lý chúng** (chặn, hướng dẫn, làm sạch), và **cảnh báo bạn** khi có vấn đề cần chú ý. Một dashboard cục bộ cho phép bạn xem lại toàn bộ hoạt động sau đó.
+
+Mọi thứ đều chạy cục bộ. Không có dữ liệu nào rời khỏi máy của bạn.
+
+## Bắt đầu
+
+<CardGroup cols={2}>
+
+<Card title="26 policies tích hợp sẵn" icon="shield" href="/vi/built-in-policies">
+  Chặn các lệnh nguy hiểm, ngăn lộ bí mật, giữ agents trong phạm vi dự án, và nhiều hơn nữa - ngay từ đầu, không cần cấu hình thêm.
+</Card>
+
+<Card title="Policies tùy chỉnh" icon="code" href="/vi/custom-policies">
+  Tự viết quy tắc của riêng bạn bằng JavaScript với API đơn giản: allow / deny / instruct.
+</Card>
+
+<Card title="Giám sát agent" icon="chart-line" href="/vi/dashboard">
+  Xem lại những gì agents đã làm khi bạn vắng mặt. Duyệt các phiên làm việc, kiểm tra các lệnh gọi công cụ, xem lại nơi policies đã kích hoạt.
+</Card>
+
+<Card title="Cấu hình dễ dàng" icon="gear" href="/vi/configuration">
+  Tinh chỉnh bất kỳ policy nào mà không cần viết code. Thiết lập danh sách cho phép, nhánh được bảo vệ, hoặc ngưỡng theo từng dự án hoặc toàn cục.
+</Card>
+
+</CardGroup>
+
+## Khởi động nhanh
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+```bash
+failproofai policies --install   # bật policies
+failproofai                      # khởi chạy dashboard
+```
+
+Xem hướng dẫn [Bắt đầu](/vi/getting-started) để có hướng dẫn đầy đủ.

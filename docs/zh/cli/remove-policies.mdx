@@ -1,0 +1,44 @@
+---
+title: 卸载策略
+description: "从 Claude Code 的设置中移除 hook 条目"
+---
+
+```bash
+failproofai policies --uninstall [policy-names...] [options]
+```
+
+从 Claude Code 的 `settings.json` 中移除 failproofai hook 条目。
+
+别名：`failproofai p -u`
+
+## 选项
+
+| 标志 | 描述 |
+|------|------|
+| `--scope user` | 从全局设置中移除（默认） |
+| `--scope project` | 从项目设置中移除 |
+| `--scope local` | 从本地设置中移除 |
+| `--scope all` | 一次性从所有范围中移除 |
+| `--custom` / `-c` | 从配置中清除 `customPoliciesPath` |
+| `--beta` | 仅从配置中移除 beta 策略 |
+
+## 行为说明
+
+- **不指定策略名称** - 从设置文件中移除所有 failproofai hook 条目
+- **指定具体名称** - 禁用相应策略，但保留已安装的 hooks
+
+## 示例
+
+```bash
+# 全局移除所有 hooks
+failproofai policies --uninstall
+
+# 禁用特定策略（保留已安装的 hooks）
+failproofai policies --uninstall block-sudo
+
+# 从所有范围移除 hooks
+failproofai policies --uninstall --scope all
+
+# 清除自定义策略路径
+failproofai policies --uninstall --custom
+```

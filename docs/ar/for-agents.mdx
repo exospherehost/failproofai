@@ -1,0 +1,38 @@
+---
+title: "للوكلاء"
+description: "أضف معرفة Failproof AI إلى وكيل البرمجة الخاص بك بأمر واحد. يعمل مع Claude Code وCursor وWindsurf والمزيد."
+---
+
+أضف مرجع Failproof AI الكامل إلى وكيل البرمجة الخاص بك بأمر واحد. يعمل مع Claude Code وCursor وWindsurf وأي وكيل آخر يدعم المهارات.
+
+```bash
+npx skills add https://docs.befailproof.ai
+```
+
+يكتشف `npx skills` الوكلاء المثبتة لديك ويضيف المهارة بالتنسيق المناسب لكل منها تلقائيًا.
+
+## ما تغطيه المهارة
+
+| المجال | ما هو مدرج |
+|--------|------------|
+| السياسات | أسماء السياسات المدمجة، أنواع الأحداث، المعاملات، التفعيل/التعطيل |
+| السياسات المخصصة | `customPolicies.add()`، فلاتر المطابقة، واجهة برمجة `allow`/`deny`/`instruct` |
+| كائن السياق | `ctx.eventType`، `ctx.toolName`، `ctx.toolInput`، `ctx.session` |
+| الإعداد | هيكل `policies-config.json`، دمج النطاقات، `policyParams` |
+| واجهة سطر الأوامر | `failproofai policies --install`، `--uninstall`، `--custom`، النطاقات |
+| لوحة التحكم | عارض الجلسات، نشاط السياسات، متغيرات البيئة |
+| البنية | تدفق معالج الخطافات، رموز الخروج، عقد stdin/stdout |
+
+## هل المهارة مكتملة؟
+
+تولّد Mintlify ملف `llms.txt` من جميع الصفحات الموجودة في التنقل. تغطي وثائق Failproof AI الواجهة البرمجية الكاملة - كل سياسة وخيار ومثال مدرج. إذا وجدت شيئًا ناقصًا، فإن المصدر متاح على `https://docs.befailproof.ai/llms-full.txt`.
+
+للحصول على سياق محدد، اربط مباشرةً بصفحة معينة:
+
+```bash
+# واجهة برمجة السياسات المخصصة فقط
+npx skills add https://docs.befailproof.ai/custom-policies
+
+# السياسات المدمجة فقط
+npx skills add https://docs.befailproof.ai/built-in-policies
+```

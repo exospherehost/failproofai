@@ -32,7 +32,12 @@
     "preuninstall": "node scripts/preuninstall.mjs",
     "prepare": "bun run build",
     "test:e2e": "vitest run --config vitest.config.e2e.mts",
-    "test:e2e:watch": "vitest --config vitest.config.e2e.mts"
+    "test:e2e:watch": "vitest --config vitest.config.e2e.mts",
+    "translate": "bun scripts/translate-docs/cli.ts",
+    "translate:readme": "bun scripts/translate-docs/cli.ts --readme-only",
+    "translate:docs": "bun scripts/translate-docs/cli.ts --docs-only",
+    "translate:dry-run": "bun scripts/translate-docs/cli.ts --dry-run",
+    "translate:validate": "bun scripts/translate-docs/cli.ts --validate"
   },
   "keywords": [
     "claude",
@@ -85,6 +90,7 @@
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^6.0.2",
+    "@anthropic-ai/sdk": "^0.39.0",
     "vitest": "^4.0.18"
   },
   "dependencies": {

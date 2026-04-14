@@ -1,0 +1,48 @@
+---
+title: Cài đặt policies
+description: "Bật policies để chúng chạy trên mỗi lần gọi công cụ của agent"
+---
+
+```bash
+failproofai policies --install [policy-names...] [options]
+```
+
+Ghi các mục hook vào `settings.json` của Claude Code để failproofai chặn các lần gọi công cụ.
+
+Bí danh: `failproofai p -i`
+
+## Tùy chọn
+
+| Cờ | Mô tả |
+|------|-------------|
+| `--scope user` | Cài đặt vào `~/.claude/settings.json` (mặc định - tất cả phiên làm việc) |
+| `--scope project` | Cài đặt vào `.claude/settings.json` trong thư mục hiện tại |
+| `--scope local` | Cài đặt vào `.claude/settings.local.json` trong thư mục hiện tại |
+| `--custom <path>` / `-c` | Đường dẫn đến tệp JS chứa các hook policy tùy chỉnh |
+| `--beta` | Bao gồm các beta policy |
+
+## Hành vi
+
+- **Không có tên policy** - mở giao diện tương tác để chọn policies
+- **Tên cụ thể** - bật những policies đó (thêm vào các policy đã được bật)
+- **`all`** - bật tất cả các policy hiện có
+
+Quá trình cài đặt mang tính cộng dồn: chạy `--install` lần nữa sẽ thêm các policy mới mà không xóa các policy hiện có.
+
+## Ví dụ
+
+```bash
+# Cài đặt tất cả default policies toàn cục (tương tác)
+failproofai policies --install
+
+# Cài đặt các policy cụ thể cho dự án hiện tại
+failproofai policies --install block-sudo sanitize-api-keys --scope project
+
+# Bật tất cả policies cùng một lúc
+failproofai policies --install all
+
+# Cài đặt với tệp policies tùy chỉnh
+failproofai policies --install --custom ./my-policies.js
+```
+
+Khi `--custom <path>` được cung cấp, tệp sẽ được xác thực ngay lập tức - tệp phải gọi `customPolicies.add()` ít nhất một lần. Đường dẫn đã được phân giải sẽ được lưu vào `policies-config.json` với tên `customPoliciesPath`.

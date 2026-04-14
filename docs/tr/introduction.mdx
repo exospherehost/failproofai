@@ -1,0 +1,57 @@
+---
+title: Failproof AI
+description: "AI ajanlarınızı güvenilir ve özerk çalışır hâlde tutan hook'ları ve politikaları yönetin"
+---
+
+[![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
+
+**Claude Code** ve **Agents SDK** için AI ajanlarınızı güvenilir ve özerk çalışır hâlde tutan hook'lar ve politikalar.
+
+AI ajanları öngörülebilir biçimlerde başarısız olur. Yıkıcı komutlar çalıştırır, gizli bilgileri sızdırır, görevden saparak döngülere girer ya da doğrudan main branch'e push yapar. Gözetimsiz bırakıldığında küçük hatalar zincirleme büyür.
+
+Failproof AI bunu **politikalar** ile çözer — her ajan araç çağrısına bağlanan, **hataları tespit edebilen**, **hafifletebilen** (engelleyerek, yönlendirerek veya temizleyerek) ve dikkat gerektiren durumlarda **sizi uyaran** kurallar. Yerel bir gösterge paneli, her şeyi sonradan incelemenizi sağlar.
+
+Her şey yerel olarak çalışır. Hiçbir veri makinenizden çıkmaz.
+
+## Başlarken
+
+<CardGroup cols={2}>
+
+<Card title="26 yerleşik politika" icon="shield" href="/tr/built-in-policies">
+  Yıkıcı komutları engelleyin, gizli bilgilerin sızmasını önleyin, ajanları proje sınırları içinde tutun ve daha fazlası — kutudan çıkar çıkmaz.
+</Card>
+
+<Card title="Özel politikalar" icon="code" href="/tr/custom-policies">
+  Basit bir allow / deny / instruct API'si ile JavaScript kullanarak kendi kurallarınızı yazın.
+</Card>
+
+<Card title="Ajan monitörü" icon="chart-line" href="/tr/dashboard">
+  Siz yokken ajanlarınızın neler yaptığını görün. Oturumları inceleyin, araç çağrılarına bakın, politikaların nerede devreye girdiğini gözden geçirin.
+</Card>
+
+<Card title="Kolay yapılandırma" icon="gear" href="/tr/configuration">
+  Herhangi bir politikayı kod yazmadan ayarlayın. İzin listelerini, korunan branch'leri veya eşik değerlerini proje bazlı ya da genel düzeyde belirleyin.
+</Card>
+
+</CardGroup>
+
+## Hızlı başlangıç
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+```bash
+failproofai policies --install   # politikaları etkinleştir
+failproofai                      # gösterge panelini başlat
+```
+
+Tam adım adım kılavuz için [Başlarken](/tr/getting-started) rehberine bakın.

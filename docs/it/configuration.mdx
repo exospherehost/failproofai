@@ -1,0 +1,176 @@
+---
+title: Configurazione
+description: "Formato del file di configurazione, sistema a tre ambiti e regole di unione"
+icon: gear
+---
+
+failproofai utilizza file di configurazione JSON per controllare quali policy sono attive, come si comportano e da dove vengono caricate le policy personalizzate. La configurazione è progettata per essere facilmente condivisibile con il team: aggiungila al tuo repository e ogni sviluppatore avrà la stessa rete di sicurezza per gli agenti.
+
+---
+
+## Ambiti di configurazione
+
+Esistono tre ambiti di configurazione, valutati in ordine di priorità:
+
+| Ambito | Percorso file | Scopo |
+|--------|---------------|-------|
+| **project** | `.failproofai/policies-config.json` | Impostazioni per repository, incluse nel controllo versione |
+| **local** | `.failproofai/policies-config.local.json` | Override personali per repository, esclusi da git |
+| **global** | `~/.failproofai/policies-config.json` | Impostazioni predefinite a livello utente per tutti i progetti |
+
+Quando failproofai riceve un evento hook, carica e unisce tutti e tre i file presenti nella directory di lavoro corrente.
+
+### Regole di unione
+
+**`enabledPolicies`** - unione di tutti e tre gli ambiti. Una policy abilitata a qualsiasi livello è attiva.
+
+```text
+project:  ["block-sudo"]
+local:    ["block-rm-rf"]
+global:   ["block-sudo", "sanitize-api-keys"]
+
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← unione senza duplicati
+```
+
+**`policyParams`** - vince il primo ambito che definisce i parametri per una data policy. Non viene eseguita alcuna unione profonda dei valori all'interno dei parametri di una policy.
+
+```text
+project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← vince project, global ignorato
+```
+
+```text
+project:  (nessuna voce block-sudo)
+local:    (nessuna voce block-sudo)
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← si ricade su global
+```
+
+**`customPoliciesPath`** - vince il primo ambito che lo definisce.
+
+**`llm`** - vince il primo ambito che lo definisce.
+
+---
+
+## Formato del file di configurazione
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "sanitize-jwt",
+    "block-env-files",
+    "block-read-outside-cwd"
+  ],
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    },
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "prod"]
+    },
+    "block-rm-rf": {
+      "allowPaths": ["/tmp"]
+    },
+    "block-read-outside-cwd": {
+      "allowPaths": ["/shared/data", "/opt/company"]
+    },
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
+      ]
+    },
+    "warn-large-file-write": {
+      "thresholdKb": 512
+    }
+  },
+  "customPoliciesPath": "/home/alice/myproject/my-policies.js"
+}
+```
+
+---
+
+## Riferimento ai campi
+
+### `enabledPolicies`
+
+Tipo: `string[]`
+
+Elenco dei nomi delle policy da abilitare. I nomi devono corrispondere esattamente agli identificatori mostrati da `failproofai policies`. Consulta [Policy integrate](/it/built-in-policies) per l'elenco completo.
+
+Le policy non presenti in `enabledPolicies` sono inattive, anche se hanno voci in `policyParams`.
+
+### `policyParams`
+
+Tipo: `Record<string, Record<string, unknown>>`
+
+Override dei parametri per singola policy. La chiave esterna è il nome della policy; le chiavi interne sono specifiche per ciascuna policy. Ogni policy documenta i propri parametri disponibili in [Policy integrate](/it/built-in-policies).
+
+Se una policy ha parametri ma non vengono specificati, vengono utilizzati i valori predefiniti integrati nella policy. Gli utenti che non configurano `policyParams` ottengono un comportamento identico alle versioni precedenti.
+
+Le chiavi sconosciute nel blocco dei parametri di una policy vengono ignorate silenziosamente al momento dell'esecuzione dell'hook, ma vengono segnalate come avvisi quando si esegue `failproofai policies`.
+
+### `customPoliciesPath`
+
+Tipo: `string` (percorso assoluto)
+
+Percorso di un file JavaScript contenente policy hook personalizzate. Viene impostato automaticamente da `failproofai policies --install --custom <path>` (il percorso viene risolto in assoluto prima di essere salvato).
+
+Il file viene caricato da zero a ogni evento hook, senza alcuna cache. Consulta [Policy personalizzate](/it/custom-policies) per i dettagli sulla scrittura.
+
+### `llm`
+
+Tipo: `object` (opzionale)
+
+Configurazione del client LLM per le policy che effettuano chiamate AI. Non richiesta per la maggior parte delle configurazioni.
+
+```json
+{
+  "llm": {
+    "model": "claude-sonnet-4-6",
+    "apiKey": "sk-ant-..."
+  }
+}
+```
+
+---
+
+## Gestione della configurazione tramite CLI
+
+I comandi `policies --install` e `policies --uninstall` scrivono nel file `settings.json` di Claude Code (i punti di ingresso degli hook), mentre `policies-config.json` è il file che gestisci direttamente. I due sono separati:
+
+- **`settings.json`** - indica a Claude Code di chiamare `failproofai --hook <event>` a ogni utilizzo di uno strumento
+- **`policies-config.json`** - indica a failproofai quali policy valutare e con quali parametri
+
+Puoi modificare `policies-config.json` direttamente in qualsiasi momento; le modifiche hanno effetto immediato al successivo evento hook, senza necessità di riavvio.
+
+---
+
+## Esempio: configurazione a livello di progetto con impostazioni predefinite del team
+
+Aggiungi `.failproofai/policies-config.json` al tuo repository:
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "block-env-files"
+  ],
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "hotfix"]
+    }
+  }
+}
+```
+
+Ogni sviluppatore può quindi creare `.failproofai/policies-config.local.json` (escluso da git) per override personali, senza influenzare il resto del team.

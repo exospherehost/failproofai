@@ -1,0 +1,332 @@
+---
+title: आर्किटेक्चर
+description: "हुक हैंडलर, कॉन्फ़िग लोडिंग, और पॉलिसी मूल्यांकन आंतरिक रूप से कैसे काम करते हैं"
+icon: sitemap
+---
+
+यह दस्तावेज़ बताता है कि failproofai आंतरिक रूप से कैसे काम करता है: हुक सिस्टम एजेंट टूल कॉल को कैसे इंटरसेप्ट करता है, कॉन्फ़िगरेशन कैसे लोड और मर्ज होती है, पॉलिसियों का मूल्यांकन कैसे होता है, और डैशबोर्ड एजेंट गतिविधि की निगरानी कैसे करता है।
+
+---
+
+## अवलोकन
+
+failproofai के दो स्वतंत्र सबसिस्टम हैं:
+
+1. **हुक हैंडलर** - एक तेज़ CLI सबप्रोसेस जिसे Claude Code हर एजेंट टूल कॉल पर इनवोक करता है। पॉलिसियों का मूल्यांकन करता है और निर्णय लौटाता है।
+2. **एजेंट मॉनिटर (डैशबोर्ड)** - एजेंट सेशन की निगरानी और पॉलिसी प्रबंधन के लिए एक Next.js वेब एप्लिकेशन।
+
+दोनों सबसिस्टम `~/.failproofai/` और प्रोजेक्ट की `.failproofai/` डायरेक्टरी में कॉन्फ़िगरेशन फ़ाइलें साझा करते हैं, लेकिन वे अलग-अलग प्रोसेस के रूप में चलते हैं और केवल फ़ाइलसिस्टम के माध्यम से संवाद करते हैं।
+
+---
+
+## हुक हैंडलर
+
+### Claude Code के साथ एकीकरण
+
+जब आप `failproofai policies --install` चलाते हैं, तो यह `~/.claude/settings.json` में इस तरह की एंट्री लिखता है:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "failproofai --hook PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [ ... ]
+  }
+}
+```
+
+Claude Code फिर प्रत्येक टूल कॉल से पहले `failproofai --hook PreToolUse` को सबप्रोसेस के रूप में इनवोक करता है, और stdin पर JSON पेलोड भेजता है।
+
+### पेलोड फ़ॉर्मेट
+
+```json
+{
+  "session_id": "abc123",
+  "transcript_path": "/home/user/.claude/projects/myproject/sessions/abc123.jsonl",
+  "cwd": "/home/user/myproject",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "sudo apt install nodejs" }
+}
+```
+
+`PostToolUse` इवेंट के लिए, पेलोड में टूल का आउटपुट देने वाला `tool_result` भी होता है।
+
+हैंडलर 1 MB stdin सीमा लागू करता है। इससे अधिक पेलोड को अनदेखा कर दिया जाता है और सभी पॉलिसियाँ परोक्ष रूप से allow करती हैं।
+
+### रिस्पॉन्स फ़ॉर्मेट
+
+**Deny (PreToolUse):**
+```json
+{
+  "hookSpecificOutput": {
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Blocked by failproofai: sudo command blocked"
+  }
+}
+```
+
+**Deny (PostToolUse):**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "Blocked by failproofai because: API key detected in output"
+  }
+}
+```
+
+**Instruct (Stop को छोड़कर कोई भी इवेंट):**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "Instruction from failproofai: Verify tests pass before committing."
+  }
+}
+```
+
+**Stop इवेंट instruct:**
+- एग्ज़िट कोड: `2`
+- कारण stderr पर लिखा जाता है (stdout पर नहीं)
+
+**Allow:**
+- एग्ज़िट कोड: `0`
+- खाली stdout
+
+**संदेश के साथ Allow (बीटा):**
+
+v0.0.2-beta.3 से, `allow(message)` एक पॉलिसी को Claude को सूचनात्मक संदर्भ भेजने देता है, भले ही ऑपरेशन की अनुमति हो। हुक हैंडलर **stdout** पर निम्नलिखित JSON लिखता है (कोई कॉन्फ़िग फ़ाइल नहीं — यह Claude Code के लिए हैंडलर का रिस्पॉन्स है, जैसे deny और instruct रिस्पॉन्स ऊपर हैं):
+
+```json
+// Written to stdout by the hook handler process
+{
+  "hookSpecificOutput": {
+    "additionalContext": "All CI checks passed on branch 'feat/my-feature'."
+  }
+}
+```
+- एग्ज़िट कोड: `0` (ऑपरेशन की अनुमति है)
+- जब कई पॉलिसियाँ संदेश के साथ `allow` लौटाती हैं, तो उनके संदेश नई पंक्तियों के साथ एकल `additionalContext` स्ट्रिंग में जोड़े जाते हैं
+- यदि कोई पॉलिसी संदेश नहीं देती, तो stdout खाली होता है (पहले जैसा)
+
+### प्रोसेसिंग पाइपलाइन
+
+`src/hooks/handler.ts` पूरी पाइपलाइन को लागू करता है:
+
+```text
+stdin JSON
+  → parse payload (max 1 MB)
+  → extract session metadata (session_id, cwd, tool_name, tool_input, etc.)
+  → readMergedHooksConfig(cwd)    ← merges project + local + global config
+  → register enabled builtin policies with resolved params
+  → load custom policies from customPoliciesPath (if set)
+  → register custom policies into policy registry
+  → evaluate all policies (builtins first, then custom)
+      → first deny short-circuits
+      → instruct decisions accumulate
+      → allow messages accumulate
+  → write JSON decision to stdout
+  → persist event to ~/.failproofai/hook-activity.jsonl
+  → exit
+```
+
+कोई LLM कॉल न होने पर सामान्य पेलोड के लिए पूरी प्रक्रिया 100ms से कम में चलती है।
+
+---
+
+## कॉन्फ़िगरेशन लोडिंग
+
+`src/hooks/hooks-config.ts` तीन-स्तरीय कॉन्फ़िग लोडिंग लागू करता है।
+
+```text
+[1] {cwd}/.failproofai/policies-config.json        ← प्रोजेक्ट  (सर्वोच्च प्राथमिकता)
+[2] {cwd}/.failproofai/policies-config.local.json  ← लोकल
+[3] ~/.failproofai/policies-config.json             ← ग्लोबल   (सबसे कम प्राथमिकता)
+```
+
+मर्ज लॉजिक:
+- `enabledPolicies` - तीनों फ़ाइलों में डुप्लीकेट हटाकर यूनियन
+- `policyParams` - प्रति-पॉलिसी की, जो पहली फ़ाइल इसे परिभाषित करती है वह पूरी तरह जीतती है
+- `customPoliciesPath` - जो पहली फ़ाइल इसे परिभाषित करती है वह जीतती है
+- `llm` - जो पहली फ़ाइल इसे परिभाषित करती है वह जीतती है
+
+वेब डैशबोर्ड पढ़ने और लिखने के लिए `readHooksConfig()` (केवल ग्लोबल) का उपयोग करता है, क्योंकि इसे प्रोजेक्ट cwd के साथ इनवोक नहीं किया जाता।
+
+---
+
+## पॉलिसी मूल्यांकन
+
+`src/hooks/policy-evaluator.ts` पॉलिसियों को क्रम में चलाता है।
+
+प्रत्येक पॉलिसी के लिए:
+
+1. पॉलिसी का `params` स्कीमा देखें (यदि हो)।
+2. मर्ज की गई कॉन्फ़िग से `policyParams[policy.name]` पढ़ें।
+3. स्कीमा डिफ़ॉल्ट पर उपयोगकर्ता द्वारा प्रदान की गई वैल्यू मर्ज करके `ctx.params` बनाएं।
+4. रिज़ॉल्व किए गए संदर्भ के साथ `policy.fn(ctx)` कॉल करें।
+5. यदि परिणाम `deny` है, तो तुरंत रुकें और वह निर्णय लौटाएं।
+6. यदि परिणाम `instruct` है, तो संदेश संचित करें और जारी रखें।
+7. यदि परिणाम `allow` है, तो अगली पॉलिसी पर जाएं।
+
+सभी पॉलिसियाँ चलने के बाद:
+- यदि कोई `deny` लौटाया गया, तो deny रिस्पॉन्स भेजें।
+- यदि कोई `instruct` रिटर्न संकलित हुए, तो सभी संदेशों को जोड़कर एकल instruct रिस्पॉन्स भेजें।
+- अन्यथा, allow रिस्पॉन्स भेजें (खाली stdout, exit 0)।
+
+---
+
+## बिल्टइन पॉलिसियाँ
+
+`src/hooks/builtin-policies.ts` सभी 26 बिल्ट-इन पॉलिसियों को `BuiltinPolicyDefinition` ऑब्जेक्ट के रूप में परिभाषित करता है:
+
+```typescript
+interface BuiltinPolicyDefinition {
+  name: string;
+  description: string;
+  fn: (ctx: PolicyContext) => PolicyResult;
+  match: {
+    events: HookEventType[];
+    tools?: string[];
+  };
+  defaultEnabled: boolean;
+  category: string;
+  beta?: boolean;
+  params?: PolicyParamsSchema;
+}
+```
+
+`params` स्वीकार करने वाली पॉलिसियाँ प्रत्येक पैरामीटर के लिए प्रकार और डिफ़ॉल्ट के साथ `PolicyParamsSchema` घोषित करती हैं। पॉलिसी मूल्यांकनकर्ता `fn` कॉल करने से पहले `ctx.params` में रिज़ॉल्व की गई वैल्यू इंजेक्ट करता है। पॉलिसी फ़ंक्शन `ctx.params` को null-guarding के बिना पढ़ते हैं क्योंकि डिफ़ॉल्ट हमेशा पहले लागू होते हैं।
+
+पॉलिसियों के अंदर पैटर्न मिलान पार्स किए गए कमांड टोकन (argv) का उपयोग करता है, न कि रॉ स्ट्रिंग मिलान का। यह शेल ऑपरेटर इंजेक्शन के माध्यम से बाईपास को रोकता है (उदाहरण के लिए, `sudo systemctl status *` के लिए एक पैटर्न को कमांड में `; rm -rf /` जोड़कर बाईपास नहीं किया जा सकता)।
+
+---
+
+## कस्टम पॉलिसियाँ
+
+`src/hooks/custom-hooks-registry.ts` एक `globalThis`-समर्थित रजिस्ट्री लागू करता है:
+
+```typescript
+const REGISTRY_KEY = "__failproofai_custom_hooks__";
+
+export const customPolicies = {
+  add(hook: CustomHook): void { ... }
+};
+
+export function getCustomHooks(): CustomHook[] { ... }
+export function clearCustomHooks(): void { ... }  // used in tests
+```
+
+`src/hooks/custom-hooks-loader.ts` उपयोगकर्ता की पॉलिसी फ़ाइल लोड करता है:
+
+1. कॉन्फ़िग से `customPoliciesPath` पढ़ें; अनुपस्थित होने पर छोड़ें।
+2. पूर्ण पथ पर रिज़ॉल्व करें; फ़ाइल मौजूद है यह जांचें।
+3. सभी `from "failproofai"` इंपोर्ट को वास्तविक dist पथ पर फिर से लिखें ताकि `customPolicies` उसी `globalThis` रजिस्ट्री से रिज़ॉल्व हो।
+4. ESM संगतता सुनिश्चित करने के लिए ट्रांजिटिव लोकल इंपोर्ट को पुनरावर्ती रूप से फिर से लिखें।
+5. अस्थायी `.mjs` फ़ाइलें लिखें और एंट्री फ़ाइल को `import()` करें।
+6. पंजीकृत हुक प्राप्त करने के लिए `getCustomHooks()` कॉल करें।
+7. `finally` ब्लॉक में सभी अस्थायी फ़ाइलें हटाएं।
+
+किसी भी त्रुटि पर (फ़ाइल नहीं मिली, सिंटैक्स त्रुटि, इंपोर्ट विफलता), त्रुटि `~/.failproofai/hook.log` में लॉग होती है और लोडर खाली एरे लौटाता है। बिल्ट-इन पॉलिसियाँ प्रभावित नहीं होतीं।
+
+कस्टम पॉलिसियों का मूल्यांकन सभी बिल्ट-इन पॉलिसियों के बाद होता है। एक कस्टम पॉलिसी `deny` अभी भी आगे की कस्टम पॉलिसियों को short-circuit करती है (लेकिन उस बिंदु तक सभी बिल्टइन पहले ही चल चुके होते हैं)।
+
+---
+
+## एक्टिविटी लॉगिंग
+
+प्रत्येक हुक इवेंट के बाद, हैंडलर `~/.failproofai/hook-activity.jsonl` में एक JSONL लाइन जोड़ता है:
+
+```json
+{
+  "timestamp": "2026-04-06T12:34:56.789Z",
+  "sessionId": "abc123",
+  "eventType": "PreToolUse",
+  "toolName": "Bash",
+  "policyName": "block-sudo",
+  "decision": "deny",
+  "reason": "sudo command blocked by failproofai",
+  "durationMs": 12
+}
+```
+
+प्रत्येक पॉलिसी जिसने non-allow निर्णय लिया, उसके लिए एक लाइन। Allow निर्णय लॉग नहीं होते (फ़ाइल को छोटा रखने के लिए)।
+
+---
+
+## डैशबोर्ड आर्किटेक्चर
+
+डैशबोर्ड एक **Next.js 16** एप्लिकेशन है जो App Router के साथ React Server Components और Server Actions का उपयोग करता है।
+
+```text
+app/
+  layout.tsx                  ← रूट लेआउट (थीम, टेलीमेट्री, नेव)
+  projects/page.tsx           ← सर्वर कंपोनेंट: सभी Claude प्रोजेक्ट सूचीबद्ध करें
+  project/[name]/page.tsx     ← सर्वर कंपोनेंट: प्रोजेक्ट में सेशन सूचीबद्ध करें
+  project/[name]/session/
+    [sessionId]/page.tsx      ← सर्वर कंपोनेंट: सेशन व्यूअर रेंडर करें
+  policies/page.tsx           ← क्लाइंट कंपोनेंट: पॉलिसी प्रबंधन + एक्टिविटी लॉग
+  actions/
+    get-hooks-config.ts       ← कॉन्फ़िग + पॉलिसी सूची पढ़ें
+    update-hooks-config.ts    ← पॉलिसी चालू/बंद करें
+    update-policy-params.ts   ← पॉलिसी पैरामीटर अपडेट करें
+    get-hook-activity.ts      ← एक्टिविटी लॉग पेजिनेट/खोजें
+    install-hooks-web.ts      ← ब्राउज़र से हुक इंस्टॉल/हटाएं
+  api/
+    download/[project]/[session]/route.ts   ← सेशन को ZIP/JSONL के रूप में एक्सपोर्ट करें
+```
+
+**डेटा फ्लो:**
+
+- पेज कंपोनेंट फ़ाइलसिस्टम से सीधे प्रोजेक्ट/सेशन डेटा पढ़ने के लिए `lib/projects.ts` और `lib/log-entries.ts` कॉल करते हैं (पढ़ने के लिए कोई API लेयर नहीं)।
+- Policies पेज सभी म्यूटेशन के लिए Server Actions का उपयोग करता है (toggle, params अपडेट, install/remove)।
+- सेशन व्यूअर Claude के JSONL ट्रांसक्रिप्ट फ़ॉर्मेट को पार्स करता है और संदेशों और टूल कॉल की टाइमलाइन रेंडर करता है।
+
+**मुख्य डिज़ाइन निर्णय:**
+
+- कोई डेटाबेस नहीं - सभी स्थायी स्थिति सादे फ़ाइलों में है (`~/.failproofai/`, `~/.claude/projects/`)।
+- म्यूटेशन के लिए Server Actions - CRUD ऑपरेशन के लिए कोई REST API आवश्यक नहीं।
+- रीड पेज के लिए React Server Components - तेज़ इनिशियल लोड, डेटा फेचिंग के लिए कोई क्लाइंट बंडल नहीं।
+- क्लाइंट कंपोनेंट केवल वहाँ जहाँ इंटरेक्टिविटी आवश्यक है (पॉलिसी टॉगल, एक्टिविटी खोज, लॉग व्यूअर)।
+
+---
+
+## फ़ाइल लेआउट
+
+```text
+failproofai/
+├── bin/
+│   └── failproofai.mjs           # CLI राउटर (hook / dashboard / install / etc.)
+├── src/hooks/
+│   ├── handler.ts                # हुक इवेंट पाइपलाइन
+│   ├── builtin-policies.ts       # 26 पॉलिसी परिभाषाएं
+│   ├── policy-evaluator.ts       # पॉलिसी एग्ज़िक्यूशन इंजन
+│   ├── policy-registry.ts        # पॉलिसी पंजीकरण और लुकअप
+│   ├── policy-types.ts           # TypeScript इंटरफेस
+│   ├── hooks-config.ts           # मल्टी-स्कोप कॉन्फ़िग लोडिंग
+│   ├── custom-hooks-registry.ts  # globalThis-समर्थित हुक रजिस्ट्री
+│   ├── custom-hooks-loader.ts    # उपयोगकर्ता JS हुक के लिए ESM लोडर
+│   ├── manager.ts                # install / remove / list ऑपरेशन
+│   ├── install-prompt.ts         # इंटरएक्टिव पॉलिसी चयन प्रॉम्प्ट
+│   ├── hook-logger.ts            # hook.log में लॉगिंग
+│   ├── hook-activity-store.ts    # hook-activity.jsonl में एक्टिविटी सहेजें
+│   └── llm-client.ts             # LLM API क्लाइंट (AI-संचालित पॉलिसियों के लिए)
+├── app/                          # Next.js डैशबोर्ड (पेज + सर्वर एक्शन)
+├── lib/                          # साझा उपयोगिताएं
+│   ├── projects.ts               # फ़ाइलसिस्टम से Claude प्रोजेक्ट गणना करें
+│   ├── log-entries.ts            # Claude ट्रांसक्रिप्ट JSONL फ़ॉर्मेट पार्स करें
+│   ├── paths.ts                  # सिस्टम पथ रिज़ॉल्व करें
+│   └── ...
+├── components/                   # साझा React UI कंपोनेंट
+├── contexts/                     # React कॉन्टेक्स्ट प्रोवाइडर (थीम, ऑटो-रिफ्रेश, टेलीमेट्री)
+├── examples/                     # उदाहरण कस्टम हुक फ़ाइलें
+└── __tests__/                    # यूनिट और E2E टेस्ट
+```
