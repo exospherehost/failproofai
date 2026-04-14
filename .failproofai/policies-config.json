@@ -30,5 +30,10 @@
     "require-push-before-stop",
     "require-pr-before-stop",
     "require-ci-green-before-stop"
-  ]
+  ],
+  "policyParams": {
+    "block-force-push": {
+      "hint": "Create a new branch from your current HEAD (e.g. `git checkout -b <new-branch>`) and push that instead."
+    }
+  }
 }

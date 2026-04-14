@@ -30,6 +30,12 @@ Policies are grouped into categories:
 
 ---
 
+<Tip>
+Every policy supports an optional `hint` field in `policyParams`. The hint is appended to the deny or instruct message Claude sees, giving actionable guidance without modifying policy code. Works with built-in, custom, and convention policies. See [Configuration → hint](/configuration#hint-cross-cutting) for details.
+</Tip>
+
+---
+
 ## Dangerous commands
 
 Prevent agents from running operations that are hard to undo or that could damage the host system.
@@ -307,7 +313,17 @@ To allow pushing to all branches (effectively disabling this policy without remo
 **Event:** PreToolUse (Bash)  
 **Default:** Denies `git push --force` and `git push -f`.
 
-No parameters.
+No policy-specific parameters. Use the cross-cutting [`hint`](/configuration#hint-cross-cutting) to suggest alternatives:
+
+```json
+{
+  "policyParams": {
+    "block-force-push": {
+      "hint": "Create a new branch from your current HEAD (e.g. `git checkout -b <new-branch>`) and push that instead."
+    }
+  }
+}
+```
 
 ---
 
