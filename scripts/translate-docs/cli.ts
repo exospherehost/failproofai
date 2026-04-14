@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 import { parseArgs } from "node:util";
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { LANGUAGES, getLanguagesByTier, getLanguageByCode } from "./config";
 import { getEnglishMdxPages, translateMdxPage } from "./mdx-translator";
 import { translateReadme } from "./readme-translator";
 import { updateDocsJson, readDocsConfig } from "./mintlify-nav";
+import { readCache, writeCache, isCached, setCacheEntry, contentHash } from "./cache";
 import type { TranslationResult } from "./types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -164,6 +165,9 @@ async function main() {
   const results: TranslationResult[] = [];
   const errors: Array<{ lang: string; source: string; error: string }> = [];
 
+  // Read cache once upfront — filter unchanged files before starting work
+  const cache = readCache();
+
   // Translate docs
   if (!args["readme-only"]) {
     const pages = getEnglishMdxPages();
@@ -174,31 +178,70 @@ async function main() {
         })
       : pages;
 
-    console.log(`\nTranslating ${filteredPages.length} MDX pages...`);
+    // Split into cached (skip) and uncached (need translation) upfront
+    type PageTask = { page: string; relPath: string; lang: string };
+    const cachedTasks: PageTask[] = [];
+    const uncachedTasks: PageTask[] = [];
 
     for (const lang of langCodes) {
-      const langConfig = getLanguageByCode(lang)!;
-      console.log(`\n  ${langConfig.nativeName} (${lang}):`);
-
       for (const page of filteredPages) {
         const relPath = relative(DOCS_DIR, page);
-        try {
+        const task = { page, relPath, lang };
+        if (!isForce && !isDryRun && isCached(cache, relPath, lang, readFileSync(page, "utf-8"))) {
+          cachedTasks.push(task);
+        } else {
+          uncachedTasks.push(task);
+        }
+      }
+    }
+
+    console.log(`\n${filteredPages.length} MDX pages x ${langCodes.length} languages = ${filteredPages.length * langCodes.length} total`);
+    console.log(`  Cached (unchanged): ${cachedTasks.length}`);
+    console.log(`  Need translation: ${uncachedTasks.length}`);
+
+    // Record cached results
+    for (const { page, relPath, lang } of cachedTasks) {
+      results.push({
+        lang,
+        sourcePath: page,
+        outputPath: join(DOCS_DIR, lang, relPath),
+        inputTokens: 0,
+        outputTokens: 0,
+        cached: true,
+      });
+    }
+
+    // Translate uncached pages in parallel
+    if (uncachedTasks.length > 0) {
+      const settlements = await Promise.allSettled(
+        uncachedTasks.map(async ({ page, relPath, lang }) => {
           const result = await translateMdxPage(page, lang, {
             force: isForce,
             dryRun: isDryRun,
             model,
+            cache,
           });
+          const status = isDryRun
+            ? "would translate"
+            : `translated (${result.inputTokens}+${result.outputTokens} tokens)`;
+          console.log(`  ${relPath} [${lang}] -> ${status}`);
+          return { result, relPath, lang, page };
+        }),
+      );
+
+      for (const settlement of settlements) {
+        if (settlement.status === "fulfilled") {
+          const { result, relPath, lang, page } = settlement.value;
           results.push(result);
-          const status = result.cached
-            ? "cached"
-            : isDryRun
-              ? "would translate"
-              : `translated (${result.inputTokens}+${result.outputTokens} tokens)`;
-          console.log(`    ${relPath} -> ${status}`);
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          errors.push({ lang, source: relPath, error: msg });
-          console.error(`    ${relPath} -> ERROR: ${msg}`);
+          // Batch cache update — accumulate in memory
+          if (!result.cached && !isDryRun) {
+            setCacheEntry(cache, relPath, lang, readFileSync(page, "utf-8"), result.inputTokens, result.outputTokens);
+          }
+        } else {
+          const msg = settlement.reason instanceof Error ? settlement.reason.message : String(settlement.reason);
+          // Extract lang/source from the error if possible
+          errors.push({ lang: "unknown", source: "unknown", error: msg });
+          console.error(`  ERROR: ${msg}`);
         }
       }
     }
@@ -208,27 +251,62 @@ async function main() {
   if (!args["docs-only"]) {
     console.log(`\nTranslating README...`);
 
+    // Split cached vs uncached
+    const readmeSource = readFileSync(join(DOCS_DIR, "..", "README.md"), "utf-8");
+    const uncachedLangs: string[] = [];
     for (const lang of langCodes) {
-      const langConfig = getLanguageByCode(lang)!;
-      try {
-        const result = await translateReadme(lang, {
-          force: isForce,
-          dryRun: isDryRun,
-          model,
+      if (!isForce && !isDryRun && isCached(cache, "README.md", lang, readmeSource)) {
+        console.log(`  README.${lang}.md -> cached`);
+        results.push({
+          lang,
+          sourcePath: join(DOCS_DIR, "..", "README.md"),
+          outputPath: join(DOCS_DIR, "i18n", `README.${lang}.md`),
+          inputTokens: 0,
+          outputTokens: 0,
+          cached: true,
         });
-        results.push(result);
-        const status = result.cached
-          ? "cached"
-          : isDryRun
-            ? "would translate"
-            : `translated (${result.inputTokens}+${result.outputTokens} tokens)`;
-        console.log(`  README.${lang}.md -> ${langConfig.nativeName}: ${status}`);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        errors.push({ lang, source: "README.md", error: msg });
-        console.error(`  README.${lang}.md -> ERROR: ${msg}`);
+      } else {
+        uncachedLangs.push(lang);
       }
     }
+
+    if (uncachedLangs.length > 0) {
+      const settlements = await Promise.allSettled(
+        uncachedLangs.map(async (lang) => {
+          const langConfig = getLanguageByCode(lang)!;
+          const result = await translateReadme(lang, {
+            force: isForce,
+            dryRun: isDryRun,
+            model,
+            cache,
+          });
+          const status = isDryRun
+            ? "would translate"
+            : `translated (${result.inputTokens}+${result.outputTokens} tokens)`;
+          console.log(`  README.${lang}.md -> ${langConfig.nativeName}: ${status}`);
+          return { result, lang };
+        }),
+      );
+
+      for (const settlement of settlements) {
+        if (settlement.status === "fulfilled") {
+          const { result, lang } = settlement.value;
+          results.push(result);
+          if (!result.cached && !isDryRun) {
+            setCacheEntry(cache, "README.md", lang, readmeSource, result.inputTokens, result.outputTokens);
+          }
+        } else {
+          const msg = settlement.reason instanceof Error ? settlement.reason.message : String(settlement.reason);
+          errors.push({ lang: "unknown", source: "README.md", error: msg });
+          console.error(`  README ERROR: ${msg}`);
+        }
+      }
+    }
+  }
+
+  // Batch write cache once at the end
+  if (!isDryRun) {
+    writeCache(cache);
   }
 
   // Summary

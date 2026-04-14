@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { LANGUAGES, getLanguageByCode } from "./config";
 import { translateContent } from "./translator";
 import { readCache, writeCache, isCached, setCacheEntry } from "./cache";
-import type { TranslationResult } from "./types";
+import type { TranslationResult, TranslationCache } from "./types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = join(__dirname, "..", "..");
@@ -51,7 +51,7 @@ function buildLanguageSelector(currentLang: string): string {
 
 export async function translateReadme(
   lang: string,
-  options: { force?: boolean; dryRun?: boolean; model?: string } = {},
+  options: { force?: boolean; dryRun?: boolean; model?: string; cache?: TranslationCache } = {},
 ): Promise<TranslationResult> {
   const outputPath = join(I18N_DIR, `README.${lang}.md`);
   const sourceContent = readFileSync(README_PATH, "utf-8");
@@ -59,9 +59,9 @@ export async function translateReadme(
   const langConfig = getLanguageByCode(lang);
   if (!langConfig) throw new Error(`Unknown language: ${lang}`);
 
-  // Check cache
+  // Check cache — use provided cache object or read from disk
   if (!options.force && !options.dryRun) {
-    const cache = readCache();
+    const cache = options.cache ?? readCache();
     if (isCached(cache, "README.md", lang, sourceContent)) {
       return {
         lang,
@@ -108,10 +108,12 @@ export async function translateReadme(
   mkdirSync(I18N_DIR, { recursive: true });
   writeFileSync(outputPath, output);
 
-  // Update cache
-  const cache = readCache();
-  setCacheEntry(cache, "README.md", lang, sourceContent, inputTokens, outputTokens);
-  writeCache(cache);
+  // Update cache — skip if caller manages the cache (batch write)
+  if (!options.cache) {
+    const cache = readCache();
+    setCacheEntry(cache, "README.md", lang, sourceContent, inputTokens, outputTokens);
+    writeCache(cache);
+  }
 
   return {
     lang,

@@ -4,7 +4,7 @@
 
 ### Features
 - Use portable `npx -y failproofai` command for project-scope hooks, making `.claude/settings.json` committable to git (#96)
-- Parallelize translation workflow across 14 languages for faster CI (#98)
+- Parallelize translation workflow across 14 languages with concurrent file translation for faster CI (#98)
 
 ### Fixes
 - Fix hooks not working in failproofai's own repo by using local binary instead of npx (#98)

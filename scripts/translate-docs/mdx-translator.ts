@@ -9,7 +9,7 @@ import {
   isCached,
   setCacheEntry,
 } from "./cache";
-import type { TranslationResult } from "./types";
+import type { TranslationResult, TranslationCache } from "./types";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOCS_DIR = join(__dirname, "..", "..", "docs");
@@ -51,7 +51,7 @@ export function rewriteInternalLinks(
 export async function translateMdxPage(
   sourcePath: string,
   lang: string,
-  options: { force?: boolean; dryRun?: boolean; model?: string } = {},
+  options: { force?: boolean; dryRun?: boolean; model?: string; cache?: TranslationCache } = {},
 ): Promise<TranslationResult> {
   const relPath = relative(DOCS_DIR, sourcePath);
   const outputPath = join(DOCS_DIR, lang, relPath);
@@ -60,9 +60,9 @@ export async function translateMdxPage(
   const langConfig = getLanguageByCode(lang);
   if (!langConfig) throw new Error(`Unknown language: ${lang}`);
 
-  // Check cache
+  // Check cache — use provided cache object or read from disk
   if (!options.force && !options.dryRun) {
-    const cache = readCache();
+    const cache = options.cache ?? readCache();
     if (isCached(cache, relPath, lang, sourceContent)) {
       return {
         lang,
@@ -101,10 +101,12 @@ export async function translateMdxPage(
   mkdirSync(dirname(outputPath), { recursive: true });
   writeFileSync(outputPath, withLinks);
 
-  // Update cache
-  const cache = readCache();
-  setCacheEntry(cache, relPath, lang, sourceContent, inputTokens, outputTokens);
-  writeCache(cache);
+  // Update cache — skip if caller manages the cache (batch write)
+  if (!options.cache) {
+    const cache = readCache();
+    setCacheEntry(cache, relPath, lang, sourceContent, inputTokens, outputTokens);
+    writeCache(cache);
+  }
 
   return {
     lang,
