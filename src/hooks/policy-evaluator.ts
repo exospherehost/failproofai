@@ -56,9 +56,8 @@ export async function evaluatePolicies(
     session,
   };
 
-  // Track the first instruct result (accumulated, does not short-circuit)
-  let instructPolicyName: string | null = null;
-  let instructReason: string | null = null;
+  // Track all instruct results (accumulated, does not short-circuit)
+  const instructEntries: Array<{ policyName: string; reason: string }> = [];
 
   // Track informational messages from allow decisions (with policy attribution)
   const allowEntries: Array<{ policyName: string; reason: string }> = [];
@@ -142,14 +141,14 @@ export async function evaluatePolicies(
       };
     }
 
-    // Accumulate first instruct (does not short-circuit — later policies can still deny)
-    if (result.decision === "instruct" && !instructPolicyName) {
-      instructPolicyName = policy.name;
-      instructReason = appendHint(
+    // Accumulate all instruct results (does not short-circuit — later policies can still deny)
+    if (result.decision === "instruct") {
+      const reason = appendHint(
         result.reason ?? `Instruction from policy: ${policy.name}`,
         config?.policyParams?.[policy.name]?.hint,
       );
-      hookLogInfo(`instruct by "${policy.name}": ${instructReason}`);
+      instructEntries.push({ policyName: policy.name, reason });
+      hookLogInfo(`instruct by "${policy.name}": ${reason}`);
     }
 
     // Accumulate informational messages from allow decisions
@@ -158,17 +157,21 @@ export async function evaluatePolicies(
     }
   }
 
-  // No deny — check if we accumulated an instruct
-  if (instructPolicyName && instructReason) {
+  // No deny — check if we accumulated any instructs
+  if (instructEntries.length > 0) {
+    const combined = instructEntries.map((e) => e.reason).join("\n");
+    const policyNames = instructEntries.map((e) => e.policyName);
+
     if (eventType === "Stop") {
       // Stop hook: exitCode 2 blocks Claude from stopping.
       // Reason goes to stderr so Claude Code receives it as context.
       return {
         exitCode: 2,
         stdout: "",
-        stderr: instructReason,
-        policyName: instructPolicyName,
-        reason: instructReason,
+        stderr: combined,
+        policyName: policyNames[0],
+        policyNames,
+        reason: combined,
         decision: "instruct",
       };
     }
@@ -176,15 +179,16 @@ export async function evaluatePolicies(
     const response = {
       hookSpecificOutput: {
         hookEventName: eventType,
-        additionalContext: `Instruction from failproofai: ${instructReason}`,
+        additionalContext: `Instruction from failproofai: ${combined}`,
       },
     };
     return {
       exitCode: 0,
       stdout: JSON.stringify(response),
       stderr: "",
-      policyName: instructPolicyName,
-      reason: instructReason,
+      policyName: policyNames[0],
+      policyNames,
+      reason: combined,
       decision: "instruct",
     };
   }

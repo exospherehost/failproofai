@@ -115,6 +115,7 @@ describe("hooks/policy-evaluator", () => {
     const parsed = JSON.parse(result.stdout);
     expect(parsed.hookSpecificOutput.additionalContext).toContain("You should try something else");
     expect(result.policyName).toBe("advisor");
+    expect(result.policyNames).toEqual(["advisor"]);
     expect(result.reason).toBe("You should try something else");
   });
 
@@ -173,7 +174,7 @@ describe("hooks/policy-evaluator", () => {
     expect(result.policyName).toBe("verify");
   });
 
-  it("first instruct wins when multiple policies instruct", async () => {
+  it("accumulates multiple instruct messages", async () => {
     registerPolicy("first", "desc", () => ({
       decision: "instruct",
       reason: "first warning",
@@ -186,7 +187,11 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("PreToolUse", { tool_name: "Read" });
     expect(result.decision).toBe("instruct");
     expect(result.policyName).toBe("first");
-    expect(result.reason).toBe("first warning");
+    expect(result.policyNames).toEqual(["first", "second"]);
+    expect(result.reason).toBe("first warning\nsecond warning");
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.hookSpecificOutput.additionalContext).toContain("first warning");
+    expect(parsed.hookSpecificOutput.additionalContext).toContain("second warning");
   });
 
   describe("allow with message", () => {
@@ -635,15 +640,15 @@ describe("hooks/policy-evaluator", () => {
       expect(result.reason).toBe("custom block. Ask the user for approval.");
     });
 
-    it("works with convention/ prefixed policy names", async () => {
-      registerPolicy("convention/my-policy", "convention", () => ({
+    it("works with .failproofai-project/ prefixed policy names", async () => {
+      registerPolicy(".failproofai-project/my-policy", "convention", () => ({
         decision: "deny",
         reason: "convention block",
       }), { events: ["PreToolUse"] }, -1);
 
       const config = {
         enabledPolicies: [],
-        policyParams: { "convention/my-policy": { hint: "Check project CLAUDE.md." } },
+        policyParams: { ".failproofai-project/my-policy": { hint: "Check project CLAUDE.md." } },
       };
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
       expect(result.reason).toBe("convention block. Check project CLAUDE.md.");

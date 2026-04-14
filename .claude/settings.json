@@ -1,0 +1,316 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook SessionStart",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook SessionEnd",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook UserPromptSubmit",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PreToolUse",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PermissionRequest",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PermissionDenied",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PostToolUse",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PostToolUseFailure",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook Notification",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook SubagentStart",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook SubagentStop",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook TaskCreated",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook TaskCompleted",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook Stop",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook StopFailure",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "TeammateIdle": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook TeammateIdle",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "InstructionsLoaded": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook InstructionsLoaded",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "ConfigChange": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook ConfigChange",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook CwdChanged",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "FileChanged": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook FileChanged",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook WorktreeCreate",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook WorktreeRemove",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PreCompact",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook PostCompact",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "Elicitation": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook Elicitation",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "ElicitationResult": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/nivedit/.nvm/versions/node/v25.8.2/bin/failproofai\" --hook ElicitationResult",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ]
+  }
+}

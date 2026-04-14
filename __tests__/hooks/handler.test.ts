@@ -197,6 +197,7 @@ describe("hooks/handler", () => {
           decision: "deny",
           is_custom_hook: false,
           is_convention_policy: false,
+          convention_scope: null,
           has_custom_params: false,
           param_keys_overridden: [],
         },
@@ -228,6 +229,7 @@ describe("hooks/handler", () => {
           decision: "instruct",
           is_custom_hook: false,
           is_convention_policy: false,
+          convention_scope: null,
           has_custom_params: false,
           param_keys_overridden: [],
         },
@@ -405,7 +407,7 @@ describe("hooks/handler", () => {
       expect(trackHookEvent).toHaveBeenCalledWith(
         "test-instance-id",
         "custom_hook_error",
-        { hook_name: "bad-hook", error_type: "exception", event_type: "PreToolUse", is_convention_policy: false },
+        { hook_name: "bad-hook", error_type: "exception", event_type: "PreToolUse", is_convention_policy: false, convention_scope: null },
       );
     });
 
@@ -434,7 +436,7 @@ describe("hooks/handler", () => {
       expect(trackHookEvent).toHaveBeenCalledWith(
         "test-instance-id",
         "custom_hook_error",
-        { hook_name: "slow-hook", error_type: "timeout", event_type: "PreToolUse", is_convention_policy: false },
+        { hook_name: "slow-hook", error_type: "timeout", event_type: "PreToolUse", is_convention_policy: false, convention_scope: null },
       );
     });
 
