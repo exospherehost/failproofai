@@ -78,8 +78,9 @@ export async function handleHookEvent(eventType: string): Promise<number> {
 
   for (const hook of customHooksList) {
     const hookName = hook.name;
-    const isConvention = (hook as CustomHook & { __conventionSource?: boolean }).__conventionSource === true;
-    const prefix = isConvention ? "convention" : "custom";
+    const conventionScope = (hook as CustomHook & { __conventionScope?: string }).__conventionScope;
+    const isConvention = !!conventionScope;
+    const prefix = isConvention ? `.failproofai-${conventionScope}` : "custom";
     const fn: PolicyFunction = async (ctx): Promise<PolicyResult> => {
       try {
         const result = await Promise.race([
@@ -98,6 +99,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
           error_type: isTimeout ? "timeout" : "exception",
           event_type: eventType,
           is_convention_policy: isConvention,
+          convention_scope: conventionScope ?? null,
         });
         return { decision: "allow" };
       }
@@ -170,7 +172,10 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   if (result.decision === "deny" || result.decision === "instruct") {
     try {
       const isCustomHook = result.policyName?.startsWith("custom/") ?? false;
-      const isConventionPolicy = result.policyName?.startsWith("convention/") ?? false;
+      const isConventionPolicy = result.policyName?.startsWith(".failproofai-") ?? false;
+      const conventionScope = isConventionPolicy
+        ? result.policyName!.match(/^\.failproofai-(project|user)\//)?.[1] ?? null
+        : null;
       const hasCustomParams =
         !isCustomHook && !isConventionPolicy && !!(result.policyName && config.policyParams?.[result.policyName]);
       const paramKeysOverridden = hasCustomParams
@@ -184,6 +189,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
         decision: result.decision,
         is_custom_hook: isCustomHook,
         is_convention_policy: isConventionPolicy,
+        convention_scope: conventionScope,
         has_custom_params: hasCustomParams,
         param_keys_overridden: paramKeysOverridden,
       });

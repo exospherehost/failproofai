@@ -116,7 +116,7 @@ export interface LoadAllResult {
  * 3. User convention: ~/.failproofai/policies/*policies.{js,mjs,ts} (alphabetical)
  *
  * Each file is loaded independently (fail-open per file).
- * Convention hooks are tagged with __conventionSource so the handler can distinguish them.
+ * Convention hooks are tagged with __conventionScope so the handler can build scoped prefixes.
  */
 export async function loadAllCustomHooks(
   customPoliciesPath: string | undefined,
@@ -181,16 +181,23 @@ export async function loadAllCustomHooks(
     );
   }
 
-  // Tag convention hooks so the handler can register them with a "convention/" prefix.
-  // Track by object reference (not name) to avoid mis-tagging an explicit custom hook
-  // that happens to share the same name as a convention hook.
+  // Tag convention hooks with their scope so the handler can build scoped prefixes.
+  // Build a name→scope map from conventionSources, then tag by object reference
+  // to avoid mis-tagging an explicit custom hook that shares the same name.
+  const hookNameToScope = new Map<string, string>();
+  for (const source of conventionSources) {
+    for (const name of source.hookNames) {
+      hookNameToScope.set(name, source.scope);
+    }
+  }
   const conventionHookRefs = new Set<CustomHook>();
   for (const hook of allHooks.slice(hooksBeforeConvention)) {
     conventionHookRefs.add(hook);
   }
   for (const hook of allHooks) {
     if (conventionHookRefs.has(hook)) {
-      (hook as CustomHook & { __conventionSource?: boolean }).__conventionSource = true;
+      (hook as CustomHook & { __conventionScope?: string }).__conventionScope =
+        hookNameToScope.get(hook.name) ?? "project";
     }
   }
 

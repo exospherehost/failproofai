@@ -2,9 +2,15 @@
 
 ## Unreleased
 
+## 0.0.2-beta.8 — 2026-04-14
+
 ### Features
 - Add `changelog-check`, `docs-check`, and `pr-description-check` convention policies
 - Track `.claude/settings.json` in git
+
+### Fixes
+- Accumulate all `instruct` messages instead of only delivering the first one
+- Rename convention policy prefix from `convention/` to `.failproofai-{scope}/` (e.g. `.failproofai-project/`, `.failproofai-user/`) and add `convention_scope` to telemetry
 
 ### Docs
 - Document cross-cutting `hint` param in built-in policies reference and add `block-force-push` hint example

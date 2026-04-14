@@ -119,10 +119,10 @@ customPolicies.add({
 
 `deny(message)` - the message appears to Claude prefixed with `"Blocked by failproofai:"`. A single `deny` short-circuits all further evaluation.
 
-`instruct(message)` - the message is appended to Claude's context for the current tool call. The first `instruct` wins — subsequent `instruct` returns from other policies are ignored.
+`instruct(message)` - the message is appended to Claude's context for the current tool call. All `instruct` messages are accumulated and delivered together.
 
 <Tip>
-You can append extra guidance to any `deny` or `instruct` message by adding a `hint` field in `policyParams` — no code change needed. This works for custom (`custom/`) and convention (`convention/`) policies too. See [Configuration → hint](/configuration#hint-cross-cutting) for details.
+You can append extra guidance to any `deny` or `instruct` message by adding a `hint` field in `policyParams` — no code change needed. This works for custom (`custom/`), project convention (`.failproofai-project/`), and user convention (`.failproofai-user/`) policies too. See [Configuration → hint](/configuration#hint-cross-cutting) for details.
 </Tip>
 
 ### Informational allow messages (beta)
@@ -198,7 +198,7 @@ Policies are evaluated in this order:
 4. Convention policies from user `~/.failproofai/policies/` (files alphabetical, `.add()` order within)
 
 <Note>
-The first `deny` short-circuits all subsequent policies. The first `instruct` wins — subsequent `instruct` returns are ignored.
+The first `deny` short-circuits all subsequent policies. All `instruct` messages are accumulated and delivered together.
 </Note>
 
 ---
