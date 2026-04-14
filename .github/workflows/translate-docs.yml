@@ -1,0 +1,99 @@
+name: Translate Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/*.mdx'
+      - 'docs/**/*.mdx'
+      - 'README.md'
+  workflow_dispatch:
+
+concurrency:
+  group: translate-docs
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
+      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
+      FAILPROOFAI_TELEMETRY_DISABLED: "1"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lockb') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Restore translation cache
+        uses: actions/cache/restore@v4
+        with:
+          path: scripts/translate-docs/.translation-cache.json
+          key: translation-cache-${{ hashFiles('scripts/translate-docs/.translation-cache.json') }}
+          restore-keys: translation-cache-
+
+      - name: Run translations
+        run: bun run translate --tier 3
+
+      - name: Save translation cache
+        uses: actions/cache/save@v4
+        with:
+          path: scripts/translate-docs/.translation-cache.json
+          key: translation-cache-${{ hashFiles('scripts/translate-docs/.translation-cache.json') }}
+
+      - name: Check for changes
+        id: changes
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR if translations changed
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check for existing open translate PR
+          EXISTING=$(gh pr list --base main --search "[auto] update translations" --state open --json number --jq length)
+          if [ "$EXISTING" -gt 0 ]; then
+            echo "Translation PR already open. Skipping."
+            exit 0
+          fi
+
+          BRANCH="auto/translate-docs-$(date +%Y%m%d-%H%M)"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$BRANCH"
+          git commit -m "docs: update translations for changed English sources"
+          git push origin "$BRANCH"
+
+          PR_BODY="## Summary
+
+          Automated translation update triggered by changes to English documentation sources.
+
+          - Only changed pages were re-translated (content-hash cache)
+          - All 14 languages across 3 tiers"
+
+          gh pr create \
+            --title "[auto] update translations" \
+            --body "$PR_BODY" \
+            --base main \
+            --head "$BRANCH"
