@@ -168,6 +168,50 @@ function getCurrentBranch(cwd: string): string | null {
   }
 }
 
+function getHeadSha(cwd: string): string | null {
+  try {
+    const sha = execSync("git rev-parse HEAD", {
+      cwd,
+      encoding: "utf8",
+      timeout: 3000,
+    }).trim();
+    return sha || null;
+  } catch {
+    return null;
+  }
+}
+
+interface CiCheck {
+  name: string;
+  status: string;
+  conclusion: string;
+}
+
+/** Fetch third-party check runs (non-GitHub-Actions) for a commit via the Checks API. */
+function getThirdPartyCheckRuns(cwd: string, sha: string): CiCheck[] {
+  try {
+    const json = execFileSync(
+      "gh",
+      [
+        "api",
+        `repos/{owner}/{repo}/commits/${sha}/check-runs`,
+        "--jq",
+        '.check_runs | map(select(.app.slug != "github-actions")) | map({name: .name, status: .status, conclusion: (.conclusion // "")})',
+      ],
+      {
+        cwd,
+        encoding: "utf8",
+        timeout: 15000,
+      },
+    ).trim();
+
+    if (!json || json === "[]") return [];
+    return JSON.parse(json) as CiCheck[];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Check if a command matches an allow pattern using token-by-token comparison.
  * The "*" token is a wildcard. Extra command tokens beyond the pattern are allowed,
@@ -1013,27 +1057,35 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     const branch = getCurrentBranch(cwd);
     if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping CI check.");
 
-    const runsJson = execFileSync(
-      "gh",
-      ["run", "list", "--branch", branch, "--limit", "5", "--json", "status,conclusion,name"],
-      {
-        cwd,
-        encoding: "utf8",
-        timeout: 15000,
-      },
-    ).trim();
+    // 1. GitHub Actions workflow runs
+    let workflowRuns: CiCheck[] = [];
+    try {
+      const runsJson = execFileSync(
+        "gh",
+        ["run", "list", "--branch", branch, "--limit", "5", "--json", "status,conclusion,name"],
+        { cwd, encoding: "utf8", timeout: 15000 },
+      ).trim();
 
-    if (!runsJson || runsJson === "[]") return allow(`No CI runs found for branch "${branch}".`);
+      if (runsJson && runsJson !== "[]") {
+        workflowRuns = JSON.parse(runsJson) as CiCheck[];
+      }
+    } catch {
+      // fail-open for workflow runs; continue to check third-party checks
+    }
 
-    const runs = JSON.parse(runsJson) as Array<{
-      status: string;
-      conclusion: string;
-      name: string;
-    }>;
+    // 2. Third-party check runs (CodeRabbit, SonarCloud, Codecov, etc.)
+    let thirdPartyChecks: CiCheck[] = [];
+    const sha = getHeadSha(cwd);
+    if (sha) {
+      thirdPartyChecks = getThirdPartyCheckRuns(cwd, sha);
+    }
 
-    if (runs.length === 0) return allow(`No CI runs found for branch "${branch}".`);
+    // 3. Merge all checks
+    const allChecks = [...workflowRuns, ...thirdPartyChecks];
 
-    const failing = runs.filter(
+    if (allChecks.length === 0) return allow(`No CI runs found for branch "${branch}".`);
+
+    const failing = allChecks.filter(
       (r) => r.status === "completed" && r.conclusion !== "success" && r.conclusion !== "skipped",
     );
     if (failing.length > 0) {
@@ -1043,7 +1095,7 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
       );
     }
 
-    const pending = runs.filter(
+    const pending = allChecks.filter(
       (r) => r.status === "in_progress" || r.status === "queued" || r.status === "waiting",
     );
     if (pending.length > 0) {

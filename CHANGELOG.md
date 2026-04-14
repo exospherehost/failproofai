@@ -3,6 +3,7 @@
 ## Unreleased (0.0.2-beta.7)
 
 ### Features
+- Check third-party bot statuses (CodeRabbit, SonarCloud, etc.) in `require-ci-green-before-stop` policy (#90)
 - Auto-bump version after release (#73)
 
 ### Fixes
