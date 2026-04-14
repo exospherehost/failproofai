@@ -8,17 +8,40 @@ on:
       - 'docs/**/*.mdx'
       - 'README.md'
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Ignore cache and re-translate everything'
+        type: boolean
+        default: false
+      languages:
+        description: 'Comma-separated language codes (leave empty for all)'
+        type: string
+        default: ''
 
 concurrency:
   group: translate-docs
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      languages: ${{ steps.langs.outputs.languages }}
+    steps:
+      - id: langs
+        run: |
+          if [ -n "${{ inputs.languages }}" ]; then
+            echo "languages=$(echo '${{ inputs.languages }}' | jq -Rc 'split(",") | map(gsub("\\s"; ""))')" >> "$GITHUB_OUTPUT"
+          else
+            echo 'languages=["zh","ja","ko","es","pt-br","de","fr","ru","hi","tr","vi","it","ar","he"]' >> "$GITHUB_OUTPUT"
+          fi
+
   translate:
+    needs: prepare
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        lang: [zh, ja, ko, es, pt-br, de, fr, ru, hi, tr, vi, it, ar, he]
+        lang: ${{ fromJson(needs.prepare.outputs.languages) }}
 
     env:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_AUTH_TOKEN }}
@@ -49,7 +72,7 @@ jobs:
           restore-keys: translation-cache-
 
       - name: Translate ${{ matrix.lang }}
-        run: bun run translate --languages ${{ matrix.lang }}
+        run: bun run translate --languages ${{ matrix.lang }} ${{ inputs.force == true && '--force' || '' }}
 
       - name: Upload translated files
         uses: actions/upload-artifact@v4
@@ -69,7 +92,7 @@ jobs:
           retention-days: 1
 
   consolidate:
-    needs: translate
+    needs: [prepare, translate]
     if: always() && needs.translate.result != 'cancelled'
     runs-on: ubuntu-latest
     permissions:
