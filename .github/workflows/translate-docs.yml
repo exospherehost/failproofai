@@ -97,11 +97,25 @@ jobs:
           const path = require('path');
           const dir = 'cache-fragments';
           const merged = { sourceHash: '', lastUpdated: '', translations: {} };
-          for (const sub of fs.readdirSync(dir)) {
+          let baseLoaded = false;
+          for (const sub of fs.readdirSync(dir).sort()) {
             const f = path.join(dir, sub, '.translation-cache.json');
             if (!fs.existsSync(f)) continue;
             const data = JSON.parse(fs.readFileSync(f, 'utf-8'));
-            Object.assign(merged.translations, data.translations);
+            // Load base entries from the first fragment (all fragments share the same base)
+            if (!baseLoaded) {
+              Object.assign(merged.translations, data.translations);
+              baseLoaded = true;
+            }
+            // Each fragment is authoritative only for its own language.
+            // Extract lang from directory name: 'cache-zh' -> 'zh'
+            const lang = sub.replace('cache-', '');
+            const suffix = '::' + lang;
+            for (const [key, value] of Object.entries(data.translations)) {
+              if (key.endsWith(suffix)) {
+                merged.translations[key] = value;
+              }
+            }
             if (data.lastUpdated > merged.lastUpdated) {
               merged.lastUpdated = data.lastUpdated;
             }
