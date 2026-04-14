@@ -288,4 +288,4 @@ See [LICENSE](LICENSE).
 
 ---
 
-Built and Maintained by **ExosphereHost: Reliability Research Lab for Your Agents**. We work with enterprises and startups with our agents, software, people and knowhow to improve reliability of their agents. Know more at: [exosphere.host](https://exosphere.host)
+Built and Maintained by **ExosphereHost: Reliability Research Lab for Your Agents**. We help enterprises and startups improve the reliability of their AI agents through our own agents, software, and expertise. Learn more at [exosphere.host](https://exosphere.host).
