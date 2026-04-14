@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased (0.0.2-beta.7)
+## Unreleased
+
+## 0.0.2-beta.7 — 2026-04-14
 
 ### Features
 - Check third-party bot statuses (CodeRabbit, SonarCloud, etc.) in `require-ci-green-before-stop` policy (#90)
