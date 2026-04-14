@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Features
+- Use portable `npx -y failproofai` command for project-scope hooks, making `.claude/settings.json` committable to git (#96)
+
 ## 0.0.2-beta.8 — 2026-04-14
 
 ### Features

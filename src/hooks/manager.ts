@@ -267,7 +267,9 @@ export async function installHooks(
   }
 
   for (const eventType of HOOK_EVENT_TYPES) {
-    const command = `"${binaryPath}" --hook ${eventType}`;
+    const command = scope === "project"
+      ? `npx -y failproofai --hook ${eventType}`
+      : `"${binaryPath}" --hook ${eventType}`;
     const hookEntry: ClaudeHookEntry = {
       type: "command",
       command,
@@ -323,6 +325,7 @@ export async function installHooks(
       has_custom_hooks_path: !!(configToWrite.customPoliciesPath),
       has_policy_params: !!(configToWrite.policyParams && Object.keys(configToWrite.policyParams).length > 0),
       param_policy_names: configToWrite.policyParams ? Object.keys(configToWrite.policyParams) : [],
+      command_format: scope === "project" ? "npx" : "absolute",
     });
   } catch {
     // Telemetry is best-effort — never block the operation
@@ -330,7 +333,12 @@ export async function installHooks(
 
   console.log(`Failproof AI hooks installed for all ${HOOK_EVENT_TYPES.length} event types (scope: ${scope}).`);
   console.log(`Settings: ${settingsPath}`);
-  console.log(`Binary:   ${binaryPath}`);
+  if (scope === "project") {
+    console.log(`Command:  npx -y failproofai`);
+    console.log(`\nThis file can be committed to git — no machine-specific paths.`);
+  } else {
+    console.log(`Binary:   ${binaryPath}`);
+  }
 
   // Warn about duplicate-scope installations
   const otherScopes = deduplicateScopes(HOOK_SCOPES, cwd).filter((s) => s !== scope);

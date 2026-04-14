@@ -285,6 +285,113 @@ describe("hooks/manager", () => {
       expect(path).toBe(PROJECT_SETTINGS_PATH);
     });
 
+    it("project scope uses portable npx -y failproofai command for all event types", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+
+      const { installHooks } = await import("../../src/hooks/manager");
+      await installHooks(["all"], "project");
+
+      const [, content] = vi.mocked(writeFileSync).mock.calls[0];
+      const written = JSON.parse(content as string);
+
+      for (const [eventType, matchers] of Object.entries(written.hooks)) {
+        const hook = (matchers as Array<{ hooks: Array<Record<string, unknown>> }>)[0].hooks[0];
+        expect(hook.command).toBe(`npx -y failproofai --hook ${eventType}`);
+      }
+    });
+
+    it("user scope uses absolute binary path, not npx", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+
+      const { installHooks } = await import("../../src/hooks/manager");
+      await installHooks(["all"], "user");
+
+      const [, content] = vi.mocked(writeFileSync).mock.calls[0];
+      const written = JSON.parse(content as string);
+
+      const hook = written.hooks.PreToolUse[0].hooks[0];
+      expect(hook.command).toBe('"/usr/local/bin/failproofai" --hook PreToolUse');
+    });
+
+    it("local scope uses absolute binary path, not npx", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+
+      const { installHooks } = await import("../../src/hooks/manager");
+      await installHooks(["all"], "local");
+
+      const [, content] = vi.mocked(writeFileSync).mock.calls[0];
+      const written = JSON.parse(content as string);
+
+      const hook = written.hooks.PreToolUse[0].hooks[0];
+      expect(hook.command).toBe('"/usr/local/bin/failproofai" --hook PreToolUse');
+    });
+
+    it("re-install on project scope migrates absolute-path hooks to npx format", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      const existingSettings = {
+        hooks: {
+          PreToolUse: [
+            {
+              hooks: [
+                {
+                  type: "command",
+                  command: '"/old/path/failproofai" --hook PreToolUse',
+                  timeout: 10_000,
+                  __failproofai_hook__: true,
+                },
+              ],
+            },
+          ],
+        },
+      };
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(existingSettings));
+
+      const { installHooks } = await import("../../src/hooks/manager");
+      await installHooks(["all"], "project");
+
+      const [, content] = vi.mocked(writeFileSync).mock.calls[0];
+      const written = JSON.parse(content as string);
+
+      expect(written.hooks.PreToolUse[0].hooks[0].command).toBe(
+        "npx -y failproofai --hook PreToolUse",
+      );
+    });
+
+    it("detects npx-format hooks as failproofai hooks (legacy fallback without marker)", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      const settings = {
+        hooks: {
+          PreToolUse: [{
+            hooks: [{
+              type: "command",
+              command: "npx -y failproofai --hook PreToolUse",
+              timeout: 60000,
+            }],
+          }],
+        },
+      };
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(settings));
+
+      const { hooksInstalledInSettings } = await import("../../src/hooks/manager");
+      expect(hooksInstalledInSettings("project")).toBe(true);
+    });
+
+    it("project scope console output shows portable command info", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+
+      const { installHooks } = await import("../../src/hooks/manager");
+      await installHooks(["all"], "project");
+
+      const logs = vi.mocked(console.log).mock.calls.map((c) => c[0]);
+      expect(logs.some((l: unknown) => typeof l === "string" && (l as string).includes("npx -y failproofai"))).toBe(true);
+      expect(logs.some((l: unknown) => typeof l === "string" && (l as string).includes("committed to git"))).toBe(true);
+      expect(logs.some((l: unknown) => typeof l === "string" && (l as string).includes("Binary:"))).toBe(false);
+    });
+
     it("install at local scope writes to {cwd}/.claude/settings.local.json", async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("{}");
