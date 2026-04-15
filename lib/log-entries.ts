@@ -1,7 +1,7 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
-import { getClaudeProjectsPath } from "./paths";
-import { resolveProjectPath } from "./projects";
+import { getClaudeProjectsPath, getCopilotSessionStatePath } from "./paths";
+import { resolveProjectPath, resolveCopilotSessionDir, UUID_RE } from "./projects";
 import { resolveSubagentPath } from "./resolve-subagent-path";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
@@ -411,7 +411,24 @@ export async function parseSessionLog(
   const projectDir = resolveProjectPath(projectName);
   const projectsPath = getClaudeProjectsPath();
   const filePath = join(projectDir, `${sessionId}.jsonl`);
-  const fileContent = await readFile(filePath, "utf-8");
+
+  let fileContent: string;
+  try {
+    fileContent = await readFile(filePath, "utf-8");
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+
+    // Fallback: this may be a Copilot session where projectName IS the sessionId
+    // and the log lives at ~/.copilot/session-state/<sessionId>/events.jsonl.
+    if (UUID_RE.test(projectName)) {
+      const copilotDir = resolveCopilotSessionDir(projectName);
+      const copilotEventsPath = join(copilotDir, "events.jsonl");
+      // Let this throw naturally (ENOENT) if the Copilot session doesn't exist either.
+      fileContent = await readFile(copilotEventsPath, "utf-8");
+    } else {
+      throw e; // not a UUID — re-throw original error
+    }
+  }
 
   const { entries: sessionEntries, rawLines: sessionRawLines, subagentIds } =
     await parseFileContent(fileContent, "session");

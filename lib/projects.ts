@@ -6,8 +6,8 @@
  * so that client components can display them without hydration mismatches.
  */
 import { readdir, stat } from "fs/promises";
-import { join, resolve, sep } from "path";
-import { getClaudeProjectsPath } from "./paths";
+import { join, resolve, sep, basename } from "path";
+import { getClaudeProjectsPath, getCopilotSessionStatePath } from "./paths";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
 import { logWarn, logError } from "./logger";
@@ -22,6 +22,7 @@ export interface ProjectFolder {
   isDirectory: boolean;
   lastModified: Date;
   lastModifiedFormatted?: string; // Pre-formatted date string to avoid hydration issues
+  source?: "claude" | "copilot"; // Which AI agent owns this project/session
 }
 
 export interface SessionFile {
@@ -54,32 +55,45 @@ async function safeReaddir(dirPath: string) {
   }
 }
 
+async function readFolderEntries(
+  rootPath: string,
+  source: "claude" | "copilot",
+  filterFn?: (name: string) => boolean,
+): Promise<ProjectFolder[]> {
+  const entries = await safeReaddir(rootPath);
+  if (!entries) return [];
+
+  const settled = await batchAll(
+    entries
+      .filter((e) => e.isDirectory() && (!filterFn || filterFn(e.name)))
+      .map((entry) => async () => {
+        const folderPath = join(rootPath, entry.name);
+        const mtime = await getMtime(folderPath, entry.name);
+        return {
+          name: entry.name,
+          path: folderPath,
+          isDirectory: true,
+          lastModified: mtime,
+          lastModifiedFormatted: formatDate(mtime),
+          source,
+        } as ProjectFolder;
+      }),
+    16,
+  );
+  return settled
+    .filter((r): r is PromiseFulfilledResult<ProjectFolder> => r.status === "fulfilled")
+    .map((r) => r.value);
+}
+
 export async function getProjectFolders(): Promise<ProjectFolder[]> {
   try {
-    const projectsPath = getClaudeProjectsPath();
-    const entries = await safeReaddir(projectsPath);
-    if (!entries) return [];
+    const [claudeFolders, copilotFolders] = await Promise.all([
+      readFolderEntries(getClaudeProjectsPath(), "claude"),
+      // Copilot session dirs are UUIDs; skip anything that isn't.
+      readFolderEntries(getCopilotSessionStatePath(), "copilot", (name) => UUID_RE.test(name)),
+    ]);
 
-    const settled = await batchAll(
-      entries
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => async () => {
-          const folderPath = join(projectsPath, entry.name);
-          const mtime = await getMtime(folderPath, entry.name);
-          return {
-            name: entry.name,
-            path: folderPath,
-            isDirectory: true,
-            lastModified: mtime,
-            lastModifiedFormatted: formatDate(mtime),
-          } as ProjectFolder;
-        }),
-      16,
-    );
-    const folders = settled
-      .filter((r): r is PromiseFulfilledResult<ProjectFolder> => r.status === "fulfilled")
-      .map((r) => r.value);
-
+    const folders = [...claudeFolders, ...copilotFolders];
     folders.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
     return folders;
   } catch (error) {
@@ -117,6 +131,38 @@ export function resolveProjectPath(projectName: string): string {
 }
 
 /**
+ * Resolves a Copilot session ID to its session-state directory path, validating
+ * the ID is a well-formed UUID and the path stays within the Copilot root.
+ * Throws RangeError for invalid input.
+ */
+export function resolveCopilotSessionDir(sessionId: string): string {
+  if (!UUID_RE.test(sessionId)) throw new RangeError("Invalid Copilot session ID");
+  const stateRoot = resolve(getCopilotSessionStatePath());
+  const candidate = resolve(join(stateRoot, sessionId));
+  if (!candidate.startsWith(stateRoot + sep)) throw new RangeError("Copilot path escapes root");
+  return candidate;
+}
+
+/**
+ * Resolves a project/session name that may belong to either Claude Code or Copilot.
+ * Returns the resolved path and which source it belongs to.
+ * Throws RangeError if the name is invalid for both roots.
+ */
+export function resolveAnyProjectPath(
+  name: string,
+): { path: string; source: "claude" | "copilot" } {
+  try {
+    return { path: resolveProjectPath(name), source: "claude" };
+  } catch {
+    // UUID-shaped names may be Copilot session IDs
+    if (UUID_RE.test(name)) {
+      return { path: resolveCopilotSessionDir(name), source: "copilot" };
+    }
+    throw new RangeError(`Project "${name}" not found in Claude or Copilot paths`);
+  }
+}
+
+/**
  * Resolves a session file path, validating both project name and session ID.
  * Throws RangeError for invalid inputs (caught by callers for 400/404).
  */
@@ -143,30 +189,49 @@ export async function getSessionFiles(projectPath: string): Promise<SessionFile[
     const entries = await safeReaddir(projectPath);
     if (!entries) return [];
 
+    // Standard Claude session files: <uuid>.jsonl
     const jsonlEntries = entries.filter(
       (entry) => entry.isFile() && entry.name.endsWith(".jsonl") && extractSessionId(entry.name)
     );
 
-    const settled = await batchAll(
-      jsonlEntries.map((entry) => async () => {
-        const filePath = join(projectPath, entry.name);
-        const mtime = await getMtime(filePath, entry.name);
-        return {
-          name: entry.name,
-          path: filePath,
-          lastModified: mtime,
-          lastModifiedFormatted: formatDate(mtime),
-          sessionId: extractSessionId(entry.name),
-        } as SessionFile;
-      }),
-      16,
-    );
-    const files = settled
-      .filter((r): r is PromiseFulfilledResult<SessionFile> => r.status === "fulfilled")
-      .map((r) => r.value);
+    if (jsonlEntries.length > 0) {
+      const settled = await batchAll(
+        jsonlEntries.map((entry) => async () => {
+          const filePath = join(projectPath, entry.name);
+          const mtime = await getMtime(filePath, entry.name);
+          return {
+            name: entry.name,
+            path: filePath,
+            lastModified: mtime,
+            lastModifiedFormatted: formatDate(mtime),
+            sessionId: extractSessionId(entry.name),
+          } as SessionFile;
+        }),
+        16,
+      );
+      const files = settled
+        .filter((r): r is PromiseFulfilledResult<SessionFile> => r.status === "fulfilled")
+        .map((r) => r.value);
+      files.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+      return files;
+    }
 
-    files.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
-    return files;
+    // Copilot sessions: the directory itself is the session UUID, with events.jsonl inside.
+    const dirName = basename(projectPath);
+    const eventsFile = entries.find((e) => e.isFile() && e.name === "events.jsonl");
+    if (eventsFile && UUID_RE.test(dirName)) {
+      const filePath = join(projectPath, "events.jsonl");
+      const mtime = await getMtime(filePath, "events.jsonl");
+      return [{
+        name: "events.jsonl",
+        path: filePath,
+        lastModified: mtime,
+        lastModifiedFormatted: formatDate(mtime),
+        sessionId: dirName, // parent directory UUID is the session ID
+      }];
+    }
+
+    return [];
   } catch (error) {
     logError("Error reading session files:", error);
     return [];

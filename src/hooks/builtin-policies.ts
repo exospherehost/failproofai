@@ -26,16 +26,20 @@ function isBashTool(toolName: string | undefined): boolean {
     lower === "bash" ||
     lower === "shell" ||
     lower === "terminal" ||
+    lower === "console" ||
     lower.includes("command") ||
-    lower === "run_terminal_command"
+    lower === "run_terminal_command" ||
+    lower === "sh"
   );
 }
 
 function getCommand(ctx: PolicyContext): string {
+  if (typeof ctx.toolInput === "string") return ctx.toolInput;
   return (
     (ctx.toolInput?.command as string) ??
     (ctx.toolInput?.cmd as string) ??
     (ctx.toolInput?.input as string) ??
+    (ctx.toolInput?.content as string) ?? // WriteFile/ReadFile content
     ""
   );
 }
@@ -46,6 +50,7 @@ function getFilePath(ctx: PolicyContext): string {
     (ctx.toolInput?.filePath as string) ??
     (ctx.toolInput?.path as string) ??
     (ctx.toolInput?.relative_path as string) ??
+    (ctx.toolInput?.filename as string) ??
     ""
   );
 }
@@ -1353,7 +1358,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-read-outside-cwd",
     description: "Block file reads outside the session working directory",
     fn: blockReadOutsideCwd,
-    match: { events: ["PreToolUse"], toolNames: ["Read", "Glob", "Grep", "Bash", "run_terminal_command", "Terminal"] },
+    match: { events: ["PreToolUse"], toolNames: ["Read", "Glob", "Grep", "Bash", "run_terminal_command", "Terminal", "Shell", "bash", "ReadFile"] },
     defaultEnabled: false,
     category: "Environment",
     params: {
@@ -1368,7 +1373,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-sudo",
     description: "Block sudo commands",
     fn: blockSudo,
-    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal"] },
+    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal", "Shell", "bash", "bash_login_shell"] },
     defaultEnabled: true,
     category: "Dangerous Commands",
     params: {
@@ -1630,6 +1635,18 @@ export function registerBuiltinPolicies(enabledNames: string[]): void {
       registerPolicy(policy.name, policy.description, policy.fn, policy.match);
     }
   }
+
+  // Diagnostic policy to verify prompt capture for multi-agent support
+  registerPolicy(
+    "debug-prompt",
+    "Diagnostic policy to verify prompt capture",
+    async (ctx) => ({
+      decision: "allow",
+      reason: `Prompt captured from ${ctx.session?.integration ?? "unknown"}`,
+    }),
+    { events: ["UserPromptSubmit"] },
+    100,
+  );
 }
 
 /** Clears the git branch cache. Exposed for test isolation only. */

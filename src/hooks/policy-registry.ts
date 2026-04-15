@@ -72,9 +72,11 @@ export function getPoliciesForEvent(
       if (p.match.events && p.match.events.length > 0) {
         if (!p.match.events.includes(eventType)) return false;
       }
-      // If toolNames specified, must match
+      // If toolNames specified, must match (case-insensitive for common shell tools)
       if (p.match.toolNames && p.match.toolNames.length > 0) {
-        if (!toolName || !p.match.toolNames.includes(toolName)) return false;
+        if (!toolName) return false;
+        const lowerToolName = toolName.toLowerCase();
+        if (!p.match.toolNames.some((tn) => tn.toLowerCase() === lowerToolName)) return false;
       }
       return true;
     })

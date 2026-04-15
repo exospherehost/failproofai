@@ -60,6 +60,7 @@ export interface HookActivityFilters {
   eventType?: string;
   policyName?: string;
   sessionId?: string;
+  integration?: string;
 }
 
 export interface HookActivityStats {
@@ -277,6 +278,12 @@ export function searchHookActivity(
     if (
       filters.sessionId &&
       (!entry.sessionId || !entry.sessionId.toLowerCase().includes(filters.sessionId.toLowerCase()))
+    ) {
+      return false;
+    }
+    if (
+      filters.integration &&
+      (!entry.integration || !entry.integration.toLowerCase().includes(filters.integration.toLowerCase()))
     ) {
       return false;
     }

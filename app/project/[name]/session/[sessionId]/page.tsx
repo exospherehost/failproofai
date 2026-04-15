@@ -5,7 +5,7 @@ import { notFound } from "next/navigation";
 import { getCachedSessionLog } from "@/lib/log-entries";
 import { decodeFolderName } from "@/lib/paths";
 import { baseSessionId } from "@/lib/utils/session-id";
-import { resolveProjectPath, UUID_RE } from "@/lib/projects";
+import { resolveAnyProjectPath, UUID_RE } from "@/lib/projects";
 import LazyLogViewer from "@/app/components/lazy-log-viewer";
 import { CopyButton } from "@/app/components/copy-button";
 
@@ -20,9 +20,9 @@ interface SessionPageProps {
 
 export default async function SessionPage({ params }: SessionPageProps) {
   const { name, sessionId } = await params;
-  // Validate project path — throws RangeError if it escapes the projects root.
+  // Validate project/session path against Claude and Copilot roots.
   try {
-    resolveProjectPath(name);
+    resolveAnyProjectPath(name);
   } catch {
     notFound();
   }

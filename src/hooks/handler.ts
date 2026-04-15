@@ -6,6 +6,7 @@
  * activity to disk, and returns the appropriate exit code + stdout response.
  */
 import type { HookEventType, SessionMetadata, IntegrationType } from "./types";
+import { COPILOT_EVENT_MAP, CODEX_HOOK_EVENT_TYPES } from "./types";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
 import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
@@ -17,9 +18,13 @@ import { persistHookActivity } from "./hook-activity-store";
 import { trackHookEvent } from "./hook-telemetry";
 import { getInstanceId } from "../../lib/telemetry-id";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
+import { getIntegration, INTEGRATIONS } from "./integrations";
 
-export async function handleHookEvent(eventType: string): Promise<number> {
+export async function handleHookEvent(eventType: string, integrationOverride?: string): Promise<number> {
   const startTime = performance.now();
+  try {
+    appendFileSync("/tmp/failproofai-debug.log", `[${new Date().toISOString()}] Hook called: event=${eventType} integration=${integrationOverride}\n`);
+  } catch {}
 
   // Read stdin payload (Claude/Cursor passes JSON)
   const MAX_STDIN_BYTES = 1_048_576; // 1 MB
@@ -66,37 +71,46 @@ export async function handleHookEvent(eventType: string): Promise<number> {
     }
   }
 
-  // Normalize Cursor payload: workspace_roots → cwd fallback
-  if (!parsed.cwd && Array.isArray(parsed.workspace_roots) && parsed.workspace_roots.length > 0) {
-    parsed.cwd = parsed.workspace_roots[0] as string;
-  }
-
-  // Attempt to detect integration
-  let integration: IntegrationType = (parsed.integration as IntegrationType);
-  if (!integration) {
-    const hookName = (parsed.hook_event_name as string) || "";
-    if (
-      Array.isArray(parsed.workspace_roots) ||
-      hookName.startsWith("before") ||
-      hookName.startsWith("after") ||
-      hookName === "preToolUse" ||
-      hookName === "postToolUse"
-    ) {
-      integration = "cursor";
+  // 1. Modular Integration Detection (Fix Bug 1)
+  // Priority: CLI Override -> Payload Field -> Heuristics
+  let integrationType: IntegrationType = (integrationOverride as IntegrationType) || (parsed.integration as IntegrationType);
+  if (!integrationType) {
+    if (INTEGRATIONS.copilot.detect(parsed)) {
+      integrationType = "copilot";
+    } else if (INTEGRATIONS.gemini.detect(parsed)) {
+      integrationType = "gemini";
+    } else if (INTEGRATIONS.cursor.detect(parsed)) {
+      integrationType = "cursor";
+    } else if (CODEX_HOOK_EVENT_TYPES.includes(parsed.hook_event_name as any)) {
+      integrationType = "codex";
     } else {
-      integration = "claude-code";
+      integrationType = "claude-code";
     }
   }
 
+  const integ = getIntegration(integrationType);
+
+  // 2. Modular Payload Normalization (Fix Bug 6)
+  integ.normalizePayload(parsed);
+
+  // 3. Modular Canonical Mapping (Fix Bug 2, 3)
+  const canonicalEventName = integ.getCanonicalEventName(parsed, eventType);
+
   // Extract session metadata from payload
   const session: SessionMetadata = {
-    sessionId: parsed.session_id as string | undefined,
+    sessionId: (parsed.session_id as string | undefined) || `session-${integrationType}-${(parsed.cwd as string | undefined)?.split('/').pop() ?? 'default'}`,
     transcriptPath: parsed.transcript_path as string | undefined,
     cwd: parsed.cwd as string | undefined,
     permissionMode: parsed.permission_mode as string | undefined,
     hookEventName: parsed.hook_event_name as string | undefined,
-    integration,
+    integration: integrationType,
   };
+
+  // Build transcriptPath for Copilot sessions — Copilot payloads don't include one,
+  // so derive it from the session ID pointing to Copilot's own event log.
+  if (integrationType === "copilot" && session.sessionId && !session.transcriptPath) {
+    session.transcriptPath = join(homedir(), ".copilot", "session-state", session.sessionId, "events.jsonl");
+  }
 
   // Load enabled policies (merge across project/local/global scopes)
   const config = readMergedHooksConfig(session.cwd);
@@ -168,7 +182,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   hookLogInfo(`event=${eventType} policies=${config.enabledPolicies.length} custom=${customHooksList.length} convention=${conventionHookNames.size}`);
 
   // Evaluate policies
-  const result = await evaluatePolicies(eventType as HookEventType, parsed, session, config);
+  const result = await evaluatePolicies(canonicalEventName as HookEventType, parsed, session, config);
   const durationMs = Math.round(performance.now() - startTime);
   hookLogInfo(`result=${result.decision} policy=${result.policyName ?? "none"} duration=${durationMs}ms`);
 
@@ -235,7 +249,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
         : [];
       const distinctId = getInstanceId();
       await trackHookEvent(distinctId, "hook_policy_triggered", {
-        event_type: eventType,
+        event_type: canonicalEventName,
         tool_name: (parsed.tool_name as string) ?? null,
         policy_name: result.policyName,
         decision: result.decision,

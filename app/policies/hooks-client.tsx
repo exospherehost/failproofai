@@ -108,6 +108,22 @@ function DecisionBadge({ decision }: { decision: "allow" | "deny" | "instruct" }
   );
 }
 
+function IntegrationBadge({ integration }: { integration?: string }) {
+  if (!integration) return <span className="text-muted-foreground text-[0.6rem] font-mono">\u2014</span>;
+  const labels: Record<string, string> = {
+    "claude-code": "Claude",
+    "cursor": "Cursor",
+    "gemini": "Gemini",
+    "copilot": "Copilot",
+  };
+  const label = labels[integration] || integration;
+  return (
+    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium bg-primary/10 text-primary border border-primary/20">
+      {label}
+    </span>
+  );
+}
+
 function EventTypeBadge({ eventType }: { eventType: string }) {
   return (
     <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium bg-muted text-muted-foreground border border-border/50">
@@ -312,9 +328,10 @@ function ActivityTab({
   const [filterEventType, setFilterEventType] = useState(() => url.get("event") ?? "");
   const [filterPolicy, setFilterPolicy] = useState(() => url.get("policy") ?? "");
   const [filterSessionId, setFilterSessionId] = useState(() => url.get("session") ?? "");
+  const [filterIntegration, setFilterIntegration] = useState(() => url.get("integration") ?? "");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const filtersRef = useRef({ filterDecision, filterEventType, filterPolicy, filterSessionId });
-  filtersRef.current = { filterDecision, filterEventType, filterPolicy, filterSessionId };
+  const filtersRef = useRef({ filterDecision, filterEventType, filterPolicy, filterSessionId, filterIntegration });
+  filtersRef.current = { filterDecision, filterEventType, filterPolicy, filterSessionId, filterIntegration };
 
   useEffect(() => {
     if (!mountedRef.current) {
@@ -326,17 +343,18 @@ function ActivityTab({
       event: filterEventType || undefined,
       policy: filterPolicy || undefined,
       session: filterSessionId || undefined,
+      integration: filterIntegration || undefined,
       page: pageToParam(page),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterDecision, filterEventType, filterPolicy, filterSessionId, page]);
+  }, [filterDecision, filterEventType, filterPolicy, filterSessionId, filterIntegration, page]);
 
-  const hasActiveFilters = filterDecision !== "" || filterEventType !== "" || filterPolicy !== "" || filterSessionId !== "";
+  const hasActiveFilters = filterDecision !== "" || filterEventType !== "" || filterPolicy !== "" || filterSessionId !== "" || filterIntegration !== "";
 
   const fetchData = useCallback(async (p: number) => {
     try {
-      const { filterDecision: fd, filterEventType: fe, filterPolicy: fp, filterSessionId: fs } = filtersRef.current;
-      const active = fd !== "" || fe !== "" || fp !== "" || fs !== "";
+      const { filterDecision: fd, filterEventType: fe, filterPolicy: fp, filterSessionId: fs, filterIntegration: fi } = filtersRef.current;
+      const active = fd !== "" || fe !== "" || fp !== "" || fs !== "" || fi !== "";
       let result: HookActivityPayload;
       if (active) {
         result = await searchHookActivityAction(
@@ -345,6 +363,7 @@ function ActivityTab({
             eventType: fe || undefined,
             policyName: fp || undefined,
             sessionId: fs || undefined,
+            integration: fi || undefined,
           },
           p,
         );
@@ -375,7 +394,7 @@ function ActivityTab({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterDecision, filterEventType, filterPolicy, filterSessionId]);
+  }, [filterDecision, filterEventType, filterPolicy, filterSessionId, filterIntegration]);
 
   const items = data?.entries ?? [];
   const totalPages = data?.totalPages ?? 1;
@@ -407,6 +426,18 @@ function ActivityTab({
             <option value="SessionEnd">SessionEnd</option>
             <option value="UserPromptSubmit">UserPromptSubmit</option>
             <option value="PermissionRequest">PermissionRequest</option>
+          </select>
+          <select
+            value={filterIntegration}
+            onChange={(e) => setFilterIntegration(e.target.value)}
+            className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
+          >
+            <option value="">All Integrations</option>
+            <option value="claude-code">Claude Code</option>
+            <option value="cursor">Cursor</option>
+            <option value="gemini">Gemini</option>
+            <option value="copilot">Copilot</option>
+            <option value="codex">Codex</option>
           </select>
           <div className="relative">
             <input
@@ -467,6 +498,7 @@ function ActivityTab({
                   <th className="px-3 py-2.5 font-medium">Duration</th>
                   <th className="px-3 py-2.5 font-medium">Session</th>
                   <th className="px-3 py-2.5 font-medium">Mode</th>
+                  <th className="px-3 py-2.5 font-medium">Integration</th>
                   <th className="px-3 py-2.5 font-medium text-right">Time</th>
                 </tr>
               </thead>
@@ -533,6 +565,9 @@ function ActivityTab({
                           ) : (
                             "\u2014"
                           )}
+                        </td>
+                         <td className="px-3 py-2">
+                          <IntegrationBadge integration={item.integration} />
                         </td>
                         <td
                           className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap"

@@ -1,0 +1,136 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook BeforeTool --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook AfterTool --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook BeforeAgent --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook AfterAgent --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "BeforeModel": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook BeforeModel --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "AfterModel": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook AfterModel --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "BeforeToolSelection": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook BeforeToolSelection --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook SessionStart --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook SessionEnd --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook Notification --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PreCompress": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook PreCompress --integration gemini'",
+            "timeout": 60000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ]
+  }
+}

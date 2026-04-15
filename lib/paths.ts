@@ -7,6 +7,16 @@
 import { homedir } from "os";
 import { join } from "path";
 
+/**
+ * Returns the path to GitHub Copilot's per-session event-log directory.
+ * Each subdirectory is a UUID session ID containing an events.jsonl file.
+ *
+ * Supports COPILOT_SESSION_STATE_PATH env override for testing.
+ */
+export function getCopilotSessionStatePath(): string {
+  return process.env.COPILOT_SESSION_STATE_PATH ?? join(homedir(), ".copilot", "session-state");
+}
+
 export function getDefaultClaudeProjectsPath(): string {
   // ~/.claude/projects on all platforms (including Windows)
   return join(homedir(), ".claude", "projects");

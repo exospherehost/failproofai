@@ -91,7 +91,7 @@ describe("hooks/manager", () => {
         expect(hook.__failproofai_hook__).toBe(true);
         expect(hook.type).toBe("command");
         expect(hook.timeout).toBe(60_000);
-        expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook ${eventType}`);
+        expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook ${eventType} --integration claude-code`);
       }
     });
 
@@ -224,7 +224,7 @@ describe("hooks/manager", () => {
 
       expect(written.hooks.PreToolUse).toHaveLength(1);
       expect(written.hooks.PreToolUse[0].hooks[0].command).toBe(
-        `"${MOCK_BINARY_PATH}" --hook PreToolUse`,
+        `"${MOCK_BINARY_PATH}" --hook PreToolUse --integration claude-code`,
       );
     });
 

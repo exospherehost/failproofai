@@ -1,6 +1,6 @@
 /** Project page — shows metadata and a filterable sessions list for a single project. */
 import { Suspense } from "react";
-import { resolveProjectPath, getCachedSessionFiles } from "@/lib/projects";
+import { resolveAnyProjectPath, getCachedSessionFiles } from "@/lib/projects";
 import { logWarn } from "@/lib/logger";
 import { decodeFolderName } from "@/lib/paths";
 import { notFound } from "next/navigation";
@@ -21,11 +21,11 @@ interface ProjectPageProps {
 
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const { name } = await params;
-  // Next.js already decodes route params once; resolveProjectPath validates and
-  // canonicalizes, throwing RangeError if the path escapes the projects root.
+  // Next.js already decodes route params once; resolveAnyProjectPath validates and
+  // canonicalizes against Claude and Copilot roots, throwing RangeError on invalid input.
   let projectPath: string;
   try {
-    projectPath = resolveProjectPath(name);
+    projectPath = resolveAnyProjectPath(name).path;
   } catch {
     notFound();
   }
@@ -98,4 +98,3 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     </main>
   );
 }
-

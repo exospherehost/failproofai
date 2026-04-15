@@ -493,7 +493,7 @@ describe("hooks/handler", () => {
 
     expect(persistHookActivity).toHaveBeenCalledWith(
       expect.objectContaining({
-        sessionId: undefined,
+        sessionId: expect.stringContaining("session-claude-code"),
         transcriptPath: undefined,
         cwd: undefined,
         permissionMode: undefined,

@@ -37,6 +37,19 @@ const args = process.argv.slice(2);
 // Normalize 'p' → 'policies' (shorthand alias)
 if (args[0] === "p") args[0] = "policies";
 
+// copilot-sync — lightweight command run from ~/.bashrc on every terminal open.
+// Re-creates the snap revision symlink (rev/hooks/ → common/hooks/) if missing,
+// so that snap updates don't silently break Copilot hook delivery.
+if (args[0] === "copilot-sync") {
+  try {
+    const { ensureCopilotRevisionSymlink } = await import("../src/hooks/integrations");
+    ensureCopilotRevisionSymlink?.();
+  } catch {
+    // Silenced — the 2>/dev/null in .bashrc handles stderr, but be safe
+  }
+  process.exit(0);
+}
+
 // --hook <event> — called by Claude Code hooks; fast path, outside runCli()
 // because it has its own exit code contract with Claude Code.
 const hookIdx = args.indexOf("--hook");
@@ -47,8 +60,10 @@ if (hookIdx >= 0) {
     process.exit(1);
   }
   try {
+    const integrationIdx = args.indexOf("--integration");
+    const integrationOverride = integrationIdx >= 0 ? args[integrationIdx + 1] : undefined;
     const { handleHookEvent } = await import("../src/hooks/handler");
-    const exitCode = await handleHookEvent(args[hookIdx + 1]);
+    const exitCode = await handleHookEvent(args[hookIdx + 1], integrationOverride);
     process.exit(exitCode);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -106,7 +121,7 @@ COMMANDS
     --beta                         Remove only beta policies
     --custom, -c                   Clear the customPoliciesPath from config
 
-  --integration claude-code|cursor  Target platform (default: claude-code)
+  --integration claude-code|cursor|gemini|copilot|codex  Target platform (default: claude-code)
 
   policies --help, -h            Show this help for the policies command
 
@@ -164,7 +179,8 @@ LINKS
     const integrationIdx = subArgs.indexOf("--integration");
     const integrationArg = integrationIdx >= 0 ? subArgs[integrationIdx + 1] : "claude-code";
     if (integrationIdx >= 0 && (!integrationArg || integrationArg.startsWith("-"))) {
-      throw new CliError("Missing value for --integration. Valid values: claude-code, cursor");
+      const { INTEGRATION_TYPES } = await import("../src/hooks/types");
+      throw new CliError(`Missing value for --integration. Valid values: ${INTEGRATION_TYPES.join(", ")}`);
     }
     const { INTEGRATION_TYPES } = await import("../src/hooks/types");
     if (integrationIdx >= 0 && !INTEGRATION_TYPES.includes(integrationArg)) {
@@ -181,7 +197,7 @@ USAGE
   failproofai policies --uninstall, -u       Disable policies or remove hooks
 
 OPTIONS (shared)
-  --integration claude-code|cursor  Target platform (default: claude-code)
+  --integration claude-code|cursor|gemini|copilot|codex  Target platform (default: claude-code)
 
 OPTIONS (install)
   [names...]                     Specific policy names to enable (omit for interactive)

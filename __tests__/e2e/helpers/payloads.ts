@@ -150,3 +150,46 @@ export const CursorPayloads = {
     };
   },
 };
+
+export const GeminiPayloads = {
+  beforeTool: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: SESSION_ID,
+        cwd,
+        hook_event_name: "BeforeTool",
+        tool_name: "bash",
+        tool_input: command,
+      };
+    },
+  },
+  afterAgent(cwd: string): Record<string, unknown> {
+    return {
+      session_id: SESSION_ID,
+      cwd,
+      hook_event_name: "AfterAgent",
+    };
+  },
+};
+
+export const CopilotPayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        sessionId: SESSION_ID,
+        cwd,
+        hookEventName: "preToolUse",
+        toolName: "bash",
+        toolInput: command,
+      };
+    },
+  },
+  userPromptSubmitted(prompt: string, cwd: string): Record<string, unknown> {
+    return {
+      sessionId: SESSION_ID,
+      cwd,
+      hookEventName: "userPromptSubmitted",
+      prompt,
+    };
+  },
+};

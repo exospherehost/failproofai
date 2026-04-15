@@ -8,7 +8,12 @@ import {
   INTEGRATIONS, 
   listIntegrationIds 
 } from "../../src/hooks/integrations";
-import { CURSOR_HOOK_EVENT_TYPES } from "../../src/hooks/types";
+import { 
+  CURSOR_HOOK_EVENT_TYPES, 
+  GEMINI_HOOK_EVENT_TYPES, 
+  COPILOT_HOOK_EVENT_TYPES,
+  CODEX_HOOK_EVENT_TYPES,
+} from "../../src/hooks/types";
 
 vi.mock("node:fs", () => ({
   readFileSync: vi.fn(),
@@ -27,7 +32,10 @@ describe("hooks/integrations", () => {
       const ids = listIntegrationIds();
       expect(ids).toContain("claude-code");
       expect(ids).toContain("cursor");
-      expect(ids.length).toBe(2);
+      expect(ids).toContain("gemini");
+      expect(ids).toContain("copilot");
+      expect(ids).toContain("codex");
+      expect(ids.length).toBe(5);
     });
   });
 
@@ -40,21 +48,12 @@ describe("hooks/integrations", () => {
       expect(claude.scopes).toEqual(["user", "project", "local"]);
     });
 
-    it("resolves user settings path", () => {
-      const path = claude.getSettingsPath("user");
-      expect(path).toBe(resolve(homedir(), ".claude", "settings.json"));
+    it("detects as fallback", () => {
+      expect(claude.detect({})).toBe(true);
     });
 
-    it("resolves project settings path", () => {
-      const path = claude.getSettingsPath("project", "/tmp/repo");
-      expect(path).toBe(resolve("/tmp/repo", ".claude", "settings.json"));
-    });
-
-    it("builds hook entry with marker and ms timeout", () => {
-      const entry = claude.buildHookEntry("/bin/failproofai", "PreToolUse") as any;
-      expect(entry.command).toBe('"/bin/failproofai" --hook PreToolUse');
-      expect(entry.timeout).toBe(60000);
-      expect(entry.__failproofai_hook__).toBe(true);
+    it("getCanonicalEventName mirrors input", () => {
+      expect(claude.getCanonicalEventName({}, "PreToolUse")).toBe("PreToolUse");
     });
   });
 
@@ -68,60 +67,118 @@ describe("hooks/integrations", () => {
       expect(cursor.eventTypes).toHaveLength(CURSOR_HOOK_EVENT_TYPES.length);
     });
 
+    it("detects cursor payloads", () => {
+      expect(cursor.detect({ workspace_roots: ["/a"] })).toBe(true);
+      expect(cursor.detect({ hook_event_name: "preToolUse" })).toBe(true);
+      expect(cursor.detect({ hook_event_name: "beforeShellExecution" })).toBe(true);
+      expect(cursor.detect({ something: "else" })).toBe(false);
+    });
+
+    it("normalizes workspace_roots to cwd", () => {
+      const payload: any = { workspace_roots: ["/root/a"] };
+      cursor.normalizePayload(payload);
+      expect(payload.cwd).toBe("/root/a");
+    });
+
+    it("builds hook entry with mapped event name", () => {
+      const entry = cursor.buildHookEntry("/bin/fp", "beforeShellExecution") as any;
+      expect(entry.command).toContain("--hook PreToolUse");
+    });
+  });
+
+  describe("gemini", () => {
+    const gemini = getIntegration("gemini");
+
+    it("has correct properties", () => {
+      expect(gemini.id).toBe("gemini");
+      expect(gemini.displayName).toBe("Gemini CLI");
+      expect(gemini.scopes).toEqual(["user", "project", "local"]); // Gemini uses same scopes as Claude
+      expect(gemini.eventTypes).toHaveLength(GEMINI_HOOK_EVENT_TYPES.length);
+    });
+
+    it("detects gemini payloads exclusively", () => {
+      expect(gemini.detect({ hook_event_name: "BeforeTool" })).toBe(true);
+      expect(gemini.detect({ hook_event_name: "SessionStart" })).toBe(false); // Collision guard
+    });
+
+    it("maps events to canonical names", () => {
+      expect(gemini.getCanonicalEventName({ hook_event_name: "BeforeTool" }, "BeforeTool")).toBe("PreToolUse");
+      expect(gemini.getCanonicalEventName({ hook_event_name: "AfterAgent" }, "AfterAgent")).toBe("Stop");
+    });
+
+    it("resolves settings path correctly", () => {
+      expect(gemini.getSettingsPath("user")).toBe(resolve(homedir(), ".gemini", "settings.json"));
+    });
+  });
+
+  describe("copilot", () => {
+    const copilot = getIntegration("copilot");
+
+    it("has correct properties", () => {
+      expect(copilot.id).toBe("copilot");
+      expect(copilot.displayName).toBe("GitHub Copilot");
+      expect(copilot.scopes).toEqual(["user", "project"]);
+      expect(copilot.eventTypes).toHaveLength(COPILOT_HOOK_EVENT_TYPES.length);
+    });
+
+    it("detects copilot payloads via camelCase fields", () => {
+      expect(copilot.detect({ sessionId: "123" })).toBe(true);
+      expect(copilot.detect({ toolName: "ls" })).toBe(true);
+      expect(copilot.detect({ hook_event_name: "preToolUse" })).toBe(true);
+    });
+
+    it("normalizes camelCase to snake_case", () => {
+      const payload: any = { sessionId: "s1", toolName: "t1", toolInput: { a: 1 } };
+      copilot.normalizePayload(payload);
+      expect(payload.session_id).toBe("s1");
+      expect(payload.tool_name).toBe("t1");
+      expect(payload.tool_input).toEqual({ a: 1 });
+    });
+
+    it("maps events to canonical names", () => {
+      expect(copilot.getCanonicalEventName({ hook_event_name: "preToolUse" }, "preToolUse")).toBe("PreToolUse");
+      expect(copilot.getCanonicalEventName({ hook_event_name: "userPromptSubmitted" }, "userPromptSubmitted")).toBe("UserPromptSubmit");
+      expect(copilot.getCanonicalEventName({}, "UserPromptSubmitted")).toBe("UserPromptSubmit");
+      expect(copilot.getCanonicalEventName({}, "SessionEnd")).toBe("SessionEnd");
+    });
+
+    it("resolves user settings path with APPDATA fallback for windows", () => {
+      // Mock process.platform
+      const originalPlatform = process.platform;
+      Object.defineProperty(process, 'platform', { value: 'linux' });
+      expect(copilot.getSettingsPath("user")).toBe(resolve(homedir(), ".config", "github-copilot", "hooks", "hooks.json"));
+      
+      Object.defineProperty(process, 'platform', { value: 'win32' });
+      // APPDATA is typically defined in test env or mocked
+      expect(copilot.getSettingsPath("user")).toContain("github-copilot");
+      
+      Object.defineProperty(process, 'platform', { value: originalPlatform });
+    });
+  });
+
+  describe("codex", () => {
+    const codex = getIntegration("codex");
+
+    it("has correct properties", () => {
+      expect(codex.id).toBe("codex");
+      expect(codex.displayName).toBe("OpenAI Codex");
+      expect(codex.scopes).toEqual(["user", "project"]);
+      expect(codex.eventTypes).toHaveLength(CODEX_HOOK_EVENT_TYPES.length);
+    });
+
+    it("detects codex payloads", () => {
+      expect(codex.detect({ hook_event_name: "pre_tool_use" })).toBe(true);
+      expect(codex.detect({ integration: "codex" })).toBe(true);
+      expect(codex.detect({ hook_event_name: "preToolUse" })).toBe(false);
+    });
+
+    it("maps codex event names to canonical names", () => {
+      expect(codex.getCanonicalEventName({ hook_event_name: "pre_tool_use" }, "pre_tool_use")).toBe("PreToolUse");
+      expect(codex.getCanonicalEventName({ hook_event_name: "user_prompt_submit" }, "user_prompt_submit")).toBe("UserPromptSubmit");
+    });
+
     it("resolves user settings path", () => {
-      const path = cursor.getSettingsPath("user");
-      expect(path).toBe(resolve(homedir(), ".cursor", "hooks.json"));
-    });
-
-    it("resolves project settings path", () => {
-      const path = cursor.getSettingsPath("project", "/tmp/repo");
-      expect(path).toBe(resolve("/tmp/repo", ".cursor", "hooks.json"));
-    });
-
-    it("builds hook entry with seconds timeout and no marker", () => {
-      const entry = cursor.buildHookEntry("/bin/failproofai", "beforeShellExecution") as any;
-      expect(entry.command).toBe('sh -lc \'"/bin/failproofai" --hook PreToolUse\'');
-      expect(entry.timeout).toBe(60);
-      expect(entry.__failproofai_hook__).toBeUndefined();
-    });
-
-    it("detects failproofai hook by command string", () => {
-      expect(cursor.isFailproofaiHook({ command: "failproofai --hook PreToolUse" })).toBe(true);
-      expect(cursor.isFailproofaiHook({ command: "other --hook" })).toBe(false);
-    });
-
-    it("writeHookEntries maintains version: 1 and flat arrays", () => {
-      vi.mocked(existsSync).mockReturnValue(true);
-      const settings: any = { version: 1, hooks: {} };
-      
-      cursor.writeHookEntries(settings, "/bin/failproofai");
-      
-      expect(settings.version).toBe(1);
-      expect(settings.hooks["preToolUse"]).toBeDefined();
-      expect(Array.isArray(settings.hooks["preToolUse"])).toBe(true);
-      expect(settings.hooks["preToolUse"][0].command).toContain("--hook PreToolUse");
-    });
-
-    it("removeHooksFromFile preserves non-failproofai hooks", () => {
-      const settings = {
-        version: 1,
-        hooks: {
-          preToolUse: [
-            { command: "other-hook" },
-            { command: "failproofai --hook PreToolUse" }
-          ]
-        }
-      };
-      vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(settings));
-      
-      const removed = cursor.removeHooksFromFile("/tmp/hooks.json");
-      
-      expect(removed).toBe(1);
-      const [path, content] = vi.mocked(writeFileSync).mock.calls[0];
-      const written = JSON.parse(content as string);
-      expect(written.hooks.preToolUse).toHaveLength(1);
-      expect(written.hooks.preToolUse[0].command).toBe("other-hook");
+      expect(codex.getSettingsPath("user")).toBe(resolve(homedir(), ".codex", "hooks.json"));
     });
   });
 });

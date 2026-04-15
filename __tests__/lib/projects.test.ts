@@ -9,6 +9,7 @@ vi.mock("fs/promises", () => ({
 
 vi.mock("@/lib/paths", () => ({
   getClaudeProjectsPath: vi.fn(() => "/mock/.claude/projects"),
+  getCopilotSessionStatePath: vi.fn(() => "/mock/.copilot/session-state"),
 }));
 
 vi.mock("@/lib/utils", () => ({
@@ -63,7 +64,9 @@ describe("getProjectFolders", () => {
   });
 
   it("returns only directories (not files)", async () => {
+    // Claude root stat, Copilot root stat (rejected — no copilot sessions), then per-dir stats
     mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
     mockReaddir.mockResolvedValueOnce([
       { name: "project-a", isDirectory: () => true, isFile: () => false } as any,
       { name: "file.txt", isDirectory: () => false, isFile: () => true } as any,
@@ -81,7 +84,9 @@ describe("getProjectFolders", () => {
   });
 
   it("sorts newest-first by mtime", async () => {
+    // Claude root stat, Copilot root stat (rejected), then per-dir stats
     mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
     mockReaddir.mockResolvedValueOnce([
       { name: "old", isDirectory: () => true, isFile: () => false } as any,
       { name: "new", isDirectory: () => true, isFile: () => false } as any,
@@ -96,7 +101,9 @@ describe("getProjectFolders", () => {
   });
 
   it("uses fallback Date(0) when individual stat fails", async () => {
+    // Claude root stat, Copilot root stat (rejected), then per-dir stat (rejected)
     mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
     mockReaddir.mockResolvedValueOnce([
       { name: "broken", isDirectory: () => true, isFile: () => false } as any,
     ] as any);

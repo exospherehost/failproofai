@@ -157,3 +157,9 @@ Features included in this release:
 - **Hooks & Policies**: 35+ built-in security policies for Claude Code hooks (PreToolUse, PostToolUse, etc.), custom policy support, activity logging
 - **Projects**: Browse and search Claude Code projects and sessions
 - **Session Viewer**: Inspect session logs, tool calls, and per-session hook activity
+
+## 0.0.2 — 2026-04-14
+
+- **Expanded Integrations**: Added support for **Gemini CLI** and **GitHub Copilot** hooks.
+- **Modular Hook Handler**: Refactored the hook evaluation engine to support multiple agents with integration-specific payload normalization and output formats.
+- **Bug Fixes**: Resolved detection collisions and improved telemetry accuracy across platforms.

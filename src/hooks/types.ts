@@ -5,7 +5,7 @@
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude-code", "cursor"] as const;
+export const INTEGRATION_TYPES = ["claude-code", "cursor", "gemini", "copilot", "codex"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CURSOR_HOOK_SCOPES = ["user", "project"] as const;
@@ -133,3 +133,81 @@ export interface CursorHooksFile {
   hooks?: Record<string, CursorHookEntry[]>;
   [key: string]: unknown;
 }
+
+// ── Gemini CLI ────────────────────────────────────────────────────────────────
+
+export const GEMINI_HOOK_EVENT_TYPES = [
+  "BeforeTool",
+  "AfterTool",
+  "BeforeAgent",
+  "AfterAgent",
+  "BeforeModel",
+  "AfterModel",
+  "BeforeToolSelection",
+  "SessionStart",
+  "SessionEnd",
+  "Notification",
+  "PreCompress",
+] as const;
+
+export type GeminiHookEventType = (typeof GEMINI_HOOK_EVENT_TYPES)[number];
+
+export const GEMINI_EVENT_MAP: Record<GeminiHookEventType, string> = {
+  BeforeTool: "PreToolUse",
+  AfterTool: "PostToolUse",
+  BeforeAgent: "SessionStart",
+  AfterAgent: "Stop",
+  BeforeModel: "UserPromptSubmit",
+  AfterModel: "PostToolUse",
+  BeforeToolSelection: "PreToolUse",
+  SessionStart: "SessionStart",
+  SessionEnd: "SessionEnd",
+  Notification: "Notification",
+  PreCompress: "PreCompact",
+};
+
+// ── GitHub Copilot ────────────────────────────────────────────────────────────
+
+export const COPILOT_HOOK_EVENT_TYPES = [
+  "sessionStart",
+  "sessionEnd",
+  "userPromptSubmitted",
+  "preToolUse",
+  "postToolUse",
+  "agentStop",
+  "subagentStop",
+  "errorOccurred",
+] as const;
+
+export type CopilotHookEventType = (typeof COPILOT_HOOK_EVENT_TYPES)[number];
+
+export const COPILOT_EVENT_MAP: Record<CopilotHookEventType, string> = {
+  sessionStart: "SessionStart",
+  sessionEnd: "SessionEnd",
+  userPromptSubmitted: "UserPromptSubmit",
+  preToolUse: "PreToolUse",
+  postToolUse: "PostToolUse",
+  agentStop: "Stop",
+  subagentStop: "SubagentStop",
+  errorOccurred: "Stop",
+};
+
+// ── OpenAI Codex CLI ──────────────────────────────────────────────────────────
+
+export const CODEX_HOOK_EVENT_TYPES = [
+  "pre_tool_use",
+  "post_tool_use",
+  "session_start",
+  "stop",
+  "user_prompt_submit",
+] as const;
+
+export type CodexHookEventType = (typeof CODEX_HOOK_EVENT_TYPES)[number];
+
+export const CODEX_EVENT_MAP: Record<CodexHookEventType, string> = {
+  pre_tool_use: "PreToolUse",
+  post_tool_use: "PostToolUse",
+  session_start: "SessionStart",
+  stop: "Stop",
+  user_prompt_submit: "UserPromptSubmit",
+};
