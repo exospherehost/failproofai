@@ -1,16 +1,18 @@
 ---
+
+---
 title: उदाहरण
-description: "Claude Code और Agents SDK के लिए hooks कैसे सेट अप करें"
+description: "Claude Code और Agents SDK के लिए hooks सेट अप करना"
 icon: book-open
 ---
 
-सामान्य परिदृश्यों के लिए तुरंत उपयोग में आने वाले उदाहरण। प्रत्येक उदाहरण में इंस्टॉलेशन और अपेक्षित परिणाम दिखाए गए हैं।
+सामान्य परिस्थितियों के लिए तुरंत उपयोग के लिए तैयार उदाहरण। प्रत्येक दिखाता है कि कैसे इंस्टॉल करें और क्या उम्मीद करें।
 
 ---
 
 ## Claude Code के लिए hooks सेट अप करना
 
-Failproof AI, Claude Code के [hooks system](https://docs.anthropic.com/en/docs/claude-code/hooks) के माध्यम से इंटीग्रेट होता है। जब आप `failproofai policies --install` चलाते हैं, तो यह Claude Code के `settings.json` में hook commands रजिस्टर करता है जो हर tool call पर फायर होते हैं।
+Failproof AI Claude Code के साथ अपनी [hooks system](https://docs.anthropic.com/en/docs/claude-code/hooks) के माध्यम से एकीकृत होता है। जब आप `failproofai policies --install` चलाते हैं, तो यह Claude Code के `settings.json` में hook commands को रजिस्टर करता है जो हर tool call पर चलते हैं।
 
 <Steps>
   <Step title="failproofai इंस्टॉल करें">
@@ -23,19 +25,19 @@ Failproof AI, Claude Code के [hooks system](https://docs.anthropic.com/en/do
     failproofai policies --install
     ```
   </Step>
-  <Step title="सत्यापित करें कि hooks रजिस्टर हो गए हैं">
+  <Step title="verify करें कि hooks रजिस्टर हैं">
     ```bash
     cat ~/.claude/settings.json | grep failproofai
     ```
 
-    आपको `PreToolUse`, `PostToolUse`, `Notification`, और `Stop` events के लिए hook entries दिखनी चाहिए।
+    आपको `PreToolUse`, `PostToolUse`, `Notification`, और `Stop` events के लिए hook entries दिखाई देने चाहिए।
   </Step>
   <Step title="Claude Code चलाएं">
     ```bash
     claude
     ```
 
-    अब Policies हर tool call पर स्वचालित रूप से चलेंगी। Claude से `sudo rm -rf /` चलाने के लिए कहें — यह ब्लॉक हो जाएगा।
+    अब policies हर tool call पर स्वचालित रूप से चलती हैं। Claude से `sudo rm -rf /` चलाने के लिए कहने का प्रयास करें - यह block हो जाएगा।
   </Step>
 </Steps>
 
@@ -43,20 +45,20 @@ Failproof AI, Claude Code के [hooks system](https://docs.anthropic.com/en/do
 
 ## Agents SDK के लिए hooks सेट अप करना
 
-अगर आप [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk) के साथ बना रहे हैं, तो आप उसी hook system को प्रोग्रामेटिक रूप से उपयोग कर सकते हैं।
+यदि आप [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk) के साथ निर्माण कर रहे हैं, तो आप प्रोग्राम के माध्यम से उसी hook system का उपयोग कर सकते हैं।
 
 <Steps>
-  <Step title="अपने प्रोजेक्ट में failproofai इंस्टॉल करें">
+  <Step title="अपनी project में failproofai इंस्टॉल करें">
     ```bash
     npm install failproofai
     ```
   </Step>
-  <Step title="अपने agent में hooks कॉन्फ़िगर करें">
-    अपना agent process बनाते समय hook commands पास करें। Hooks उसी तरह फायर होते हैं जैसे Claude Code में — stdin/stdout JSON के ज़रिए:
+  <Step title="अपने agent में hooks configure करें">
+    अपने agent process को बनाते समय hook commands pass करें। hooks Claude Code की तरह ही चलते हैं - stdin/stdout JSON के माध्यम से:
 
     ```bash
-    failproofai --hook PreToolUse   # called before each tool
-    failproofai --hook PostToolUse  # called after each tool
+    failproofai --hook PreToolUse   # हर tool से पहले call होता है
+    failproofai --hook PostToolUse  # हर tool के बाद call होता है
     ```
   </Step>
   <Step title="अपने agent के लिए एक custom policy लिखें">
@@ -77,7 +79,7 @@ Failproof AI, Claude Code के [hooks system](https://docs.anthropic.com/en/do
     });
     ```
   </Step>
-  <Step title="Custom policy इंस्टॉल करें">
+  <Step title="custom policy इंस्टॉल करें">
     ```bash
     failproofai policies --install --custom ./my-agent-policies.js
     ```
@@ -86,37 +88,37 @@ Failproof AI, Claude Code के [hooks system](https://docs.anthropic.com/en/do
 
 ---
 
-## विनाशकारी commands ब्लॉक करें
+## विनाशकारी commands को block करें
 
-सबसे सामान्य सेटअप — agents को अपरिवर्तनीय नुकसान करने से रोकें।
+सबसे सामान्य सेटअप - agents को अपरिवर्तनीय क्षति से रोकें।
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf block-force-push block-curl-pipe-sh
 ```
 
 यह क्या करता है:
-- `block-sudo` - सभी `sudo` commands ब्लॉक करता है
-- `block-rm-rf` - recursive file deletion ब्लॉक करता है
-- `block-force-push` - `git push --force` ब्लॉक करता है
-- `block-curl-pipe-sh` - remote scripts को shell में pipe करना ब्लॉक करता है
+- `block-sudo` - सभी `sudo` commands को block करता है
+- `block-rm-rf` - recursive file deletion को block करता है
+- `block-force-push` - `git push --force` को block करता है
+- `block-curl-pipe-sh` - remote scripts को shell में piping करने को block करता है
 
 ---
 
-## Secret leakage रोकें
+## secret leakage को रोकें
 
-Agents को tool output में credentials देखने या लीक करने से रोकें।
+Agents को tool output में credentials को देखने या लीक करने से रोकें।
 
 ```bash
 failproofai policies --install sanitize-api-keys sanitize-jwt sanitize-connection-strings sanitize-bearer-tokens
 ```
 
-ये `PostToolUse` पर फायर होते हैं — tool चलने के बाद, agent के देखने से पहले output को साफ कर देते हैं।
+ये `PostToolUse` पर चलते हैं - एक tool चलने के बाद, वे output को agent के सामने आने से पहले साफ कर देते हैं।
 
 ---
 
-## जब agents को ध्यान की ज़रूरत हो तो Slack alerts पाएं
+## जब agents को ध्यान देने की आवश्यकता हो तो Slack alerts प्राप्त करें
 
-Idle alerts को Slack पर फॉरवर्ड करने के लिए notification hook का उपयोग करें।
+Notification hook का उपयोग करके idle alerts को Slack में भेजें।
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
@@ -142,7 +144,7 @@ customPolicies.add({
         signal: AbortSignal.timeout(5000),
       });
     } catch {
-      // never block the agent if Slack is unreachable
+      // Slack अगर पहुंचने योग्य नहीं है तो कभी भी agent को block न करें
     }
 
     return allow();
@@ -160,7 +162,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/... failproofai policies --install --c
 
 ## Agents को एक branch पर रखें
 
-Agents को दूसरी branches पर जाने या protected branches पर push करने से रोकें।
+Agents को branches को switch करने या protected ones में push करने से रोकें।
 
 ```javascript
 import { customPolicies, allow, deny } from "failproofai";
@@ -182,7 +184,7 @@ customPolicies.add({
 
 ---
 
-## Commit से पहले tests की आवश्यकता रखें
+## Commits से पहले tests की आवश्यकता करें
 
 Agents को commit करने से पहले tests चलाने की याद दिलाएं।
 
@@ -206,9 +208,9 @@ customPolicies.add({
 
 ---
 
-## Production repo को lock down करें
+## एक production repo को lock down करें
 
-एक project-level config commit करें ताकि आपकी team के हर developer को एक जैसी policies मिलें।
+एक project-level config को commit करें ताकि आपकी टीम के हर developer को समान policies मिलें।
 
 अपने repo में `.failproofai/policies-config.json` बनाएं:
 
@@ -238,16 +240,16 @@ git add .failproofai/policies-config.json
 git commit -m "Add failproofai team policies"
 ```
 
-जिस भी team member ने failproofai इंस्टॉल किया होगा, वे स्वचालित रूप से ये rules प्राप्त कर लेंगे।
+जिस भी टीम member के पास failproofai installed है वह स्वचालित रूप से ये rules को pick up करेगा।
 
 ---
 
-## और उदाहरण
+## अधिक उदाहरण
 
-repo में [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) directory में निम्नलिखित शामिल है:
+Repo में [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) directory में शामिल हैं:
 
-| फ़ाइल | यह क्या दिखाती है |
+| File | यह क्या दिखाता है |
 |------|---------------|
-| `policies-basic.js` | Starter policies - production writes, force-push, piped scripts ब्लॉक करना |
+| `policies-basic.js` | Starter policies - production writes, force-push, piped scripts को block करें |
 | `policies-notification.js` | Idle notifications और session end के लिए Slack alerts |
 | `policies-advanced/index.js` | Transitive imports, async hooks, PostToolUse output scrubbing, Stop event handling |

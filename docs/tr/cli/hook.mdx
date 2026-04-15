@@ -1,27 +1,27 @@
 ---
-title: Hook handler (dahili)
-description: "Claude Code'un her araç olayında çağırdığı alt süreç"
+title: Hook işleyicisi (dahili)
+description: "Alt işlem Claude Code'un her araç olayında çağırdığı komut"
 ---
 
 ```bash
 failproofai --hook <EventType>
 ```
 
-Bu, `failproofai policies --install` tarafından Claude Code'un `settings.json` dosyasına kaydedilen komuttur. Normalde doğrudan çağırmanıza gerek yoktur.
+Bu, `failproofai policies --install` tarafından Claude Code'un `settings.json` dosyasına kaydedilen komuttur. Normalde bunu doğrudan çağırmazsınız.
 
-stdin üzerinden bir JSON yükü okur, etkinleştirilmiş tüm politikaları değerlendirir ve kararı belirten bir çıkış koduyla sonlanır:
+stdin'den bir JSON yükü okur, etkinleştirilen tüm politikaları değerlendirir ve kararı gösteren bir çıkış kodu ile çıkar:
 
 | Çıkış kodu | Karar | Etki |
-|------------|-------|------|
-| `0` | `allow` | İşleme izin verir |
-| `1` | `deny` | İşlemi engeller — Claude ret gerekçesini görür |
-| `2` | `instruct` | Claude'un bağlamına yönlendirme enjekte eder |
+|-----------|-------|------|
+| `0` | `allow` | İşleme izin ver |
+| `1` | `deny` | İşlemi engelle - Claude reddetme nedenini görür |
+| `2` | `instruct` | Claude'un bağlamına rehberlik enjekte et |
 
 ### Desteklenen olay türleri
 
 | Kategori | Olaylar |
 |----------|---------|
-| **Araç çalıştırma** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
+| **Araç yürütme** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
 | **Oturum yaşam döngüsü** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
 | **Kullanıcı etkileşimi** | `UserPromptSubmit`, `Notification`, `Elicitation`, `ElicitationResult` |
 | **Alt ajanlar ve görevler** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |

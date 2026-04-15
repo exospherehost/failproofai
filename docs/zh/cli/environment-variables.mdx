@@ -1,6 +1,6 @@
 ---
 title: 环境变量
-description: "使用环境变量配置 failproofai 的行为"
+description: "通过环境变量配置 failproofai 的行为"
 ---
 
 ## 控制台
@@ -9,7 +9,7 @@ description: "使用环境变量配置 failproofai 的行为"
 |----------|-------------|
 | `PORT` | 控制台端口（默认：`8020`） |
 | `CLAUDE_PROJECTS_PATH` | 覆盖 Claude Code 项目文件夹的查找路径 |
-| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | 以逗号分隔的控制台页面列表，指定需要隐藏的页面 |
+| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | 以逗号分隔的控制台页面列表，用于隐藏指定页面 |
 | `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | 允许访问开发资源的主机/IP，与 `--allowed-origins` 相同 |
 
 ## 日志
@@ -17,13 +17,13 @@ description: "使用环境变量配置 failproofai 的行为"
 | 变量 | 描述 |
 |----------|-------------|
 | `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | 服务器日志级别（默认：`warn`） |
-| `FAILPROOFAI_HOOK_LOG_FILE` | 自定义 hook 日志文件路径，或设为 `true` 使用默认路径（`~/.failproofai/logs/hooks.log`） |
+| `FAILPROOFAI_HOOK_LOG_FILE` | 自定义 Hook 日志文件路径，或设为 `true` 使用默认路径（`~/.failproofai/logs/hooks.log`） |
 
 ## 遥测
 
 | 变量 | 描述 |
 |----------|-------------|
-| `FAILPROOFAI_TELEMETRY_DISABLED=1` | 禁用匿名使用遥测数据收集 |
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | 禁用匿名使用遥测 |
 
 ## LLM（用于策略评估）
 

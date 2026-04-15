@@ -1,36 +1,36 @@
 ---
-title: Failproof AI
-description: "ניהול hooks ומדיניות שמשמרים את סוכני ה-AI שלך אמינים ופועלים באופן אוטונומי"
+title:  Failproof AI
+description: "ניהול hooks ו-policies המשמרים את סוכני ה-AI שלך אמינים ופועלים באופן אוטונומי"
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-Hooks ומדיניות שמשמרים את סוכני ה-AI שלך אמינים ופועלים באופן אוטונומי - עבור **Claude Code** ו-**Agents SDK**.
+Hooks ו-policies המשמרים את סוכני ה-AI שלך אמינים ופועלים באופן אוטונומי - עבור **Claude Code** וה-**Agents SDK**.
 
-סוכני AI נכשלים בדרכים צפויות. הם מריצים פקודות הרסניות, מדליפים סודות, סוטים מהמשימה, נתקעים בלולאות, או מבצעים push ישירות ל-main. ללא השגחה, כשלים קטנים מסלימים.
+סוכני AI נכשלים בדרכים צפויות. הם מפעילים פקודות הרסניות, משחררים סודות, סוטים מהמשימה, נתקעים בלולאות, או דוחפים ישירות ל-main. אם מושאר ללא השגחה, כשלים קטנים גדלים בהשפעה.
 
-Failproof AI פותר זאת באמצעות **policies** - כללים שמתחברים לכל קריאת כלי של הסוכן ויכולים **לזהות כשלים**, **לצמצם אותם** (חסימה, הדרכה, ניקוי), ו**להתריע** כאשר משהו מצריך תשומת לב. לוח מחוונים מקומי מאפשר לך לסקור הכל לאחר מכן.
+Failproof AI פותר זאת באמצעות **policies** - כללים המתחברים לכל קריאת כלי של סוכן ויכולים **לזהות כשלים**, **למתן אותם** (חסימה, הוראה, ניקוי), ו**להתריע** כשדברים דורשים תשומת לב. לוח מחוונים מקומי מאפשר לך לבדוק הכל לאחר מכן.
 
-הכל פועל באופן מקומי. אף מידע לא יוצא מהמחשב שלך.
+הכל פועל באופן מקומי. אף נתון לא עוזב את המכונה שלך.
 
-## תחילת עבודה
+## בואו נתחיל
 
 <CardGroup cols={2}>
 
-<Card title="26 מדיניות מובנות" icon="shield" href="/he/built-in-policies">
-  חסימת פקודות הרסניות, מניעת דליפת סודות, הגבלת סוכנים לגבולות הפרויקט, ועוד - מחוץ לקופסה.
+<Card title="26 policies מובנות" icon="shield" href="/he/built-in-policies">
+  חסום פקודות הרסניות, מנע שליפת סודות, שמור על סוכנים בתוך גבולות פרויקט, ועוד - מחוץ לקופסה.
 </Card>
 
-<Card title="מדיניות מותאמת אישית" icon="code" href="/he/custom-policies">
-  כתוב כללים משלך ב-JavaScript עם API פשוט של allow / deny / instruct.
+<Card title="Custom policies" icon="code" href="/he/custom-policies">
+  כתוב כללים משלך ב-JavaScript עם ממשק allow / deny / instruct פשוט.
 </Card>
 
-<Card title="מוניטור סוכן" icon="chart-line" href="/he/dashboard">
-  ראה מה עשו הסוכנים שלך בזמן שלא היית. עיין בסשנים, בדוק קריאות כלים, סקור היכן הופעלה המדיניות.
+<Card title="Agent monitor" icon="chart-line" href="/he/dashboard">
+  ראה מה עשו סוכניך כשהיית רחוק. עיין בסשנים, בדוק קריאות כלים, סקור היכן policies הופעלו.
 </Card>
 
-<Card title="הגדרה קלה" icon="gear" href="/he/configuration">
-  כוונן כל מדיניות ללא קוד. הגדר רשימות היתרים, ענפים מוגנים, או ספים לכל פרויקט או גלובלית.
+<Card title="קונפיגורציה קלה" icon="gear" href="/he/configuration">
+  כוונן כל policy ללא קוד. הגדר allowlists, ענפים מוגנים, או ערכי סף לפי פרויקט או באופן גלובלי.
 </Card>
 
 </CardGroup>
@@ -54,4 +54,4 @@ failproofai policies --install   # enable policies
 failproofai                      # launch the dashboard
 ```
 
-עיין במדריך [תחילת עבודה](/he/getting-started) לסקירה המלאה.
+ראה את הדרכת [בואו נתחיל](/he/getting-started) לעיון מלא.

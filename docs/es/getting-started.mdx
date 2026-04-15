@@ -1,13 +1,13 @@
 ---
 title: Primeros pasos
-description: "Instala failproofai, habilita políticas y deja que tus agentes funcionen de forma confiable"
+description: "Instala failproofai, activa las políticas y deja que tus agentes funcionen de forma fiable"
 icon: rocket
 ---
 
 ## Requisitos
 
 - **Node.js** >= 20.9.0
-- **Bun** >= 1.3.0 (opcional - solo necesario para compilar desde el código fuente)
+- **Bun** >= 1.3.0 (opcional — solo necesario para compilar desde el código fuente)
 
 ---
 
@@ -30,14 +30,14 @@ bun add -g failproofai
 ## Inicio rápido
 
 <Steps>
-  <Step title="Habilitar políticas">
-    Las políticas son reglas que se ejecutan antes y después de cada llamada a una herramienta del agente. Detectan comandos destructivos, filtración de secretos y otros modos de fallo antes de que causen daño.
+  <Step title="Activar las políticas">
+    Las políticas son reglas que se ejecutan antes y después de cada llamada a una herramienta del agente. Detectan comandos destructivos, fugas de secretos y otros modos de fallo antes de que causen daño.
 
     ```bash
     failproofai policies --install
     ```
 
-    Esto escribe entradas de hook en el archivo `settings.json` de Claude Code. También puedes instalar para un solo proyecto o elegir políticas específicas:
+    Esto escribe entradas de hook en el archivo `settings.json` de Claude Code. También puedes instalar para un único proyecto o seleccionar políticas específicas:
 
     ```bash
     failproofai policies --install --scope project
@@ -49,9 +49,9 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    Muestra todas las políticas, si están habilitadas y los parámetros configurados.
+    Muestra todas las políticas, si están activadas y los parámetros configurados.
   </Step>
-  <Step title="Iniciar el panel de control">
+  <Step title="Abrir el panel de control">
     ```bash
     failproofai
     ```
@@ -59,7 +59,7 @@ bun add -g failproofai
     Abre un panel de control local en `http://localhost:8020` donde puedes explorar sesiones, inspeccionar llamadas a herramientas y gestionar políticas.
   </Step>
   <Step title="Ejecutar tu agente">
-    Inicia Claude Code como de costumbre. Si el agente intenta algo arriesgado, failproofai lo intercepta automáticamente. Déjalo ejecutándose sin supervisión y revisa lo que ocurrió en el panel de control.
+    Inicia Claude Code como de costumbre. Si el agente intenta hacer algo arriesgado, failproofai lo intercepta automáticamente. Déjalo correr sin supervisión y revisa lo ocurrido en el panel de control.
   </Step>
 </Steps>
 
@@ -77,12 +77,12 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 
 Cada política devuelve una de tres decisiones:
 
-- **allow** - el agente continúa con normalidad
-- **deny** - la acción es bloqueada y se le indica al agente el motivo
-- **instruct** - se añade contexto adicional al prompt del agente
+- **allow** — el agente continúa con normalidad
+- **deny** — la acción es bloqueada y el agente recibe una explicación
+- **instruct** — se añade contexto adicional al prompt del agente
 
 <Note>
-Las políticas se ejecutan en tu proceso local. No se envía nada a un servicio remoto.
+Las políticas se ejecutan en tu proceso local. No se envía nada a ningún servicio remoto.
 </Note>
 
 ---
@@ -91,13 +91,13 @@ Las políticas se ejecutan en tu proceso local. No se envía nada a un servicio 
 
 Toda la configuración y los registros permanecen en tu máquina:
 
-| Ruta | Qué almacena |
-|------|--------------|
+| Ruta | Contenido |
+|------|-----------|
 | `~/.failproofai/policies-config.json` | Configuración global de políticas |
 | `~/.failproofai/hook-activity.jsonl` | Historial de ejecución de hooks |
 | `~/.failproofai/hook.log` | Registro de depuración para errores de hooks personalizados |
-| `.failproofai/policies-config.json` | Configuración por proyecto (versionada) |
-| `.failproofai/policies-config.local.json` | Anulaciones personales (excluidas de git) |
+| `.failproofai/policies-config.json` | Configuración por proyecto (incluida en el repositorio) |
+| `.failproofai/policies-config.local.json` | Ajustes personales (excluidos con gitignore) |
 
 ---
 
@@ -116,11 +116,11 @@ Elimina las entradas de hook de `~/.claude/settings.json`. Los archivos de confi
 <CardGroup cols={2}>
 
 <Card title="Configuración" icon="gear" href="/es/configuration">
-  Ámbitos y formato de archivos de configuración
+  Ámbitos y formato de los archivos de configuración
 </Card>
 
 <Card title="Políticas integradas" icon="shield" href="/es/built-in-policies">
-  Las 26 políticas con sus parámetros
+  Las 26 políticas disponibles con sus parámetros
 </Card>
 
 <Card title="Políticas personalizadas" icon="code" href="/es/custom-policies">
@@ -128,7 +128,7 @@ Elimina las entradas de hook de `~/.claude/settings.json`. Los archivos de confi
 </Card>
 
 <Card title="Monitor de agentes" icon="chart-line" href="/es/dashboard">
-  Monitorea sesiones y revisa la actividad de las políticas
+  Supervisa sesiones y revisa la actividad de las políticas
 </Card>
 
 </CardGroup>

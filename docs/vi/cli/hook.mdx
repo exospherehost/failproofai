@@ -1,21 +1,21 @@
 ---
-title: Hook handler (nội bộ)
-description: "Tiến trình con mà Claude Code gọi tại mỗi sự kiện công cụ"
+title: Hook handler (internal)
+description: "Subprocess mà Claude Code gọi trên mỗi sự kiện công cụ"
 ---
 
 ```bash
 failproofai --hook <EventType>
 ```
 
-Đây là lệnh được đăng ký trong `settings.json` của Claude Code bởi `failproofai policies --install`. Thông thường bạn không cần gọi lệnh này trực tiếp.
+Đây là lệnh được đăng ký trong `settings.json` của Claude Code bởi `failproofai policies --install`. Bạn thường không gọi trực tiếp lệnh này.
 
-Đọc payload JSON từ stdin, đánh giá tất cả các chính sách đang được bật, và thoát với mã exit code biểu thị quyết định:
+Đọc một payload JSON từ stdin, đánh giá tất cả các chính sách được bật, và thoát với mã code chỉ định quyết định:
 
-| Exit code | Quyết định | Hiệu lực |
-|-----------|------------|----------|
+| Mã thoát | Quyết định | Hiệu ứng |
+|-----------|------------|---------|
 | `0` | `allow` | Cho phép hành động |
-| `1` | `deny` | Chặn hành động - Claude sẽ nhận được lý do từ chối |
-| `2` | `instruct` | Đưa hướng dẫn vào ngữ cảnh của Claude |
+| `1` | `deny` | Chặn hành động - Claude sẽ thấy lý do từ chối |
+| `2` | `instruct` | Injected hướng dẫn vào ngữ cảnh của Claude |
 
 ### Các loại sự kiện được hỗ trợ
 

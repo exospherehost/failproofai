@@ -1,6 +1,6 @@
 ---
 title: Umgebungsvariablen
-description: "Verhalten von failproofai über Umgebungsvariablen konfigurieren"
+description: "Konfiguriere das Verhalten von failproofai mit Umgebungsvariablen"
 ---
 
 ## Dashboard
@@ -8,7 +8,7 @@ description: "Verhalten von failproofai über Umgebungsvariablen konfigurieren"
 | Variable | Beschreibung |
 |----------|-------------|
 | `PORT` | Dashboard-Port (Standard: `8020`) |
-| `CLAUDE_PROJECTS_PATH` | Überschreibt den Pfad, unter dem Claude Code Projektordner gesucht werden |
+| `CLAUDE_PROJECTS_PATH` | Überschreibt den Pfad, unter dem Claude Code Projektordner gefunden werden |
 | `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Kommagetrennte Liste von Dashboard-Seiten, die ausgeblendet werden sollen |
 | `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Hosts/IPs, die auf Entwicklungsressourcen zugreifen dürfen. Entspricht `--allowed-origins`. |
 
@@ -17,15 +17,15 @@ description: "Verhalten von failproofai über Umgebungsvariablen konfigurieren"
 | Variable | Beschreibung |
 |----------|-------------|
 | `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Server-Protokollierungsstufe (Standard: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | Benutzerdefinierter Pfad für die Hook-Protokolldatei oder `true` für den Standardpfad (`~/.failproofai/logs/hooks.log`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | Benutzerdefinierter Pfad zur Hook-Protokolldatei oder `true` für den Standardpfad (`~/.failproofai/logs/hooks.log`) |
 
 ## Telemetrie
 
 | Variable | Beschreibung |
 |----------|-------------|
-| `FAILPROOFAI_TELEMETRY_DISABLED=1` | Anonyme Nutzungstelemetrie deaktivieren |
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | Deaktiviert anonyme Nutzungstelemetrie |
 
-## LLM (für die Richtlinienauswertung)
+## LLM (zur Richtlinienauswertung)
 
 | Variable | Beschreibung |
 |----------|-------------|

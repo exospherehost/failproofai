@@ -1,10 +1,10 @@
 ---
 title: Dashboard
-description: "Theo dõi phiên làm việc của agent, xem lại các lệnh gọi công cụ và quản lý chính sách"
+description: "Giám sát các phiên làm việc của agent, xem xét các lệnh gọi công cụ và quản lý chính sách"
 icon: chart-line
 ---
 
-Dashboard của failproofai là một ứng dụng web cục bộ dùng để theo dõi các phiên làm việc của AI agent và quản lý chính sách. Xem lại những gì agent của bạn đã thực hiện trong khi bạn vắng mặt.
+Dashboard failproofai là một ứng dụng web cục bộ để giám sát các phiên làm việc của agent AI và quản lý chính sách. Xem những gì các agent của bạn đã làm khi bạn vắng mặt.
 
 ---
 
@@ -16,7 +16,7 @@ failproofai
 
 Mở tại `http://localhost:8020`.
 
-Dashboard đọc dữ liệu trực tiếp từ hệ thống tệp — bao gồm các thư mục dự án Claude Code và các tệp cấu hình failproofai. Không có dữ liệu nào được ghi lên dịch vụ từ xa.
+Dashboard đọc trực tiếp từ hệ thống tập tin - các thư mục dự án Claude Code của bạn và các tệp cấu hình failproofai. Không có dữ liệu nào được ghi vào dịch vụ từ xa.
 
 ---
 
@@ -27,51 +27,51 @@ Dashboard đọc dữ liệu trực tiếp từ hệ thống tệp — bao gồm
 Liệt kê tất cả các dự án Claude Code được tìm thấy trên máy của bạn. Các dự án được phát hiện từ `~/.claude/projects/` (hoặc đường dẫn được đặt bởi `CLAUDE_PROJECTS_PATH`).
 
 Mỗi dự án hiển thị:
-- Tên dự án (được suy ra từ đường dẫn thư mục)
+- Tên dự án (được lấy từ đường dẫn thư mục)
 - Số lượng phiên làm việc
-- Ngày có hoạt động phiên gần nhất
+- Ngày hoạt động phiên làm việc gần nhất
 
 Nhấp vào một dự án để xem các phiên làm việc của nó.
 
 ### Sessions
 
-Liệt kê tất cả các phiên làm việc trong một dự án. Mỗi phiên hiển thị:
-- Session ID
-- Thời điểm bắt đầu và kết thúc
+Liệt kê tất cả các phiên làm việc trong một dự án. Mỗi phiên làm việc hiển thị:
+- ID phiên làm việc
+- Dấu thời gian bắt đầu và kết thúc
 - Số lượng lệnh gọi công cụ
-- Số lượng hoạt động hook (các chính sách đã kích hoạt)
+- Số lượng hoạt động hook (các chính sách đã được kích hoạt)
 
-Sử dụng bộ lọc khoảng thời gian và tìm kiếm theo session ID để thu hẹp danh sách. Các phiên được phân trang.
+Sử dụng bộ lọc phạm vi ngày và tìm kiếm ID phiên làm việc để thu hẹp danh sách. Các phiên làm việc được chia thành các trang.
 
-Nhấp vào một phiên để mở trình xem phiên.
+Nhấp vào một phiên làm việc để mở trình xem phiên làm việc.
 
 ### Session viewer
 
-Trình xem phiên trả lời câu hỏi then chốt đối với các agent tự động: agent đã làm gì, và liệu nó có đi đúng hướng không? Nó hiển thị dòng thời gian của mọi thứ đã xảy ra trong một phiên:
+Trình xem phiên làm việc trả lời câu hỏi chính cho các agent tự động hóa: agent đã làm gì và có ở đúng hướng không? Nó hiển thị một dòng thời gian của mọi thứ đã xảy ra trong một phiên làm việc:
 
-- **Messages** — Các phản hồi văn bản của Claude và lời nhắc của người dùng
-- **Tool calls** — Mọi công cụ mà Claude đã gọi, cùng với đầu vào và đầu ra của nó
-- **Policy activity** — Đối với mỗi lệnh gọi công cụ, những chính sách nào đã kích hoạt và quyết định chúng trả về là gì
+- **Messages** - Các phản hồi văn bản của Claude và các lời nhắc từ người dùng
+- **Tool calls** - Mọi công cụ mà Claude đã gọi, kèm theo đầu vào và đầu ra của nó
+- **Policy activity** - Đối với mỗi lệnh gọi công cụ, các chính sách nào đã được kích hoạt và quyết định nào mà chúng trả về
 
-Thanh thống kê ở trên cùng hiển thị thời lượng phiên, tổng số lệnh gọi công cụ và tóm tắt các quyết định hook (số lượng allow / deny / instruct).
+Thanh thống kê ở phía trên cùng hiển thị thời lượng phiên làm việc, tổng số lệnh gọi công cụ và tóm tắt quyết định hook (số lượng allow / deny / instruct).
 
-Bạn có thể xuất phiên dưới dạng tệp ZIP hoặc JSONL bằng nút tải xuống.
+Bạn có thể xuất phiên làm việc dưới dạng tệp ZIP hoặc JSONL bằng nút tải xuống.
 
 ### Policies
 
-Trang gồm hai tab để quản lý chính sách và xem lại hoạt động.
+Một trang có hai tab để quản lý chính sách và xem xét hoạt động.
 
 <Tabs>
-  <Tab title="Tab Policies">
-  - Bật hoặc tắt từng chính sách riêng lẻ chỉ với một cú nhấp (ghi vào `~/.failproofai/policies-config.json`)
+  <Tab title="Policies tab">
+  - Bật hoặc tắt các chính sách riêng lẻ bằng một cú nhấp chuột (ghi vào `~/.failproofai/policies-config.json`)
   - Mở rộng một chính sách để cấu hình các tham số của nó (đối với các chính sách hỗ trợ `policyParams`)
-  - Cài đặt hoặc gỡ bỏ hook cho một phạm vi nhất định
+  - Cài đặt hoặc xóa hook cho một phạm vi nhất định
   - Đặt đường dẫn tệp chính sách tùy chỉnh
   </Tab>
-  <Tab title="Tab Activity">
-  - Lịch sử đầy đủ có phân trang của mọi sự kiện hook đã kích hoạt trên tất cả các phiên
-  - Tìm kiếm theo tên chính sách, session ID, tên công cụ hoặc quyết định
-  - Mỗi hàng hiển thị: thời điểm, tên chính sách, quyết định, tên công cụ, session ID và lý do cho các quyết định deny/instruct
+  <Tab title="Activity tab">
+  - Lịch sử đầy đủ được chia trang của mọi sự kiện hook đã được kích hoạt trên tất cả các phiên làm việc
+  - Tìm kiếm theo tên chính sách, ID phiên làm việc, tên công cụ hoặc quyết định
+  - Mỗi hàng hiển thị: dấu thời gian, tên chính sách, quyết định, tên công cụ, ID phiên làm việc và lý do cho các quyết định deny/instruct
   </Tab>
 </Tabs>
 
@@ -79,13 +79,13 @@ Trang gồm hai tab để quản lý chính sách và xem lại hoạt động.
 
 ## Tự động làm mới
 
-Dashboard có nút bật/tắt tự động làm mới trong thanh điều hướng trên cùng. Khi được bật, trang hiện tại sẽ tự động làm mới định kỳ để hiển thị các phiên mới và hoạt động chính sách khi chúng xuất hiện. Tính năng này rất cần thiết để theo dõi các phiên agent tự động chạy lâu dài.
+Dashboard có một công tắc tự động làm mới trong thanh điều hướng trên cùng. Khi được bật, trang hiện tại được làm mới định kỳ để hiển thị các phiên làm việc và hoạt động chính sách mới khi chúng xuất hiện. Thiết yếu để giám sát các phiên làm việc của agent tự động hóa chạy lâu dài.
 
 ---
 
 ## Vô hiệu hóa các trang
 
-Nếu bạn chỉ cần một số phần của dashboard, hãy đặt `FAILPROOFAI_DISABLE_PAGES` thành danh sách tên trang được phân cách bằng dấu phẩy:
+Nếu bạn chỉ cần một số phần của dashboard, hãy đặt `FAILPROOFAI_DISABLE_PAGES` thành một danh sách tên trang được phân tách bằng dấu phẩy:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -95,13 +95,13 @@ Các giá trị hợp lệ: `policies`, `projects`.
 
 ---
 
-## Giao diện
+## Chủ đề
 
-Dashboard hỗ trợ chế độ sáng và tối. Chuyển đổi qua nút trên thanh điều hướng. Tùy chọn được lưu trong bộ nhớ cục bộ của trình duyệt.
+Dashboard hỗ trợ chế độ sáng và chế độ tối. Chuyển đổi qua nút trong thanh điều hướng. Tùy chọn được lưu trữ trong bộ nhớ cục bộ của trình duyệt của bạn.
 
 ---
 
-## Cấu hình đường dẫn projects
+## Cấu hình đường dẫn dự án
 
 Theo mặc định, dashboard đọc từ thư mục dự án Claude Code tiêu chuẩn. Ghi đè nó cho các thiết lập tùy chỉnh:
 
@@ -113,30 +113,30 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ## Truy cập từ máy chủ không phải localhost
 
-Khi chạy dashboard ở **chế độ dev** (`npm run dev`) và truy cập nó từ tên máy chủ khác với `localhost` — ví dụ: tên miền tùy chỉnh, địa chỉ IP từ xa hoặc URL được tunnel — bạn có thể thấy cảnh báo như:
+Khi chạy dashboard ở **chế độ phát triển** (`npm run dev`) và truy cập nó từ tên máy chủ khác ngoài `localhost` - ví dụ như một miền tùy chỉnh, IP từ xa hoặc URL được đường hầm - bạn có thể thấy cảnh báo như:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Đây là Next.js đang chặn truy cập cross-origin vào websocket HMR (hot module reload) của nó, đây là tính năng chỉ dành cho môi trường dev. Để cho phép máy chủ của bạn, hãy dùng cờ `--allowed-origins`:
+Đây là Next.js chặn quyền truy cập cross-origin vào websocket HMR (hot module reload) của nó, đây là một tính năng chỉ cho phát triển. Để cho phép máy chủ của bạn, hãy sử dụng cờ `--allowed-origins`:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-Với nhiều máy chủ hoặc địa chỉ IP, hãy truyền danh sách được phân cách bằng dấu phẩy:
+Để có nhiều máy chủ hoặc IP, hãy chuyển một danh sách được phân tách bằng dấu phẩy:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-Bạn cũng có thể đặt biến môi trường `FAILPROOFAI_ALLOWED_DEV_ORIGINS` thay thế:
+Bạn cũng có thể đặt biến môi trường `FAILPROOFAI_ALLOWED_DEV_ORIGINS`:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Điều này chỉ áp dụng cho chế độ dev. Khi chạy `failproofai` (chế độ production), không có websocket HMR và không có vấn đề tài nguyên dev cross-origin nào.
+Điều này chỉ áp dụng cho chế độ phát triển. Khi chạy `failproofai` (chế độ production), không có websocket HMR và không có vấn đề tài nguyên phát triển cross-origin.
 </Note>

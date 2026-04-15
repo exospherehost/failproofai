@@ -4,25 +4,25 @@ description: "配置文件格式、三级作用域系统及合并规则"
 icon: gear
 ---
 
-failproofai 使用 JSON 配置文件来控制哪些策略处于活动状态、它们的行为方式，以及自定义策略的加载来源。配置设计便于与团队共享——将其提交到代码仓库，每位开发者都能获得相同的 Agent 安全保障。
+failproofai 使用 JSON 配置文件来控制哪些策略处于激活状态、策略的行为方式以及自定义策略的加载位置。配置设计便于与团队共享——将其提交到代码仓库，每位开发者都能获得相同的智能体安全防护网。
 
 ---
 
 ## 配置作用域
 
-共有三个配置作用域，按优先级顺序依次评估：
+共有三个配置作用域，按优先级顺序进行评估：
 
 | 作用域 | 文件路径 | 用途 |
 |-------|-----------|---------|
-| **project** | `.failproofai/policies-config.json` | 仓库级别设置，提交到版本控制 |
-| **local** | `.failproofai/policies-config.local.json` | 个人仓库级别覆盖，已加入 gitignore |
-| **global** | `~/.failproofai/policies-config.json` | 跨所有项目的用户级默认配置 |
+| **project** | `.failproofai/policies-config.json` | 每个代码仓库的配置，提交到版本控制 |
+| **local** | `.failproofai/policies-config.local.json` | 个人级别的仓库覆盖配置，已加入 .gitignore |
+| **global** | `~/.failproofai/policies-config.json` | 适用于所有项目的用户级默认配置 |
 
-当 failproofai 收到 hook 事件时，它会加载并合并当前工作目录下所有存在的三个文件。
+当 failproofai 接收到 hook 事件时，会加载并合并当前工作目录下存在的所有三个文件。
 
 ### 合并规则
 
-**`enabledPolicies`** - 取三个作用域的并集。在任意级别启用的策略均为活动状态。
+**`enabledPolicies`** — 取三个作用域的并集。在任意级别启用的策略均处于激活状态。
 
 ```text
 project:  ["block-sudo"]
@@ -32,7 +32,7 @@ global:   ["block-sudo", "sanitize-api-keys"]
 resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← 去重后的并集
 ```
 
-**`policyParams`** - 最先为某一策略定义参数的作用域完全优先。策略参数内部不会进行深度合并。
+**`policyParams`** — 最先定义某策略参数的作用域完全优先。策略参数内部的值不进行深度合并。
 
 ```text
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
@@ -42,16 +42,16 @@ resolved: { allowPatterns: ["sudo apt-get update"] }   ← project 优先，glob
 ```
 
 ```text
-project:  (无 block-sudo 条目)
-local:    (无 block-sudo 条目)
+project:  （无 block-sudo 条目）
+local:    （无 block-sudo 条目）
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo systemctl status"] }  ← 回退至 global
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← 向下回落到 global
 ```
 
-**`customPoliciesPath`** - 最先定义它的作用域优先。
+**`customPoliciesPath`** — 最先定义该字段的作用域优先。
 
-**`llm`** - 最先定义它的作用域优先。
+**`llm`** — 最先定义该字段的作用域优先。
 
 ---
 
@@ -102,33 +102,79 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← 回退至 global
 
 类型：`string[]`
 
-需要启用的策略名称列表。名称必须与 `failproofai policies` 所显示的策略标识符完全匹配。完整列表请参见[内置策略](/zh/built-in-policies)。
+要启用的策略名称列表。名称必须与 `failproofai policies` 显示的策略标识符完全匹配。完整列表请参阅[内置策略](/zh/built-in-policies)。
 
-不在 `enabledPolicies` 中的策略为非活动状态，即使它们在 `policyParams` 中有对应条目也不例外。
+不在 `enabledPolicies` 中的策略处于非激活状态，即使在 `policyParams` 中有对应条目也同样如此。
 
 ### `policyParams`
 
 类型：`Record<string, Record<string, unknown>>`
 
-各策略的参数覆盖配置。外层键为策略名称，内层键为该策略的专属参数。每个策略的可用参数详见[内置策略](/zh/built-in-policies)。
+各策略的参数覆盖配置。外层键为策略名称，内层键为策略专属参数。每个策略的可用参数详见[内置策略](/zh/built-in-policies)。
 
-如果策略有参数但未进行配置，则使用该策略的内置默认值。未配置 `policyParams` 的用户将获得与旧版本完全相同的行为。
+如果某策略有参数但未指定，则使用该策略的内置默认值。未配置 `policyParams` 的用户将获得与之前版本完全相同的行为。
 
-策略参数块中的未知键在 hook 触发时会被静默忽略，但在运行 `failproofai policies` 时会标记为警告。
+策略参数块中的未知键在 hook 触发时会被静默忽略，但运行 `failproofai policies` 时会显示为警告。
+
+#### `hint`（通用字段）
+
+类型：`string`（可选）
+
+当策略返回 deny 或 instruct 时，附加到原因末尾的消息。使用它可以在不修改策略本身的情况下，为 Claude 提供可操作的指导建议。
+
+适用于任何类型的策略——内置策略、自定义策略（`custom/`）、项目约定策略（`.failproofai-project/`）或用户约定策略（`.failproofai-user/`）。
+
+```json
+{
+  "policyParams": {
+    "block-force-push": {
+      "hint": "Try creating a fresh branch instead."
+    },
+    "block-sudo": {
+      "allowPatterns": ["sudo apt-get"],
+      "hint": "Use apt-get directly without sudo."
+    },
+    "custom/my-policy": {
+      "hint": "Ask the user for approval first."
+    }
+  }
+}
+```
+
+当 block-force-push 拒绝操作时，Claude 会看到：*"Force-pushing is blocked. Try creating a fresh branch instead."*
+
+非字符串值和空字符串会被静默忽略。若未设置 `hint`，行为保持不变（向后兼容）。
 
 ### `customPoliciesPath`
 
 类型：`string`（绝对路径）
 
-包含自定义 hook 策略的 JavaScript 文件路径。此项由 `failproofai policies --install --custom <path>` 自动设置（路径在存储前会被解析为绝对路径）。
+包含自定义 hook 策略的 JavaScript 文件路径。此字段由 `failproofai policies --install --custom <path>` 自动设置（路径在存储前会解析为绝对路径）。
 
-每次 hook 事件触发时都会重新加载该文件，不进行缓存。有关编写自定义策略的详细信息，请参见[自定义策略](/zh/custom-policies)。
+每次 hook 事件触发时都会重新加载该文件，不存在缓存机制。关于编写自定义策略的详情，请参阅[自定义策略](/zh/custom-policies)。
+
+### 基于约定的策略（v0.0.2-beta.7+）
+
+除显式指定的 `customPoliciesPath` 外，failproofai 还会自动发现并加载 `.failproofai/policies/` 目录中的策略文件：
+
+| 级别 | 目录 | 作用域 |
+|-------|-----------|-------|
+| 项目 | `.failproofai/policies/` | 通过版本控制与团队共享 |
+| 用户 | `~/.failproofai/policies/` | 个人级别，适用于所有项目 |
+
+**文件匹配规则：** 仅加载符合 `*policies.{js,mjs,ts}` 模式的文件（例如 `security-policies.mjs`、`workflow-policies.js`），目录中的其他文件将被忽略。
+
+**无需配置：** 约定策略无需在 `policies-config.json` 中添加任何条目。只需将文件放入对应目录，下次 hook 事件触发时即可自动加载。
+
+**联合加载：** 项目级和用户级约定目录都会被扫描。两个级别中所有匹配的文件都会被加载（与 `customPoliciesPath` 的首个作用域优先规则不同）。
+
+更多详情和示例请参阅[自定义策略](/zh/custom-policies)。
 
 ### `llm`
 
 类型：`object`（可选）
 
-用于执行 AI 调用的策略所需的 LLM 客户端配置。大多数情况下无需配置。
+适用于需要进行 AI 调用的策略的 LLM 客户端配置。大多数场景下无需配置。
 
 ```json
 {
@@ -143,16 +189,16 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← 回退至 global
 
 ## 通过 CLI 管理配置
 
-`policies --install` 和 `policies --uninstall` 命令负责写入 Claude Code 的 `settings.json`（即 hook 入口点），而 `policies-config.json` 则是由您直接管理的文件。两者相互独立：
+`policies --install` 和 `policies --uninstall` 命令会写入 Claude Code 的 `settings.json`（hook 入口点），而 `policies-config.json` 则是由你直接管理的文件。两者相互独立：
 
-- **`settings.json`** - 告知 Claude Code 在每次工具调用时执行 `failproofai --hook <event>`
-- **`policies-config.json`** - 告知 failproofai 要评估哪些策略以及使用何种参数
+- **`settings.json`** — 告知 Claude Code 在每次工具调用时执行 `failproofai --hook <event>`
+- **`policies-config.json`** — 告知 failproofai 要评估哪些策略以及使用什么参数
 
-您可以随时直接编辑 `policies-config.json`，更改将在下一次 hook 事件触发时立即生效，无需重启。
+你可以随时直接编辑 `policies-config.json`，修改将在下次 hook 事件触发时立即生效，无需重启。
 
 ---
 
-## 示例：带有团队默认配置的项目级配置
+## 示例：包含团队默认值的项目级配置
 
 将 `.failproofai/policies-config.json` 提交到代码仓库：
 
@@ -173,4 +219,4 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← 回退至 global
 }
 ```
 
-每位开发者随后可以创建 `.failproofai/policies-config.local.json`（已加入 gitignore），用于个人覆盖配置，不会影响团队其他成员。
+每位开发者可以在此基础上创建 `.failproofai/policies-config.local.json`（已加入 .gitignore）进行个人覆盖配置，而不会影响其他团队成员。

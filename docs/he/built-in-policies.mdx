@@ -1,51 +1,57 @@
 ---
-title: מדיניות מובנית
-description: "כל 30 המדיניות המובנות שתופסות מצבי כשל נפוצים של סוכנים"
+title: מדיניויות מובנות
+description: "כל 30 מדיניויות מובנות התופסות מצבי כישלון נפוצים של סוכנים"
 icon: shield
 ---
 
-failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי כשל נפוצים של סוכנים. כל מדיניות מופעלת על סוג אירוע hook ספציפי ושם כלי. תשע מדיניות מקבלות פרמטרים המאפשרים לכוונן את התנהגותן ללא כתיבת קוד. ארבע מדיניות תהליך עבודה בטא אוכפות צינור commit → push → PR → CI לפני שClaude עוצר.
+failproofai מגיע עם 30 מדיניויות מובנות התופסות מצבי כישלון נפוצים של סוכנים. כל מדיניות מופעלת על סוג אירוע hook ספציפי וושם כלי. תשע מדיניויות מקבלות פרמטרים שמאפשרים לך לכוונן את התנהגותן ללא כתיבת קוד. ארבע מדיניויות workflow בטא אוכפות צינור commit → push → PR → CI לפני שClaude עוצר.
 
 ---
 
 ## סקירה כללית
 
-המדיניות מקובצות לקטגוריות:
+מדיניויות מקובצות לקטגוריות:
 
-| קטגוריה | מדיניות | סוג hook |
+| קטגוריה | מדיניויות | סוג Hook |
 |----------|----------|-----------|
 | [פקודות מסוכנות](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
-| [סודות (מסנני ניקוי)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
+| [סודות (מסנני)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
 | [סביבה](#environment) | block-env-files, protect-env-vars | PreToolUse |
-| [גישה לקבצים](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
+| [גישת קבצים](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [מסד נתונים](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [אזהרות](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
-| [תהליך עבודה (בטא)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+| [Workflow (בטא)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
 
-- **`block-`** — עוצר את הסוכן מלהמשיך.
-- **`warn-`** — מספק לסוכן הקשר נוסף כדי שיוכל לתקן את עצמו.
-- **`sanitize-`** — מנקה נתונים רגישים מפלט הכלי לפני שהסוכן רואה אותם.
-- **`require-`** — חוסם את אירוע ה-Stop עד שהתנאים מתקיימים.
+- **`block-`** — עצור את הסוכן מהמשך.
+- **`warn-`** — תן לסוכן הקשר נוסף כך שיוכל להתאושש בעצמו.
+- **`sanitize-`** — סלק נתונים רגישים מפלט הכלי לפני שהסוכן רואה זאת.
+- **`require-`** — חסום את אירוע ה-Stop עד שתנאים מתקיימים.
+
+---
+
+<Tip>
+כל מדיניות תומכת בשדה `hint` אופציונלי ב-`policyParams`. ה-hint מצורף להודעת deny או instruct שClaude רואה, תוך מתן הנחיה מעשית ללא שינוי קוד מדיניות. עובד עם מדיניויות מובנות, מותאמות וקונווציה. ראה [תצורה → hint](/he/configuration#hint-cross-cutting) לפרטים.
+</Tip>
 
 ---
 
 ## פקודות מסוכנות
 
-מונע מסוכנים להריץ פעולות שקשה לבטל או שעלולות לפגוע במערכת המארחת.
+מנע סוכנים מהרצת פעולות שקשה להוציא מהן או שעלולות להזיק למערכת המארח.
 
 ### `block-sudo`
 
 **אירוע:** PreToolUse (Bash)  
 **ברירת מחדל:** דוחה כל פקודת `sudo`.
 
-חוסם הפעלות הכוללות את מילת המפתח `sudo`. התאמת דפוסים מתבצעת על אסימוני פקודה מנותחים, לא על המחרוזת הגולמית, כדי למנוע עקיפה דרך הזרקת אופרטורי מעטפת.
+חוסם הזעקות המכילות את המילה `sudo`. התאמת דפוס נעשית על סימנים מפוענחים של פקודה, לא על המחרוזת הגולמית, כדי למנוע עקיפה דרך הזרקת אופרטור shell.
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | קידומות פקודה מדויקות שמותרות. כל ערך מוותאם כנגד אסימוני argv המנותחים. |
+| `allowPatterns` | `string[]` | `[]` | קידומות פקודה בדיוק המותרות. כל רשומה מתאימה לסימנים של argv המפוענחים. |
 
 **דוגמה:**
 
@@ -59,10 +65,10 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 }
 ```
 
-עם הגדרה זו, `sudo systemctl status nginx` מותר, אך `sudo rm /etc/hosts` נחסם.
+עם תצורה זו, `sudo systemctl status nginx` מותר, אבל `sudo rm /etc/hosts` דחוי.
 
 <Note>
-הדפוסים מוותאמים כנגד אסימונים מנותחים, לא מחרוזת הפקודה הגולמית. זה מונע עקיפה דרך אופרטורי מעטפת שמצורפים (למשל, `sudo systemctl status x; rm -rf /` אינו תואם את `sudo systemctl status *`).
+דפוסים מתאימים לסימנים מפוענחים, לא למחרוזת הפקודה הגולמית. זה מונע עקיפה דרך אופרטורים shell מצורפים (למשל `sudo systemctl status x; rm -rf /` לא מתאים ל-`sudo systemctl status *`).
 </Note>
 
 ---
@@ -70,13 +76,13 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `block-rm-rf`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** דוחה `rm -rf`, `rm -fr`, וצורות מחיקה רקורסיביות דומות.
+**ברירת מחדל:** דוחה `rm -rf`, `rm -fr` וצורות מחיקה רקורסיביות דומות.
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | נתיבים שבטוח למחוק באופן רקורסיבי (למשל `/tmp`). |
+| `allowPaths` | `string[]` | `[]` | נתיבים בטוחים למחיקה רקורסיבית (למשל `/tmp`). |
 
 **דוגמה:**
 
@@ -95,7 +101,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `block-curl-pipe-sh`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** דוחה `curl <url> | bash`, `curl <url> | sh`, `wget <url> | bash`, ודפוסים דומים.
+**ברירת מחדל:** דוחה `curl <url> | bash`, `curl <url> | sh`, `wget <url> | bash` ודפוסים דומים.
 
 ללא פרמטרים.
 
@@ -104,20 +110,20 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `block-failproofai-commands`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** דוחה פקודות שינסו להסיר או לנטרל את failproofai עצמו (למשל `npm uninstall failproofai`, `failproofai policies --uninstall`).
+**ברירת מחדל:** דוחה פקודות שיבטלו או בטלו את failproofai עצמו (למשל `npm uninstall failproofai`, `failproofai policies --uninstall`).
 
 ללא פרמטרים.
 
 ---
 
-## סודות (מסנני ניקוי)
+## סודות (מסנני)
 
-מונע מסוכנים להדליף אישורים להקשר או לפלט שלהם. מדיניות מסנני הניקוי מופעלות על אירועי **PostToolUse**. כשClaude מריץ פקודת Bash, קורא קובץ, או קורא לכל כלי, המדיניות הללו בודקות את הפלט לפני שהוא מוחזר לClaude. אם מתגלה דפוס סוד, המדיניות מחזירה החלטת דחייה שמונעת את הפלט מלהיות מועבר בחזרה.
+עצור סוכנים מדליפת עתודות לקשרם או לפלט שלהם. מדיניויות מסנן מופעלות על אירועי **PostToolUse**. כאשר Claude מריץ פקודת Bash, קורא קובץ, או קורא לכל כלי, מדיניויות אלה בוחנות את הפלט לפני שהוא מוחזר ל-Claude. אם דפוס סוד מזוהה, המדיניות מחזירה החלטת deny המונעת את העברת הפלט חזרה.
 
 ### `sanitize-jwt`
 
 **אירוע:** PostToolUse (כל הכלים)  
-**ברירת מחדל:** מסיר אסימוני JWT (שלושה קטעי base64url מופרדים על ידי `.`).
+**ברירת מחדל:** מחפה JWT tokens (שלוש קטעי base64url מופרדים ב-`.`).
 
 ללא פרמטרים.
 
@@ -126,13 +132,13 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `sanitize-api-keys`
 
 **אירוע:** PostToolUse (כל הכלים)  
-**ברירת מחדל:** מסיר פורמטים נפוצים של מפתחות API: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), מפתחות גישה של AWS (`AKIA`), מפתחות Stripe (`sk_live_`, `sk_test_`), ומפתחות Google API (`AIza`).
+**ברירת מחדל:** מחפה פורמטי API key נפוצים: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), AWS access keys (`AKIA`), Stripe keys (`sk_live_`, `sk_test_`) וגוגל API keys (`AIza`).
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
-| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | דפוסי regex נוספים לטיפול כסודות. |
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | דפוסי regex נוספים להתיחס אליהם כסודות. |
 
 **דוגמה:**
 
@@ -154,7 +160,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `sanitize-connection-strings`
 
 **אירוע:** PostToolUse (כל הכלים)  
-**ברירת מחדל:** מסיר מחרוזות חיבור למסד נתונים המכילות אישורים מוטבעים (למשל `postgresql://user:password@host/db`).
+**ברירת מחדל:** מחפה מחרוזות חיבור במסד נתונים המכילות עתודות משובצות (למשל `postgresql://user:password@host/db`).
 
 ללא פרמטרים.
 
@@ -163,7 +169,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `sanitize-private-key-content`
 
 **אירוע:** PostToolUse (כל הכלים)  
-**ברירת מחדל:** מסיר בלוקים של PEM (`-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----`, וכדומה).
+**ברירת מחדל:** מחפה בלוקים PEM (`-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----`, וכו').
 
 ללא פרמטרים.
 
@@ -172,7 +178,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `sanitize-bearer-tokens`
 
 **אירוע:** PostToolUse (כל הכלים)  
-**ברירת מחדל:** מסיר כותרות `Authorization: Bearer <token>` שבהן האסימון הוא 20 תווים או יותר.
+**ברירת מחדל:** מחפה headers `Authorization: Bearer <token>` כאשר האסימון הוא 20 תווים או יותר.
 
 ללא פרמטרים.
 
@@ -180,14 +186,14 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 
 ## סביבה
 
-הגן על הגדרות סביבה רגישות מפני קריאה או חשיפה על ידי סוכנים.
+הגן על תצורת סביבה רגישה מלהיקרא או להיחשף על ידי סוכנים.
 
 ### `block-env-files`
 
 **אירוע:** PreToolUse (Bash, Read)  
-**ברירת מחדל:** דוחה קריאת קבצי `.env` דרך `cat .env`, קריאות לכלי `Read` עם `.env` כנתיב הקובץ, וכדומה.
+**ברירת מחדל:** דוחה קריאת קבצי `.env` דרך `cat .env`, קריאות כלי Read עם `.env` כנתיב קובץ וכו'.
 
-אינו חוסם `.envrc` או קבצים סמוכים לסביבה אחרים — רק קבצים שנקראים בדיוק `.env`.
+לא חוסם `.envrc` או קבצים סמוכים לסביבה אחרים - רק קבצים בשם בדיוק `.env`.
 
 ללא פרמטרים.
 
@@ -202,20 +208,20 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 
 ---
 
-## גישה לקבצים
+## גישת קבצים
 
-שמור על סוכנים שעובדים בגבולות הפרויקט ורחוק מקבצים רגישים.
+שמור סוכנים לעבודה בתוך גבולות הפרויקט וחוק מקבצים רגישים.
 
 ### `block-read-outside-cwd`
 
 **אירוע:** PreToolUse (Read, Bash)  
-**ברירת מחדל:** דוחה קריאת קבצים מחוץ לספריית העבודה הנוכחית (שורש הפרויקט).
+**ברירת מחדל:** דוחה קריאת קבצים מחוץ לספריה העובדת הנוכחית (שורש הפרויקט).
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | קידומות נתיב מוחלטות המותרות אפילו אם הן מחוץ לספריית העבודה הנוכחית. |
+| `allowPaths` | `string[]` | `[]` | קידומות נתיב אבסולוטי המותרות גם אם מחוץ ל-cwd. |
 
 **דוגמה:**
 
@@ -234,11 +240,11 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `block-secrets-write`
 
 **אירוע:** PreToolUse (Write, Edit)  
-**ברירת מחדל:** דוחה כתיבה לקבצים המשמשים בדרך כלל למפתחות פרטיים ואישורים: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
+**ברירת מחדל:** דוחה כתיבות לקבצים בשימוש נפוץ למפתחות פרטיים ותעודות: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `additionalPatterns` | `string[]` | `[]` | דפוסי שם קובץ נוספים (בסגנון glob) לחסימה. |
 
@@ -258,7 +264,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 
 ## Git
 
-מנע דחיפות מקריות, דחיפות כפויות, וטעויות בענפים שקשה לבטל.
+מנע דחיפות מקריות, כפוי דחיפה וטעויות ענף שקשה להוציא מהן.
 
 ### `block-push-master`
 
@@ -267,7 +273,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | שמות ענפים שלא ניתן לדחוף אליהם ישירות. |
 
@@ -284,7 +290,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ```
 
 <Tip>
-כדי לאפשר דחיפה לכל הענפים (ובעצם לנטרל מדיניות זו מבלי להסירה מ-`enabledPolicies`), הגדר `protectedBranches: []`.
+כדי לאפשר דחיפה לכל הענפים (למעשה השבתת מדיניות זו ללא הסרתה מ-`enabledPolicies`), הגדר `protectedBranches: []`.
 </Tip>
 
 ---
@@ -292,13 +298,13 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `block-work-on-main`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** דוחה מעבר ישיר לענפים `main` או `master`.
+**ברירת מחדל:** דוחה checkout של ענפי `main` או `master` ישירות.
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
-| `protectedBranches` | `string[]` | `["main", "master"]` | שמות ענפים שלא ניתן לעבור אליהם ישירות. |
+| `protectedBranches` | `string[]` | `["main", "master"]` | שמות ענפים שלא ניתן לעשות להם checkout ישירות. |
 
 ---
 
@@ -307,14 +313,24 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 **אירוע:** PreToolUse (Bash)  
 **ברירת מחדל:** דוחה `git push --force` ו-`git push -f`.
 
-ללא פרמטרים.
+ללא פרמטרים ספציפיים למדיניות. השתמש ב-[`hint`](/he/configuration#hint-cross-cutting) החוצה-משימה כדי להציע אלטרנטיבות:
+
+```json
+{
+  "policyParams": {
+    "block-force-push": {
+      "hint": "Create a new branch from your current HEAD (e.g. `git checkout -b <new-branch>`) and push that instead."
+    }
+  }
+}
+```
 
 ---
 
 ### `warn-git-amend`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** מורה לClaude להמשיך בזהירות בעת הרצת `git commit --amend`. אינו חוסם את הפקודה.
+**ברירת מחדל:** מורה ל-Claude להמשיך בזהירות בעת הרצת `git commit --amend`. לא חוסם את הפקודה.
 
 ללא פרמטרים.
 
@@ -323,7 +339,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `warn-git-stash-drop`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** מורה לClaude לאשר לפני הרצת `git stash drop`. אינו חוסם את הפקודה.
+**ברירת מחדל:** מורה ל-Claude לאשר לפני הרצת `git stash drop`. לא חוסם את הפקודה.
 
 ללא פרמטרים.
 
@@ -332,7 +348,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `warn-all-files-staged`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** מורה לClaude לסקור מה הוא מוסיף לאזור ה-staging בעת הרצת `git add -A` או `git add .`. אינו חוסם את הפקודה.
+**ברירת מחדל:** מורה ל-Claude לבדוק מה הוא בתהליך staging כשהוא מריץ `git add -A` או `git add .`. לא חוסם את הפקודה.
 
 ללא פרמטרים.
 
@@ -340,12 +356,12 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 
 ## מסד נתונים
 
-תפוס פעולות SQL הרסניות לפני שהן מתבצעות מול מסד הנתונים שלך.
+תפוס פעולות SQL הרסניות לפני שהן מתבצעות כנגד מסד הנתונים שלך.
 
 ### `warn-destructive-sql`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** מורה לClaude לאשר לפני הרצת SQL המכיל `DROP TABLE`, `DROP DATABASE`, או `DELETE` ללא משפט `WHERE`.
+**ברירת מחדל:** מורה ל-Claude לאשר לפני הרצת SQL המכיל `DROP TABLE`, `DROP DATABASE` או `DELETE` ללא סעיף `WHERE`.
 
 ללא פרמטרים.
 
@@ -354,7 +370,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `warn-schema-alteration`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** מורה לClaude לאשר לפני הרצת משפטי `ALTER TABLE`.
+**ברירת מחדל:** מורה ל-Claude לאשר לפני הרצת הצהרות `ALTER TABLE`.
 
 ללא פרמטרים.
 
@@ -362,18 +378,18 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 
 ## אזהרות
 
-ספק לסוכנים הקשר נוסף לפני פעולות שעלולות להיות מסוכנות אך אינן הרסניות.
+תן סוכנים הקשר נוסף לפני פעולות פוטנציאליות מסוכנות אך לא הרסניות.
 
 ### `warn-large-file-write`
 
 **אירוע:** PreToolUse (Write)  
-**ברירת מחדל:** מורה לClaude לאשר לפני כתיבת קבצים גדולים מ-1024 KB.
+**ברירת מחדל:** מורה ל-Claude לאשר לפני כתיבת קבצים גדולים מ-1024 KB.
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
-| `thresholdKb` | `number` | `1024` | סף גודל קובץ בקילובייטים שמעליו מונפקת אזהרה. |
+| `thresholdKb` | `number` | `1024` | סף גודל קובץ בקילובייטים שמעליו מוצאת אזהרה. |
 
 **דוגמה:**
 
@@ -388,7 +404,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ```
 
 <Note>
-מטפל ה-hook אוכף מגבלת stdin של 1 MB על עומסי נתונים. כדי לבדוק מדיניות זו עם תוכן קטן, הגדר `thresholdKb` לערך נמוך בהרבה מ-1024.
+ה-hook handler אוכף הגבלת stdin של 1 MB על payload. כדי לבדוק מדיניות זו עם תוכן קטן, הגדר `thresholdKb` לערך הרבה מתחת ל-1024.
 </Note>
 
 ---
@@ -396,7 +412,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `warn-package-publish`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** מורה לClaude לאשר לפני הרצת `npm publish`.
+**ברירת מחדל:** מורה ל-Claude לאשר לפני הרצת `npm publish`.
 
 ללא פרמטרים.
 
@@ -405,7 +421,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `warn-background-process`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** מורה לClaude להיות זהיר בעת הפעלת תהליכי רקע דרך `nohup`, `&`, `disown`, או `screen`.
+**ברירת מחדל:** מורה ל-Claude להיות זהיר בעת הפעלת תהליכים ברקע דרך `nohup`, `&`, `disown` או `screen`.
 
 ללא פרמטרים.
 
@@ -414,7 +430,7 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `warn-global-package-install`
 
 **אירוע:** PreToolUse (Bash)  
-**ברירת מחדל:** מורה לClaude לאשר לפני הרצת `npm install -g`, `yarn global add`, או `pip install` ללא סביבה וירטואלית.
+**ברירת מחדל:** מורה ל-Claude לאשר לפני הרצת `npm install -g`, `yarn global add` או `pip install` ללא סביבה וירטואלית.
 
 ללא פרמטרים.
 
@@ -422,27 +438,27 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 
 ## התנהגות AI
 
-זהה מתי סוכנים נתקעים או מתנהגים בצורה בלתי צפויה.
+גלה כאשר סוכנים נתקעים או מתנהגים בצורה בלתי צפויה.
 
 ### `warn-repeated-tool-calls`
 
 **אירוע:** PreToolUse (כל הכלים)  
-**ברירת מחדל:** מורה לClaude לשקול מחדש כשאותו כלי נקרא 3 פעמים או יותר עם פרמטרים זהים — סימן נפוץ שהסוכן תקוע בלולאה.
+**ברירת מחדל:** מורה ל-Claude לשקול מחדש כשאותו כלי נקרא 3+ פעמים עם פרמטרים זהים - סימן נפוץ לכך שהסוכן תקוע בלולאה.
 
 ללא פרמטרים.
 
 ---
 
-## תהליך עבודה (בטא)
+## Workflow (בטא)
 
-אכוף תהליך עבודה מסודר בסוף הסשן. מדיניות אלו מופעלות על אירוע ה-**Stop** וחוסמות את Claude מלעצור עד שכל תנאי מתקיים. הן פועלות לפי שרשרת תלות טבעית: commit → push → PR → CI. אם מדיניות דוחה, מדיניות מאוחרות יותר בשרשרת מדולגות (דחייה מקצרת את השרשרת).
+אוכף workflow מסודר בקצה ההפעלה. מדיניויות אלה מופעלות על אירוע **Stop** ודוחות את Claude מהעצירה עד שכל תנאי מתקיים. הם עוקבים אחר שרשרת תלות טבעית: commit → push → PR → CI. אם מדיניות דוחה, מדיניויות מאוחרות יותר בשרשרת דולנות (deny קוטעות).
 
-כל מדיניות תהליך העבודה היא **fail-open**: אם הכלי הנדרש אינו זמין (למשל, `gh` אינו מותקן, אין remote של git), המדיניות מאפשרת עם הודעה מידעית המסבירה מדוע הבדיקה דולגה.
+כל מדיניויות workflow הן **fail-open**: אם הכלי הנדרש אינו זמין (למשל `gh` לא מותקן, אין git remote), המדיניות מתירה עם הודעה אינפורמטיבית המסבירה מדוע הבדיקה דולנה.
 
 ### `require-commit-before-stop`
 
 **אירוע:** Stop  
-**ברירת מחדל:** דוחה עצירה כשיש שינויים שלא בוצע להם commit (קבצים שהשתנו, קבצים שעברו staging, או קבצים לא עקובים). מחזיר הודעה מידעית כשספריית העבודה נקייה.
+**ברירת מחדל:** דוחה עצירה כשיש שינויים לא commited (קבצים משונים, staged או untracked). מחזיר הודעה אינפורמטיבית כשספריית העבודה נקייה.
 
 ללא פרמטרים.
 
@@ -451,13 +467,13 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `require-push-before-stop`
 
 **אירוע:** Stop  
-**ברירת מחדל:** דוחה עצירה כשיש commits שלא נדחפו או כשלענף הנוכחי אין ענף מעקב remote. מציע `git push -u` ליצירת ענף מעקב אם נדרש. נכשל בפתיחה אם לא מוגדר remote.
+**ברירת מחדל:** דוחה עצירה כשיש commits לא pushed או כשהענף הנוכחי אין לו ענף remote tracking. מציע `git push -u` ליצירת ענף tracking אם נחוץ. נכשל open אם לא מוגדר remote.
 
 **פרמטרים:**
 
-| פרמטר | סוג | ברירת מחדל | תיאור |
+| Param | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
-| `remote` | `string` | `"origin"` | שם ה-remote לדחיפה אליו. |
+| `remote` | `string` | `"origin"` | שם remote ללדחוף אליו. |
 
 **דוגמה:**
 
@@ -476,13 +492,14 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `require-pr-before-stop`
 
 **אירוע:** Stop  
-**ברירת מחדל:** דוחה עצירה כשלא קיים pull request עבור הענף הנוכחי, או כשה-PR הקיים סגור/ממוזג. מורה לClaude ליצור PR עם `gh pr create`.
+**ברירת מחדל:** דוחה עצירה כשלא קיים pull request לענף הנוכחי או כשה-PR הקיים סגור/merged. מורה ל-Claude ליצור PR עם `gh pr create`.
 
 ללא פרמטרים.
 
 <Note>
-מדיניות זו מחייבת ש-[GitHub CLI](https://cli.github.com/) (`gh`) יהיה מותקן ומאומת.
-הרץ `gh auth login` עם personal access token בעל הרשאת `repo` לגישת קריאה ל-pull requests. אם `gh` אינו מותקן או מאומת, המדיניות נכשלת בפתיחה ומדווחת את הסיבה לClaude.
+מדיניות זו דורשת [GitHub CLI](https://cli.github.com/) (`gh`) להיות מותקן ומאומת.
+הרץ `gh auth login` עם personal access token שיש לו scope `repo` לגישה קריאה ל-
+pull requests. אם `gh` אינו מותקן או לא מאומת, המדיניות נכשלת open ומדווחת את הסיבה ל-Claude.
 </Note>
 
 ---
@@ -490,49 +507,50 @@ failproofai מגיע עם 30 מדיניות מובנות שתופסות מצבי
 ### `require-ci-green-before-stop`
 
 **אירוע:** Stop  
-**ברירת מחדל:** דוחה עצירה כשבדיקות CI נכשלות או עדיין רצות על הענף הנוכחי. מתייחס לתוצאות `skipped` כהצלחה. מחזיר הודעה מידעית כשכל הבדיקות עוברות.
+**ברירת מחדל:** דוחה עצירה כשבדיקות CI כושלות או עדיין רצות בענף הנוכחי. בודק גם GitHub Actions workflow runs וגם third-party bot checks (למשל CodeRabbit, SonarCloud, Codecov). מתייחס ל-`skipped` conclusions כהצלחה. מחזיר הודעה אינפורמטיבית כשכל הבדיקות עוברות.
 
 ללא פרמטרים.
 
 <Note>
-מדיניות זו מחייבת ש-[GitHub CLI](https://cli.github.com/) (`gh`) יהיה מותקן ומאומת.
-הרץ `gh auth login` עם personal access token בעל הרשאת `repo` לגישת קריאה לריצות workflow של Actions. אם `gh` אינו מותקן או מאומת, המדיניות נכשלת בפתיחה ומדווחת את הסיבה לClaude.
+מדיניות זו דורשת [GitHub CLI](https://cli.github.com/) (`gh`) להיות מותקן ומאומת.
+הרץ `gh auth login` עם personal access token שיש לו scope `repo` לגישה קריאה ל-
+Actions workflow runs וה-Checks API. אם `gh` אינו מותקן או לא מאומת, המדיניות נכשלת open ומדווחת את הסיבה ל-Claude.
 </Note>
 
 ---
 
-## מדיניות בטא
+## מדיניויות בטא
 
-חלק מהמדיניות מסומנות כ-`beta` ואינן מותקנות כברירת מחדל. מדיניות בטא עשויה להכיל חדות לא מלוטשות או לייצר חיובי שגויים. הן עולות לדרגת יציבות במהדורות עתידיות.
+כמה מדיניויות מסומנות `beta` ואינן מותקנות כברירת מחדל. מדיניויות בטא עשויות להיות בעלות קצוות גסים או ליצור false positives. הן בוגרות ליציב בהוצאות עתידיות.
 
-**מדיניות בטא נוכחית:**
+**מדיניויות בטא נוכחיות:**
 
-- `require-commit-before-stop` — בצע commit לכל השינויים לפני עצירה
-- `require-push-before-stop` — דחוף את כל ה-commits ל-remote
-- `require-pr-before-stop` — וודא שקיים PR עבור הענף
-- `require-ci-green-before-stop` — כל בדיקות CI חייבות לעבור
+- `require-commit-before-stop` — commit כל השינויים לפני עצירה
+- `require-push-before-stop` — push את כל ה-commits ל-remote
+- `require-pr-before-stop` — וודא שקיים PR לענף
+- `require-ci-green-before-stop` — כל בדיקות CI חייבות להצליח
 
-יחד, אלו אוכפות תהליך עבודה של **commit → push → PR → CI**.
+ביחד, אלה אוכפות workflow של **commit → push → PR → CI**.
 
-להתקנת כל מדיניות הבטא:
+כדי להתקין את כל מדיניויות הבטא:
 
 ```bash
 failproofai policies --install --beta
 ```
 
-או התקן מדיניות תהליך עבודה ספציפיות:
+או התקן מדיניויות workflow ספציפיות:
 
 ```bash
 failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
 ```
 
-הרץ `failproofai policies` כדי לראות אילו מדיניות נושאות את דגל הבטא.
+הרץ `failproofai policies` כדי לראות אילו מדיניויות נושאות את דגל הבטא.
 
 ---
 
-## השבתת מדיניות ספציפיות
+## השבתת מדיניויות בודדות
 
-הסר מדיניות ספציפית מ-`enabledPolicies` בתצורה שלך, או כבה אותה בלשונית Policies של לוח המחוונים.
+הסר מדיניות ספציפית מ-`enabledPolicies` בתצורה שלך, או הגדר אותה off בטאב Policies של ה-dashboard.
 
 ```json
 {
@@ -543,4 +561,4 @@ failproofai policies --install require-commit-before-stop require-push-before-st
 }
 ```
 
-מדיניות שאינה מופיעה ב-`enabledPolicies` לא תרוץ, אפילו אם קיימים עבורה ערכים ב-`policyParams`.
+מדיניויות שלא רשומות ב-`enabledPolicies` אינן רצות, גם אם רשומות `policyParams` קיימות בשבילן.

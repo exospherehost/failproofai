@@ -1,16 +1,16 @@
 ---
 title: 示例
-description: "如何为 Claude Code 和 Agents SDK 配置钩子"
+description: "如何为 Claude Code 和 Agents SDK 设置 Hook"
 icon: book-open
 ---
 
-常见场景的即用示例，每个示例均说明如何安装及预期效果。
+适用于常见场景的即用型示例，每个示例均说明安装方式及预期效果。
 
 ---
 
-## 为 Claude Code 配置钩子
+## 为 Claude Code 设置 Hook
 
-Failproof AI 通过 Claude Code 的[钩子系统](https://docs.anthropic.com/en/docs/claude-code/hooks)与其集成。运行 `failproofai policies --install` 后，它会在 Claude Code 的 `settings.json` 中注册钩子命令，这些命令会在每次工具调用时触发。
+Failproof AI 通过 [hooks 系统](https://docs.anthropic.com/en/docs/claude-code/hooks)与 Claude Code 集成。运行 `failproofai policies --install` 后，它会在 Claude Code 的 `settings.json` 中注册 Hook 命令，这些命令将在每次工具调用时触发。
 
 <Steps>
   <Step title="安装 failproofai">
@@ -23,27 +23,27 @@ Failproof AI 通过 Claude Code 的[钩子系统](https://docs.anthropic.com/en/
     failproofai policies --install
     ```
   </Step>
-  <Step title="验证钩子已注册">
+  <Step title="验证 Hook 已注册">
     ```bash
     cat ~/.claude/settings.json | grep failproofai
     ```
 
-    你应该能看到 `PreToolUse`、`PostToolUse`、`Notification` 和 `Stop` 事件对应的钩子条目。
+    你应该能看到 `PreToolUse`、`PostToolUse`、`Notification` 和 `Stop` 事件对应的 Hook 条目。
   </Step>
   <Step title="运行 Claude Code">
     ```bash
     claude
     ```
 
-    策略现在会在每次工具调用时自动执行。试着让 Claude 运行 `sudo rm -rf /`——它将被拦截。
+    策略现在会在每次工具调用时自动执行。可以尝试让 Claude 运行 `sudo rm -rf /`，该命令将被拦截。
   </Step>
 </Steps>
 
 ---
 
-## 为 Agents SDK 配置钩子
+## 为 Agents SDK 设置 Hook
 
-如果你正在使用 [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk) 进行开发，可以通过编程方式使用相同的钩子系统。
+如果你正在使用 [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk) 开发，同样可以通过编程方式使用相同的 Hook 系统。
 
 <Steps>
   <Step title="在项目中安装 failproofai">
@@ -51,12 +51,12 @@ Failproof AI 通过 Claude Code 的[钩子系统](https://docs.anthropic.com/en/
     npm install failproofai
     ```
   </Step>
-  <Step title="在 Agent 中配置钩子">
-    在创建 Agent 进程时传入钩子命令。钩子的触发方式与 Claude Code 中相同——通过 stdin/stdout JSON 传递：
+  <Step title="在 Agent 中配置 Hook">
+    在创建 Agent 进程时传入 Hook 命令。Hook 的触发方式与 Claude Code 中相同——通过 stdin/stdout JSON 进行通信：
 
     ```bash
-    failproofai --hook PreToolUse   # 在每个工具调用前触发
-    failproofai --hook PostToolUse  # 在每个工具调用后触发
+    failproofai --hook PreToolUse   # 在每次工具调用前触发
+    failproofai --hook PostToolUse  # 在每次工具调用后触发
     ```
   </Step>
   <Step title="为 Agent 编写自定义策略">
@@ -88,7 +88,7 @@ Failproof AI 通过 Claude Code 的[钩子系统](https://docs.anthropic.com/en/
 
 ## 拦截破坏性命令
 
-最常见的配置——防止 Agent 造成不可逆的损害。
+最常见的配置——防止 Agent 执行不可逆的破坏性操作。
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf block-force-push block-curl-pipe-sh
@@ -96,27 +96,27 @@ failproofai policies --install block-sudo block-rm-rf block-force-push block-cur
 
 各策略说明：
 - `block-sudo` - 拦截所有 `sudo` 命令
-- `block-rm-rf` - 拦截递归删除文件操作
+- `block-rm-rf` - 拦截递归删除文件的操作
 - `block-force-push` - 拦截 `git push --force`
-- `block-curl-pipe-sh` - 拦截将远程脚本通过管道传入 Shell 的操作
+- `block-curl-pipe-sh` - 拦截将远程脚本通过管道传入 Shell 执行的操作
 
 ---
 
 ## 防止密钥泄露
 
-阻止 Agent 在工具输出中查看或泄露凭证。
+阻止 Agent 在工具输出中查看或泄露凭证信息。
 
 ```bash
 failproofai policies --install sanitize-api-keys sanitize-jwt sanitize-connection-strings sanitize-bearer-tokens
 ```
 
-这些策略在 `PostToolUse` 时触发——工具运行后，在 Agent 看到输出之前对其进行脱敏处理。
+这些策略在 `PostToolUse` 时触发——工具执行完毕后，在 Agent 获取输出之前对其进行脱敏处理。
 
 ---
 
-## Agent 需要关注时发送 Slack 通知
+## 在 Agent 需要关注时发送 Slack 提醒
 
-使用通知钩子将空闲提醒转发到 Slack。
+使用 Notification Hook 将空闲提醒转发至 Slack。
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
@@ -208,7 +208,7 @@ customPolicies.add({
 
 ## 锁定生产环境仓库
 
-在项目中提交配置文件，让团队所有成员共享相同的策略。
+在项目中提交配置文件，让团队所有成员共享统一的策略。
 
 在仓库中创建 `.failproofai/policies-config.json`：
 
@@ -231,7 +231,7 @@ customPolicies.add({
 }
 ```
 
-然后提交：
+然后提交该文件：
 
 ```bash
 git add .failproofai/policies-config.json
@@ -248,6 +248,6 @@ git commit -m "Add failproofai team policies"
 
 | 文件 | 内容说明 |
 |------|---------------|
-| `policies-basic.js` | 入门策略——拦截生产环境写入、强制推送、管道脚本 |
-| `policies-notification.js` | 空闲通知和会话结束时的 Slack 告警 |
-| `policies-advanced/index.js` | 传递式导入、异步钩子、PostToolUse 输出脱敏、Stop 事件处理 |
+| `policies-basic.js` | 基础策略——拦截生产环境写入、强制推送、管道脚本执行 |
+| `policies-notification.js` | 针对空闲通知和会话结束的 Slack 提醒 |
+| `policies-advanced/index.js` | 传递式导入、异步 Hook、PostToolUse 输出脱敏、Stop 事件处理 |

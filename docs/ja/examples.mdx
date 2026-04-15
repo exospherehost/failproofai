@@ -1,16 +1,16 @@
 ---
 title: 使用例
-description: "Claude Code および Agents SDK 向けフックのセットアップ方法"
+description: "Claude Code と Agents SDK 向けフックの設定方法"
 icon: book-open
 ---
 
-一般的なシナリオですぐに使えるサンプル集です。各サンプルでは、インストール方法と期待される動作を説明しています。
+よくあるシナリオですぐに使える例を紹介します。各例では、インストール方法と期待される動作を説明します。
 
 ---
 
-## Claude Code 向けフックのセットアップ
+## Claude Code 向けフックの設定
 
-Failproof AI は、Claude Code の[フックシステム](https://docs.anthropic.com/en/docs/claude-code/hooks)を通じて連携します。`failproofai policies --install` を実行すると、Claude Code の `settings.json` にフックコマンドが登録され、ツール呼び出しのたびに起動するようになります。
+Failproof AI は Claude Code の[フックシステム](https://docs.anthropic.com/en/docs/claude-code/hooks)を通じて統合されます。`failproofai policies --install` を実行すると、Claude Code の `settings.json` にフックコマンドが登録され、すべてのツール呼び出し時に実行されます。
 
 <Steps>
   <Step title="failproofai をインストールする">
@@ -18,7 +18,7 @@ Failproof AI は、Claude Code の[フックシステム](https://docs.anthropic
     npm install -g failproofai
     ```
   </Step>
-  <Step title="すべての組み込みポリシーを有効にする">
+  <Step title="組み込みポリシーをすべて有効にする">
     ```bash
     failproofai policies --install
     ```
@@ -35,13 +35,13 @@ Failproof AI は、Claude Code の[フックシステム](https://docs.anthropic
     claude
     ```
 
-    ポリシーがすべてのツール呼び出しで自動的に実行されるようになります。Claude に `sudo rm -rf /` を実行するよう指示してみてください — ブロックされます。
+    これで、すべてのツール呼び出しに対してポリシーが自動的に実行されます。試しに Claude に `sudo rm -rf /` を実行するよう指示してみてください — ブロックされます。
   </Step>
 </Steps>
 
 ---
 
-## Agents SDK 向けフックのセットアップ
+## Agents SDK 向けフックの設定
 
 [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk) を使って開発している場合、同じフックシステムをプログラムから利用できます。
 
@@ -52,7 +52,7 @@ Failproof AI は、Claude Code の[フックシステム](https://docs.anthropic
     ```
   </Step>
   <Step title="エージェントにフックを設定する">
-    エージェントプロセスを作成する際にフックコマンドを渡します。フックは Claude Code と同様に stdin/stdout JSON 経由で起動します。
+    エージェントプロセスの作成時にフックコマンドを渡します。フックは Claude Code と同じように、stdin/stdout の JSON を介して起動されます。
 
     ```bash
     failproofai --hook PreToolUse   # 各ツールの実行前に呼び出される
@@ -88,33 +88,33 @@ Failproof AI は、Claude Code の[フックシステム](https://docs.anthropic
 
 ## 破壊的なコマンドをブロックする
 
-最も一般的なセットアップです。エージェントが取り返しのつかない操作を行うのを防ぎます。
+最もよく使われる設定 — エージェントが取り消し不可能な操作を行うのを防ぎます。
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf block-force-push block-curl-pipe-sh
 ```
 
-各ポリシーの説明:
+この設定の効果:
 - `block-sudo` — すべての `sudo` コマンドをブロック
 - `block-rm-rf` — 再帰的なファイル削除をブロック
 - `block-force-push` — `git push --force` をブロック
-- `block-curl-pipe-sh` — リモートスクリプトをシェルにパイプする操作をブロック
+- `block-curl-pipe-sh` — リモートスクリプトのシェルへのパイプをブロック
 
 ---
 
 ## シークレットの漏洩を防ぐ
 
-エージェントがツールの出力から認証情報を参照・漏洩しないようにします。
+ツールの出力に含まれる認証情報をエージェントが参照・漏洩するのを防ぎます。
 
 ```bash
 failproofai policies --install sanitize-api-keys sanitize-jwt sanitize-connection-strings sanitize-bearer-tokens
 ```
 
-これらは `PostToolUse` で起動します。ツールの実行後、エージェントに渡される前に出力をスクラブします。
+これらは `PostToolUse` で実行されます。ツールの実行後、エージェントが出力を受け取る前にスクラブ処理が行われます。
 
 ---
 
-## エージェントが待機中のときに Slack へ通知する
+## エージェントの待機時に Slack へアラートを送信する
 
 通知フックを使って、アイドル状態のアラートを Slack に転送します。
 
@@ -142,7 +142,7 @@ customPolicies.add({
         signal: AbortSignal.timeout(5000),
       });
     } catch {
-      // Slack に到達できなくてもエージェントをブロックしない
+      // Slack に接続できない場合でもエージェントをブロックしない
     }
 
     return allow();
@@ -158,7 +158,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/... failproofai policies --install --c
 
 ---
 
-## エージェントをブランチに留める
+## エージェントをブランチに固定する
 
 エージェントが他のブランチに切り替えたり、保護されたブランチにプッシュしたりするのを防ぎます。
 
@@ -184,7 +184,7 @@ customPolicies.add({
 
 ## コミット前にテストを要求する
 
-コミットの前にテストを実行するようエージェントに促します。
+コミット前にテストを実行するようエージェントに促します。
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
@@ -208,7 +208,7 @@ customPolicies.add({
 
 ## 本番リポジトリをロックダウンする
 
-プロジェクトレベルの設定をコミットして、チームの全開発者が同じポリシーを適用できるようにします。
+プロジェクトレベルの設定をコミットして、チーム全員が同じポリシーを適用できるようにします。
 
 リポジトリに `.failproofai/policies-config.json` を作成します:
 
@@ -238,16 +238,16 @@ git add .failproofai/policies-config.json
 git commit -m "Add failproofai team policies"
 ```
 
-failproofai をインストールしているすべてのチームメンバーが、これらのルールを自動的に適用できるようになります。
+failproofai をインストール済みのすべてのチームメンバーに、これらのルールが自動的に適用されます。
 
 ---
 
 ## その他の使用例
 
-リポジトリの [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) ディレクトリには以下のファイルが含まれています:
+リポジトリの [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) ディレクトリには以下が含まれています:
 
 | ファイル | 内容 |
 |------|---------------|
-| `policies-basic.js` | 入門ポリシー — 本番環境への書き込み、force push、パイプ経由スクリプトのブロック |
+| `policies-basic.js` | 基本ポリシー — 本番環境への書き込み、force-push、パイプスクリプトのブロック |
 | `policies-notification.js` | アイドル通知とセッション終了時の Slack アラート |
-| `policies-advanced/index.js` | トランジティブインポート、非同期フック、PostToolUse 出力スクラブ、Stop イベント処理 |
+| `policies-advanced/index.js` | トランジティブインポート、非同期フック、PostToolUse の出力スクラブ、Stop イベントの処理 |

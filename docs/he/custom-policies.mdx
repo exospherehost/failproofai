@@ -1,10 +1,10 @@
 ---
-title: מדיניות מותאמת אישית
-description: "כתבו מדיניות משלכם ב-JavaScript - אכפו קונבנציות, מנעו סטייה, זהו כשלים, שלבו עם מערכות חיצוניות"
+title: מדיניויות מותאמות
+description: "כתוב את הכללים שלך ב-JavaScript - אכוף קונבנציות, עצור drift, גלה כשלים, התחבר למערכות חיצוניות"
 icon: code
 ---
 
-מדיניות מותאמת אישית מאפשרת לכם לכתוב כללים לכל התנהגות של סוכן: אכיפת קונבנציות פרויקט, מניעת סטייה, חסימת פעולות הרסניות, זיהוי סוכנים תקועים, או שילוב עם Slack, תהליכי אישור ועוד. הן משתמשות באותה מערכת אירועי hook ובאותן החלטות `allow`, `deny`, `instruct` כמו המדיניות המובנית.
+מדיניויות מותאמות מאפשרות לך לכתוב כללים לכל התנהגות agent: אכוף קונבנציות פרויקט, עצור drift, שער פעולות הורסות, גלה agents תקועות, או התחבר ל-Slack, תהליכי אישור, ועוד. הם משתמשים באותה מערכת hook event ובהחלטות `allow`, `deny`, `instruct` כמו מדיניויות מובנות.
 
 ---
 
@@ -29,7 +29,7 @@ customPolicies.add({
 });
 ```
 
-התקנה:
+התקן אותה:
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -37,26 +37,60 @@ failproofai policies --install --custom ./my-policies.js
 
 ---
 
-## התקנה ועדכון
+## שתי דרכים לטעון מדיניויות מותאמות
+
+### אפשרות 1: מבוססת קונבנציה (מומלצת, v0.0.2-beta.7+)
+
+שים קבצים `*policies.{js,mjs,ts}` בתיקייה `.failproofai/policies/` והם יוטענו באופן אוטומטי — ללא דגלים או שינויי קונפיגורציה. זה עובד כמו git hooks: שים קובץ, זה פשוט עובד.
+
+```
+# Project level — committed to git, shared with the team
+.failproofai/policies/security-policies.mjs
+.failproofai/policies/workflow-policies.mjs
+
+# User level — personal, applies to all projects
+~/.failproofai/policies/my-policies.mjs
+```
+
+**איך זה עובד:**
+- שתי התיקיות של פרויקט ומשתמש סורקות (union — לא first-scope-wins)
+- קבצים נטענים בסדר אלפביתי בתוך כל תיקייה. קידומת עם `01-`, `02-` לשליטה בסדר
+- רק קבצים התואמים `*policies.{js,mjs,ts}` נטענים; קבצים אחרים מתעלמים
+- כל קובץ טוען באופן עצמאי (fail-open לכל קובץ)
+- עובד לצד מדיניויות `--custom` מפורשות ומובנות
+
+<Tip>
+מדיניויות קונבנציה הן הדרך הקלה ביותר לשתף מדיניויות על פני הצוות. התחייב `.failproofai/policies/` ל-git וכל חבר בצוות יקבל אותם באופן אוטומטי.
+</Tip>
+
+### אפשרות 2: נתיב קובץ מפורש
 
 ```bash
-# התקנה עם קובץ מדיניות מותאם אישית
+# Install with a custom policies file
 failproofai policies --install --custom ./my-policies.js
 
-# החלפת נתיב קובץ המדיניות
+# Replace the policies file path
 failproofai policies --install --custom ./new-policies.js
 
-# הסרת נתיב המדיניות המותאמת מהתצורה
+# Remove the custom policies path from config
 failproofai policies --uninstall --custom
 ```
 
-הנתיב המוחלט נשמר ב-`policies-config.json` תחת `customPoliciesPath`. הקובץ נטען מחדש בכל אירוע hook — אין שמירת מטמון בין אירועים.
+הנתיב המוחלט שנפתר מאוחסן ב-`policies-config.json` בתור `customPoliciesPath`. הקובץ נטען מחדש בכל hook event - אין cache בין events.
+
+### שימוש בשניהם ביחד
+
+מדיניויות קונבנציה והקובץ `--custom` המפורש יכולים להתקיים. סדר הטעינה:
+
+1. קובץ `customPoliciesPath` מפורש (אם מוגדר)
+2. קבצי קונבנציה של פרויקט (`{cwd}/.failproofai/policies/`, אלפביתי)
+3. קבצי קונבנציה של משתמש (`~/.failproofai/policies/`, אלפביתי)
 
 ---
 
 ## API
 
-### ייבוא
+### Import
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
@@ -64,7 +98,7 @@ import { customPolicies, allow, deny, instruct } from "failproofai";
 
 ### `customPolicies.add(hook)`
 
-רושם מדיניות. ניתן לקרוא לפונקציה זו כמה פעמים שצריך עבור מדיניות מרובות באותו קובץ.
+רושם מדיניות. קרא לפונקציה זו כמה פעמים שנדרש עבור מדיניויות מרובות באותו קובץ.
 
 ```ts
 customPolicies.add({
@@ -75,34 +109,38 @@ customPolicies.add({
 });
 ```
 
-### פונקציות החלטה
+### עוזרי החלטה
 
-| פונקציה | השפעה | מתי להשתמש |
+| פונקציה | השפעה | השתמש כאשר |
 |----------|--------|----------|
-| `allow()` | מאשר את הפעולה בשקט | הפעולה בטוחה, אין צורך בהודעה |
-| `deny(message)` | חוסם את הפעולה | הסוכן לא אמור לבצע פעולה זו |
-| `instruct(message)` | מוסיף הקשר מבלי לחסום | מספק לסוכן הקשר נוסף כדי שישאר על המסלול |
+| `allow()` | התר את הפעולה בשקט | הפעולה בטוחה, לא נדרשת הודעה |
+| `deny(message)` | חסום את הפעולה | ל-agent אין לבצע פעולה זו |
+| `instruct(message)` | הוסף הקשר ללא חסימה | תן ל-agent הקשר נוסף להישאר בעקבות |
 
-`deny(message)` - ההודעה מוצגת ל-Claude עם קידומת `"Blocked by failproofai:"`. `deny` יחיד מפסיק את כל הערכות ההמשך.
+`deny(message)` - ההודעה מופיעה ל-Claude בתחילית `"Blocked by failproofai:"`. `deny` אחד בודד מקצר את כל ההערכה הנוספת.
 
-`instruct(message)` - ההודעה מצורפת להקשר של Claude עבור קריאת הכלי הנוכחית. ה-`instruct` הראשון גובר — החזרות של `instruct` ממדיניות אחרות נמחקות.
+`instruct(message)` - ההודעה מצורפת להקשר של Claude לקריאת הכלי הנוכחית. כל הודעות `instruct` מצטברות ומועברות יחד.
 
-### הודעות allow אינפורמטיביות (בטא)
+<Tip>
+אתה יכול להצמיד הנחיות נוספות לכל הודעת `deny` או `instruct` על ידי הוספת שדה `hint` ב-`policyParams` — ללא צורך בשינוי קוד. זה עובד גם על מדיניויות custom (`custom/`), קונבנציה של פרויקט (`.failproofai-project/`), וקונבנציה של משתמש (`.failproofai-user/`). ראה [Configuration → hint](/he/configuration#hint-cross-cutting) לפרטים.
+</Tip>
+
+### הודעות allow מידע (beta)
 
 <Note>
-`allow(message)` היא תכונת בטא הזמינה מגרסה v0.0.2-beta.3. ה-API עשוי להשתנות בגרסאות עתידיות. גרסאות קודמות תומכות רק ב-`allow()` ללא ארגומנטים.
+`allow(message)` היא תכונת beta זמינה מ-v0.0.2-beta.3. ה-API עשוי להשתנות בגרסאות עתידיות. גרסאות קודמות תומכות רק ב-`allow()` ללא טיעונים.
 </Note>
 
-`allow(message)` מאשר את הפעולה **ו**שולח הודעה אינפורמטיבית ל-Claude. ההודעה מועברת כ-`additionalContext` בתגובת stdout של מטפל ה-hook — אותו מנגנון בו משתמש `instruct`, אך בעל משמעות שונה: זוהי עדכון סטטוס, לא אזהרה.
+`allow(message)` מתיר את הפעולה **ו**שולח הודעה מידע בחזרה ל-Claude. ההודעה מועברת כ-`additionalContext` בתגובת stdout של hook handler — אותה מנגנון שבו משתמשים `instruct`, אך שונה מבחינה סמנטית: זה עדכון סטטוס, לא אזהרה.
 
-| פונקציה | השפעה | מתי להשתמש |
+| פונקציה | השפעה | השתמש כאשר |
 |----------|--------|----------|
-| `allow(message)` | מאשר ושולח הקשר ל-Claude | לאשר שבדיקה עברה, או להסביר מדוע בדיקה דולגה |
+| `allow(message)` | התר ושלח הקשר ל-Claude | אשר שצ'ק עבר, או הסבר למה צ'ק דולג |
 
 מקרי שימוש:
-- **אישורי סטטוס:** `allow("All CI checks passed.")` — מודיע ל-Claude שהכל תקין
-- **הסברים על כשל-פתוח:** `allow("GitHub CLI not installed, skipping CI check.")` — מסביר ל-Claude מדוע בדיקה דולגה כך שיהיה לו הקשר מלא
-- **הצטברות הודעות מרובות:** אם מספר מדיניות מחזירות `allow(message)`, כל ההודעות מאוחדות עם שורות חדשות ומועברות יחד
+- **אישורי סטטוס:** `allow("All CI checks passed.")` — אומר ל-Claude שהכל ירוק
+- **הסברי fail-open:** `allow("GitHub CLI not installed, skipping CI check.")` — אומר ל-Claude למה צ'ק דולג כך שיש לו הקשר מלא
+- **הודעות מרובות מצטברות:** אם מספר מדיניויות כל אחת מחזירה `allow(message)`, כל ההודעות מחוברות עם שורות חדשות ומועברות יחד
 
 ```js
 customPolicies.add({
@@ -123,49 +161,51 @@ customPolicies.add({
 
 ### שדות `PolicyContext`
 
-| שדה | טיפוס | תיאור |
+| שדה | סוג | תיאור |
 |-------|------|-------------|
 | `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
 | `toolName` | `string \| undefined` | הכלי שנקרא (למשל `"Bash"`, `"Write"`, `"Read"`) |
 | `toolInput` | `Record<string, unknown> \| undefined` | פרמטרי הקלט של הכלי |
-| `payload` | `Record<string, unknown>` | מטען האירוע הגולמי המלא מ-Claude Code |
-| `session` | `SessionMetadata \| undefined` | הקשר הסשן (ראו להלן) |
+| `payload` | `Record<string, unknown>` | payload אירוע גולמי מלא מ-Claude Code |
+| `session` | `SessionMetadata \| undefined` | הקשר סשן (ראה למטה) |
 
 ### שדות `SessionMetadata`
 
-| שדה | טיפוס | תיאור |
+| שדה | סוג | תיאור |
 |-------|------|-------------|
 | `sessionId` | `string` | מזהה סשן Claude Code |
-| `cwd` | `string` | ספריית העבודה של סשן Claude Code |
-| `transcriptPath` | `string` | נתיב לקובץ JSONL של תמליל הסשן |
+| `cwd` | `string` | ספריית עבודה של סשן Claude Code |
+| `transcriptPath` | `string` | נתיב לקובץ תמליל JSONL של הסשן |
 
-### סוגי אירועים
+### סוגי אירוע
 
-| אירוע | מתי מופעל | תוכן `toolInput` |
+| אירוע | מתי הוא משדר | תוכן `toolInput` |
 |-------|--------------|----------------------|
-| `PreToolUse` | לפני שClaud מריץ כלי | הקלט של הכלי (למשל `{ command: "..." }` עבור Bash) |
-| `PostToolUse` | לאחר השלמת כלי | הקלט של הכלי + `tool_result` (הפלט) |
-| `Notification` | כאשר Claude שולח התראה | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` - hooks חייבים תמיד להחזיר `allow()`, הם לא יכולים לחסום התראות |
+| `PreToolUse` | לפני ש-Claude מריץ כלי | קלט הכלי (למשל `{ command: "..." }` עבור Bash) |
+| `PostToolUse` | לאחר סיום כלי | קלט הכלי + `tool_result` (הפלט) |
+| `Notification` | כאשר Claude שולח הודעה | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` - hooks חייבים תמיד להחזיר `allow()`, הם לא יכולים לחסום הודעות |
 | `Stop` | כאשר סשן Claude מסתיים | ריק |
 
 ---
 
 ## סדר הערכה
 
-המדיניות מוערכות בסדר הבא:
+מדיניויות מוערכות בסדר זה:
 
-1. מדיניות מובנית (לפי סדר הגדרה)
-2. מדיניות מותאמת אישית (לפי סדר `.add()`)
+1. מדיניויות מובנות (בסדר הגדרה)
+2. מדיניויות custom מפורשות מ-`customPoliciesPath` (בסדר `.add()`)
+3. מדיניויות קונבנציה מ-`.failproofai/policies/` של פרויקט (קבצים אלפביתיים, סדר `.add()` בתוך)
+4. מדיניויות קונבנציה מ-`~/.failproofai/policies/` של משתמש (קבצים אלפביתיים, סדר `.add()` בתוך)
 
 <Note>
-ה-`deny` הראשון מפסיק את כל המדיניות הבאות. ה-`instruct` הראשון גובר — החזרות של `instruct` מהמדיניות הבאות נמחקות.
+`deny` הראשון מקצר את כל המדיניויות הבאות. כל הודעות `instruct` מצטברות ומועברות יחד.
 </Note>
 
 ---
 
 ## ייבואים טרנזיטיביים
 
-קובצי מדיניות מותאמת אישית יכולים לייבא מודולים מקומיים באמצעות נתיבים יחסיים:
+קבצי מדיניות מותאמות יכולים לייבא מודולים מקומיים באמצעות נתיבים יחסיים:
 
 ```js
 // my-policies.js
@@ -182,44 +222,46 @@ customPolicies.add({
 });
 ```
 
-כל הייבואים היחסיים הנגישים מקובץ הכניסה נפתרים. זה מיושם על ידי שכתוב ייבואי `from "failproofai"` לנתיב dist בפועל ויצירת קבצי `.mjs` זמניים להבטחת תאימות ESM.
+כל הייבואים היחסיים שניתן להגיע אליהם מקובץ הכניסה מופתרים. זה מיושם על ידי כתיבה מחדש של ייבואים `from "failproofai"` לנתיב dist בפועל ויצירת קבצים זמניים `.mjs` כדי להבטיח תאימות ESM.
 
 ---
 
-## סינון סוגי אירועים
+## סינון סוג אירוע
 
-השתמשו ב-`match.events` כדי להגביל מתי מדיניות מופעלת:
+השתמש ב-`match.events` להגבלת מתי מדיניות משדרת:
 
 ```js
 customPolicies.add({
   name: "require-summary-on-stop",
   match: { events: ["Stop"] },
   fn: async (ctx) => {
-    // מופעל רק כאשר הסשן מסתיים
-    // ctx.session.transcriptPath מכיל את יומן הסשן המלא
+    // Only fires when the session ends
+    // ctx.session.transcriptPath contains the full session log
     return allow();
   },
 });
 ```
 
-השמיטו את `match` לחלוטין כדי להפעיל על כל סוג אירוע.
+השמט `match` לחלוטין לשדר בכל סוג אירוע.
 
 ---
 
 ## טיפול בשגיאות ומצבי כשל
 
-מדיניות מותאמת אישית היא **כשל-פתוח**: שגיאות לעולם לא חוסמות מדיניות מובנית ולא מקרסות את מטפל ה-hook.
+מדיניויות מותאמות הן **fail-open**: שגיאות לעולם לא חוסמות מדיניויות מובנות או מקרסות hook handler.
 
 | כשל | התנהגות |
 |---------|----------|
-| `customPoliciesPath` לא מוגדר | לא מופעלת מדיניות מותאמת; המובנית ממשיכה כרגיל |
-| הקובץ לא נמצא | אזהרה נרשמת ל-`~/.failproofai/hook.log`; המובנית ממשיכה |
-| שגיאת תחביר/ייבוא | שגיאה נרשמת ל-`~/.failproofai/hook.log`; כל המדיניות המותאמת מדולגת |
-| `fn` זורקת שגיאה בזמן ריצה | השגיאה נרשמת; אותו hook מטופל כ-`allow`; hooks אחרים ממשיכים |
-| `fn` לוקחת יותר מ-10 שניות | פסק זמן נרשם; מטופל כ-`allow` |
+| `customPoliciesPath` לא מוגדר | אין מדיניויות custom מפורשות פועלות; מדיניויות קונבנציה ומובנות ממשיכות בדרך כלל |
+| קובץ לא נמצא | אזהרה מתועדת ל-`~/.failproofai/hook.log`; מובנים ממשיכים |
+| שגיאת Syntax/import (מפורשת) | שגיאה מתועדת ל-`~/.failproofai/hook.log`; מדיניויות custom מפורשות דולגות |
+| שגיאת Syntax/import (קונבנציה) | שגיאה מתועדת; קובץ זה דולג, קבצי קונבנציה אחרים עדיין נטענים |
+| `fn` זורק בזמן ריצה | שגיאה מתועדת; hook זה מטופל כ-`allow`; hooks אחרים ממשיכים |
+| `fn` לוקח יותר מ-10 שניות | timeout מתועדת; מטופל כ-`allow` |
+| ספריית קונבנציה חסרה | אין מדיניויות קונבנציה פועלות; לא שגיאה |
 
 <Tip>
-לניפוי שגיאות במדיניות מותאמת אישית, עקבו אחר קובץ היומן:
+כדי לבדוק שגיאות של מדיניות מותאמת, צפה בקובץ היומן:
 
 ```bash
 tail -f ~/.failproofai/hook.log
@@ -228,7 +270,7 @@ tail -f ~/.failproofai/hook.log
 
 ---
 
-## דוגמה מלאה: מדיניות מרובות
+## דוגמה מלאה: מדיניויות מרובות
 
 ```js
 // my-policies.js
@@ -285,15 +327,31 @@ export { customPolicies };
 
 ## דוגמאות
 
-ספריית `examples/` מכילה קבצי מדיניות מוכנים להרצה:
+ספריית `examples/` מכילה קבצי מדיניות מוכנים להפעלה:
 
 | קובץ | תוכן |
 |------|----------|
-| `examples/policies-basic.js` | חמש מדיניות התחלתיות המכסות מצבי כשל נפוצים של סוכנים |
-| `examples/policies-advanced/index.js` | תבניות מתקדמות: ייבואים טרנזיטיביים, קריאות async, ניקוי פלט וhooks לסיום סשן |
+| `examples/policies-basic.js` | חמש מדיניויות קלפי סטרטר המכסות מצבי כשל נפוצים של agent |
+| `examples/policies-advanced/index.js` | דפוסים מתקדמים: ייבואים טרנזיטיביים, קריאות async, ניקוי פלט, hooks של סוף סשן |
+| `examples/convention-policies/security-policies.mjs` | מדיניויות אבטחה מבוססות קונבנציה (חסום כתיבות .env, מנע כתיבה מחדש של היסטוריית git) |
+| `examples/convention-policies/workflow-policies.mjs` | מדיניויות זרימת עבודה מבוססות קונבנציה (תזכורות בדיקה, קובץ כתיבה ביקורת) |
 
-התקנת הדוגמאות הבסיסיות:
+### שימוש בדוגמאות קובץ מפורש
 
 ```bash
 failproofai policies --install --custom ./examples/policies-basic.js
 ```
+
+### שימוש בדוגמאות מבוססות קונבנציה
+
+```bash
+# Copy to project level
+mkdir -p .failproofai/policies
+cp examples/convention-policies/*.mjs .failproofai/policies/
+
+# Or copy to user level
+mkdir -p ~/.failproofai/policies
+cp examples/convention-policies/*.mjs ~/.failproofai/policies/
+```
+
+לא נדרש פקודת התקנה — הקבצים נקטפים באופן אוטומטי בהאירוע hook הבא.

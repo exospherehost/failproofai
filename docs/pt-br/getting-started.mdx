@@ -1,13 +1,13 @@
 ---
 title: Primeiros passos
-description: "Instale o failproofai, habilite as políticas e deixe seus agentes rodando com confiabilidade"
+description: "Instale o failproofai, ative as políticas e deixe seus agentes rodando com confiabilidade"
 icon: rocket
 ---
 
 ## Requisitos
 
 - **Node.js** >= 20.9.0
-- **Bun** >= 1.3.0 (opcional - necessário apenas para compilar a partir do código-fonte)
+- **Bun** >= 1.3.0 (opcional — necessário apenas para compilar a partir do código-fonte)
 
 ---
 
@@ -30,14 +30,14 @@ bun add -g failproofai
 ## Início rápido
 
 <Steps>
-  <Step title="Habilitar políticas">
-    Políticas são regras que executam antes e depois de cada chamada de ferramenta do agente. Elas detectam comandos destrutivos, vazamento de segredos e outros modos de falha antes que causem danos.
+  <Step title="Ativar políticas">
+    Políticas são regras executadas antes e depois de cada chamada de ferramenta do agente. Elas interceptam comandos destrutivos, vazamento de segredos e outros modos de falha antes que causem danos.
 
     ```bash
     failproofai policies --install
     ```
 
-    Isso registra entradas de hook no `settings.json` do Claude Code. Você também pode instalar para um único projeto ou escolher políticas específicas:
+    Isso grava entradas de hook no `settings.json` do Claude Code. Você também pode instalar para um único projeto ou escolher políticas específicas:
 
     ```bash
     failproofai policies --install --scope project
@@ -49,7 +49,7 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    Exibe todas as políticas, se estão habilitadas e quaisquer parâmetros configurados.
+    Exibe todas as políticas, se estão ativas e quaisquer parâmetros configurados.
   </Step>
   <Step title="Abrir o painel">
     ```bash
@@ -59,7 +59,7 @@ bun add -g failproofai
     Abre um painel local em `http://localhost:8020` onde você pode navegar por sessões, inspecionar chamadas de ferramentas e gerenciar políticas.
   </Step>
   <Step title="Executar seu agente">
-    Inicie o Claude Code normalmente. Se o agente tentar algo arriscado, o failproofai intercepta automaticamente. Deixe-o rodando sem supervisão e revise o que aconteceu no painel.
+    Inicie o Claude Code normalmente. Se o agente tentar algo arriscado, o failproofai o intercepta automaticamente. Deixe-o rodando sem supervisão e revise o que aconteceu no painel.
   </Step>
 </Steps>
 
@@ -67,7 +67,7 @@ bun add -g failproofai
 
 ## Como as políticas funcionam
 
-Sempre que um agente executa uma ferramenta, o Claude Code chama o failproofai como um subprocesso:
+Toda vez que um agente executa uma ferramenta, o Claude Code chama o failproofai como um subprocesso:
 
 ```text
 Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
@@ -75,14 +75,14 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
                                                  writes decision to stdout
 ```
 
-Cada política retorna uma de três decisões:
+Cada política retorna uma das três decisões:
 
-- **allow** - o agente prossegue normalmente
-- **deny** - a ação é bloqueada e o agente é informado do motivo
-- **instruct** - contexto adicional é inserido no prompt do agente
+- **allow** — o agente continua normalmente
+- **deny** — a ação é bloqueada e o agente recebe uma explicação do motivo
+- **instruct** — contexto adicional é inserido no prompt do agente
 
 <Note>
-As políticas são executadas no seu processo local. Nada é enviado para um serviço remoto.
+As políticas são executadas no seu processo local. Nenhuma informação é enviada para um serviço remoto.
 </Note>
 
 ---
@@ -94,10 +94,10 @@ Todas as configurações e logs ficam na sua máquina:
 | Caminho | O que armazena |
 |---------|----------------|
 | `~/.failproofai/policies-config.json` | Configuração global de políticas |
-| `~/.failproofai/hook-activity.jsonl` | Histórico de execução dos hooks |
-| `~/.failproofai/hook.log` | Log de depuração para erros de hooks personalizados |
+| `~/.failproofai/hook-activity.jsonl` | Histórico de execução de hooks |
+| `~/.failproofai/hook.log` | Log de depuração para erros em hooks personalizados |
 | `.failproofai/policies-config.json` | Configuração por projeto (versionada) |
-| `.failproofai/policies-config.local.json` | Substituições pessoais (ignorado pelo git) |
+| `.failproofai/policies-config.local.json` | Substituições pessoais (ignoradas pelo git) |
 
 ---
 

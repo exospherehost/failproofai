@@ -1,38 +1,39 @@
 ---
+---
 title: "للوكلاء"
-description: "أضف معرفة Failproof AI إلى وكيل البرمجة الخاص بك بأمر واحد. يعمل مع Claude Code وCursor وWindsurf والمزيد."
+description: "أضف معرفة Failproof AI إلى وكيلك البرمجي بأمر واحد. يعمل مع Claude Code و Cursor و Windsurf وغيرها."
 ---
 
-أضف مرجع Failproof AI الكامل إلى وكيل البرمجة الخاص بك بأمر واحد. يعمل مع Claude Code وCursor وWindsurf وأي وكيل آخر يدعم المهارات.
+أضف مرجع Failproof AI الكامل إلى وكيلك البرمجي بأمر واحد. يعمل مع Claude Code و Cursor و Windsurf وأي وكيل آخر يدعم المهارات.
 
 ```bash
 npx skills add https://docs.befailproof.ai
 ```
 
-يكتشف `npx skills` الوكلاء المثبتة لديك ويضيف المهارة بالتنسيق المناسب لكل منها تلقائيًا.
+يكتشف `npx skills` الوكلاء المثبتة لديك ويضيف المهارة بالصيغة الصحيحة لكل واحد منها تلقائياً.
 
 ## ما تغطيه المهارة
 
-| المجال | ما هو مدرج |
-|--------|------------|
-| السياسات | أسماء السياسات المدمجة، أنواع الأحداث، المعاملات، التفعيل/التعطيل |
-| السياسات المخصصة | `customPolicies.add()`، فلاتر المطابقة، واجهة برمجة `allow`/`deny`/`instruct` |
-| كائن السياق | `ctx.eventType`، `ctx.toolName`، `ctx.toolInput`، `ctx.session` |
-| الإعداد | هيكل `policies-config.json`، دمج النطاقات، `policyParams` |
-| واجهة سطر الأوامر | `failproofai policies --install`، `--uninstall`، `--custom`، النطاقات |
-| لوحة التحكم | عارض الجلسات، نشاط السياسات، متغيرات البيئة |
-| البنية | تدفق معالج الخطافات، رموز الخروج، عقد stdin/stdout |
+| المجال | ما يشمل |
+|------|----------------|
+| السياسات | أسماء السياسات المدمجة وأنواع الأحداث والمعاملات والتفعيل/التعطيل |
+| السياسات المخصصة | `customPolicies.add()`وفلاتر المطابقة و API `allow`/`deny`/`instruct` |
+| كائن السياق | `ctx.eventType` و `ctx.toolName` و `ctx.toolInput` و `ctx.session` |
+| الإعدادات | بنية `policies-config.json` ودمج النطاق و `policyParams` |
+| واجهة سطر الأوامر | `failproofai policies --install` و `--uninstall` و `--custom` والنطاقات |
+| لوحة التحكم | عارض الجلسات ونشاط السياسة والمتغيرات البيئية |
+| البنية المعمارية | تدفق معالج الخطاف وأكواد الخروج و عقد stdin/stdout |
 
-## هل المهارة مكتملة؟
+## هل المهارة كاملة؟
 
-تولّد Mintlify ملف `llms.txt` من جميع الصفحات الموجودة في التنقل. تغطي وثائق Failproof AI الواجهة البرمجية الكاملة - كل سياسة وخيار ومثال مدرج. إذا وجدت شيئًا ناقصًا، فإن المصدر متاح على `https://docs.befailproof.ai/llms-full.txt`.
+يولد Mintlify `llms.txt` من جميع الصفحات في التنقل. توثيقات Failproof AI تغطي الواجهة البرمجية الكاملة - كل سياسة وخيار ومثال مضمن. إذا وجدت شيء مفقود، فالمصدر موجود في `https://docs.befailproof.ai/llms-full.txt`.
 
-للحصول على سياق محدد، اربط مباشرةً بصفحة معينة:
+للحصول على سياق موجه، قم بالربط مباشرة إلى صفحة محددة:
 
 ```bash
-# واجهة برمجة السياسات المخصصة فقط
+# فقط API السياسات المخصصة
 npx skills add https://docs.befailproof.ai/custom-policies
 
-# السياسات المدمجة فقط
+# فقط السياسات المدمجة
 npx skills add https://docs.befailproof.ai/built-in-policies
 ```

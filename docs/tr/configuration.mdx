@@ -1,28 +1,29 @@
 ---
+---
 title: Yapılandırma
-description: "Yapılandırma dosyası formatı, üç kapsamlı sistem ve birleştirme kuralları"
+description: "Yapılandırma dosyası biçimi, üç kapsamlı sistem ve birleştirme kuralları"
 icon: gear
 ---
 
-failproofai, hangi politikaların aktif olduğunu, nasıl davranacaklarını ve özel politikaların nereden yükleneceğini denetlemek için JSON yapılandırma dosyaları kullanır. Yapılandırma, ekibinizle kolayca paylaşılacak şekilde tasarlanmıştır; reponuza ekleyin ve her geliştirici aynı ajan güvenlik ağına kavuşsun.
+failproofai, hangi politikaların aktif olduğunu, nasıl davrandıklarını ve özel politikaların nereden yüklendiğini kontrol etmek için JSON yapılandırma dosyalarını kullanır. Yapılandırma, takımınızla paylaşmak için kolay olacak şekilde tasarlanmıştır - bunu deponuza gönderin ve her geliştirici aynı agent güvenlik ağını alır.
 
 ---
 
 ## Yapılandırma kapsamları
 
-Öncelik sırasıyla değerlendirilen üç yapılandırma kapsamı vardır:
+Üç yapılandırma kapsamı vardır ve öncelik sırasına göre değerlendirilirler:
 
 | Kapsam | Dosya yolu | Amaç |
 |-------|-----------|---------|
-| **project** | `.failproofai/policies-config.json` | Repo başına ayarlar, sürüm kontrolüne eklenir |
-| **local** | `.failproofai/policies-config.local.json` | Kişisel repo başına geçersiz kılmalar, gitignore'da |
-| **global** | `~/.failproofai/policies-config.json` | Tüm projelerde kullanıcı düzeyi varsayılanlar |
+| **project** | `.failproofai/policies-config.json` | Depo başına ayarlar, sürüm kontrolüne gönderilir |
+| **local** | `.failproofai/policies-config.local.json` | Kişisel depo başına geçersiz kılmalar, gitignore'da |
+| **global** | `~/.failproofai/policies-config.json` | Tüm projeler genelindeki kullanıcı düzeyindeki varsayılanlar |
 
-failproofai bir hook olayı aldığında, geçerli çalışma dizini için mevcut olan üç dosyayı da yükler ve birleştirir.
+failproofai bir hook olayı aldığında, geçerli çalışma dizini için var olan üç dosyanın tümünü yükler ve birleştirir.
 
 ### Birleştirme kuralları
 
-**`enabledPolicies`** - üç kapsamın birleşimidir. Herhangi bir düzeyde etkinleştirilen bir politika aktiftir.
+**`enabledPolicies`** - üç kapsamın tümünün birleşimi. Herhangi bir düzeyde etkinleştirilen bir politika etkindir.
 
 ```text
 project:  ["block-sudo"]
@@ -32,18 +33,18 @@ global:   ["block-sudo", "sanitize-api-keys"]
 resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← tekilleştirilmiş birleşim
 ```
 
-**`policyParams`** - belirli bir politika için parametre tanımlayan ilk kapsam tamamen kazanır. Bir politikanın parametreleri içinde derin birleştirme yapılmaz.
+**`policyParams`** - belirli bir politika için parametreleri tanımlayan ilk kapsam tamamen kazanır. Bir politikanın parametreleri içinde derin birleştirme yoktur.
 
 ```text
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo apt-get update"] }   ← project kazanır, global görmezden gelinir
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← project kazanır, global yoksayılır
 ```
 
 ```text
-project:  (block-sudo girişi yok)
-local:    (block-sudo girişi yok)
+project:  (block-sudo girdisi yok)
+local:    (block-sudo girdisi yok)
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
 resolved: { allowPatterns: ["sudo systemctl status"] }  ← global'e düşer
@@ -55,7 +56,7 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← global'e düşer
 
 ---
 
-## Yapılandırma dosyası formatı
+## Yapılandırma dosyası biçimi
 
 ```json
 {
@@ -96,39 +97,85 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← global'e düşer
 
 ---
 
-## Alan referansı
+## Alan başvurusu
 
 ### `enabledPolicies`
 
 Tür: `string[]`
 
-Etkinleştirilecek politika adlarının listesi. Adlar, `failproofai policies` tarafından gösterilen politika tanımlayıcılarıyla tam olarak eşleşmelidir. Tam liste için [Yerleşik Politikalar](/tr/built-in-policies) sayfasına bakın.
+Etkinleştirilecek politika adlarının listesi. Adlar, `failproofai policies` tarafından gösterilen politika tanımlayıcılarıyla tam olarak eşleşmelidir. Tam liste için [Yerleşik Politikalar](/tr/built-in-policies) bölümüne bakın.
 
-`enabledPolicies` listesinde olmayan politikalar, `policyParams` içinde girişleri olsa bile etkin değildir.
+`enabledPolicies` içinde olmayan politikalar, `policyParams` içinde girdileri olsa bile etkin değildir.
 
 ### `policyParams`
 
 Tür: `Record<string, Record<string, unknown>>`
 
-Politika başına parametre geçersiz kılmaları. Dış anahtar politika adıdır; iç anahtarlar politikaya özeldir. Her politika, kullanılabilir parametrelerini [Yerleşik Politikalar](/tr/built-in-policies) sayfasında belgeler.
+Politika başına parametre geçersiz kılmaları. Dış anahtar politika adıdır; iç anahtarlar politikaya özgüdür. Her politika, mevcut parametrelerini [Yerleşik Politikalar](/tr/built-in-policies) içinde belgelemir.
 
-Bir politikanın parametreleri varsa ancak siz belirtmezseniz, politikanın yerleşik varsayılanları kullanılır. `policyParams` hiç yapılandırmayan kullanıcılar, önceki sürümlerle özdeş davranış alır.
+Bir politikanın parametreleri varsa ancak bunları belirtmezseniz, politikanın yerleşik varsayılanları kullanılır. `policyParams` yapılandırırmayan kullanıcılar önceki sürümlerle aynı davranışı alırlar.
 
-Bir politikanın parametre bloğundaki bilinmeyen anahtarlar, hook tetiklendiğinde sessizce yok sayılır; ancak `failproofai policies` çalıştırdığınızda uyarı olarak işaretlenir.
+Bir politikanın params bloğu içindeki bilinmeyen anahtarlar, hook tetiklendiğinde sessizce yoksayılır ancak `failproofai policies` çalıştırdığınızda uyarılar olarak işaretlenir.
+
+#### `hint` (çapraz kesme)
+
+Tür: `string` (isteğe bağlı)
+
+Bir politika `deny` veya `instruct` döndürdüğünde nedene eklenen bir ileti. Bunu, politikanın kendisini değiştirmeden Claude'a işlem yapılabilir rehberlik sağlamak için kullanın.
+
+Herhangi bir politika türüyle çalışır — yerleşik, özel (`custom/`), proje kuralı (`.failproofai-project/`) veya kullanıcı kuralı (`.failproofai-user/`).
+
+```json
+{
+  "policyParams": {
+    "block-force-push": {
+      "hint": "Bunun yerine yeni bir dal oluşturmayı deneyin."
+    },
+    "block-sudo": {
+      "allowPatterns": ["sudo apt-get"],
+      "hint": "sudo olmadan apt-get'i doğrudan kullanın."
+    },
+    "custom/my-policy": {
+      "hint": "Önce kullanıcıdan onay alın."
+    }
+  }
+}
+```
+
+`block-force-push` reddettiğinde, Claude şunu görür: *"Zorla push yapmak engelleniyor. Bunun yerine yeni bir dal oluşturmayı deneyin."*
+
+String olmayan değerler ve boş diziler sessizce yoksayılır. `hint` ayarlanmazsa, davranış değişmez (geriye dönük uyumlu).
 
 ### `customPoliciesPath`
 
 Tür: `string` (mutlak yol)
 
-Özel hook politikalarını içeren bir JavaScript dosyasına giden yol. Bu, `failproofai policies --install --custom <path>` komutu tarafından otomatik olarak ayarlanır (yol, depolanmadan önce mutlak yola çözümlenir).
+Özel hook politikalarını içeren JavaScript dosyasının yolu. Bu, `failproofai policies --install --custom <path>` tarafından otomatik olarak ayarlanır (yol depolanmadan önce mutlak olarak çözülür).
 
-Dosya her hook olayında taze olarak yüklenir; önbelleğe alma yapılmaz. Yazım ayrıntıları için [Özel Politikalar](/tr/custom-policies) sayfasına bakın.
+Dosya her hook olayında yeniden yüklenir - önbelleğe alma yoktur. Yazma ayrıntıları için [Özel Politikalar](/tr/custom-policies) bölümüne bakın.
+
+### Kural tabanlı politikalar (v0.0.2-beta.7+)
+
+Açık `customPoliciesPath` öğesine ek olarak, failproofai `.failproofai/policies/` dizinlerinden policy dosyalarını otomatik olarak keşfeder ve yükler:
+
+| Düzey | Dizin | Kapsam |
+|-------|-----------|-------|
+| Proje | `.failproofai/policies/` | Sürüm kontrolü aracılığıyla takımla paylaşılır |
+| Kullanıcı | `~/.failproofai/policies/` | Kişisel, tüm projelere uygulanır |
+
+**Dosya eşleştirmesi:** Yalnızca `*policies.{js,mjs,ts}` ile eşleşen dosyalar yüklenir (ör. `security-policies.mjs`, `workflow-policies.js`). Dizindeki diğer dosyalar yoksayılır.
+
+**Yapılandırma gerekli değil:** Kural politikaları `policies-config.json` içinde girdiler gerektirmez. Dosyaları dizine bırakın ve sonraki hook olayında seçilecektir.
+
+**Birleşim yükleme:** Hem proje hem de kullanıcı kural dizinleri taranır. Her iki düzeydeki tüm eşleşen dosyalar yüklenir (`customPoliciesPath` ilk kapsam kazanır'ı kullandığından farklı olarak).
+
+Daha fazla ayrıntı ve örnek için [Özel Politikalar](/tr/custom-policies) bölümüne bakın.
 
 ### `llm`
 
 Tür: `object` (isteğe bağlı)
 
-Yapay zeka çağrısı yapan politikalar için LLM istemci yapılandırması. Çoğu kurulum için gerekli değildir.
+AI çağrıları yapan politikalar için LLM istemci yapılandırması. Çoğu kurulum için gerekli değil.
 
 ```json
 {
@@ -141,20 +188,20 @@ Yapay zeka çağrısı yapan politikalar için LLM istemci yapılandırması. Ç
 
 ---
 
-## CLI'dan yapılandırma yönetimi
+## CLI'dan yapılandırmayı yönetme
 
-`policies --install` ve `policies --uninstall` komutları Claude Code'un `settings.json` dosyasına yazar (hook giriş noktaları), `policies-config.json` ise doğrudan yönettiğiniz dosyadır. İkisi birbirinden ayrıdır:
+`policies --install` ve `policies --uninstall` komutları Claude Code'un `settings.json` dosyasına yazarken (hook giriş noktaları), `policies-config.json` doğrudan yönettiğiniz dosyadır. İkisi ayrıdır:
 
-- **`settings.json`** - Claude Code'a her araç kullanımında `failproofai --hook <event>` çağırmasını söyler
-- **`policies-config.json`** - failproofai'ye hangi politikaları ve hangi parametrelerle değerlendireceğini söyler
+- **`settings.json`** - Claude Code'a her tool kullanımında `failproofai --hook <event>` çağırmasını söyler
+- **`policies-config.json`** - failproofai'ye hangi politikaları değerlendireceğini ve hangi parametrelerle değerlendireceğini söyler
 
-`policies-config.json` dosyasını istediğiniz zaman doğrudan düzenleyebilirsiniz; değişiklikler yeniden başlatmaya gerek kalmadan bir sonraki hook olayında hemen geçerli olur.
+`policies-config.json` dosyasını herhangi bir zamanda doğrudan düzenleyebilirsiniz; değişiklikler yeniden başlatmaya gerek kalmadan sonraki hook olayında geçerli olur.
 
 ---
 
-## Örnek: ekip varsayılanlarıyla proje düzeyi yapılandırma
+## Örnek: takım varsayılanları ile proje düzeyindeki yapılandırma
 
-`.failproofai/policies-config.json` dosyasını reponuza ekleyin:
+`.failproofai/policies-config.json` dosyasını deponuza gönderin:
 
 ```json
 {
@@ -173,4 +220,4 @@ Yapay zeka çağrısı yapan politikalar için LLM istemci yapılandırması. Ç
 }
 ```
 
-Her geliştirici daha sonra takım arkadaşlarını etkilemeden kişisel geçersiz kılmalar için `.failproofai/policies-config.local.json` (gitignore'da) oluşturabilir.
+Ardından her geliştirici, takım arkadaşlarını etkilemeden kişisel geçersiz kılmalar için `.failproofai/policies-config.local.json` (gitignore'da) oluşturabilir.

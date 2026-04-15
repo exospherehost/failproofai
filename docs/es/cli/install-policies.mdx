@@ -1,13 +1,13 @@
 ---
 title: Instalar políticas
-description: "Activa las políticas para que se ejecuten en cada llamada de herramienta del agente"
+description: "Habilita políticas para que se ejecuten en cada llamada a herramientas del agente"
 ---
 
 ```bash
 failproofai policies --install [policy-names...] [options]
 ```
 
-Escribe entradas de hook en el `settings.json` de Claude Code para que failproofai intercepte las llamadas de herramienta.
+Escribe entradas de hook en el archivo `settings.json` de Claude Code para que failproofai intercepte las llamadas a herramientas.
 
 Alias: `failproofai p -i`
 
@@ -24,10 +24,10 @@ Alias: `failproofai p -i`
 ## Comportamiento
 
 - **Sin nombres de política** - abre un prompt interactivo para seleccionar políticas
-- **Nombres específicos** - habilita esas políticas (se añaden a las que ya están habilitadas)
+- **Nombres específicos** - habilita esas políticas (se agregan a las que ya están habilitadas)
 - **`all`** - habilita todas las políticas disponibles
 
-La instalación es acumulativa: ejecutar `--install` nuevamente añade nuevas políticas sin eliminar las existentes.
+La instalación es acumulativa: ejecutar `--install` nuevamente agrega nuevas políticas sin eliminar las existentes.
 
 ## Ejemplos
 
@@ -45,4 +45,4 @@ failproofai policies --install all
 failproofai policies --install --custom ./my-policies.js
 ```
 
-Cuando se proporciona `--custom <path>`, el archivo se valida de inmediato: debe llamar a `customPolicies.add()` al menos una vez. La ruta resuelta se guarda en `policies-config.json` como `customPoliciesPath`.
+Cuando se proporciona `--custom <path>`, el archivo se valida de inmediato — debe llamar a `customPolicies.add()` al menos una vez. La ruta resuelta se guarda en `policies-config.json` como `customPoliciesPath`.

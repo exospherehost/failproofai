@@ -1,6 +1,6 @@
 ---
-title: Elenca le policy
-description: "Visualizza le policy attive, i loro parametri e le policy personalizzate"
+title: Elenca policies
+description: "Visualizza quali policy sono abilitate, i loro parametri e le policy personalizzate"
 ---
 
 ```bash
@@ -9,7 +9,7 @@ failproofai policies
 
 Mostra tutte le policy con il loro stato, i parametri configurati e le policy personalizzate.
 
-## Esempio di output
+## Output di esempio
 
 ```text
 Failproof AI Hook Policies (user)
@@ -28,4 +28,4 @@ Failproof AI Hook Policies (user)
   ✓       approval-gate                 Approval gate for destructive ops
 ```
 
-Le chiavi sconosciute in `policyParams` vengono segnalate qui, così puoi individuare eventuali errori di battitura in anticipo.
+Le chiavi sconosciute in `policyParams` vengono segnalate qui in modo che tu possa rilevare gli errori di battitura in anticipo.
