@@ -48,7 +48,7 @@ export async function translateContent(
   const response = await anthropic.messages.create({
     model,
     max_tokens: 16384,
-    system: SYSTEM_PROMPT,
+    system: [{ type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
     messages: [
       {
         role: "user",

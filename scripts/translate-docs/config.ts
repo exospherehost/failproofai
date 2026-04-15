@@ -33,6 +33,11 @@ export function getLanguageCodes(maxTier?: number): string[] {
   return langs.map((l) => l.code);
 }
 
+/** Return the default model for a given tier. Tier 1 gets Sonnet, Tier 2/3 gets Haiku. */
+export function getModelForTier(tier: number): string {
+  return tier <= 1 ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001";
+}
+
 /** Terms that should never be translated — kept as-is in all languages. */
 export const DO_NOT_TRANSLATE = [
   "failproofai",
