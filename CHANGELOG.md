@@ -10,6 +10,7 @@
 
 ### Fixes
 - Fix hooks not working in failproofai's own repo by using local binary instead of npx (#98)
+- Fix translation workflow placing files at repo root instead of `docs/` by setting download artifact path (#100)
 
 ## 0.0.2-beta.8 — 2026-04-14
 

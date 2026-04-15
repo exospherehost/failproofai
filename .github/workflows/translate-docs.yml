@@ -110,6 +110,7 @@ jobs:
         with:
           pattern: translations-*
           merge-multiple: true
+          path: docs
 
       - name: Download cache fragments
         continue-on-error: true
