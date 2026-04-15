@@ -735,7 +735,14 @@ const copilot: Integration = {
     if (payload.sessionId && !payload.session_id) payload.session_id = payload.sessionId;
     if (payload.toolName && !payload.tool_name) payload.tool_name = payload.toolName;
     if (payload.toolInput && !payload.tool_input) payload.tool_input = payload.toolInput;
-    if (payload.toolArgs && !payload.tool_input) payload.tool_input = payload.toolArgs;
+    if (payload.toolArgs && !payload.tool_input) {
+      const raw = payload.toolArgs;
+      if (typeof raw === "string") {
+        try { payload.tool_input = JSON.parse(raw); } catch { payload.tool_input = raw; }
+      } else {
+        payload.tool_input = raw;
+      }
+    }
     if (payload.hookEventName && !payload.hook_event_name) payload.hook_event_name = payload.hookEventName;
   },
 
