@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.3 — 2026-04-15
+
 ### Features
 - Use portable `npx -y failproofai` command for project-scope hooks, making `.claude/settings.json` committable to git (#96)
 - Parallelize translation workflow across 14 languages with concurrent file translation for faster CI (#98)
