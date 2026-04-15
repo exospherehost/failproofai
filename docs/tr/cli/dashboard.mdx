@@ -1,21 +1,21 @@
 ---
-title: Oturumları görüntüle
-description: "Ajan oturumlarına göz atmak ve politikaları yönetmek için gösterge panelini başlatın"
+title: Oturumları görüntüleyin
+description: "Agent oturumlarına göz atmak ve politikaları yönetmek için panoyu başlatın"
 ---
 
 ```bash
 failproofai
 ```
 
-Web gösterge panelini `http://localhost:8020` adresinde başlatır.
+Web panosunu `http://localhost:8020` adresinde başlatır.
 
 ## Seçenekler
 
 | Bayrak | Açıklama |
-|--------|----------|
+|------|-------------|
 | `--port <number>` | Dinlenecek port (varsayılan: `8020`) |
-| `--projects-path <path>` | Claude Code proje klasörlerinin bulunduğu konumu geçersiz kılar |
-| `--allowed-origins <origins>` | Geliştirici kaynaklarına erişmesine izin verilen virgülle ayrılmış host/IP listesi |
+| `--projects-path <path>` | Claude Code proje klasörlerinin bulunduğu konumu geçersiz kıl |
+| `--allowed-origins <origins>` | Geliştirici kaynaklarına erişim izni verilen virgülle ayrılmış ana bilgisayarlar/IP'ler |
 
 ## Örnekler
 
@@ -23,6 +23,6 @@ Web gösterge panelini `http://localhost:8020` adresinde başlatır.
 # Farklı bir portta başlat
 failproofai --port 9000
 
-# Özel bir proje yolu kullan
+# Özel bir proje yolunu kullan
 failproofai --projects-path ~/my-claude-projects
 ```

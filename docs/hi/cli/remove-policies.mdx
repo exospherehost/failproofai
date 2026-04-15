@@ -1,44 +1,44 @@
 ---
-title: Policies अनइंस्टॉल करें
-description: "Claude Code की settings से hook entries हटाएं"
+title: पॉलिसीज़ को अनइंस्टॉल करें
+description: "Claude Code की सेटिंग्स से hook entries को हटाएँ"
 ---
 
 ```bash
 failproofai policies --uninstall [policy-names...] [options]
 ```
 
-Claude Code की `settings.json` से failproofai hook entries हटाता है।
+Claude Code के `settings.json` से failproofai hook entries को हटाता है।
 
-Aliases: `failproofai p -u`
+उपनाम: `failproofai p -u`
 
-## Options
+## विकल्प
 
-| Flag | विवरण |
+| फ्लैग | विवरण |
 |------|-------------|
-| `--scope user` | Global settings से हटाएं (default) |
-| `--scope project` | Project settings से हटाएं |
-| `--scope local` | Local settings से हटाएं |
-| `--scope all` | सभी scopes से एक साथ हटाएं |
-| `--custom` / `-c` | Config से `customPoliciesPath` साफ़ करें |
-| `--beta` | Config से केवल beta policies हटाएं |
+| `--scope user` | ग्लोबल सेटिंग्स से हटाएँ (डिफ़ॉल्ट) |
+| `--scope project` | प्रोजेक्ट सेटिंग्स से हटाएँ |
+| `--scope local` | लोकल सेटिंग्स से हटाएँ |
+| `--scope all` | एक साथ सभी स्कोप से हटाएँ |
+| `--custom` / `-c` | कॉन्फ़िग से `customPoliciesPath` को साफ़ करें |
+| `--beta` | कॉन्फ़िग से केवल बीटा पॉलिसीज़ को हटाएँ |
 
-## Behavior
+## व्यवहार
 
-- **कोई policy names नहीं** - settings file से सभी failproofai hook entries हटा देता है
-- **विशिष्ट नाम** - उन policies को disable करता है लेकिन hooks इंस्टॉल रहते हैं
+- **कोई पॉलिसी नाम नहीं** - सेटिंग्स फ़ाइल से सभी failproofai hook entries को हटाता है
+- **विशिष्ट नाम** - उन पॉलिसीज़ को अक्षम करता है लेकिन hooks को इंस्टॉल रखता है
 
-## Examples
+## उदाहरण
 
 ```bash
-# Remove all hooks globally
+# सभी hooks को ग्लोबली हटाएँ
 failproofai policies --uninstall
 
-# Disable a specific policy (keeps hooks installed)
+# एक विशिष्ट पॉलिसी को अक्षम करें (hooks को इंस्टॉल रखता है)
 failproofai policies --uninstall block-sudo
 
-# Remove hooks from every scope
+# हर स्कोप से hooks हटाएँ
 failproofai policies --uninstall --scope all
 
-# Clear custom policies path
+# कस्टम पॉलिसीज़ पाथ साफ़ करें
 failproofai policies --uninstall --custom
 ```

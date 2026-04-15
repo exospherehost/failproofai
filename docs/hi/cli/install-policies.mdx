@@ -1,48 +1,48 @@
 ---
-title: Policies इंस्टॉल करें
-description: "Policies को सक्षम करें ताकि वे हर agent tool call पर चलें"
+title: नीतियों को इंस्टॉल करें
+description: "नीतियों को सक्षम करें ताकि वे हर एजेंट टूल कॉल पर चलें"
 ---
 
 ```bash
 failproofai policies --install [policy-names...] [options]
 ```
 
-Claude Code के `settings.json` में hook entries लिखता है ताकि failproofai tool calls को इंटरसेप्ट कर सके।
+Claude Code के `settings.json` में हुक एंट्रीज लिखता है ताकि failproofai टूल कॉल को रोक सके।
 
-Aliases: `failproofai p -i`
+उपनाम: `failproofai p -i`
 
-## Options
+## विकल्प
 
-| Flag | विवरण |
+| फ्लैग | विवरण |
 |------|-------------|
-| `--scope user` | `~/.claude/settings.json` में इंस्टॉल करें (default - सभी sessions) |
-| `--scope project` | वर्तमान directory में `.claude/settings.json` में इंस्टॉल करें |
-| `--scope local` | वर्तमान directory में `.claude/settings.local.json` में इंस्टॉल करें |
-| `--custom <path>` / `-c` | custom hook policies वाली JS फ़ाइल का पथ |
-| `--beta` | beta policies शामिल करें |
+| `--scope user` | `~/.claude/settings.json` में इंस्टॉल करें (डिफ़ॉल्ट - सभी सेशन) |
+| `--scope project` | वर्तमान निर्देशिका में `.claude/settings.json` में इंस्टॉल करें |
+| `--scope local` | वर्तमान निर्देशिका में `.claude/settings.local.json` में इंस्टॉल करें |
+| `--custom <path>` / `-c` | कस्टम हुक नीतियों वाली JS फ़ाइल का पथ |
+| `--beta` | बीटा नीतियां शामिल करें |
 
-## Behavior
+## व्यवहार
 
-- **कोई policy नाम नहीं** - policies चुनने के लिए एक interactive prompt खोलता है
-- **विशिष्ट नाम** - उन policies को सक्षम करता है (पहले से सक्षम किसी भी policy में जोड़ता है)
-- **`all`** - हर उपलब्ध policy को सक्षम करता है
+- **कोई नीति नाम नहीं** - नीतियों का चयन करने के लिए एक इंटरैक्टिव प्रॉम्प्ट खोलता है
+- **विशिष्ट नाम** - उन नीतियों को सक्षम करता है (पहले से सक्षम किसी भी नीति में जोड़ा जाता है)
+- **`all`** - हर उपलब्ध नीति को सक्षम करता है
 
-इंस्टॉलेशन additive है: `--install` को दोबारा चलाने पर मौजूदा policies को हटाए बिना नई policies जुड़ जाती हैं।
+इंस्टॉलेशन योगात्मक है: `--install` को फिर से चलाने से नई नीतियां जुड़ती हैं बिना मौजूदा नीतियों को हटाए।
 
-## Examples
+## उदाहरण
 
 ```bash
-# Install all default policies globally (interactive)
+# सभी डिफ़ॉल्ट नीतियों को विश्व स्तर पर इंस्टॉल करें (इंटरैक्टिव)
 failproofai policies --install
 
-# Install specific policies for the current project
+# वर्तमान प्रोजेक्ट के लिए विशिष्ट नीतियों को इंस्टॉल करें
 failproofai policies --install block-sudo sanitize-api-keys --scope project
 
-# Enable all policies at once
+# एक बार में सभी नीतियों को सक्षम करें
 failproofai policies --install all
 
-# Install with a custom policies file
+# कस्टम नीतियों फ़ाइल के साथ इंस्टॉल करें
 failproofai policies --install --custom ./my-policies.js
 ```
 
-जब `--custom <path>` दिया जाता है, तो फ़ाइल को तुरंत validate किया जाता है — उसमें कम से कम एक बार `customPolicies.add()` को call करना आवश्यक है। resolved पथ को `policies-config.json` में `customPoliciesPath` के रूप में सहेजा जाता है।
+जब `--custom <path>` प्रदान किया जाता है, तो फ़ाइल को तुरंत सत्यापित किया जाता है - इसे कम से कम एक बार `customPolicies.add()` को कॉल करना चाहिए। हल किया गया पथ `policies-config.json` में `customPoliciesPath` के रूप में सहेजा जाता है।

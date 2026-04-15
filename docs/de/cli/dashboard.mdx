@@ -12,9 +12,9 @@ Startet das Web-Dashboard unter `http://localhost:8020`.
 ## Optionen
 
 | Flag | Beschreibung |
-|------|--------------|
-| `--port <number>` | Port, auf dem gelauscht werden soll (Standard: `8020`) |
-| `--projects-path <path>` | Überschreibt den Speicherort der Claude Code-Projektordner |
+|------|-------------|
+| `--port <number>` | Port, auf dem gelauscht wird (Standard: `8020`) |
+| `--projects-path <path>` | Überschreibt den Pfad, unter dem Claude Code-Projektordner gesucht werden |
 | `--allowed-origins <origins>` | Kommagetrennte Hosts/IPs, die auf Entwicklungsressourcen zugreifen dürfen |
 
 ## Beispiele
@@ -23,6 +23,6 @@ Startet das Web-Dashboard unter `http://localhost:8020`.
 # Auf einem anderen Port starten
 failproofai --port 9000
 
-# Einen eigenen Projektpfad verwenden
+# Einen benutzerdefinierten Projektpfad verwenden
 failproofai --projects-path ~/my-claude-projects
 ```

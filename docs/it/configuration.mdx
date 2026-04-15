@@ -1,57 +1,58 @@
 ---
+---
 title: Configurazione
-description: "Formato del file di configurazione, sistema a tre ambiti e regole di unione"
+description: "Formato del file di configurazione, sistema a tre scope e regole di merge"
 icon: gear
 ---
 
-failproofai utilizza file di configurazione JSON per controllare quali policy sono attive, come si comportano e da dove vengono caricate le policy personalizzate. La configurazione è progettata per essere facilmente condivisibile con il team: aggiungila al tuo repository e ogni sviluppatore avrà la stessa rete di sicurezza per gli agenti.
+failproofai utilizza file di configurazione JSON per controllare quali policy sono attive, come si comportano e da dove vengono caricate le policy personalizzate. La configurazione è progettata per essere facilmente condivisibile con il tuo team - committila nel tuo repository e ogni sviluppatore avrà la stessa rete di sicurezza per gli agenti.
 
 ---
 
-## Ambiti di configurazione
+## Scope di configurazione
 
-Esistono tre ambiti di configurazione, valutati in ordine di priorità:
+Esistono tre scope di configurazione, valutati in ordine di priorità:
 
-| Ambito | Percorso file | Scopo |
-|--------|---------------|-------|
-| **project** | `.failproofai/policies-config.json` | Impostazioni per repository, incluse nel controllo versione |
-| **local** | `.failproofai/policies-config.local.json` | Override personali per repository, esclusi da git |
-| **global** | `~/.failproofai/policies-config.json` | Impostazioni predefinite a livello utente per tutti i progetti |
+| Scope | Percorso del file | Scopo |
+|-------|------------------|-------|
+| **project** | `.failproofai/policies-config.json` | Impostazioni per-repository, committate nel controllo di versione |
+| **local** | `.failproofai/policies-config.local.json` | Override personali per-repository, gitignored |
+| **global** | `~/.failproofai/policies-config.json` | Impostazioni predefinite a livello di utente su tutti i progetti |
 
-Quando failproofai riceve un evento hook, carica e unisce tutti e tre i file presenti nella directory di lavoro corrente.
+Quando failproofai riceve un evento hook, carica e unisce tutti e tre i file che esistono per la directory di lavoro corrente.
 
-### Regole di unione
+### Regole di merge
 
-**`enabledPolicies`** - unione di tutti e tre gli ambiti. Una policy abilitata a qualsiasi livello è attiva.
+**`enabledPolicies`** - l'unione di tutti e tre gli scope. Una policy abilitata a qualsiasi livello è attiva.
 
 ```text
 project:  ["block-sudo"]
 local:    ["block-rm-rf"]
 global:   ["block-sudo", "sanitize-api-keys"]
 
-resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← unione senza duplicati
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← unione deduplicated
 ```
 
-**`policyParams`** - vince il primo ambito che definisce i parametri per una data policy. Non viene eseguita alcuna unione profonda dei valori all'interno dei parametri di una policy.
+**`policyParams`** - il primo scope che definisce i parametri per una determinata policy vince completamente. Non c'è alcun deep merging dei valori all'interno dei parametri di una policy.
 
 ```text
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo apt-get update"] }   ← vince project, global ignorato
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← project vince, global ignorato
 ```
 
 ```text
-project:  (nessuna voce block-sudo)
-local:    (nessuna voce block-sudo)
+project:  (no block-sudo entry)
+local:    (no block-sudo entry)
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo systemctl status"] }  ← si ricade su global
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← ricade a global
 ```
 
-**`customPoliciesPath`** - vince il primo ambito che lo definisce.
+**`customPoliciesPath`** - il primo scope che lo definisce vince.
 
-**`llm`** - vince il primo ambito che lo definisce.
+**`llm`** - il primo scope che lo definisce vince.
 
 ---
 
@@ -96,39 +97,85 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← si ricade su global
 
 ---
 
-## Riferimento ai campi
+## Riferimento dei campi
 
 ### `enabledPolicies`
 
-Tipo: `string[]`
+Type: `string[]`
 
-Elenco dei nomi delle policy da abilitare. I nomi devono corrispondere esattamente agli identificatori mostrati da `failproofai policies`. Consulta [Policy integrate](/it/built-in-policies) per l'elenco completo.
+Elenco dei nomi delle policy da abilitare. I nomi devono corrispondere esattamente agli identificatori delle policy mostrati da `failproofai policies`. Vedi [Built-in Policies](/it/built-in-policies) per l'elenco completo.
 
-Le policy non presenti in `enabledPolicies` sono inattive, anche se hanno voci in `policyParams`.
+Le policy non in `enabledPolicies` sono inattive, anche se hanno voci in `policyParams`.
 
 ### `policyParams`
 
-Tipo: `Record<string, Record<string, unknown>>`
+Type: `Record<string, Record<string, unknown>>`
 
-Override dei parametri per singola policy. La chiave esterna è il nome della policy; le chiavi interne sono specifiche per ciascuna policy. Ogni policy documenta i propri parametri disponibili in [Policy integrate](/it/built-in-policies).
+Override dei parametri per-policy. La chiave esterna è il nome della policy; le chiavi interne sono specifiche della policy. Ogni policy documenta i suoi parametri disponibili in [Built-in Policies](/it/built-in-policies).
 
-Se una policy ha parametri ma non vengono specificati, vengono utilizzati i valori predefiniti integrati nella policy. Gli utenti che non configurano `policyParams` ottengono un comportamento identico alle versioni precedenti.
+Se una policy ha parametri ma non li specifichi, vengono utilizzati i valori predefiniti integrati della policy. Gli utenti che non configurano affatto `policyParams` ottengono un comportamento identico alle versioni precedenti.
 
-Le chiavi sconosciute nel blocco dei parametri di una policy vengono ignorate silenziosamente al momento dell'esecuzione dell'hook, ma vengono segnalate come avvisi quando si esegue `failproofai policies`.
+Le chiavi sconosciute all'interno del blocco parametri di una policy vengono silenziosamente ignorate al momento dell'attivazione dell'hook ma segnalate come avvisi quando esegui `failproofai policies`.
+
+#### `hint` (cross-cutting)
+
+Type: `string` (optional)
+
+Un messaggio aggiunto al motivo quando una policy restituisce `deny` o `instruct`. Usalo per dare a Claude una guida praticabile senza modificare la policy stessa.
+
+Funziona con qualsiasi tipo di policy — integrata, personalizzata (`custom/`), convenzione di progetto (`.failproofai-project/`), o convenzione utente (`.failproofai-user/`).
+
+```json
+{
+  "policyParams": {
+    "block-force-push": {
+      "hint": "Try creating a fresh branch instead."
+    },
+    "block-sudo": {
+      "allowPatterns": ["sudo apt-get"],
+      "hint": "Use apt-get directly without sudo."
+    },
+    "custom/my-policy": {
+      "hint": "Ask the user for approval first."
+    }
+  }
+}
+```
+
+Quando `block-force-push` nega, Claude vede: *"Force-pushing is blocked. Try creating a fresh branch instead."*
+
+I valori non stringa e le stringhe vuote vengono silenziosamente ignorate. Se `hint` non è impostato, il comportamento non cambia (retrocompatibile).
 
 ### `customPoliciesPath`
 
-Tipo: `string` (percorso assoluto)
+Type: `string` (absolute path)
 
-Percorso di un file JavaScript contenente policy hook personalizzate. Viene impostato automaticamente da `failproofai policies --install --custom <path>` (il percorso viene risolto in assoluto prima di essere salvato).
+Percorso a un file JavaScript contenente policy hook personalizzate. Viene impostato automaticamente da `failproofai policies --install --custom <path>` (il percorso viene risolto a assoluto prima di essere archiviato).
 
-Il file viene caricato da zero a ogni evento hook, senza alcuna cache. Consulta [Policy personalizzate](/it/custom-policies) per i dettagli sulla scrittura.
+Il file viene caricato nuovo su ogni evento hook - non c'è caching. Vedi [Custom Policies](/it/custom-policies) per i dettagli di authoring.
+
+### Policy basate su convenzione (v0.0.2-beta.7+)
+
+Oltre al `customPoliciesPath` esplicito, failproofai scopre e carica automaticamente i file di policy dalle directory `.failproofai/policies/`:
+
+| Livello | Directory | Scope |
+|---------|-----------|-------|
+| Project | `.failproofai/policies/` | Condiviso con il team via controllo di versione |
+| User | `~/.failproofai/policies/` | Personale, si applica a tutti i progetti |
+
+**File matching:** Solo i file corrispondenti a `*policies.{js,mjs,ts}` vengono caricati (ad es. `security-policies.mjs`, `workflow-policies.js`). Gli altri file nella directory vengono ignorati.
+
+**Nessuna configurazione necessaria:** Le policy di convenzione non richiedono voci in `policies-config.json`. Basta eliminare i file nella directory e verranno raccolti al prossimo evento hook.
+
+**Union loading:** Entrambe le directory di convenzione di progetto e utente vengono scansionate. Tutti i file corrispondenti da entrambi i livelli vengono caricati (a differenza di `customPoliciesPath` che utilizza first-scope-wins).
+
+Vedi [Custom Policies](/it/custom-policies) per ulteriori dettagli ed esempi.
 
 ### `llm`
 
-Tipo: `object` (opzionale)
+Type: `object` (optional)
 
-Configurazione del client LLM per le policy che effettuano chiamate AI. Non richiesta per la maggior parte delle configurazioni.
+Configurazione del client LLM per le policy che effettuano chiamate AI. Non richiesto per la maggior parte delle configurazioni.
 
 ```json
 {
@@ -141,20 +188,20 @@ Configurazione del client LLM per le policy che effettuano chiamate AI. Non rich
 
 ---
 
-## Gestione della configurazione tramite CLI
+## Gestione della configurazione da CLI
 
-I comandi `policies --install` e `policies --uninstall` scrivono nel file `settings.json` di Claude Code (i punti di ingresso degli hook), mentre `policies-config.json` è il file che gestisci direttamente. I due sono separati:
+I comandi `policies --install` e `policies --uninstall` scrivono nel `settings.json` di Claude Code (i punti di ingresso dell'hook), mentre `policies-config.json` è il file che gestisci direttamente. I due sono separati:
 
-- **`settings.json`** - indica a Claude Code di chiamare `failproofai --hook <event>` a ogni utilizzo di uno strumento
-- **`policies-config.json`** - indica a failproofai quali policy valutare e con quali parametri
+- **`settings.json`** - dice a Claude Code di chiamare `failproofai --hook <event>` su ogni tool use
+- **`policies-config.json`** - dice a failproofai quali policy valutare e con quali parametri
 
-Puoi modificare `policies-config.json` direttamente in qualsiasi momento; le modifiche hanno effetto immediato al successivo evento hook, senza necessità di riavvio.
+Puoi modificare `policies-config.json` direttamente in qualsiasi momento; le modifiche hanno effetto immediatamente al prossimo evento hook senza necessità di riavvio.
 
 ---
 
-## Esempio: configurazione a livello di progetto con impostazioni predefinite del team
+## Esempio: config a livello di progetto con impostazioni predefinite del team
 
-Aggiungi `.failproofai/policies-config.json` al tuo repository:
+Committa `.failproofai/policies-config.json` nel tuo repo:
 
 ```json
 {
@@ -173,4 +220,4 @@ Aggiungi `.failproofai/policies-config.json` al tuo repository:
 }
 ```
 
-Ogni sviluppatore può quindi creare `.failproofai/policies-config.local.json` (escluso da git) per override personali, senza influenzare il resto del team.
+Ogni sviluppatore può quindi creare `.failproofai/policies-config.local.json` (gitignored) per override personali senza influenzare i compagni di squadra.

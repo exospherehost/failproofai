@@ -1,48 +1,48 @@
 ---
 title: Cài đặt policies
-description: "Bật policies để chúng chạy trên mỗi lần gọi công cụ của agent"
+description: "Bật policies để chúng chạy trên mọi lệnh gọi tool của agent"
 ---
 
 ```bash
 failproofai policies --install [policy-names...] [options]
 ```
 
-Ghi các mục hook vào `settings.json` của Claude Code để failproofai chặn các lần gọi công cụ.
+Ghi các hook entries vào `settings.json` của Claude Code để failproofai chặn các lệnh gọi tool.
 
-Bí danh: `failproofai p -i`
+Các alias: `failproofai p -i`
 
-## Tùy chọn
+## Options
 
-| Cờ | Mô tả |
+| Flag | Description |
 |------|-------------|
-| `--scope user` | Cài đặt vào `~/.claude/settings.json` (mặc định - tất cả phiên làm việc) |
+| `--scope user` | Cài đặt vào `~/.claude/settings.json` (mặc định - tất cả các phiên) |
 | `--scope project` | Cài đặt vào `.claude/settings.json` trong thư mục hiện tại |
 | `--scope local` | Cài đặt vào `.claude/settings.local.json` trong thư mục hiện tại |
-| `--custom <path>` / `-c` | Đường dẫn đến tệp JS chứa các hook policy tùy chỉnh |
-| `--beta` | Bao gồm các beta policy |
+| `--custom <path>` / `-c` | Đường dẫn đến tệp JS chứa các custom hook policies |
+| `--beta` | Bao gồm các beta policies |
 
-## Hành vi
+## Behavior
 
-- **Không có tên policy** - mở giao diện tương tác để chọn policies
-- **Tên cụ thể** - bật những policies đó (thêm vào các policy đã được bật)
-- **`all`** - bật tất cả các policy hiện có
+- **Không có tên policy** - mở một prompt tương tác để chọn policies
+- **Tên cụ thể** - bật các policies đó (được thêm vào các policies đã bật)
+- **`all`** - bật tất cả các policies có sẵn
 
-Quá trình cài đặt mang tính cộng dồn: chạy `--install` lần nữa sẽ thêm các policy mới mà không xóa các policy hiện có.
+Cài đặt là cộng dồn: chạy `--install` lại sẽ thêm các policies mới mà không loại bỏ các policies hiện có.
 
-## Ví dụ
+## Examples
 
 ```bash
-# Cài đặt tất cả default policies toàn cục (tương tác)
+# Cài đặt tất cả các default policies toàn cục (tương tác)
 failproofai policies --install
 
-# Cài đặt các policy cụ thể cho dự án hiện tại
+# Cài đặt các policies cụ thể cho dự án hiện tại
 failproofai policies --install block-sudo sanitize-api-keys --scope project
 
-# Bật tất cả policies cùng một lúc
+# Bật tất cả các policies cùng lúc
 failproofai policies --install all
 
-# Cài đặt với tệp policies tùy chỉnh
+# Cài đặt với một tệp custom policies
 failproofai policies --install --custom ./my-policies.js
 ```
 
-Khi `--custom <path>` được cung cấp, tệp sẽ được xác thực ngay lập tức - tệp phải gọi `customPolicies.add()` ít nhất một lần. Đường dẫn đã được phân giải sẽ được lưu vào `policies-config.json` với tên `customPoliciesPath`.
+Khi `--custom <path>` được cung cấp, tệp sẽ được xác thực ngay lập tức - nó phải gọi `customPolicies.add()` ít nhất một lần. Đường dẫn đã giải quyết được lưu vào `policies-config.json` dưới dạng `customPoliciesPath`.

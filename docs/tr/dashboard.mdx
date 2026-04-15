@@ -1,10 +1,10 @@
 ---
 title: Dashboard
-description: "Ajan oturumlarını izleyin, araç çağrılarını inceleyin ve politikaları yönetin"
+description: "Aracı oturumlarını izleyin, araç çağrılarını gözden geçirin ve politikaları yönetin"
 icon: chart-line
 ---
 
-failproofai dashboard, yapay zeka ajan oturumlarınızı izlemek ve politikaları yönetmek için yerel bir web uygulamasıdır. Siz yokken ajanlarınızın neler yaptığını görün.
+failproofai dashboard, AI aracı oturumlarınızı izlemek ve politikaları yönetmek için yerel bir web uygulamasıdır. Aracılarınızın yokken ne yaptığını görün.
 
 ---
 
@@ -16,7 +16,7 @@ failproofai
 
 `http://localhost:8020` adresinde açılır.
 
-Dashboard, doğrudan dosya sisteminden okur — Claude Code proje klasörlerinizden ve failproofai yapılandırma dosyalarından. Uzak bir servise hiçbir şey yazılmaz.
+Dashboard doğrudan dosya sisteminden okur - Claude Code proje klasörleriniz ve failproofai yapılandırma dosyalarınız. Hiçbir şey uzak bir hizmete yazılmaz.
 
 ---
 
@@ -24,54 +24,54 @@ Dashboard, doğrudan dosya sisteminden okur — Claude Code proje klasörleriniz
 
 ### Projeler
 
-Makinenizde bulunan tüm Claude Code projelerini listeler. Projeler `~/.claude/projects/` konumundan (veya `CLAUDE_PROJECTS_PATH` ile ayarlanan yoldan) keşfedilir.
+Makinenizde bulunan tüm Claude Code projelerini listeler. Projeler `~/.claude/projects/` konumundan (veya `CLAUDE_PROJECTS_PATH` tarafından ayarlanan yoldan) keşfedilir.
 
 Her proje şunları gösterir:
-- Proje adı (klasör yolundan türetilir)
+- Proje adı (klasör yolundan türetilmiş)
 - Oturum sayısı
 - En son oturum etkinliğinin tarihi
 
-Oturumları görmek için bir projeye tıklayın.
+Oturumlarını görmek için bir projeye tıklayın.
 
 ### Oturumlar
 
 Bir proje içindeki tüm oturumları listeler. Her oturum şunları gösterir:
-- Oturum kimliği
+- Oturum ID'si
 - Başlangıç ve bitiş zaman damgaları
 - Araç çağrısı sayısı
-- Hook etkinlik sayısı (tetiklenen politikalar)
+- Hook etkinlik sayısı (harekete geçen politikalar)
 
-Listeyi daraltmak için tarih aralığı filtresi ve oturum kimliği aramasını kullanın. Oturumlar sayfalandırılmıştır.
+Listeyi daraltmak için tarih aralığı filtresini ve oturum ID'si aramasını kullanın. Oturumlar sayfalandırılmıştır.
 
 Oturum görüntüleyiciyi açmak için bir oturuma tıklayın.
 
 ### Oturum görüntüleyici
 
-Oturum görüntüleyici, otonom ajanlar için temel soruyu yanıtlar: ajan ne yaptı ve doğru yolda kaldı mı? Bir oturumda gerçekleşen her şeyin zaman çizelgesini gösterir:
+Oturum görüntüleyici, otonom aracılar için temel soruyu yanıtlar: aracı ne yaptı ve yolunda mı kaldı? Bir oturumda gerçekleşen her şeyin bir zaman çizelgesini gösterir:
 
 - **Mesajlar** - Claude'un metin yanıtları ve kullanıcı istemleri
-- **Araç çağrıları** - Claude'un çağırdığı her araç, girdi ve çıktısıyla birlikte
-- **Politika etkinliği** - Her araç çağrısı için hangi politikaların tetiklendiği ve hangi kararı verdikleri
+- **Araç çağrıları** - Claude'un çağırdığı her araç, girişi ve çıkışıyla birlikte
+- **Politika etkinliği** - Her araç çağrısı için, hangi politikaların harekete geçtiği ve ne karar döndürdükleri
 
-Üstteki istatistik çubuğu oturum süresini, toplam araç çağrısı sayısını ve hook kararlarının özetini (allow / deny / instruct sayıları) gösterir.
+Üstteki istatistik çubuğu oturum süresini, toplam araç çağrılarını ve kanca kararlarının bir özetini (allow / deny / instruct sayıları) gösterir.
 
 İndirme düğmesini kullanarak oturumu ZIP veya JSONL dosyası olarak dışa aktarabilirsiniz.
 
 ### Politikalar
 
-Politikaları yönetmek ve etkinliği incelemek için iki sekmeli bir sayfa.
+Politikaları yönetmek ve etkinliği gözden geçirmek için iki sekmeli bir sayfa.
 
 <Tabs>
   <Tab title="Politikalar sekmesi">
-  - Tek tıklamayla bireysel politikaları etkinleştirin veya devre dışı bırakın (`~/.failproofai/policies-config.json` dosyasına yazar)
+  - Tek bir tıklamayla bireysel politikaları açıp kapatın (`~/.failproofai/policies-config.json` dosyasına yazılır)
   - Parametrelerini yapılandırmak için bir politikayı genişletin (`policyParams` destekleyen politikalar için)
-  - Belirli bir kapsam için hook'ları yükleyin veya kaldırın
-  - Özel bir politika dosyası yolu ayarlayın
+  - Belirli bir kapsam için kancaları yükleyin veya kaldırın
+  - Özel bir politika dosya yolu ayarlayın
   </Tab>
   <Tab title="Etkinlik sekmesi">
-  - Tüm oturumlar genelinde tetiklenen her hook olayının tam sayfalandırılmış geçmişi
-  - Politika adı, oturum kimliği, araç adı veya karara göre arama yapın
-  - Her satır şunları gösterir: zaman damgası, politika adı, karar, araç adı, oturum kimliği ve deny/instruct kararlarının gerekçesi
+  - Tüm oturumlar arasında harekete geçen her kanca olayının tam sayfalı geçmişi
+  - Politika adı, oturum ID'si, araç adı veya karar ile arayın
+  - Her satır şunları gösterir: zaman damgası, politika adı, karar, araç adı, oturum ID'si ve deny/instruct kararlarının nedeni
   </Tab>
 </Tabs>
 
@@ -79,13 +79,13 @@ Politikaları yönetmek ve etkinliği incelemek için iki sekmeli bir sayfa.
 
 ## Otomatik yenileme
 
-Dashboard'un üst navigasyonunda otomatik yenileme geçişi bulunur. Etkinleştirildiğinde, mevcut sayfa yeni oturumları ve politika etkinliğini göstermek için belirli aralıklarla yenilenir. Uzun süre çalışan otonom ajan oturumlarını izlemek için vazgeçilmezdir.
+Dashboard'un üst gezintide bir otomatik yenileme geçişi vardır. Etkinleştirildiğinde, geçerli sayfa yeni oturumlar ve politika etkinlikleri görünürken periyodik olarak yenilenir. Uzun süreli otonom aracı oturumlarını izlemek için gereklidir.
 
 ---
 
 ## Sayfaları devre dışı bırakma
 
-Dashboard'un yalnızca bazı bölümlerine ihtiyaç duyuyorsanız `FAILPROOFAI_DISABLE_PAGES` değişkenini virgülle ayrılmış sayfa adları listesiyle ayarlayın:
+Dashboard'un yalnızca bazı bölümlerine ihtiyacınız varsa, `FAILPROOFAI_DISABLE_PAGES` değerini virgülle ayrılmış sayfa adları listesine ayarlayın:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -97,13 +97,13 @@ Geçerli değerler: `policies`, `projects`.
 
 ## Tema
 
-Dashboard açık ve karanlık modu destekler. Navigasyon çubuğundaki düğme aracılığıyla geçiş yapın. Tercih, tarayıcınızın yerel depolamasına kaydedilir.
+Dashboard açık ve koyu modu destekler. Gezinti çubuğundaki düğmeyle geçiş yapın. Tercih, tarayıcınızın yerel depolamada saklanır.
 
 ---
 
-## Proje yolunu yapılandırma
+## Projeler yolunu yapılandırma
 
-Varsayılan olarak dashboard, standart Claude Code projeleri dizininden okur. Özel kurulumlar için bunu geçersiz kılın:
+Varsayılan olarak, dashboard standart Claude Code projeleri dizininden okur. Özel kurulumlar için bunu geçersiz kılın:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -111,21 +111,21 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## localhost dışındaki bir sunucudan erişim
+## Localhost dışı bir konaktan erişme
 
-Dashboard'u **geliştirme modunda** (`npm run dev`) çalıştırırken ve localhost dışında bir sunucu adından erişirken — örneğin özel bir alan adı, uzak bir IP veya tünellenmiş bir URL — şuna benzer bir uyarı görebilirsiniz:
+Dashboard **dev modunda** (`npm run dev`) çalıştırılırken ve `localhost` dışında bir ana bilgisayar adından erişilirken - örneğin, özel bir alan adı, uzak bir IP veya tünel içinden geçirilen bir URL - aşağıdaki gibi bir uyarı görebilirsiniz:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Bu, Next.js'nin yalnızca geliştirme ortamına özgü bir özellik olan HMR (hot module reload) websocket'ine çapraz kaynaklı erişimi engellemesidir. Sunucu adınıza izin vermek için `--allowed-origins` bayrağını kullanın:
+Bu, Next.js'nin HMR (sıcak modül yeniden yüklemesi) websocket'ine cross-origin erişimi engellemesidir; bu dev-only bir özelliktir. Ana bilgisayarınıza izin vermek için `--allowed-origins` bayrağını kullanın:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-Birden fazla sunucu adı veya IP için virgülle ayrılmış bir liste girin:
+Birden fazla ana bilgisayar veya IP için, virgülle ayrılmış bir liste geçirin:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
@@ -138,5 +138,5 @@ FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Bu yalnızca geliştirme modu için geçerlidir. `failproofai` (production modu) çalıştırılırken HMR websocket veya çapraz kaynaklı geliştirme kaynağı sorunu olmaz.
+Bu yalnızca dev moduna uygulanır. `failproofai` (production modu) çalıştırılırken HMR websocket'i ve cross-origin dev kaynak sorunu yoktur.
 </Note>

@@ -1,28 +1,28 @@
 ---
 title: Failproof AI
-description: "AI 에이전트가 안정적으로 자율 실행될 수 있도록 훅과 정책을 관리하세요"
+description: "AI 에이전트를 안정적으로 자율 운영할 수 있도록 훅과 정책을 관리합니다"
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-**Claude Code** 와 **Agents SDK** 를 위한 훅과 정책으로 AI 에이전트가 안정적으로 자율 실행될 수 있도록 도와줍니다.
+**Claude Code** 및 **Agents SDK**를 위한 훅과 정책으로 AI 에이전트를 안정적으로 자율 운영하세요.
 
-AI 에이전트는 예측 가능한 방식으로 실패합니다. 파괴적인 명령을 실행하거나, 시크릿을 유출하거나, 작업에서 벗어나거나, 루프에 빠지거나, 메인 브랜치에 직접 푸시하기도 합니다. 방치하면 작은 실패가 연쇄적으로 커집니다.
+AI 에이전트는 예측 가능한 방식으로 실패합니다. 파괴적인 명령을 실행하거나, 시크릿을 유출하거나, 작업 범위를 벗어나거나, 루프에 빠지거나, main 브랜치에 직접 푸시하기도 합니다. 방치하면 작은 실패가 연쇄적으로 커집니다.
 
-Failproof AI는 **정책(policies)** 으로 이 문제를 해결합니다. 정책은 에이전트의 모든 도구 호출에 훅으로 연결되어 **실패를 감지**하고, **완화 조치**(차단, 지시, 정제)를 취하며, 주의가 필요할 때 **알림을 보냅니다**. 로컬 대시보드에서 이후에 모든 내용을 검토할 수 있습니다.
+Failproof AI는 **정책(policies)** 으로 이 문제를 해결합니다. 정책은 에이전트의 모든 도구 호출에 훅으로 연결되어 **장애를 감지**하고, **완화 조치**(차단, 지시, 정제)를 취하며, 주의가 필요한 상황이 발생하면 **알림을 보냅니다**. 로컬 대시보드에서 이후에 모든 내용을 검토할 수 있습니다.
 
-모든 것은 로컬에서 실행됩니다. 데이터는 외부로 전송되지 않습니다.
+모든 처리는 로컬에서 이루어집니다. 데이터가 외부로 전송되지 않습니다.
 
 ## 시작하기
 
 <CardGroup cols={2}>
 
 <Card title="26개의 내장 정책" icon="shield" href="/ko/built-in-policies">
-  파괴적인 명령 차단, 시크릿 유출 방지, 에이전트를 프로젝트 경계 내로 제한하는 등 다양한 정책이 기본 제공됩니다.
+  파괴적인 명령 차단, 시크릿 유출 방지, 에이전트를 프로젝트 범위 내로 제한하는 등 다양한 기능을 즉시 사용할 수 있습니다.
 </Card>
 
 <Card title="커스텀 정책" icon="code" href="/ko/custom-policies">
-  간단한 allow / deny / instruct API를 사용해 JavaScript로 자신만의 규칙을 작성하세요.
+  간단한 allow / deny / instruct API를 사용해 JavaScript로 나만의 규칙을 작성하세요.
 </Card>
 
 <Card title="에이전트 모니터" icon="chart-line" href="/ko/dashboard">
@@ -54,4 +54,4 @@ failproofai policies --install   # 정책 활성화
 failproofai                      # 대시보드 실행
 ```
 
-전체 안내는 [시작하기](/ko/getting-started) 가이드를 참고하세요.
+전체 안내는 [시작 가이드](/ko/getting-started)를 참고하세요.

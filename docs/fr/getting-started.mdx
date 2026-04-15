@@ -31,7 +31,7 @@ bun add -g failproofai
 
 <Steps>
   <Step title="Activer les politiques">
-    Les politiques sont des règles qui s'exécutent avant et après chaque appel d'outil par un agent. Elles interceptent les commandes destructrices, les fuites de secrets et d'autres modes de défaillance avant qu'ils ne causent des dommages.
+    Les politiques sont des règles qui s'exécutent avant et après chaque appel d'outil de l'agent. Elles interceptent les commandes destructrices, les fuites de secrets et autres modes de défaillance avant qu'ils ne causent des dommages.
 
     ```bash
     failproofai policies --install
@@ -65,7 +65,7 @@ bun add -g failproofai
 
 ---
 
-## Fonctionnement des politiques
+## Comment fonctionnent les politiques
 
 Chaque fois qu'un agent exécute un outil, Claude Code appelle failproofai en tant que sous-processus :
 
@@ -78,11 +78,11 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 Chaque politique retourne l'une des trois décisions suivantes :
 
 - **allow** - l'agent continue normalement
-- **deny** - l'action est bloquée et l'agent est informé de la raison
-- **instruct** - du contexte supplémentaire est ajouté à l'invite de l'agent
+- **deny** - l'action est bloquée, l'agent est informé de la raison
+- **instruct** - du contexte supplémentaire est ajouté au prompt de l'agent
 
 <Note>
-Les politiques s'exécutent dans votre processus local. Rien n'est envoyé à un service distant.
+Les politiques s'exécutent dans votre processus local. Aucune donnée n'est envoyée à un service distant.
 </Note>
 
 ---
@@ -96,8 +96,8 @@ Toute la configuration et les journaux restent sur votre machine :
 | `~/.failproofai/policies-config.json` | Configuration globale des politiques |
 | `~/.failproofai/hook-activity.jsonl` | Historique d'exécution des hooks |
 | `~/.failproofai/hook.log` | Journal de débogage pour les erreurs de hooks personnalisés |
-| `.failproofai/policies-config.json` | Configuration par projet (commitée) |
-| `.failproofai/policies-config.local.json` | Substitutions personnelles (ignorées par git) |
+| `.failproofai/policies-config.json` | Configuration par projet (validée dans le dépôt) |
+| `.failproofai/policies-config.local.json` | Remplacements personnels (ignorés par git) |
 
 ---
 
@@ -116,7 +116,7 @@ Supprime les entrées de hook du fichier `~/.claude/settings.json`. Les fichiers
 <CardGroup cols={2}>
 
 <Card title="Configuration" icon="gear" href="/fr/configuration">
-  Portées et format des fichiers de configuration
+  Périmètres et format des fichiers de configuration
 </Card>
 
 <Card title="Politiques intégrées" icon="shield" href="/fr/built-in-policies">
@@ -127,8 +127,8 @@ Supprime les entrées de hook du fichier `~/.claude/settings.json`. Les fichiers
   Écrivez vos propres politiques en JavaScript
 </Card>
 
-<Card title="Moniteur d'agent" icon="chart-line" href="/fr/dashboard">
-  Surveillez les sessions et examinez l'activité des politiques
+<Card title="Moniteur d'agents" icon="chart-line" href="/fr/dashboard">
+  Surveillez les sessions et consultez l'activité des politiques
 </Card>
 
 </CardGroup>

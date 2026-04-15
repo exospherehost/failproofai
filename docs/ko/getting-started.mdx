@@ -31,13 +31,13 @@ bun add -g failproofai
 
 <Steps>
   <Step title="정책 활성화">
-    정책은 에이전트의 모든 도구 호출 전후에 실행되는 규칙입니다. 파괴적인 명령, 시크릿 유출, 그 외 다양한 장애 유형을 피해가 발생하기 전에 감지합니다.
+    정책은 에이전트의 모든 도구 호출 전후에 실행되는 규칙입니다. 파괴적인 명령, 시크릿 유출, 그 밖의 장애 상황이 실제 피해를 일으키기 전에 미리 차단합니다.
 
     ```bash
     failproofai policies --install
     ```
 
-    이 명령은 Claude Code의 `settings.json`에 훅 항목을 추가합니다. 단일 프로젝트에만 설치하거나 특정 정책을 선택할 수도 있습니다:
+    이 명령은 Claude Code의 `settings.json`에 훅 항목을 작성합니다. 단일 프로젝트에만 설치하거나 특정 정책을 선택할 수도 있습니다:
 
     ```bash
     failproofai policies --install --scope project
@@ -49,23 +49,23 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    모든 정책의 활성화 여부와 설정된 파라미터를 확인할 수 있습니다.
+    모든 정책의 활성화 여부와 설정된 파라미터를 표시합니다.
   </Step>
   <Step title="대시보드 실행">
     ```bash
     failproofai
     ```
 
-    `http://localhost:8020`에 로컬 대시보드를 열어 세션을 탐색하고, 도구 호출을 검사하며, 정책을 관리할 수 있습니다.
+    `http://localhost:8020`에 로컬 대시보드를 열어 세션 조회, 도구 호출 검사, 정책 관리를 할 수 있습니다.
   </Step>
   <Step title="에이전트 실행">
-    평소처럼 Claude Code를 시작하세요. 에이전트가 위험한 작업을 시도하면 failproofai가 자동으로 이를 차단합니다. 무인 상태로 실행해 두고 대시보드에서 결과를 확인하세요.
+    평소처럼 Claude Code를 시작하세요. 에이전트가 위험한 작업을 시도하면 failproofai가 자동으로 이를 차단합니다. 에이전트를 무인 상태로 실행하고, 대시보드에서 이후에 발생한 내용을 검토하세요.
   </Step>
 </Steps>
 
 ---
 
-## 정책 작동 방식
+## 정책 동작 방식
 
 에이전트가 도구를 실행할 때마다 Claude Code는 failproofai를 서브프로세스로 호출합니다:
 
@@ -75,10 +75,10 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
                                                  writes decision to stdout
 ```
 
-각 정책은 세 가지 결정 중 하나를 반환합니다:
+각 정책은 다음 세 가지 결정 중 하나를 반환합니다:
 
 - **allow** - 에이전트가 정상적으로 진행됩니다
-- **deny** - 작업이 차단되며, 에이전트에게 그 이유가 전달됩니다
+- **deny** - 작업이 차단되고, 에이전트에게 차단 이유가 전달됩니다
 - **instruct** - 에이전트의 프롬프트에 추가 컨텍스트가 삽입됩니다
 
 <Note>
@@ -89,7 +89,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 
 ## 데이터 저장
 
-모든 설정과 로그는 로컬 머신에 저장됩니다:
+모든 설정 및 로그는 로컬 머신에 저장됩니다:
 
 | 경로 | 저장 내용 |
 |------|----------------|
@@ -97,7 +97,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 | `~/.failproofai/hook-activity.jsonl` | 훅 실행 기록 |
 | `~/.failproofai/hook.log` | 커스텀 훅 오류 디버그 로그 |
 | `.failproofai/policies-config.json` | 프로젝트별 설정 (커밋됨) |
-| `.failproofai/policies-config.local.json` | 개인 오버라이드 (gitignore 처리됨) |
+| `.failproofai/policies-config.local.json` | 개인 재정의 설정 (gitignore 처리됨) |
 
 ---
 
@@ -120,7 +120,7 @@ failproofai policies --uninstall
 </Card>
 
 <Card title="기본 제공 정책" icon="shield" href="/ko/built-in-policies">
-  파라미터와 함께 제공되는 26가지 정책 전체 목록
+  파라미터를 포함한 26가지 정책 전체 목록
 </Card>
 
 <Card title="커스텀 정책" icon="code" href="/ko/custom-policies">

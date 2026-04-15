@@ -1,16 +1,17 @@
 ---
+---
 title: أمثلة
-description: "كيفية إعداد hooks لـ Claude Code وAgents SDK"
+description: "كيفية إعداد hooks لـ Claude Code و Agents SDK"
 icon: book-open
 ---
 
-أمثلة جاهزة للاستخدام تغطي السيناريوهات الشائعة، مع شرح طريقة التثبيت وما يمكن توقعه.
+أمثلة جاهزة للاستخدام للسيناريوهات الشائعة. يوضح كل منها كيفية التثبيت وما يجب توقعه.
 
 ---
 
 ## إعداد hooks لـ Claude Code
 
-يتكامل Failproof AI مع Claude Code عبر [نظام hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) الخاص به. عند تشغيل `failproofai policies --install`، يتم تسجيل أوامر hook في ملف `settings.json` الخاص بـ Claude Code، وتُشغَّل عند كل استدعاء أداة.
+يتكامل Failproof AI مع Claude Code عبر [نظام hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) الخاص به. عند تشغيل `failproofai policies --install`، يسجل أوامر hook في ملف `settings.json` الخاص بـ Claude Code والتي تعمل على كل استدعاء أداة.
 
 <Steps>
   <Step title="تثبيت failproofai">
@@ -28,14 +29,14 @@ icon: book-open
     cat ~/.claude/settings.json | grep failproofai
     ```
 
-    يجب أن ترى إدخالات hook لأحداث `PreToolUse` و`PostToolUse` و`Notification` و`Stop`.
+    يجب أن تشاهد إدخالات hook لأحداث `PreToolUse` و `PostToolUse` و `Notification` و `Stop`.
   </Step>
   <Step title="تشغيل Claude Code">
     ```bash
     claude
     ```
 
-    ستعمل السياسات الآن تلقائيًا عند كل استدعاء أداة. جرّب أن تطلب من Claude تشغيل `sudo rm -rf /` - سيتم حظر هذا الأمر.
+    تعمل السياسات الآن تلقائياً على كل استدعاء أداة. حاول أن تطلب من Claude تشغيل `sudo rm -rf /` - سيتم حظره.
   </Step>
 </Steps>
 
@@ -43,7 +44,7 @@ icon: book-open
 
 ## إعداد hooks لـ Agents SDK
 
-إذا كنت تبني باستخدام [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk)، يمكنك استخدام نفس نظام hook برمجيًا.
+إذا كنت تبني باستخدام [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk)، يمكنك استخدام نفس نظام hooks بشكل برمجي.
 
 <Steps>
   <Step title="تثبيت failproofai في مشروعك">
@@ -51,15 +52,15 @@ icon: book-open
     npm install failproofai
     ```
   </Step>
-  <Step title="ضبط hooks في وكيلك">
-    مرّر أوامر hook عند إنشاء عملية الوكيل. تعمل hooks بنفس الطريقة في Claude Code - عبر stdin/stdout بصيغة JSON:
+  <Step title="تكوين hooks في وكيلك">
+    مرر أوامر hook عند إنشاء عملية الوكيل الخاصة بك. تعمل hooks بنفس الطريقة كما هي في Claude Code - عبر JSON على stdin/stdout:
 
     ```bash
-    failproofai --hook PreToolUse   # called before each tool
-    failproofai --hook PostToolUse  # called after each tool
+    failproofai --hook PreToolUse   # يتم استدعاؤها قبل كل أداة
+    failproofai --hook PostToolUse  # يتم استدعاؤها بعد كل أداة
     ```
   </Step>
-  <Step title="كتابة سياسة مخصصة لوكيلك">
+  <Step title="اكتب سياسة مخصصة لوكيلك">
     ```javascript
     import { customPolicies, allow, deny } from "failproofai";
 
@@ -86,37 +87,37 @@ icon: book-open
 
 ---
 
-## حظر الأوامر التدميرية
+## حظر الأوامر المدمرة
 
-الإعداد الأكثر شيوعًا - منع الوكلاء من تنفيذ عمليات لا يمكن التراجع عنها.
+الإعداد الأكثر شيوعاً - منع الوكلاء من إلحاق أضرار لا يمكن إصلاحها.
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf block-force-push block-curl-pipe-sh
 ```
 
-ما يفعله هذا الأمر:
+ما الذي يفعله:
 - `block-sudo` - يحظر جميع أوامر `sudo`
-- `block-rm-rf` - يحظر الحذف العودي للملفات
+- `block-rm-rf` - يحظر حذف الملفات بشكل متكرر
 - `block-force-push` - يحظر `git push --force`
-- `block-curl-pipe-sh` - يحظر تمرير السكريبتات البعيدة إلى shell
+- `block-curl-pipe-sh` - يحظر نقل البرامج النصية البعيدة إلى shell
 
 ---
 
 ## منع تسرب الأسرار
 
-منع الوكلاء من رؤية بيانات الاعتماد أو تسريبها في مخرجات الأدوات.
+منع الوكلاء من رؤية أو تسريب بيانات الاعتماد في مخرجات الأداة.
 
 ```bash
 failproofai policies --install sanitize-api-keys sanitize-jwt sanitize-connection-strings sanitize-bearer-tokens
 ```
 
-تعمل هذه السياسات على `PostToolUse` - بعد تشغيل الأداة، تقوم بتنظيف المخرجات قبل أن يراها الوكيل.
+تعمل هذه على `PostToolUse` - بعد تشغيل أداة، تقوم بتنقية المخرجات قبل أن يراها الوكيل.
 
 ---
 
-## الحصول على تنبيهات Slack عند احتياج الوكلاء للانتباه
+## الحصول على تنبيهات Slack عندما يحتاج الوكلاء إلى الاهتمام
 
-استخدم notification hook لإعادة توجيه تنبيهات الخمول إلى Slack.
+استخدم hook الإشعارات لإعادة توجيه تنبيهات السكون إلى Slack.
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
@@ -150,7 +151,7 @@ customPolicies.add({
 });
 ```
 
-ثبّته:
+ثبته:
 
 ```bash
 SLACK_WEBHOOK_URL=https://hooks.slack.com/... failproofai policies --install --custom ./slack-alerts.js
@@ -158,7 +159,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/... failproofai policies --install --c
 
 ---
 
-## إبقاء الوكلاء على فرع محدد
+## اجعل الوكلاء على فرع
 
 منع الوكلاء من تبديل الفروع أو الدفع إلى الفروع المحمية.
 
@@ -182,9 +183,9 @@ customPolicies.add({
 
 ---
 
-## اشتراط تشغيل الاختبارات قبل الإيداع
+## طلب اختبارات قبل الالتزام
 
-تذكير الوكلاء بتشغيل الاختبارات قبل الإيداع.
+ذكّر الوكلاء بتشغيل الاختبارات قبل الالتزام.
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
@@ -206,9 +207,9 @@ customPolicies.add({
 
 ---
 
-## تأمين مستودع الإنتاج
+## قفل مستودع الإنتاج
 
-أودع ملف إعداد على مستوى المشروع لضمان حصول جميع أعضاء الفريق على نفس السياسات.
+التزم بتكوين على مستوى المشروع بحيث يحصل كل مطور في فريقك على نفس السياسات.
 
 أنشئ `.failproofai/policies-config.json` في مستودعك:
 
@@ -231,23 +232,23 @@ customPolicies.add({
 }
 ```
 
-ثم أودعه:
+ثم التزم به:
 
 ```bash
 git add .failproofai/policies-config.json
 git commit -m "Add failproofai team policies"
 ```
 
-سيأخذ كل عضو في الفريق ممن لديه failproofai مثبتًا هذه القواعد تلقائيًا.
+سيلتقط كل عضو في الفريق لديه failproofai مثبتاً هذه القواعد تلقائياً.
 
 ---
 
-## مزيد من الأمثلة
+## المزيد من الأمثلة
 
-يحتوي مجلد [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) في المستودع على:
+يحتوي دليل [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) في المستودع على:
 
 | الملف | ما يعرضه |
-|------|---------------|
-| `policies-basic.js` | سياسات أساسية - حظر الكتابة في الإنتاج، والدفع القسري، والسكريبتات المُمرَّرة |
-| `policies-notification.js` | تنبيهات Slack لإشعارات الخمول ونهاية الجلسة |
-| `policies-advanced/index.js` | الاستيرادات العابرة، hooks غير المتزامنة، تنظيف مخرجات PostToolUse، معالجة حدث Stop |
+|------|----------|
+| `policies-basic.js` | السياسات الأساسية - منع عمليات الكتابة في الإنتاج والدفع القسري والبرامج النصية المنقولة |
+| `policies-notification.js` | تنبيهات Slack لإشعارات السكون ونهاية الجلسة |
+| `policies-advanced/index.js` | الاستيرادات المتعددة والخطافات غير المتزامنة وتنقية مخرجات PostToolUse ومعالجة حدث Stop |
