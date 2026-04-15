@@ -1,0 +1,28 @@
+---
+title: सत्र देखें
+description: "एजेंट सत्रों को ब्राउज़ करने और नीतियाँ प्रबंधित करने के लिए डैशबोर्ड लॉन्च करें"
+---
+
+```bash
+failproofai
+```
+
+`http://localhost:8020` पर वेब डैशबोर्ड शुरू करता है।
+
+## विकल्प
+
+| फ्लैग | विवरण |
+|------|-------------|
+| `--port <number>` | सुनने के लिए पोर्ट (डिफ़ॉल्ट: `8020`) |
+| `--projects-path <path>` | Claude Code प्रोजेक्ट फ़ोल्डर की लोकेशन ओवरराइड करें |
+| `--allowed-origins <origins>` | कॉमा-अलग होस्ट/IP जिन्हें dev संसाधनों तक पहुँचने की अनुमति है |
+
+## उदाहरण
+
+```bash
+# Launch on a different port
+failproofai --port 9000
+
+# Use a custom projects path
+failproofai --projects-path ~/my-claude-projects
+```

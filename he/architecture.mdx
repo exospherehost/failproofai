@@ -1,0 +1,332 @@
+---
+title: ארכיטקטורה
+description: "כיצד מנגנון ה-hook, טעינת ההגדרות ואמצעי הערכת המדיניות פועלים פנימית"
+icon: sitemap
+---
+
+מסמך זה מסביר כיצד failproofai פועל פנימית: כיצד מערכת ה-hook מיירטת קריאות לכלים של סוכן, כיצד ההגדרות נטענות ומאוחדות, כיצד מדיניות מוערכת, וכיצד לוח הבקרה מנטר את פעילות הסוכן.
+
+---
+
+## סקירה כללית
+
+ל-failproofai שני תת-מערכות עצמאיות:
+
+1. **מטפל ה-hook** - תהליך CLI מהיר ש-Claude Code מפעיל בכל קריאה לכלי של הסוכן. מעריך מדיניות ומחזיר החלטה.
+2. **מוניטור הסוכן (לוח הבקרה)** - אפליקציית Next.js לניטור סשנים של הסוכן וניהול מדיניות.
+
+שתי תת-המערכות חולקות קבצי הגדרות ב-`~/.failproofai/` ובספריית `.failproofai/` של הפרויקט, אך הן פועלות כתהליכים נפרדים ומתקשרות רק דרך מערכת הקבצים.
+
+---
+
+## מטפל ה-hook
+
+### שילוב עם Claude Code
+
+כאשר מריצים `failproofai policies --install`, נכתבות רשומות כאלה לתוך `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "failproofai --hook PreToolUse"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [ ... ]
+  }
+}
+```
+
+Claude Code מפעיל אז את `failproofai --hook PreToolUse` כתהליך משנה לפני כל קריאה לכלי, ומעביר מטען JSON דרך stdin.
+
+### פורמט המטען
+
+```json
+{
+  "session_id": "abc123",
+  "transcript_path": "/home/user/.claude/projects/myproject/sessions/abc123.jsonl",
+  "cwd": "/home/user/myproject",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": { "command": "sudo apt install nodejs" }
+}
+```
+
+עבור אירועי `PostToolUse`, המטען מכיל גם `tool_result` עם פלט הכלי.
+
+המטפל אוכף מגבלה של 1 MB על stdin. מטענים העולים על כך נדחים וכל המדיניות מאשרת באופן מרומז.
+
+### פורמט התגובה
+
+**דחייה (PreToolUse):**
+```json
+{
+  "hookSpecificOutput": {
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "Blocked by failproofai: sudo command blocked"
+  }
+}
+```
+
+**דחייה (PostToolUse):**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "Blocked by failproofai because: API key detected in output"
+  }
+}
+```
+
+**הוראה (כל אירוע למעט Stop):**
+```json
+{
+  "hookSpecificOutput": {
+    "additionalContext": "Instruction from failproofai: Verify tests pass before committing."
+  }
+}
+```
+
+**הוראת אירוע Stop:**
+- קוד יציאה: `2`
+- הסיבה נכתבת ל-stderr (לא ל-stdout)
+
+**אישור:**
+- קוד יציאה: `0`
+- stdout ריק
+
+**אישור עם הודעה (בטא):**
+
+מגרסה v0.0.2-beta.3, `allow(message)` מאפשר למדיניות לשלוח הקשר מידע ל-Claude גם כאשר הפעולה מורשית. מטפל ה-hook כותב את ה-JSON הבא ל**stdout** (לא לקובץ הגדרות — זוהי תגובת המטפל ל-Claude Code, בדיוק כמו תגובות deny ו-instruct לעיל):
+
+```json
+// Written to stdout by the hook handler process
+{
+  "hookSpecificOutput": {
+    "additionalContext": "All CI checks passed on branch 'feat/my-feature'."
+  }
+}
+```
+- קוד יציאה: `0` (הפעולה מורשית)
+- כאשר מדיניות מרובה מחזירה `allow` עם הודעה, ההודעות מאוחדות עם שורות חדשות למחרוזת `additionalContext` אחת
+- אם אף מדיניות אינה מספקת הודעה, stdout ריק (כמו קודם)
+
+### צינור עיבוד
+
+`src/hooks/handler.ts` מממש את הצינור המלא:
+
+```text
+stdin JSON
+  → parse payload (max 1 MB)
+  → extract session metadata (session_id, cwd, tool_name, tool_input, etc.)
+  → readMergedHooksConfig(cwd)    ← merges project + local + global config
+  → register enabled builtin policies with resolved params
+  → load custom policies from customPoliciesPath (if set)
+  → register custom policies into policy registry
+  → evaluate all policies (builtins first, then custom)
+      → first deny short-circuits
+      → instruct decisions accumulate
+      → allow messages accumulate
+  → write JSON decision to stdout
+  → persist event to ~/.failproofai/hook-activity.jsonl
+  → exit
+```
+
+התהליך כולו פועל בפחות מ-100 אלפיות השנייה עבור מטענים טיפוסיים ללא קריאות LLM.
+
+---
+
+## טעינת הגדרות
+
+`src/hooks/hooks-config.ts` מממש טעינת הגדרות בשלושה היקפים.
+
+```text
+[1] {cwd}/.failproofai/policies-config.json        ← פרויקט  (עדיפות גבוהה ביותר)
+[2] {cwd}/.failproofai/policies-config.local.json  ← מקומי
+[3] ~/.failproofai/policies-config.json             ← גלובלי   (עדיפות נמוכה ביותר)
+```
+
+לוגיקת האיחוד:
+- `enabledPolicies` - איחוד ללא כפילויות משלושת הקבצים
+- `policyParams` - לפי מפתח מדיניות, הקובץ הראשון שמגדיר אותו מנצח לגמרי
+- `customPoliciesPath` - הקובץ הראשון שמגדיר אותו מנצח
+- `llm` - הקובץ הראשון שמגדיר אותו מנצח
+
+לוח הבקרה של האינטרנט משתמש ב-`readHooksConfig()` (גלובלי בלבד) לקריאה וכתיבה, מכיוון שאינו מופעל עם cwd של פרויקט.
+
+---
+
+## הערכת מדיניות
+
+`src/hooks/policy-evaluator.ts` מריץ מדיניות בסדר.
+
+עבור כל מדיניות:
+
+1. מחפש את סכמת ה-`params` של המדיניות (אם קיימת).
+2. קורא `policyParams[policy.name]` מההגדרות המאוחדות.
+3. ממזג ערכים שסופקו על ידי המשתמש על גבי ברירות המחדל של הסכמה כדי לייצר `ctx.params`.
+4. קורא `policy.fn(ctx)` עם ההקשר שנוצר.
+5. אם התוצאה היא `deny`, עוצר מיד ומחזיר את ההחלטה הזו.
+6. אם התוצאה היא `instruct`, מצטבר את ההודעה וממשיך.
+7. אם התוצאה היא `allow`, ממשיך למדיניות הבאה.
+
+לאחר שכל המדיניות רצה:
+- אם הוחזרה `deny` כלשהי, פולט תגובת דחייה.
+- אם נאספו החזרות `instruct` כלשהן, פולט תגובת הוראה אחת עם כל ההודעות מאוחדות.
+- אחרת, פולט תגובת אישור (stdout ריק, יציאה 0).
+
+---
+
+## מדיניות מובנית
+
+`src/hooks/builtin-policies.ts` מגדיר את כל 26 המדיניות המובנית כאובייקטי `BuiltinPolicyDefinition`:
+
+```typescript
+interface BuiltinPolicyDefinition {
+  name: string;
+  description: string;
+  fn: (ctx: PolicyContext) => PolicyResult;
+  match: {
+    events: HookEventType[];
+    tools?: string[];
+  };
+  defaultEnabled: boolean;
+  category: string;
+  beta?: boolean;
+  params?: PolicyParamsSchema;
+}
+```
+
+מדיניות המקבלת `params` מצהירה על `PolicyParamsSchema` עם טיפוסים וברירות מחדל לכל פרמטר. מעריך המדיניות מזריק ערכים שנוצרו ל-`ctx.params` לפני קריאה ל-`fn`. פונקציות מדיניות קוראות ל-`ctx.params` ללא בדיקת null מכיוון שברירות המחדל מוחלות תמיד תחילה.
+
+התאמת תבניות בתוך המדיניות משתמשת ב-tokens של פקודה מנותחים (argv), לא בהתאמת מחרוזות גולמיות. זה מונע עקיפה דרך הזרקת מפעיל shell (לדוגמה, תבנית עבור `sudo systemctl status *` אינה יכולה להיעקף על ידי הוספת `; rm -rf /` לפקודה).
+
+---
+
+## מדיניות מותאמת אישית
+
+`src/hooks/custom-hooks-registry.ts` מממש רישום מגובה `globalThis`:
+
+```typescript
+const REGISTRY_KEY = "__failproofai_custom_hooks__";
+
+export const customPolicies = {
+  add(hook: CustomHook): void { ... }
+};
+
+export function getCustomHooks(): CustomHook[] { ... }
+export function clearCustomHooks(): void { ... }  // used in tests
+```
+
+`src/hooks/custom-hooks-loader.ts` טוען את קובץ המדיניות של המשתמש:
+
+1. קורא `customPoliciesPath` מההגדרות; מדלג אם אינו קיים.
+2. פותר לנתיב מוחלט; בודק שהקובץ קיים.
+3. כותב מחדש את כל ייבואי `from "failproofai"` לנתיב ה-dist בפועל כדי ש-`customPolicies` יפתור לאותו רישום `globalThis`.
+4. כותב מחדש באופן רקורסיבי ייבואים מקומיים עוברים כדי להבטיח תאימות ESM.
+5. כותב קבצי `.mjs` זמניים ו-`import()` קובץ הכניסה.
+6. קורא ל-`getCustomHooks()` כדי לאחזר hook-ים רשומים.
+7. מנקה את כל הקבצים הזמניים בבלוק `finally`.
+
+על כל שגיאה (קובץ לא נמצא, שגיאת תחביר, כשל בייבוא), השגיאה נרשמת ב-`~/.failproofai/hook.log` והטוען מחזיר מערך ריק. המדיניות המובנית אינה מושפעת.
+
+מדיניות מותאמת אישית מוערכת לאחר כל המדיניות המובנית. `deny` של מדיניות מותאמת אישית עדיין מקצר-מעגל את המדיניות המותאמת האישית הנוספת (אך כל המדיניות המובנית כבר רצה בנקודה זו).
+
+---
+
+## רישום פעילות
+
+לאחר כל אירוע hook, המטפל מוסיף שורת JSONL ל-`~/.failproofai/hook-activity.jsonl`:
+
+```json
+{
+  "timestamp": "2026-04-06T12:34:56.789Z",
+  "sessionId": "abc123",
+  "eventType": "PreToolUse",
+  "toolName": "Bash",
+  "policyName": "block-sudo",
+  "decision": "deny",
+  "reason": "sudo command blocked by failproofai",
+  "durationMs": 12
+}
+```
+
+שורה אחת לכל מדיניות שקיבלה החלטה שאינה אישור. החלטות אישור אינן נרשמות (כדי לשמור על הקובץ קטן).
+
+---
+
+## ארכיטקטורת לוח הבקרה
+
+לוח הבקרה הוא אפליקציית **Next.js 16** המשתמשת ב-App Router עם React Server Components ו-Server Actions.
+
+```text
+app/
+  layout.tsx                  ← פריסת שורש (ערכת נושא, טלמטריה, ניווט)
+  projects/page.tsx           ← רכיב שרת: רשימת כל פרויקטי Claude
+  project/[name]/page.tsx     ← רכיב שרת: רשימת סשנים בפרויקט
+  project/[name]/session/
+    [sessionId]/page.tsx      ← רכיב שרת: הצגת מציג הסשן
+  policies/page.tsx           ← רכיב לקוח: ניהול מדיניות + יומן פעילות
+  actions/
+    get-hooks-config.ts       ← קריאת הגדרות + רשימת מדיניות
+    update-hooks-config.ts    ← הפעלה/כיבוי מדיניות
+    update-policy-params.ts   ← עדכון פרמטרי מדיניות
+    get-hook-activity.ts      ← עימוד/חיפוש יומן פעילות
+    install-hooks-web.ts      ← התקנת/הסרת hook-ים מהדפדפן
+  api/
+    download/[project]/[session]/route.ts   ← ייצוא סשן כ-ZIP/JSONL
+```
+
+**זרימת נתונים:**
+
+- רכיבי דף קוראים ל-`lib/projects.ts` ו-`lib/log-entries.ts` כדי לקרוא נתוני פרויקט/סשן ישירות ממערכת הקבצים (אין שכבת API לקריאות).
+- דף המדיניות משתמש ב-Server Actions לכל המוטציות (החלפה, עדכון פרמטרים, התקנה/הסרה).
+- מציג הסשן מנתח את פורמט JSONL של תמליל Claude ומרנדר ציר זמן של הודעות וקריאות לכלים.
+
+**החלטות עיצוב מרכזיות:**
+
+- אין מסד נתונים - כל המצב המתמיד נמצא בקבצים רגילים (`~/.failproofai/`, `~/.claude/projects/`).
+- Server Actions למוטציות - אין צורך ב-REST API לפעולות CRUD.
+- React Server Components לדפי קריאה - טעינה ראשונית מהירה יותר, אין bundle לקוח לשאיבת נתונים.
+- רכיבי לקוח רק כאשר יש צורך באינטראקטיביות (החלפות מדיניות, חיפוש פעילות, מציג יומן).
+
+---
+
+## פריסת קבצים
+
+```text
+failproofai/
+├── bin/
+│   └── failproofai.mjs           # נתב CLI (hook / dashboard / install / וכו')
+├── src/hooks/
+│   ├── handler.ts                # צינור אירועי hook
+│   ├── builtin-policies.ts       # 26 הגדרות מדיניות
+│   ├── policy-evaluator.ts       # מנוע הרצת מדיניות
+│   ├── policy-registry.ts        # רישום ואיתור מדיניות
+│   ├── policy-types.ts           # ממשקי TypeScript
+│   ├── hooks-config.ts           # טעינת הגדרות בריבוי-היקפים
+│   ├── custom-hooks-registry.ts  # רישום hook מגובה globalThis
+│   ├── custom-hooks-loader.ts    # טוען ESM ל-hook-ים של משתמש JS
+│   ├── manager.ts                # פעולות התקנה / הסרה / רשימה
+│   ├── install-prompt.ts         # בקשת בחירת מדיניות אינטראקטיבית
+│   ├── hook-logger.ts            # רישום ל-hook.log
+│   ├── hook-activity-store.ts    # שמירת פעילות ל-hook-activity.jsonl
+│   └── llm-client.ts             # לקוח LLM API (למדיניות מונעת AI)
+├── app/                          # לוח בקרה Next.js (דפים + server actions)
+├── lib/                          # כלי עזר משותפים
+│   ├── projects.ts               # מנייה של פרויקטי Claude ממערכת הקבצים
+│   ├── log-entries.ts            # פענוח פורמט JSONL של תמליל Claude
+│   ├── paths.ts                  # פתרון נתיבי מערכת
+│   └── ...
+├── components/                   # רכיבי React UI משותפים
+├── contexts/                     # ספקי context של React (ערכת נושא, רענון אוטומטי, טלמטריה)
+├── examples/                     # דוגמאות לקבצי hook מותאמים אישית
+└── __tests__/                    # בדיקות יחידה ו-E2E
+```

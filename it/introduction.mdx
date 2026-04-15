@@ -1,0 +1,57 @@
+---
+title: Failproof AI
+description: "Gestisci hook e policy che mantengono i tuoi agenti AI affidabili e in esecuzione autonoma"
+---
+
+[![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
+
+Hook e policy che mantengono i tuoi agenti AI affidabili e in esecuzione autonoma - per **Claude Code** e l'**Agents SDK**.
+
+Gli agenti AI falliscono in modi prevedibili. Eseguono comandi distruttivi, espongono segreti, si perdono in attività fuori contesto, si bloccano in loop o pubblicano direttamente su main. Se lasciati incustoditi, i piccoli fallimenti si amplificano a cascata.
+
+Failproof AI risolve questo problema con le **policy** - regole che si agganciano a ogni chiamata di strumento dell'agente e possono **rilevare i fallimenti**, **mitigarli** (bloccare, istruire, sanificare) e **avvisarti** quando qualcosa richiede attenzione. Una dashboard locale ti permette di esaminare tutto in seguito.
+
+Tutto gira in locale. Nessun dato lascia il tuo computer.
+
+## Per iniziare
+
+<CardGroup cols={2}>
+
+<Card title="26 policy integrate" icon="shield" href="/it/built-in-policies">
+  Blocca comandi distruttivi, impedisci la fuga di segreti, mantieni gli agenti entro i confini del progetto e altro ancora - già pronto all'uso.
+</Card>
+
+<Card title="Policy personalizzate" icon="code" href="/it/custom-policies">
+  Scrivi le tue regole in JavaScript con una semplice API allow / deny / instruct.
+</Card>
+
+<Card title="Monitor degli agenti" icon="chart-line" href="/it/dashboard">
+  Scopri cosa hanno fatto i tuoi agenti mentre eri assente. Esplora le sessioni, ispeziona le chiamate agli strumenti, controlla dove sono scattate le policy.
+</Card>
+
+<Card title="Configurazione semplice" icon="gear" href="/it/configuration">
+  Regola qualsiasi policy senza scrivere codice. Imposta allowlist, branch protetti o soglie per singolo progetto o a livello globale.
+</Card>
+
+</CardGroup>
+
+## Avvio rapido
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+```bash
+failproofai policies --install   # abilita le policy
+failproofai                      # avvia la dashboard
+```
+
+Consulta la guida [Per iniziare](/it/getting-started) per una panoramica completa.

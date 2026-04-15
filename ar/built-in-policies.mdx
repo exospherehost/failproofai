@@ -1,0 +1,546 @@
+---
+title: السياسات المدمجة
+description: "جميع السياسات الـ 30 المدمجة التي تعترض أنماط الإخفاق الشائعة للوكلاء"
+icon: shield
+---
+
+يأتي failproofai مزوّدًا بـ 30 سياسة مدمجة تعترض أنماط الإخفاق الشائعة للوكلاء. كل سياسة تُطلَق على نوع حدث hook محدد واسم أداة معين. تسع سياسات تقبل معاملات تتيح لك ضبط سلوكها دون كتابة أي كود. أربع سياسات سير عمل تجريبية تفرض مسار commit → push → PR → CI قبل أن يتوقف Claude.
+
+---
+
+## نظرة عامة
+
+السياسات مُجمَّعة في فئات:
+
+| الفئة | السياسات | نوع الحدث |
+|-------|----------|-----------|
+| [الأوامر الخطرة](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
+| [الأسرار (المُعقِّمات)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
+| [البيئة](#environment) | block-env-files, protect-env-vars | PreToolUse |
+| [الوصول إلى الملفات](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
+| [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
+| [قواعد البيانات](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
+| [التحذيرات](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
+| [سير العمل (تجريبي)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+
+- **`block-`** — يوقف الوكيل عن المتابعة.
+- **`warn-`** — يمنح الوكيل سياقًا إضافيًا ليتمكن من تصحيح نفسه.
+- **`sanitize-`** — يُنقّي البيانات الحساسة من مخرجات الأداة قبل أن يراها الوكيل.
+- **`require-`** — يحجب حدث Stop حتى تُستوفى الشروط.
+
+---
+
+## الأوامر الخطرة
+
+تمنع الوكلاء من تنفيذ عمليات يصعب التراجع عنها أو قد تضر بالنظام المضيف.
+
+### `block-sudo`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يرفض أي أمر `sudo`.
+
+يحجب التعليمات التي تحتوي على كلمة `sudo`. يتم مطابقة الأنماط على رموز الأوامر المحللة، لا على السلسلة الخام، لمنع الالتفاف عبر حقن عوامل الشل.
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `allowPatterns` | `string[]` | `[]` | بادئات الأوامر الدقيقة المسموح بها. كل مدخل يُطابَق مع رموز argv المحللة. |
+
+**مثال:**
+
+```json
+{
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    }
+  }
+}
+```
+
+بهذا الإعداد، يُسمح بـ `sudo systemctl status nginx`، لكن يُرفض `sudo rm /etc/hosts`.
+
+<Note>
+تُطابَق الأنماط مع الرموز المحللة، لا مع سلسلة الأمر الخام. هذا يمنع الالتفاف عبر إلحاق عوامل الشل (مثلاً: `sudo systemctl status x; rm -rf /` لا تطابق `sudo systemctl status *`).
+</Note>
+
+---
+
+### `block-rm-rf`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يرفض `rm -rf` و`rm -fr` وأشكالاً مماثلة للحذف التكراري.
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `allowPaths` | `string[]` | `[]` | المسارات الآمنة للحذف التكراري (مثل `/tmp`). |
+
+**مثال:**
+
+```json
+{
+  "policyParams": {
+    "block-rm-rf": {
+      "allowPaths": ["/tmp", "/var/cache"]
+    }
+  }
+}
+```
+
+---
+
+### `block-curl-pipe-sh`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يرفض `curl <url> | bash` و`curl <url> | sh` و`wget <url> | bash` وأنماطاً مماثلة.
+
+لا معاملات.
+
+---
+
+### `block-failproofai-commands`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يرفض الأوامر التي تُلغي تثبيت failproofai أو تُعطّله (مثل `npm uninstall failproofai` و`failproofai policies --uninstall`).
+
+لا معاملات.
+
+---
+
+## الأسرار (المُعقِّمات)
+
+تمنع الوكلاء من تسريب بيانات الاعتماد إلى سياقها أو مخرجاتها. سياسات المُعقِّمات تُطلَق على أحداث **PostToolUse**. عندما يُشغِّل Claude أمر Bash أو يقرأ ملفًا أو يستدعي أي أداة، تفحص هذه السياسات المخرجات قبل إعادتها إلى Claude. إذا اكتُشف نمط سر، تُعيد السياسة قرار رفض يمنع إعادة المخرجات.
+
+### `sanitize-jwt`
+
+**الحدث:** PostToolUse (جميع الأدوات)  
+**الافتراضي:** يُخفي رموز JWT (ثلاثة مقاطع base64url مفصولة بـ `.`).
+
+لا معاملات.
+
+---
+
+### `sanitize-api-keys`
+
+**الحدث:** PostToolUse (جميع الأدوات)  
+**الافتراضي:** يُخفي صيغ مفاتيح API الشائعة: Anthropic (`sk-ant-`)، وOpenAI (`sk-`)، وGitHub PATs (`ghp_`)، ومفاتيح AWS (`AKIA`)، ومفاتيح Stripe (`sk_live_` و`sk_test_`)، ومفاتيح Google API (`AIza`).
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | أنماط regex إضافية لمعاملتها كأسرار. |
+
+**مثال:**
+
+```json
+{
+  "policyParams": {
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo internal API key" },
+        { "regex": "pat_[0-9a-f]{40}", "label": "Internal PAT" }
+      ]
+    }
+  }
+}
+```
+
+---
+
+### `sanitize-connection-strings`
+
+**الحدث:** PostToolUse (جميع الأدوات)  
+**الافتراضي:** يُخفي سلاسل اتصال قواعد البيانات التي تحتوي على بيانات اعتماد مضمّنة (مثل `postgresql://user:password@host/db`).
+
+لا معاملات.
+
+---
+
+### `sanitize-private-key-content`
+
+**الحدث:** PostToolUse (جميع الأدوات)  
+**الافتراضي:** يُخفي كتل PEM (`-----BEGIN PRIVATE KEY-----` و`-----BEGIN RSA PRIVATE KEY-----` وما شابهها).
+
+لا معاملات.
+
+---
+
+### `sanitize-bearer-tokens`
+
+**الحدث:** PostToolUse (جميع الأدوات)  
+**الافتراضي:** يُخفي ترويسات `Authorization: Bearer <token>` حيث يكون الرمز 20 حرفًا أو أكثر.
+
+لا معاملات.
+
+---
+
+## البيئة
+
+يحمي إعدادات البيئة الحساسة من أن تقرأها الوكلاء أو تكشف عنها.
+
+### `block-env-files`
+
+**الحدث:** PreToolUse (Bash, Read)  
+**الافتراضي:** يرفض قراءة ملفات `.env` عبر `cat .env` أو استدعاءات أداة `Read` التي تُحدّد `.env` مسارًا للملف، وما شابه ذلك.
+
+لا يحجب `.envrc` أو الملفات المرتبطة بالبيئة الأخرى — فقط الملفات المسماة تحديدًا `.env`.
+
+لا معاملات.
+
+---
+
+### `protect-env-vars`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يرفض الأوامر التي تطبع متغيرات البيئة: `printenv` و`env` و`echo $VAR`.
+
+لا معاملات.
+
+---
+
+## الوصول إلى الملفات
+
+يُبقي الوكلاء داخل حدود المشروع وبعيدًا عن الملفات الحساسة.
+
+### `block-read-outside-cwd`
+
+**الحدث:** PreToolUse (Read, Bash)  
+**الافتراضي:** يرفض قراءة الملفات خارج دليل العمل الحالي (جذر المشروع).
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `allowPaths` | `string[]` | `[]` | بادئات المسار المطلق المسموح بها حتى لو كانت خارج دليل العمل. |
+
+**مثال:**
+
+```json
+{
+  "policyParams": {
+    "block-read-outside-cwd": {
+      "allowPaths": ["/shared/data", "/opt/company/config"]
+    }
+  }
+}
+```
+
+---
+
+### `block-secrets-write`
+
+**الحدث:** PreToolUse (Write, Edit)  
+**الافتراضي:** يرفض الكتابة في الملفات المستخدمة عادةً للمفاتيح الخاصة والشهادات: `id_rsa` و`id_ed25519` و`*.key` و`*.pem` و`*.p12` و`*.pfx`.
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `additionalPatterns` | `string[]` | `[]` | أنماط أسماء ملفات إضافية (بأسلوب glob) لحجبها. |
+
+**مثال:**
+
+```json
+{
+  "policyParams": {
+    "block-secrets-write": {
+      "additionalPatterns": [".token", ".secret"]
+    }
+  }
+}
+```
+
+---
+
+## Git
+
+يمنع الدفع العرضي والدفع القسري وأخطاء الفروع التي يصعب التراجع عنها.
+
+### `block-push-master`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يرفض `git push origin main` و`git push origin master`.
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `protectedBranches` | `string[]` | `["main", "master"]` | أسماء الفروع التي لا يمكن الدفع إليها مباشرةً. |
+
+**مثال:**
+
+```json
+{
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "master", "release", "prod"]
+    }
+  }
+}
+```
+
+<Tip>
+للسماح بالدفع إلى جميع الفروع (أي تعطيل هذه السياسة فعليًا دون إزالتها من `enabledPolicies`)، اضبط `protectedBranches: []`.
+</Tip>
+
+---
+
+### `block-work-on-main`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يرفض التبديل المباشر إلى فرعَي `main` أو `master`.
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `protectedBranches` | `string[]` | `["main", "master"]` | أسماء الفروع التي لا يمكن التبديل إليها مباشرةً. |
+
+---
+
+### `block-force-push`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يرفض `git push --force` و`git push -f`.
+
+لا معاملات.
+
+---
+
+### `warn-git-amend`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يأمر Claude بالمتابعة بحذر عند تشغيل `git commit --amend`. لا يحجب الأمر.
+
+لا معاملات.
+
+---
+
+### `warn-git-stash-drop`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يأمر Claude بالتأكيد قبل تشغيل `git stash drop`. لا يحجب الأمر.
+
+لا معاملات.
+
+---
+
+### `warn-all-files-staged`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يأمر Claude بمراجعة ما يُضيفه للتدريج عند تشغيل `git add -A` أو `git add .`. لا يحجب الأمر.
+
+لا معاملات.
+
+---
+
+## قواعد البيانات
+
+يعترض عمليات SQL المدمِّرة قبل تنفيذها على قاعدة بياناتك.
+
+### `warn-destructive-sql`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يأمر Claude بالتأكيد قبل تشغيل SQL يحتوي على `DROP TABLE` أو `DROP DATABASE` أو `DELETE` بدون جملة `WHERE`.
+
+لا معاملات.
+
+---
+
+### `warn-schema-alteration`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يأمر Claude بالتأكيد قبل تشغيل عبارات `ALTER TABLE`.
+
+لا معاملات.
+
+---
+
+## التحذيرات
+
+يمنح الوكلاء سياقًا إضافيًا قبل العمليات المحتملة الخطورة لكن غير المدمِّرة.
+
+### `warn-large-file-write`
+
+**الحدث:** PreToolUse (Write)  
+**الافتراضي:** يأمر Claude بالتأكيد قبل كتابة ملفات يتجاوز حجمها 1024 كيلوبايت.
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `thresholdKb` | `number` | `1024` | حد حجم الملف بالكيلوبايت الذي يُصدَر فوقه تحذير. |
+
+**مثال:**
+
+```json
+{
+  "policyParams": {
+    "warn-large-file-write": {
+      "thresholdKb": 256
+    }
+  }
+}
+```
+
+<Note>
+معالج hook يفرض حدًا قدره 1 ميغابايت على stdin للحمولات. لاختبار هذه السياسة بمحتوى صغير، اضبط `thresholdKb` على قيمة أقل بكثير من 1024.
+</Note>
+
+---
+
+### `warn-package-publish`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يأمر Claude بالتأكيد قبل تشغيل `npm publish`.
+
+لا معاملات.
+
+---
+
+### `warn-background-process`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يأمر Claude بالحذر عند تشغيل العمليات الخلفية عبر `nohup` أو `&` أو `disown` أو `screen`.
+
+لا معاملات.
+
+---
+
+### `warn-global-package-install`
+
+**الحدث:** PreToolUse (Bash)  
+**الافتراضي:** يأمر Claude بالتأكيد قبل تشغيل `npm install -g` أو `yarn global add` أو `pip install` بدون بيئة افتراضية.
+
+لا معاملات.
+
+---
+
+## سلوك الذكاء الاصطناعي
+
+يكتشف حالات توقف الوكلاء أو تصرفهم بشكل غير متوقع.
+
+### `warn-repeated-tool-calls`
+
+**الحدث:** PreToolUse (جميع الأدوات)  
+**الافتراضي:** يأمر Claude بإعادة التفكير عندما تُستدعى الأداة ذاتها 3 مرات أو أكثر بمعاملات متطابقة — وهو مؤشر شائع على أن الوكيل عالق في حلقة.
+
+لا معاملات.
+
+---
+
+## سير العمل (تجريبي)
+
+يفرض سير عمل منضبطًا في نهاية الجلسة. هذه السياسات تُطلَق على حدث **Stop** وتمنع Claude من التوقف حتى يُستوفى كل شرط. تتبع سلسلة تبعيات طبيعية: commit → push → PR → CI. إذا رفضت سياسة ما، تُتخطى السياسات اللاحقة في السلسلة (الرفض يُنهي التحقق مبكرًا).
+
+جميع سياسات سير العمل **تفشل بشكل مفتوح**: إذا لم تكن الأداة المطلوبة متاحة (مثل عدم تثبيت `gh`، أو عدم وجود remote لـ git)، تسمح السياسة بالمتابعة مع رسالة إعلامية توضح سبب تخطي الفحص.
+
+### `require-commit-before-stop`
+
+**الحدث:** Stop  
+**الافتراضي:** يرفض التوقف عند وجود تغييرات غير مُودَعة (ملفات معدّلة أو مُدرَجة أو غير متتبَّعة). يُعيد رسالة إعلامية عندما يكون دليل العمل نظيفًا.
+
+لا معاملات.
+
+---
+
+### `require-push-before-stop`
+
+**الحدث:** Stop  
+**الافتراضي:** يرفض التوقف عند وجود commits غير مدفوعة أو عندما لا يمتلك الفرع الحالي فرع تتبع بعيدًا. يقترح `git push -u` لإنشاء فرع تتبع عند الحاجة. يفشل بشكل مفتوح إذا لم يُعدَّ أي remote.
+
+**المعاملات:**
+
+| المعامل | النوع | الافتراضي | الوصف |
+|---------|-------|-----------|-------|
+| `remote` | `string` | `"origin"` | اسم الـ remote للدفع إليه. |
+
+**مثال:**
+
+```json
+{
+  "policyParams": {
+    "require-push-before-stop": {
+      "remote": "upstream"
+    }
+  }
+}
+```
+
+---
+
+### `require-pr-before-stop`
+
+**الحدث:** Stop  
+**الافتراضي:** يرفض التوقف عند عدم وجود pull request للفرع الحالي، أو عندما يكون الـ PR الموجود مغلقًا أو مُدمَجًا. يأمر Claude بإنشاء PR باستخدام `gh pr create`.
+
+لا معاملات.
+
+<Note>
+تتطلب هذه السياسة تثبيت [GitHub CLI](https://cli.github.com/) (`gh`) والمصادقة عليه.
+شغّل `gh auth login` برمز وصول شخصي يمتلك صلاحية `repo` للقراءة من pull requests. إذا لم يكن `gh` مثبتًا أو غير مُصادَق عليه، تفشل السياسة بشكل مفتوح وتُبلّغ Claude بالسبب.
+</Note>
+
+---
+
+### `require-ci-green-before-stop`
+
+**الحدث:** Stop  
+**الافتراضي:** يرفض التوقف عند فشل فحوصات CI أو لا تزال جارية على الفرع الحالي. يعامل نتائج `skipped` باعتبارها نجاحًا. يُعيد رسالة إعلامية عندما تجتاز جميع الفحوصات.
+
+لا معاملات.
+
+<Note>
+تتطلب هذه السياسة تثبيت [GitHub CLI](https://cli.github.com/) (`gh`) والمصادقة عليه.
+شغّل `gh auth login` برمز وصول شخصي يمتلك صلاحية `repo` للقراءة من تشغيلات سير عمل Actions. إذا لم يكن `gh` مثبتًا أو غير مُصادَق عليه، تفشل السياسة بشكل مفتوح وتُبلّغ Claude بالسبب.
+</Note>
+
+---
+
+## السياسات التجريبية
+
+بعض السياسات مُصنَّفة `beta` ولا تُثبَّت افتراضيًا. السياسات التجريبية قد تكون غير مصقولة أو تُولِّد نتائج إيجابية كاذبة. ترقى إلى مستوى الإصدار المستقر في إصدارات مستقبلية.
+
+**السياسات التجريبية الحالية:**
+
+- `require-commit-before-stop` — إيداع جميع التغييرات قبل التوقف
+- `require-push-before-stop` — دفع جميع الـ commits إلى الـ remote
+- `require-pr-before-stop` — التأكد من وجود PR للفرع
+- `require-ci-green-before-stop` — يجب أن تجتاز جميع فحوصات CI
+
+معًا، تفرض هذه السياسات سير عمل **commit → push → PR → CI**.
+
+لتثبيت جميع السياسات التجريبية:
+
+```bash
+failproofai policies --install --beta
+```
+
+أو تثبيت سياسات سير عمل محددة:
+
+```bash
+failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
+```
+
+شغّل `failproofai policies` لمعرفة السياسات التي تحمل علامة beta.
+
+---
+
+## تعطيل سياسات بعينها
+
+احذف سياسة محددة من `enabledPolicies` في إعداداتك، أو أوقف تشغيلها من تبويب Policies في لوحة التحكم.
+
+```json
+{
+  "enabledPolicies": [
+    "block-rm-rf",
+    "sanitize-api-keys"
+  ]
+}
+```
+
+السياسات غير المدرجة في `enabledPolicies` لا تُشغَّل، حتى لو وُجدت مدخلات `policyParams` خاصة بها.

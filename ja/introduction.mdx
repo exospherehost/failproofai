@@ -1,0 +1,57 @@
+---
+title: Failproof AI
+description: "AIエージェントを信頼性高く自律的に稼働させるフックとポリシーを管理する"
+---
+
+[![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
+
+**Claude Code** および **Agents SDK** 向けに、AIエージェントを信頼性高く自律的に稼働させるフックとポリシーです。
+
+AIエージェントは予測可能な形で失敗します。破壊的なコマンドを実行したり、シークレットを漏洩させたり、タスクから脱線したり、ループにはまったり、mainブランチに直接プッシュしたりします。放置すると、小さな失敗が連鎖的に拡大します。
+
+Failproof AI はこの問題を**ポリシー**で解決します。ポリシーとは、エージェントのすべてのツール呼び出しにフックするルールであり、**障害を検出し**、**対処し**（ブロック・指示・サニタイズ）、注意が必要なときに**アラートを送る**ことができます。ローカルダッシュボードで事後にすべての動作を確認できます。
+
+すべてはローカルで動作します。データが外部に送信されることはありません。
+
+## はじめに
+
+<CardGroup cols={2}>
+
+<Card title="26個の組み込みポリシー" icon="shield" href="/ja/built-in-policies">
+  破壊的なコマンドのブロック、シークレット漏洩の防止、エージェントのプロジェクト境界内への制限など、すぐに使える機能が揃っています。
+</Card>
+
+<Card title="カスタムポリシー" icon="code" href="/ja/custom-policies">
+  シンプルな allow / deny / instruct APIを使って、JavaScriptで独自のルールを記述できます。
+</Card>
+
+<Card title="エージェントモニター" icon="chart-line" href="/ja/dashboard">
+  離れている間にエージェントが何をしていたかを確認できます。セッションの閲覧、ツール呼び出しの検査、ポリシーが発動した箇所のレビューが可能です。
+</Card>
+
+<Card title="簡単な設定" icon="gear" href="/ja/configuration">
+  コードを書かずにポリシーを調整できます。プロジェクトごと、またはグローバルにallowlist・保護対象ブランチ・しきい値を設定できます。
+</Card>
+
+</CardGroup>
+
+## クイックスタート
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+```bash
+failproofai policies --install   # ポリシーを有効化する
+failproofai                      # ダッシュボードを起動する
+```
+
+詳細な手順については、[はじめかた](/ja/getting-started)ガイドをご覧ください。

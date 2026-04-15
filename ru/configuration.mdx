@@ -1,0 +1,176 @@
+---
+title: Конфигурация
+description: "Формат файла конфигурации, система трёх областей видимости и правила слияния"
+icon: gear
+---
+
+failproofai использует файлы конфигурации JSON для управления тем, какие политики активны, как они себя ведут и откуда загружаются пользовательские политики. Конфигурация разработана так, чтобы её было легко передавать команде — зафиксируйте её в репозитории, и каждый разработчик получит одинаковую защиту агента.
+
+---
+
+## Области видимости конфигурации
+
+Существуют три области видимости конфигурации, которые обрабатываются в порядке приоритета:
+
+| Область | Путь к файлу | Назначение |
+|---------|--------------|------------|
+| **project** | `.failproofai/policies-config.json` | Настройки для конкретного репозитория, фиксируются в системе контроля версий |
+| **local** | `.failproofai/policies-config.local.json` | Личные переопределения для конкретного репозитория, добавляются в gitignore |
+| **global** | `~/.failproofai/policies-config.json` | Пользовательские настройки по умолчанию для всех проектов |
+
+Когда failproofai получает событие хука, он загружает и объединяет все три файла, которые существуют для текущего рабочего каталога.
+
+### Правила слияния
+
+**`enabledPolicies`** — объединение всех трёх областей видимости. Политика, включённая на любом уровне, является активной.
+
+```text
+project:  ["block-sudo"]
+local:    ["block-rm-rf"]
+global:   ["block-sudo", "sanitize-api-keys"]
+
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← объединение без дублирования
+```
+
+**`policyParams`** — приоритет получает первая область видимости, в которой определены параметры для данной политики. Глубокого слияния значений внутри параметров политики не происходит.
+
+```text
+project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← project имеет приоритет, global игнорируется
+```
+
+```text
+project:  (нет записи block-sudo)
+local:    (нет записи block-sudo)
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← используются настройки global
+```
+
+**`customPoliciesPath`** — приоритет получает первая область видимости, в которой он определён.
+
+**`llm`** — приоритет получает первая область видимости, в которой он определён.
+
+---
+
+## Формат файла конфигурации
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "sanitize-jwt",
+    "block-env-files",
+    "block-read-outside-cwd"
+  ],
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    },
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "prod"]
+    },
+    "block-rm-rf": {
+      "allowPaths": ["/tmp"]
+    },
+    "block-read-outside-cwd": {
+      "allowPaths": ["/shared/data", "/opt/company"]
+    },
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
+      ]
+    },
+    "warn-large-file-write": {
+      "thresholdKb": 512
+    }
+  },
+  "customPoliciesPath": "/home/alice/myproject/my-policies.js"
+}
+```
+
+---
+
+## Справочник полей
+
+### `enabledPolicies`
+
+Тип: `string[]`
+
+Список имён политик для включения. Имена должны точно совпадать с идентификаторами политик, отображаемыми командой `failproofai policies`. Полный список см. в разделе [Встроенные политики](/ru/built-in-policies).
+
+Политики, не указанные в `enabledPolicies`, неактивны, даже если для них есть записи в `policyParams`.
+
+### `policyParams`
+
+Тип: `Record<string, Record<string, unknown>>`
+
+Переопределения параметров для отдельных политик. Внешний ключ — имя политики; внутренние ключи специфичны для каждой политики. Доступные параметры каждой политики описаны в разделе [Встроенные политики](/ru/built-in-policies).
+
+Если у политики есть параметры, но вы их не указываете, используются встроенные значения по умолчанию. Пользователи, не настраивающие `policyParams`, получают поведение, идентичное предыдущим версиям.
+
+Неизвестные ключи внутри блока параметров политики молча игнорируются в момент срабатывания хука, но отображаются как предупреждения при выполнении команды `failproofai policies`.
+
+### `customPoliciesPath`
+
+Тип: `string` (абсолютный путь)
+
+Путь к JavaScript-файлу, содержащему пользовательские политики хуков. Устанавливается автоматически командой `failproofai policies --install --custom <path>` (путь приводится к абсолютному перед сохранением).
+
+Файл загружается заново при каждом событии хука — кэширование не используется. Подробнее об авторстве политик см. в разделе [Пользовательские политики](/ru/custom-policies).
+
+### `llm`
+
+Тип: `object` (необязательный)
+
+Конфигурация LLM-клиента для политик, выполняющих обращения к AI. Не требуется для большинства сценариев.
+
+```json
+{
+  "llm": {
+    "model": "claude-sonnet-4-6",
+    "apiKey": "sk-ant-..."
+  }
+}
+```
+
+---
+
+## Управление конфигурацией через CLI
+
+Команды `policies --install` и `policies --uninstall` записывают данные в `settings.json` Claude Code (точки входа хуков), тогда как `policies-config.json` — это файл, которым вы управляете напрямую. Это два разных файла:
+
+- **`settings.json`** — указывает Claude Code вызывать `failproofai --hook <event>` при каждом использовании инструмента
+- **`policies-config.json`** — указывает failproofai, какие политики оценивать и с какими параметрами
+
+Вы можете редактировать `policies-config.json` напрямую в любое время; изменения вступают в силу немедленно при следующем событии хука без перезапуска.
+
+---
+
+## Пример: конфигурация на уровне проекта с командными настройками по умолчанию
+
+Зафиксируйте `.failproofai/policies-config.json` в репозитории:
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "block-env-files"
+  ],
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "hotfix"]
+    }
+  }
+}
+```
+
+После этого каждый разработчик может создать `.failproofai/policies-config.local.json` (добавленный в gitignore) для личных переопределений, не затрагивая настройки коллег.

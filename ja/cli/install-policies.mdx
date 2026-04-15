@@ -1,0 +1,48 @@
+---
+title: ポリシーをインストールする
+description: "エージェントのツール呼び出しごとにポリシーが実行されるよう有効化する"
+---
+
+```bash
+failproofai policies --install [policy-names...] [options]
+```
+
+Claude Code の `settings.json` にフックエントリを書き込み、failproofai がツール呼び出しをインターセプトできるようにします。
+
+エイリアス: `failproofai p -i`
+
+## オプション
+
+| フラグ | 説明 |
+|------|-------------|
+| `--scope user` | `~/.claude/settings.json` にインストール（デフォルト・全セッション対象） |
+| `--scope project` | カレントディレクトリの `.claude/settings.json` にインストール |
+| `--scope local` | カレントディレクトリの `.claude/settings.local.json` にインストール |
+| `--custom <path>` / `-c` | カスタムフックポリシーを含む JS ファイルへのパス |
+| `--beta` | ベータポリシーを含める |
+
+## 動作
+
+- **ポリシー名の指定なし** - ポリシーを選択するインタラクティブプロンプトを表示
+- **特定の名前を指定** - 指定したポリシーを有効化（既に有効なものに追加）
+- **`all`** - 利用可能なすべてのポリシーを有効化
+
+インストールは追記型です。`--install` を再度実行しても、既存のポリシーは削除されず、新しいポリシーが追加されます。
+
+## 使用例
+
+```bash
+# すべてのデフォルトポリシーをグローバルにインストール（インタラクティブ）
+failproofai policies --install
+
+# 特定のポリシーを現在のプロジェクト向けにインストール
+failproofai policies --install block-sudo sanitize-api-keys --scope project
+
+# すべてのポリシーを一括で有効化
+failproofai policies --install all
+
+# カスタムポリシーファイルを指定してインストール
+failproofai policies --install --custom ./my-policies.js
+```
+
+`--custom <path>` が指定された場合、ファイルは即時検証されます。少なくとも1回 `customPolicies.add()` を呼び出している必要があります。解決されたパスは `policies-config.json` に `customPoliciesPath` として保存されます。
