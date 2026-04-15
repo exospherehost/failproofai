@@ -6,6 +6,7 @@
 - Use portable `npx -y failproofai` command for project-scope hooks, making `.claude/settings.json` committable to git (#96)
 - Parallelize translation workflow across 14 languages with concurrent file translation for faster CI (#98)
 - Add manual workflow dispatch for translations with `force` (ignore cache) and `languages` filter inputs (#98)
+- Tier-based model selection for translations: Sonnet for Tier 1, Haiku for Tier 2/3; add prompt caching on system prompt (#98)
 
 ### Fixes
 - Fix hooks not working in failproofai's own repo by using local binary instead of npx (#98)

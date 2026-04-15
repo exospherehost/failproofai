@@ -3,7 +3,7 @@ import { parseArgs } from "node:util";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
-import { LANGUAGES, getLanguagesByTier, getLanguageByCode } from "./config";
+import { LANGUAGES, getLanguagesByTier, getLanguageByCode, getModelForTier } from "./config";
 import { getEnglishMdxPages, translateMdxPage } from "./mdx-translator";
 import { translateReadme } from "./readme-translator";
 import { updateDocsJson, readDocsConfig } from "./mintlify-nav";
@@ -44,7 +44,7 @@ Options:
   -f, --force              Ignore cache, re-translate everything
       --update-nav         Regenerate docs.json navigation after translation
       --validate           Check all nav references resolve to files
-  -m, --model <model>      Claude model to use (default: claude-sonnet-4-20250514)
+  -m, --model <model>      Claude model override (default: Sonnet for Tier 1, Haiku for Tier 2/3)
   -h, --help               Show this help
 
 Environment:
@@ -156,11 +156,23 @@ async function main() {
   const langCodes = resolveLanguages();
   const isDryRun = args["dry-run"];
   const isForce = args.force;
-  const model = args.model;
+  const modelOverride = args.model;
+
+  /** Resolve the model for a language: CLI override wins, otherwise tier-based default. */
+  function resolveModel(lang: string): string {
+    if (modelOverride) return modelOverride;
+    const langConfig = getLanguageByCode(lang);
+    return getModelForTier(langConfig?.tier ?? 1);
+  }
 
   console.log(
     `${isDryRun ? "[DRY RUN] " : ""}Translating into: ${langCodes.join(", ")}`,
   );
+  if (!modelOverride) {
+    console.log(`Models: Tier 1 -> ${getModelForTier(1)}, Tier 2/3 -> ${getModelForTier(2)}`);
+  } else {
+    console.log(`Model override: ${modelOverride}`);
+  }
 
   const results: TranslationResult[] = [];
   const errors: Array<{ lang: string; source: string; error: string }> = [];
@@ -240,7 +252,7 @@ async function main() {
             const result = await translateMdxPage(page, lang, {
               force: isForce,
               dryRun: isDryRun,
-              model,
+              model: resolveModel(lang),
               cache,
             });
             const status = isDryRun
@@ -292,7 +304,7 @@ async function main() {
             const result = await translateReadme(lang, {
               force: isForce,
               dryRun: isDryRun,
-              model,
+              model: resolveModel(lang),
               cache,
             });
             const status = isDryRun
