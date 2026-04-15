@@ -1,0 +1,31 @@
+---
+title: Richtlinien auflisten
+description: "Aktive Richtlinien, ihre Parameter und benutzerdefinierte Richtlinien anzeigen"
+---
+
+```bash
+failproofai policies
+```
+
+Zeigt alle Richtlinien mit ihrem Status, den konfigurierten Parametern und benutzerdefinierten Richtlinien an.
+
+## Beispielausgabe
+
+```text
+Failproof AI Hook Policies (user)
+
+  Status  Name                          Description
+  ──────  ──────────────────────────────────────────────────────────────
+  ✓       block-sudo                    Block sudo commands
+            allowPatterns: ["sudo systemctl status"]
+  ✓       block-rm-rf                   Block recursive deletions
+  ✗       block-curl-pipe-sh            Block curl|bash patterns
+  ✓       sanitize-api-keys             Redact API keys from output
+            additionalPatterns: [{ regex: "MY_TOKEN_...", label: "..." }]
+
+  ── Custom Policies (/home/alice/myproject/my-policies.js) ──────────────
+  ✓       require-jira-ticket           Block commits without ticket
+  ✓       approval-gate                 Approval gate for destructive ops
+```
+
+Unbekannte Schlüssel in `policyParams` werden hier gekennzeichnet, damit Tippfehler frühzeitig erkannt werden können.

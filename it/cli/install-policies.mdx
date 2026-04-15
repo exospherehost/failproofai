@@ -1,0 +1,48 @@
+---
+title: Installare le policy
+description: "Abilita le policy affinché vengano eseguite a ogni chiamata di strumento dell'agente"
+---
+
+```bash
+failproofai policies --install [policy-names...] [options]
+```
+
+Scrive le voci degli hook nel `settings.json` di Claude Code affinché failproofai intercetti le chiamate agli strumenti.
+
+Alias: `failproofai p -i`
+
+## Opzioni
+
+| Flag | Descrizione |
+|------|-------------|
+| `--scope user` | Installa in `~/.claude/settings.json` (predefinito - tutte le sessioni) |
+| `--scope project` | Installa in `.claude/settings.json` nella directory corrente |
+| `--scope local` | Installa in `.claude/settings.local.json` nella directory corrente |
+| `--custom <path>` / `-c` | Percorso a un file JS contenente policy di hook personalizzate |
+| `--beta` | Includi le policy in versione beta |
+
+## Comportamento
+
+- **Nessun nome di policy** - apre un prompt interattivo per selezionare le policy
+- **Nomi specifici** - abilita quelle policy (aggiungendole a quelle già abilitate)
+- **`all`** - abilita tutte le policy disponibili
+
+L'installazione è additiva: eseguire nuovamente `--install` aggiunge nuove policy senza rimuovere quelle esistenti.
+
+## Esempi
+
+```bash
+# Installa tutte le policy predefinite globalmente (interattivo)
+failproofai policies --install
+
+# Installa policy specifiche per il progetto corrente
+failproofai policies --install block-sudo sanitize-api-keys --scope project
+
+# Abilita tutte le policy in una volta sola
+failproofai policies --install all
+
+# Installa con un file di policy personalizzato
+failproofai policies --install --custom ./my-policies.js
+```
+
+Quando viene fornito `--custom <path>`, il file viene validato immediatamente — deve chiamare `customPolicies.add()` almeno una volta. Il percorso risolto viene salvato in `policies-config.json` come `customPoliciesPath`.

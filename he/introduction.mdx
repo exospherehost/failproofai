@@ -1,0 +1,57 @@
+---
+title: Failproof AI
+description: "ניהול hooks ומדיניות שמשמרים את סוכני ה-AI שלך אמינים ופועלים באופן אוטונומי"
+---
+
+[![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
+
+Hooks ומדיניות שמשמרים את סוכני ה-AI שלך אמינים ופועלים באופן אוטונומי - עבור **Claude Code** ו-**Agents SDK**.
+
+סוכני AI נכשלים בדרכים צפויות. הם מריצים פקודות הרסניות, מדליפים סודות, סוטים מהמשימה, נתקעים בלולאות, או מבצעים push ישירות ל-main. ללא השגחה, כשלים קטנים מסלימים.
+
+Failproof AI פותר זאת באמצעות **policies** - כללים שמתחברים לכל קריאת כלי של הסוכן ויכולים **לזהות כשלים**, **לצמצם אותם** (חסימה, הדרכה, ניקוי), ו**להתריע** כאשר משהו מצריך תשומת לב. לוח מחוונים מקומי מאפשר לך לסקור הכל לאחר מכן.
+
+הכל פועל באופן מקומי. אף מידע לא יוצא מהמחשב שלך.
+
+## תחילת עבודה
+
+<CardGroup cols={2}>
+
+<Card title="26 מדיניות מובנות" icon="shield" href="/he/built-in-policies">
+  חסימת פקודות הרסניות, מניעת דליפת סודות, הגבלת סוכנים לגבולות הפרויקט, ועוד - מחוץ לקופסה.
+</Card>
+
+<Card title="מדיניות מותאמת אישית" icon="code" href="/he/custom-policies">
+  כתוב כללים משלך ב-JavaScript עם API פשוט של allow / deny / instruct.
+</Card>
+
+<Card title="מוניטור סוכן" icon="chart-line" href="/he/dashboard">
+  ראה מה עשו הסוכנים שלך בזמן שלא היית. עיין בסשנים, בדוק קריאות כלים, סקור היכן הופעלה המדיניות.
+</Card>
+
+<Card title="הגדרה קלה" icon="gear" href="/he/configuration">
+  כוונן כל מדיניות ללא קוד. הגדר רשימות היתרים, ענפים מוגנים, או ספים לכל פרויקט או גלובלית.
+</Card>
+
+</CardGroup>
+
+## התחלה מהירה
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+```bash
+failproofai policies --install   # enable policies
+failproofai                      # launch the dashboard
+```
+
+עיין במדריך [תחילת עבודה](/he/getting-started) לסקירה המלאה.

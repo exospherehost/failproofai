@@ -1,0 +1,44 @@
+---
+title: Policies अनइंस्टॉल करें
+description: "Claude Code की settings से hook entries हटाएं"
+---
+
+```bash
+failproofai policies --uninstall [policy-names...] [options]
+```
+
+Claude Code की `settings.json` से failproofai hook entries हटाता है।
+
+Aliases: `failproofai p -u`
+
+## Options
+
+| Flag | विवरण |
+|------|-------------|
+| `--scope user` | Global settings से हटाएं (default) |
+| `--scope project` | Project settings से हटाएं |
+| `--scope local` | Local settings से हटाएं |
+| `--scope all` | सभी scopes से एक साथ हटाएं |
+| `--custom` / `-c` | Config से `customPoliciesPath` साफ़ करें |
+| `--beta` | Config से केवल beta policies हटाएं |
+
+## Behavior
+
+- **कोई policy names नहीं** - settings file से सभी failproofai hook entries हटा देता है
+- **विशिष्ट नाम** - उन policies को disable करता है लेकिन hooks इंस्टॉल रहते हैं
+
+## Examples
+
+```bash
+# Remove all hooks globally
+failproofai policies --uninstall
+
+# Disable a specific policy (keeps hooks installed)
+failproofai policies --uninstall block-sudo
+
+# Remove hooks from every scope
+failproofai policies --uninstall --scope all
+
+# Clear custom policies path
+failproofai policies --uninstall --custom
+```

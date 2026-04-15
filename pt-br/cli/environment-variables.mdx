@@ -1,0 +1,34 @@
+---
+title: Variáveis de ambiente
+description: "Configure o comportamento do failproofai com variáveis de ambiente"
+---
+
+## Dashboard
+
+| Variável | Descrição |
+|----------|-----------|
+| `PORT` | Porta do dashboard (padrão: `8020`) |
+| `CLAUDE_PROJECTS_PATH` | Substitui o local onde as pastas de projetos do Claude Code são encontradas |
+| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Páginas do dashboard a ocultar, separadas por vírgula |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Hosts/IPs com permissão para acessar recursos de desenvolvimento. Equivalente a `--allowed-origins`. |
+
+## Logging
+
+| Variável | Descrição |
+|----------|-----------|
+| `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Nível de log do servidor (padrão: `warn`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | Caminho personalizado para o arquivo de log de hooks, ou `true` para o padrão (`~/.failproofai/logs/hooks.log`) |
+
+## Telemetria
+
+| Variável | Descrição |
+|----------|-----------|
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | Desativa a telemetria anônima de uso |
+
+## LLM (para avaliação de políticas)
+
+| Variável | Descrição |
+|----------|-----------|
+| `FAILPROOFAI_LLM_BASE_URL` | Endpoint da API do LLM (padrão: `https://api.openai.com/v1`) |
+| `FAILPROOFAI_LLM_API_KEY` | Chave de API para políticas com LLM |
+| `FAILPROOFAI_LLM_MODEL` | Nome do modelo (padrão: `gpt-4o-mini`) |

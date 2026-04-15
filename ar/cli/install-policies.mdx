@@ -1,0 +1,48 @@
+---
+title: تثبيت السياسات
+description: "تفعيل السياسات لتعمل على كل استدعاء أداة من قِبل الوكيل"
+---
+
+```bash
+failproofai policies --install [policy-names...] [options]
+```
+
+يكتب إدخالات الخطاف في ملف `settings.json` الخاص بـ Claude Code بحيث يعترض failproofai استدعاءات الأدوات.
+
+الاختصارات: `failproofai p -i`
+
+## الخيارات
+
+| العلَم | الوصف |
+|--------|-------|
+| `--scope user` | التثبيت في `~/.claude/settings.json` (الافتراضي - جميع الجلسات) |
+| `--scope project` | التثبيت في `.claude/settings.json` داخل الدليل الحالي |
+| `--scope local` | التثبيت في `.claude/settings.local.json` داخل الدليل الحالي |
+| `--custom <path>` / `-c` | المسار إلى ملف JS يحتوي على سياسات خطاف مخصصة |
+| `--beta` | تضمين السياسات التجريبية |
+
+## السلوك
+
+- **بدون أسماء سياسات** - يفتح نافذة تفاعلية لتحديد السياسات
+- **أسماء محددة** - يُفعّل تلك السياسات (تُضاف إلى السياسات المفعّلة مسبقاً)
+- **`all`** - يُفعّل جميع السياسات المتاحة
+
+التثبيت تراكمي: تشغيل `--install` مجدداً يضيف سياسات جديدة دون إزالة الموجودة.
+
+## أمثلة
+
+```bash
+# تثبيت جميع السياسات الافتراضية على مستوى النظام (تفاعلي)
+failproofai policies --install
+
+# تثبيت سياسات محددة للمشروع الحالي
+failproofai policies --install block-sudo sanitize-api-keys --scope project
+
+# تفعيل جميع السياسات دفعةً واحدة
+failproofai policies --install all
+
+# التثبيت مع ملف سياسات مخصص
+failproofai policies --install --custom ./my-policies.js
+```
+
+عند تمرير `--custom <path>`، يُتحقَّق من الملف فوراً — يجب أن يستدعي `customPolicies.add()` مرةً على الأقل. يُحفظ المسار المُحوَّل في `policies-config.json` تحت المفتاح `customPoliciesPath`.

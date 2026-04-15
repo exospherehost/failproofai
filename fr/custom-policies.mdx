@@ -1,0 +1,299 @@
+---
+title: Politiques personnalisées
+description: "Écrivez vos propres politiques en JavaScript - appliquer des conventions, prévenir la dérive, détecter les échecs, s'intégrer avec des systèmes externes"
+icon: code
+---
+
+Les politiques personnalisées vous permettent d'écrire des règles pour tout comportement d'agent : appliquer des conventions de projet, prévenir la dérive, contrôler les opérations destructrices, détecter les agents bloqués, ou s'intégrer avec Slack, des flux d'approbation, et plus encore. Elles utilisent le même système d'événements hook et les mêmes décisions `allow`, `deny`, `instruct` que les politiques intégrées.
+
+---
+
+## Exemple rapide
+
+```js
+// my-policies.js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+
+customPolicies.add({
+  name: "no-production-writes",
+  description: "Block writes to paths containing 'production'",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Write" && ctx.toolName !== "Edit") return allow();
+    const path = ctx.toolInput?.file_path ?? "";
+    if (path.includes("production")) {
+      return deny("Writes to production paths are blocked");
+    }
+    return allow();
+  },
+});
+```
+
+Installation :
+
+```bash
+failproofai policies --install --custom ./my-policies.js
+```
+
+---
+
+## Installation et mise à jour
+
+```bash
+# Installer avec un fichier de politiques personnalisées
+failproofai policies --install --custom ./my-policies.js
+
+# Remplacer le chemin du fichier de politiques
+failproofai policies --install --custom ./new-policies.js
+
+# Supprimer le chemin des politiques personnalisées de la configuration
+failproofai policies --uninstall --custom
+```
+
+Le chemin absolu résolu est stocké dans `policies-config.json` sous la clé `customPoliciesPath`. Le fichier est rechargé à chaque événement hook — il n'y a pas de mise en cache entre les événements.
+
+---
+
+## API
+
+### Import
+
+```js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+```
+
+### `customPolicies.add(hook)`
+
+Enregistre une politique. Appelez cette méthode autant de fois que nécessaire pour définir plusieurs politiques dans le même fichier.
+
+```ts
+customPolicies.add({
+  name: string;                         // requis - identifiant unique
+  description?: string;                 // affiché dans la sortie de `failproofai policies`
+  match?: { events?: HookEventType[] }; // filtrer par type d'événement ; omettre pour correspondre à tous
+  fn: (ctx: PolicyContext) => PolicyResult | Promise<PolicyResult>;
+});
+```
+
+### Fonctions d'aide aux décisions
+
+| Fonction | Effet | Utiliser quand |
+|----------|--------|----------|
+| `allow()` | Autorise l'opération silencieusement | L'action est sûre, aucun message n'est nécessaire |
+| `deny(message)` | Bloque l'opération | L'agent ne devrait pas effectuer cette action |
+| `instruct(message)` | Ajoute du contexte sans bloquer | Fournir à l'agent un contexte supplémentaire pour le garder sur la bonne voie |
+
+`deny(message)` — le message apparaît à Claude avec le préfixe `"Blocked by failproofai:"`. Un seul `deny` court-circuite toute évaluation ultérieure.
+
+`instruct(message)` — le message est ajouté au contexte de Claude pour l'appel d'outil en cours. Le premier `instruct` l'emporte — les retours `instruct` suivants provenant d'autres politiques sont ignorés.
+
+### Messages allow informatifs (bêta)
+
+<Note>
+`allow(message)` est une fonctionnalité bêta disponible depuis la version v0.0.2-beta.3. L'API peut changer dans les versions futures. Les versions antérieures ne prennent en charge que `allow()` sans arguments.
+</Note>
+
+`allow(message)` autorise l'opération **et** envoie un message informatif à Claude. Le message est transmis en tant que `additionalContext` dans la réponse stdout du gestionnaire de hook — le même mécanisme qu'`instruct`, mais avec une sémantique différente : c'est une mise à jour de statut, pas un avertissement.
+
+| Fonction | Effet | Utiliser quand |
+|----------|--------|----------|
+| `allow(message)` | Autorise et envoie du contexte à Claude | Confirmer qu'une vérification a réussi, ou expliquer pourquoi elle a été ignorée |
+
+Cas d'utilisation :
+- **Confirmations de statut :** `allow("All CI checks passed.")` — indique à Claude que tout est en ordre
+- **Explications de tolérance aux pannes :** `allow("GitHub CLI not installed, skipping CI check.")` — indique à Claude pourquoi une vérification a été ignorée pour lui fournir le contexte complet
+- **Accumulation de plusieurs messages :** si plusieurs politiques retournent chacune `allow(message)`, tous les messages sont joints avec des sauts de ligne et transmis ensemble
+
+```js
+customPolicies.add({
+  name: "confirm-branch-status",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    const cwd = ctx.session?.cwd;
+    if (!cwd) return allow("No working directory, skipping branch check.");
+
+    // ... check branch status ...
+    if (allPushed) {
+      return allow("Branch is up to date with remote.");
+    }
+    return deny("Unpushed changes detected.");
+  },
+});
+```
+
+### Champs de `PolicyContext`
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
+| `toolName` | `string \| undefined` | L'outil appelé (ex. `"Bash"`, `"Write"`, `"Read"`) |
+| `toolInput` | `Record<string, unknown> \| undefined` | Les paramètres d'entrée de l'outil |
+| `payload` | `Record<string, unknown>` | Charge utile brute complète de l'événement provenant de Claude Code |
+| `session` | `SessionMetadata \| undefined` | Contexte de session (voir ci-dessous) |
+
+### Champs de `SessionMetadata`
+
+| Champ | Type | Description |
+|-------|------|-------------|
+| `sessionId` | `string` | Identifiant de session Claude Code |
+| `cwd` | `string` | Répertoire de travail de la session Claude Code |
+| `transcriptPath` | `string` | Chemin vers le fichier de transcription JSONL de la session |
+
+### Types d'événements
+
+| Événement | Quand il se déclenche | Contenu de `toolInput` |
+|-------|--------------|----------------------|
+| `PreToolUse` | Avant que Claude exécute un outil | L'entrée de l'outil (ex. `{ command: "..." }` pour Bash) |
+| `PostToolUse` | Après qu'un outil s'est terminé | L'entrée de l'outil + `tool_result` (la sortie) |
+| `Notification` | Quand Claude envoie une notification | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` - les hooks doivent toujours retourner `allow()`, ils ne peuvent pas bloquer les notifications |
+| `Stop` | Quand la session Claude se termine | Vide |
+
+---
+
+## Ordre d'évaluation
+
+Les politiques sont évaluées dans cet ordre :
+
+1. Politiques intégrées (dans l'ordre de définition)
+2. Politiques personnalisées (dans l'ordre des appels `.add()`)
+
+<Note>
+Le premier `deny` court-circuite toutes les politiques suivantes. Le premier `instruct` l'emporte — les retours `instruct` suivants sont ignorés.
+</Note>
+
+---
+
+## Imports transitifs
+
+Les fichiers de politiques personnalisées peuvent importer des modules locaux en utilisant des chemins relatifs :
+
+```js
+// my-policies.js
+import { isBlockedPath } from "./utils.js";
+import { checkApproval } from "./approval-client.js";
+
+customPolicies.add({
+  name: "approval-gate",
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const approved = await checkApproval(ctx.toolInput?.command, ctx.session?.sessionId);
+    return approved ? allow() : deny("Approval required for this command");
+  },
+});
+```
+
+Tous les imports relatifs accessibles depuis le fichier d'entrée sont résolus. Cette fonctionnalité est implémentée en réécrivant les imports `from "failproofai"` vers le chemin dist réel et en créant des fichiers `.mjs` temporaires pour garantir la compatibilité ESM.
+
+---
+
+## Filtrage par type d'événement
+
+Utilisez `match.events` pour limiter le déclenchement d'une politique :
+
+```js
+customPolicies.add({
+  name: "require-summary-on-stop",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    // Se déclenche uniquement quand la session se termine
+    // ctx.session.transcriptPath contient le journal complet de la session
+    return allow();
+  },
+});
+```
+
+Omettez `match` entièrement pour se déclencher sur chaque type d'événement.
+
+---
+
+## Gestion des erreurs et modes de défaillance
+
+Les politiques personnalisées sont **fail-open** : les erreurs ne bloquent jamais les politiques intégrées ni ne font planter le gestionnaire de hook.
+
+| Défaillance | Comportement |
+|---------|----------|
+| `customPoliciesPath` non défini | Aucune politique personnalisée ne s'exécute ; les politiques intégrées continuent normalement |
+| Fichier introuvable | Avertissement journalisé dans `~/.failproofai/hook.log` ; les politiques intégrées continuent |
+| Erreur de syntaxe/import | Erreur journalisée dans `~/.failproofai/hook.log` ; toutes les politiques personnalisées sont ignorées |
+| `fn` lève une exception à l'exécution | Erreur journalisée ; ce hook est traité comme `allow` ; les autres hooks continuent |
+| `fn` prend plus de 10 secondes | Timeout journalisé ; traité comme `allow` |
+
+<Tip>
+Pour déboguer les erreurs de politiques personnalisées, surveillez le fichier de journal :
+
+```bash
+tail -f ~/.failproofai/hook.log
+```
+</Tip>
+
+---
+
+## Exemple complet : plusieurs politiques
+
+```js
+// my-policies.js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+
+// Prevent agent from writing to secrets/ directory
+customPolicies.add({
+  name: "block-secrets-dir",
+  description: "Prevent agent from writing to secrets/ directory",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
+    const path = ctx.toolInput?.file_path ?? "";
+    if (path.includes("secrets/")) return deny("Writing to secrets/ is not permitted");
+    return allow();
+  },
+});
+
+// Keep the agent on track: verify tests before committing
+customPolicies.add({
+  name: "remind-test-before-commit",
+  description: "Keep the agent on track: verify tests pass before committing",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = ctx.toolInput?.command ?? "";
+    if (/git\s+commit/.test(cmd)) {
+      return instruct("Verify all tests pass before committing. Run `bun test` if you haven't already.");
+    }
+    return allow();
+  },
+});
+
+// Prevent unplanned dependency changes during freeze
+customPolicies.add({
+  name: "dependency-freeze",
+  description: "Prevent unplanned dependency changes during freeze period",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = ctx.toolInput?.command ?? "";
+    const isInstall = /^(npm install|yarn add|bun add|pnpm add)\s+\S/.test(cmd);
+    if (isInstall && process.env.DEPENDENCY_FREEZE === "1") {
+      return deny("Package installs are frozen. Unset DEPENDENCY_FREEZE to allow.");
+    }
+    return allow();
+  },
+});
+
+export { customPolicies };
+```
+
+---
+
+## Exemples
+
+Le répertoire `examples/` contient des fichiers de politiques prêts à l'emploi :
+
+| Fichier | Contenu |
+|------|----------|
+| `examples/policies-basic.js` | Cinq politiques de démarrage couvrant les modes d'échec courants des agents |
+| `examples/policies-advanced/index.js` | Patterns avancés : imports transitifs, appels asynchrones, nettoyage des sorties et hooks de fin de session |
+
+Installer les exemples de base :
+
+```bash
+failproofai policies --install --custom ./examples/policies-basic.js
+```

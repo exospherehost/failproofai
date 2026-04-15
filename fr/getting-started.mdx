@@ -1,0 +1,134 @@
+---
+title: Démarrage rapide
+description: "Installez failproofai, activez les politiques et laissez vos agents s'exécuter de manière fiable"
+icon: rocket
+---
+
+## Prérequis
+
+- **Node.js** >= 20.9.0
+- **Bun** >= 1.3.0 (optionnel - uniquement nécessaire pour compiler depuis les sources)
+
+---
+
+## Installation
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+---
+
+## Démarrage rapide
+
+<Steps>
+  <Step title="Activer les politiques">
+    Les politiques sont des règles qui s'exécutent avant et après chaque appel d'outil par un agent. Elles interceptent les commandes destructrices, les fuites de secrets et d'autres modes de défaillance avant qu'ils ne causent des dommages.
+
+    ```bash
+    failproofai policies --install
+    ```
+
+    Cela écrit des entrées de hook dans le fichier `settings.json` de Claude Code. Vous pouvez également installer pour un seul projet ou choisir des politiques spécifiques :
+
+    ```bash
+    failproofai policies --install --scope project
+    failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
+    ```
+  </Step>
+  <Step title="Vérifier">
+    ```bash
+    failproofai policies
+    ```
+
+    Affiche toutes les politiques, leur état d'activation et les paramètres configurés.
+  </Step>
+  <Step title="Lancer le tableau de bord">
+    ```bash
+    failproofai
+    ```
+
+    Ouvre un tableau de bord local à l'adresse `http://localhost:8020` où vous pouvez parcourir les sessions, inspecter les appels d'outils et gérer les politiques.
+  </Step>
+  <Step title="Exécuter votre agent">
+    Démarrez Claude Code comme d'habitude. Si l'agent tente quelque chose de risqué, failproofai l'intercepte automatiquement. Laissez-le tourner sans surveillance et consultez ce qui s'est passé dans le tableau de bord.
+  </Step>
+</Steps>
+
+---
+
+## Fonctionnement des politiques
+
+Chaque fois qu'un agent exécute un outil, Claude Code appelle failproofai en tant que sous-processus :
+
+```text
+Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
+                                                 evaluates policies
+                                                 writes decision to stdout
+```
+
+Chaque politique retourne l'une des trois décisions suivantes :
+
+- **allow** - l'agent continue normalement
+- **deny** - l'action est bloquée et l'agent est informé de la raison
+- **instruct** - du contexte supplémentaire est ajouté à l'invite de l'agent
+
+<Note>
+Les politiques s'exécutent dans votre processus local. Rien n'est envoyé à un service distant.
+</Note>
+
+---
+
+## Stockage des données
+
+Toute la configuration et les journaux restent sur votre machine :
+
+| Chemin | Contenu |
+|--------|---------|
+| `~/.failproofai/policies-config.json` | Configuration globale des politiques |
+| `~/.failproofai/hook-activity.jsonl` | Historique d'exécution des hooks |
+| `~/.failproofai/hook.log` | Journal de débogage pour les erreurs de hooks personnalisés |
+| `.failproofai/policies-config.json` | Configuration par projet (commitée) |
+| `.failproofai/policies-config.local.json` | Substitutions personnelles (ignorées par git) |
+
+---
+
+## Désinstallation
+
+```bash
+failproofai policies --uninstall
+```
+
+Supprime les entrées de hook du fichier `~/.claude/settings.json`. Les fichiers de configuration dans `~/.failproofai/` sont conservés.
+
+---
+
+## Étapes suivantes
+
+<CardGroup cols={2}>
+
+<Card title="Configuration" icon="gear" href="/fr/configuration">
+  Portées et format des fichiers de configuration
+</Card>
+
+<Card title="Politiques intégrées" icon="shield" href="/fr/built-in-policies">
+  Les 26 politiques avec leurs paramètres
+</Card>
+
+<Card title="Politiques personnalisées" icon="code" href="/fr/custom-policies">
+  Écrivez vos propres politiques en JavaScript
+</Card>
+
+<Card title="Moniteur d'agent" icon="chart-line" href="/fr/dashboard">
+  Surveillez les sessions et examinez l'activité des politiques
+</Card>
+
+</CardGroup>

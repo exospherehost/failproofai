@@ -1,0 +1,142 @@
+---
+title: Dashboard
+description: "Monitorea sesiones de agentes, revisa llamadas a herramientas y gestiona políticas"
+icon: chart-line
+---
+
+El dashboard de failproofai es una aplicación web local para monitorear tus sesiones de agentes de IA y gestionar políticas. Descubre qué hicieron tus agentes mientras estabas ausente.
+
+---
+
+## Iniciar el dashboard
+
+```bash
+failproofai
+```
+
+Se abre en `http://localhost:8020`.
+
+El dashboard lee directamente desde el sistema de archivos: tus carpetas de proyectos de Claude Code y los archivos de configuración de failproofai. Nada se escribe en un servicio remoto.
+
+---
+
+## Páginas
+
+### Proyectos
+
+Lista todos los proyectos de Claude Code encontrados en tu máquina. Los proyectos se descubren desde `~/.claude/projects/` (o la ruta definida por `CLAUDE_PROJECTS_PATH`).
+
+Cada proyecto muestra:
+- Nombre del proyecto (derivado de la ruta de la carpeta)
+- Número de sesiones
+- Fecha de la actividad de sesión más reciente
+
+Haz clic en un proyecto para ver sus sesiones.
+
+### Sesiones
+
+Lista todas las sesiones dentro de un proyecto. Cada sesión muestra:
+- ID de sesión
+- Marcas de tiempo de inicio y fin
+- Número de llamadas a herramientas
+- Recuento de actividad de hooks (políticas que se activaron)
+
+Usa el filtro de rango de fechas y la búsqueda por ID de sesión para reducir la lista. Las sesiones están paginadas.
+
+Haz clic en una sesión para abrir el visor de sesiones.
+
+### Visor de sesiones
+
+El visor de sesiones responde la pregunta clave para los agentes autónomos: ¿qué hizo el agente y se mantuvo en el camino correcto? Muestra una línea de tiempo de todo lo que ocurrió en una sesión:
+
+- **Mensajes** - Las respuestas de texto de Claude y los prompts del usuario
+- **Llamadas a herramientas** - Cada herramienta que Claude invocó, con su entrada y salida
+- **Actividad de políticas** - Para cada llamada a herramienta, qué políticas se activaron y qué decisión devolvieron
+
+La barra de estadísticas en la parte superior muestra la duración de la sesión, el total de llamadas a herramientas y un resumen de las decisiones de los hooks (conteos de allow / deny / instruct).
+
+Puedes exportar la sesión como archivo ZIP o JSONL usando el botón de descarga.
+
+### Políticas
+
+Una página con dos pestañas para gestionar políticas y revisar la actividad.
+
+<Tabs>
+  <Tab title="Pestaña Políticas">
+  - Activa o desactiva políticas individuales con un solo clic (escribe en `~/.failproofai/policies-config.json`)
+  - Expande una política para configurar sus parámetros (para políticas que admiten `policyParams`)
+  - Instala o elimina hooks para un scope determinado
+  - Define una ruta de archivo de políticas personalizada
+  </Tab>
+  <Tab title="Pestaña Actividad">
+  - Historial completo y paginado de cada evento de hook que se ha activado en todas las sesiones
+  - Busca por nombre de política, ID de sesión, nombre de herramienta o decisión
+  - Cada fila muestra: marca de tiempo, nombre de política, decisión, nombre de herramienta, ID de sesión y el motivo de las decisiones deny/instruct
+  </Tab>
+</Tabs>
+
+---
+
+## Actualización automática
+
+El dashboard cuenta con un selector de actualización automática en la navegación superior. Cuando está habilitado, la página actual se actualiza periódicamente para mostrar nuevas sesiones y actividad de políticas a medida que aparecen. Es esencial para monitorear sesiones de agentes autónomos de larga duración.
+
+---
+
+## Deshabilitar páginas
+
+Si solo necesitas algunas partes del dashboard, establece `FAILPROOFAI_DISABLE_PAGES` con una lista separada por comas de nombres de páginas:
+
+```bash
+FAILPROOFAI_DISABLE_PAGES=policies failproofai
+```
+
+Valores válidos: `policies`, `projects`.
+
+---
+
+## Tema
+
+El dashboard admite modo claro y oscuro. Cámbialo mediante el botón en la barra de navegación. La preferencia se almacena en el almacenamiento local de tu navegador.
+
+---
+
+## Configurar la ruta de proyectos
+
+Por defecto, el dashboard lee desde el directorio estándar de proyectos de Claude Code. Puedes sobreescribirlo para configuraciones personalizadas:
+
+```bash
+CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
+```
+
+---
+
+## Acceder desde un host que no sea localhost
+
+Cuando ejecutas el dashboard en **modo dev** (`npm run dev`) y accedes a él desde un hostname distinto a `localhost` —por ejemplo, un dominio personalizado, una IP remota o una URL tunelizada— es posible que veas una advertencia como:
+
+```text
+⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
+```
+
+Esto ocurre porque Next.js bloquea el acceso de origen cruzado a su WebSocket de HMR (hot module reload), que es una funcionalidad exclusiva del modo dev. Para permitir tu host, usa el flag `--allowed-origins`:
+
+```bash
+npm run dev -- --allowed-origins dashboard.example.com
+```
+
+Para múltiples hosts o IPs, pasa una lista separada por comas:
+
+```bash
+npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
+```
+
+También puedes establecer la variable de entorno `FAILPROOFAI_ALLOWED_DEV_ORIGINS` en su lugar:
+
+```bash
+FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
+```
+
+<Note>
+Esto solo aplica al modo dev. Al ejecutar `failproofai` (modo producción), no hay WebSocket de HMR ni problemas de recursos dev de origen cruzado.
+</Note>

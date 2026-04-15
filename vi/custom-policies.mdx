@@ -1,0 +1,299 @@
+---
+title: Chính Sách Tùy Chỉnh
+description: "Viết các chính sách của riêng bạn bằng JavaScript - áp dụng quy ước, ngăn chặn sai lệch, phát hiện lỗi, tích hợp với hệ thống bên ngoài"
+icon: code
+---
+
+Chính sách tùy chỉnh cho phép bạn viết các quy tắc cho bất kỳ hành vi nào của agent: áp dụng quy ước dự án, ngăn chặn sai lệch, kiểm soát các thao tác nguy hiểm, phát hiện agent bị kẹt, hay tích hợp với Slack, luồng phê duyệt và nhiều hơn nữa. Chúng sử dụng cùng hệ thống sự kiện hook và các quyết định `allow`, `deny`, `instruct` giống như các chính sách tích hợp sẵn.
+
+---
+
+## Ví dụ nhanh
+
+```js
+// my-policies.js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+
+customPolicies.add({
+  name: "no-production-writes",
+  description: "Block writes to paths containing 'production'",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Write" && ctx.toolName !== "Edit") return allow();
+    const path = ctx.toolInput?.file_path ?? "";
+    if (path.includes("production")) {
+      return deny("Writes to production paths are blocked");
+    }
+    return allow();
+  },
+});
+```
+
+Cài đặt:
+
+```bash
+failproofai policies --install --custom ./my-policies.js
+```
+
+---
+
+## Cài đặt và cập nhật
+
+```bash
+# Cài đặt với tệp chính sách tùy chỉnh
+failproofai policies --install --custom ./my-policies.js
+
+# Thay thế đường dẫn tệp chính sách
+failproofai policies --install --custom ./new-policies.js
+
+# Xóa đường dẫn chính sách tùy chỉnh khỏi cấu hình
+failproofai policies --uninstall --custom
+```
+
+Đường dẫn tuyệt đối đã được giải quyết được lưu trong `policies-config.json` dưới dạng `customPoliciesPath`. Tệp được tải mới hoàn toàn mỗi khi có sự kiện hook - không có bộ nhớ đệm giữa các sự kiện.
+
+---
+
+## API
+
+### Import
+
+```js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+```
+
+### `customPolicies.add(hook)`
+
+Đăng ký một chính sách. Gọi hàm này bao nhiêu lần tùy ý cho nhiều chính sách trong cùng một tệp.
+
+```ts
+customPolicies.add({
+  name: string;                         // bắt buộc - định danh duy nhất
+  description?: string;                 // hiển thị trong đầu ra của `failproofai policies`
+  match?: { events?: HookEventType[] }; // lọc theo loại sự kiện; bỏ qua để khớp tất cả
+  fn: (ctx: PolicyContext) => PolicyResult | Promise<PolicyResult>;
+});
+```
+
+### Các hàm hỗ trợ quyết định
+
+| Hàm | Hiệu ứng | Dùng khi |
+|----------|--------|----------|
+| `allow()` | Cho phép thao tác mà không thông báo | Hành động an toàn, không cần thông báo |
+| `deny(message)` | Chặn thao tác | Agent không nên thực hiện hành động này |
+| `instruct(message)` | Thêm ngữ cảnh mà không chặn | Cung cấp thêm ngữ cảnh để agent đi đúng hướng |
+
+`deny(message)` - thông báo hiển thị với Claude có tiền tố `"Blocked by failproofai:"`. Một lệnh `deny` duy nhất sẽ dừng toàn bộ quá trình đánh giá tiếp theo.
+
+`instruct(message)` - thông báo được thêm vào ngữ cảnh của Claude cho lần gọi công cụ hiện tại. `instruct` đầu tiên sẽ được ưu tiên — các lệnh `instruct` tiếp theo từ các chính sách khác sẽ bị bỏ qua.
+
+### Thông báo allow mang tính thông tin (beta)
+
+<Note>
+`allow(message)` là tính năng beta có từ v0.0.2-beta.3. API có thể thay đổi trong các phiên bản tương lai. Các phiên bản trước chỉ hỗ trợ `allow()` không có tham số.
+</Note>
+
+`allow(message)` cho phép thao tác **và** gửi thông báo thông tin tới Claude. Thông báo được truyền dưới dạng `additionalContext` trong phản hồi stdout của hook handler — cùng cơ chế với `instruct`, nhưng khác về ngữ nghĩa: đây là cập nhật trạng thái, không phải cảnh báo.
+
+| Hàm | Hiệu ứng | Dùng khi |
+|----------|--------|----------|
+| `allow(message)` | Cho phép và gửi ngữ cảnh tới Claude | Xác nhận kiểm tra đã thành công, hoặc giải thích tại sao bỏ qua kiểm tra |
+
+Các trường hợp sử dụng:
+- **Xác nhận trạng thái:** `allow("All CI checks passed.")` — báo cho Claude biết mọi thứ đều ổn
+- **Giải thích fail-open:** `allow("GitHub CLI not installed, skipping CI check.")` — báo cho Claude biết lý do bỏ qua kiểm tra để có đầy đủ ngữ cảnh
+- **Nhiều thông báo được tích lũy:** nếu nhiều chính sách đều trả về `allow(message)`, tất cả thông báo sẽ được ghép bằng ký tự xuống dòng và gửi cùng nhau
+
+```js
+customPolicies.add({
+  name: "confirm-branch-status",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    const cwd = ctx.session?.cwd;
+    if (!cwd) return allow("No working directory, skipping branch check.");
+
+    // ... check branch status ...
+    if (allPushed) {
+      return allow("Branch is up to date with remote.");
+    }
+    return deny("Unpushed changes detected.");
+  },
+});
+```
+
+### Các trường `PolicyContext`
+
+| Trường | Kiểu | Mô tả |
+|-------|------|-------------|
+| `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
+| `toolName` | `string \| undefined` | Công cụ đang được gọi (ví dụ: `"Bash"`, `"Write"`, `"Read"`) |
+| `toolInput` | `Record<string, unknown> \| undefined` | Các tham số đầu vào của công cụ |
+| `payload` | `Record<string, unknown>` | Toàn bộ payload sự kiện thô từ Claude Code |
+| `session` | `SessionMetadata \| undefined` | Ngữ cảnh phiên (xem bên dưới) |
+
+### Các trường `SessionMetadata`
+
+| Trường | Kiểu | Mô tả |
+|-------|------|-------------|
+| `sessionId` | `string` | Định danh phiên Claude Code |
+| `cwd` | `string` | Thư mục làm việc của phiên Claude Code |
+| `transcriptPath` | `string` | Đường dẫn đến tệp JSONL ghi lại phiên làm việc |
+
+### Các loại sự kiện
+
+| Sự kiện | Khi nào kích hoạt | Nội dung `toolInput` |
+|-------|--------------|----------------------|
+| `PreToolUse` | Trước khi Claude chạy một công cụ | Đầu vào của công cụ (ví dụ: `{ command: "..." }` cho Bash) |
+| `PostToolUse` | Sau khi công cụ hoàn thành | Đầu vào của công cụ + `tool_result` (đầu ra) |
+| `Notification` | Khi Claude gửi thông báo | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` - hook phải luôn trả về `allow()`, không thể chặn thông báo |
+| `Stop` | Khi phiên Claude kết thúc | Rỗng |
+
+---
+
+## Thứ tự đánh giá
+
+Các chính sách được đánh giá theo thứ tự sau:
+
+1. Chính sách tích hợp sẵn (theo thứ tự định nghĩa)
+2. Chính sách tùy chỉnh (theo thứ tự `.add()`)
+
+<Note>
+`deny` đầu tiên sẽ dừng toàn bộ các chính sách tiếp theo. `instruct` đầu tiên sẽ được ưu tiên — các lệnh `instruct` tiếp theo sẽ bị bỏ qua.
+</Note>
+
+---
+
+## Import bắc cầu
+
+Các tệp chính sách tùy chỉnh có thể import các module cục bộ bằng đường dẫn tương đối:
+
+```js
+// my-policies.js
+import { isBlockedPath } from "./utils.js";
+import { checkApproval } from "./approval-client.js";
+
+customPolicies.add({
+  name: "approval-gate",
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const approved = await checkApproval(ctx.toolInput?.command, ctx.session?.sessionId);
+    return approved ? allow() : deny("Approval required for this command");
+  },
+});
+```
+
+Tất cả các import tương đối có thể tiếp cận từ tệp đầu vào đều được giải quyết. Điều này được thực hiện bằng cách viết lại các import `from "failproofai"` thành đường dẫn dist thực tế và tạo các tệp `.mjs` tạm thời để đảm bảo tương thích ESM.
+
+---
+
+## Lọc theo loại sự kiện
+
+Dùng `match.events` để giới hạn thời điểm một chính sách kích hoạt:
+
+```js
+customPolicies.add({
+  name: "require-summary-on-stop",
+  match: { events: ["Stop"] },
+  fn: async (ctx) => {
+    // Chỉ kích hoạt khi phiên kết thúc
+    // ctx.session.transcriptPath chứa toàn bộ nhật ký phiên
+    return allow();
+  },
+});
+```
+
+Bỏ qua `match` hoàn toàn để kích hoạt trên mọi loại sự kiện.
+
+---
+
+## Xử lý lỗi và các chế độ thất bại
+
+Các chính sách tùy chỉnh là **fail-open**: lỗi không bao giờ chặn các chính sách tích hợp sẵn hoặc làm crash hook handler.
+
+| Sự cố | Hành vi |
+|---------|----------|
+| `customPoliciesPath` chưa được đặt | Không có chính sách tùy chỉnh nào chạy; các chính sách tích hợp tiếp tục bình thường |
+| Không tìm thấy tệp | Cảnh báo được ghi vào `~/.failproofai/hook.log`; các chính sách tích hợp tiếp tục |
+| Lỗi cú pháp/import | Lỗi được ghi vào `~/.failproofai/hook.log`; toàn bộ chính sách tùy chỉnh bị bỏ qua |
+| `fn` ném lỗi lúc chạy | Lỗi được ghi; hook đó được xử lý như `allow`; các hook khác tiếp tục |
+| `fn` chạy lâu hơn 10 giây | Timeout được ghi; được xử lý như `allow` |
+
+<Tip>
+Để gỡ lỗi các chính sách tùy chỉnh, theo dõi tệp nhật ký:
+
+```bash
+tail -f ~/.failproofai/hook.log
+```
+</Tip>
+
+---
+
+## Ví dụ đầy đủ: nhiều chính sách
+
+```js
+// my-policies.js
+import { customPolicies, allow, deny, instruct } from "failproofai";
+
+// Prevent agent from writing to secrets/ directory
+customPolicies.add({
+  name: "block-secrets-dir",
+  description: "Prevent agent from writing to secrets/ directory",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
+    const path = ctx.toolInput?.file_path ?? "";
+    if (path.includes("secrets/")) return deny("Writing to secrets/ is not permitted");
+    return allow();
+  },
+});
+
+// Keep the agent on track: verify tests before committing
+customPolicies.add({
+  name: "remind-test-before-commit",
+  description: "Keep the agent on track: verify tests pass before committing",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = ctx.toolInput?.command ?? "";
+    if (/git\s+commit/.test(cmd)) {
+      return instruct("Verify all tests pass before committing. Run `bun test` if you haven't already.");
+    }
+    return allow();
+  },
+});
+
+// Prevent unplanned dependency changes during freeze
+customPolicies.add({
+  name: "dependency-freeze",
+  description: "Prevent unplanned dependency changes during freeze period",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = ctx.toolInput?.command ?? "";
+    const isInstall = /^(npm install|yarn add|bun add|pnpm add)\s+\S/.test(cmd);
+    if (isInstall && process.env.DEPENDENCY_FREEZE === "1") {
+      return deny("Package installs are frozen. Unset DEPENDENCY_FREEZE to allow.");
+    }
+    return allow();
+  },
+});
+
+export { customPolicies };
+```
+
+---
+
+## Ví dụ
+
+Thư mục `examples/` chứa các tệp chính sách sẵn sàng để chạy:
+
+| Tệp | Nội dung |
+|------|----------|
+| `examples/policies-basic.js` | Năm chính sách khởi đầu bao gồm các chế độ thất bại phổ biến của agent |
+| `examples/policies-advanced/index.js` | Các mẫu nâng cao: import bắc cầu, gọi bất đồng bộ, làm sạch đầu ra và hook khi kết thúc phiên |
+
+Cài đặt các ví dụ cơ bản:
+
+```bash
+failproofai policies --install --custom ./examples/policies-basic.js
+```

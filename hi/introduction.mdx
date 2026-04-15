@@ -1,0 +1,57 @@
+---
+title: Failproof AI
+description: "अपने AI एजेंट्स को विश्वसनीय और स्वायत्त रूप से चलाने वाले hooks और policies को मैनेज करें"
+---
+
+[![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
+
+Hooks और policies जो आपके AI एजेंट्स को विश्वसनीय और स्वायत्त रूप से चलाते रहते हैं - **Claude Code** और **Agents SDK** के लिए।
+
+AI एजेंट्स अनुमानित तरीकों से विफल होते हैं। वे विनाशकारी कमांड चलाते हैं, secrets लीक करते हैं, काम से भटक जाते हैं, loops में फँस जाते हैं, या सीधे main में push कर देते हैं। बिना निगरानी के, छोटी विफलताएँ बड़ी समस्या बन जाती हैं।
+
+Failproof AI इसे **policies** से हल करता है - ऐसे नियम जो हर एजेंट tool call में hook होते हैं और **विफलताओं का पता लगा** सकते हैं, **उन्हें रोक** सकते हैं (block, instruct, sanitize), और जब कुछ ध्यान देने की ज़रूरत हो तो **आपको सूचित** कर सकते हैं। एक लोकल डैशबोर्ड आपको बाद में सब कुछ समीक्षा करने देता है।
+
+सब कुछ लोकल रूप से चलता है। कोई भी डेटा आपकी मशीन से बाहर नहीं जाता।
+
+## शुरू करें
+
+<CardGroup cols={2}>
+
+<Card title="26 बिल्ट-इन policies" icon="shield" href="/hi/built-in-policies">
+  विनाशकारी कमांड्स को ब्लॉक करें, secrets को लीक होने से बचाएँ, एजेंट्स को प्रोजेक्ट की सीमाओं के अंदर रखें, और भी बहुत कुछ - बिना किसी अतिरिक्त सेटअप के।
+</Card>
+
+<Card title="Custom policies" icon="code" href="/hi/custom-policies">
+  एक सरल allow / deny / instruct API के साथ JavaScript में अपने खुद के नियम लिखें।
+</Card>
+
+<Card title="Agent monitor" icon="chart-line" href="/hi/dashboard">
+  देखें कि आपकी अनुपस्थिति में आपके एजेंट्स ने क्या किया। Sessions ब्राउज़ करें, tool calls इंस्पेक्ट करें, देखें कहाँ policies फायर हुईं।
+</Card>
+
+<Card title="आसान कॉन्फ़िगरेशन" icon="gear" href="/hi/configuration">
+  बिना कोड के किसी भी policy को ट्यून करें। प्रति-प्रोजेक्ट या ग्लोबल रूप से allowlists, protected branches, या thresholds सेट करें।
+</Card>
+
+</CardGroup>
+
+## त्वरित शुरुआत
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+```bash
+failproofai policies --install   # policies सक्षम करें
+failproofai                      # डैशबोर्ड लॉन्च करें
+```
+
+पूरी जानकारी के लिए [Getting started](/hi/getting-started) गाइड देखें।

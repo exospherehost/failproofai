@@ -1,0 +1,134 @@
+---
+title: 快速入门
+description: "安装 failproofai，启用策略，让你的 Agent 稳定运行"
+icon: rocket
+---
+
+## 环境要求
+
+- **Node.js** >= 20.9.0
+- **Bun** >= 1.3.0（可选 - 仅在从源码构建时需要）
+
+---
+
+## 安装
+
+<CodeGroup>
+
+```bash npm
+npm install -g failproofai
+```
+
+```bash bun
+bun add -g failproofai
+```
+
+</CodeGroup>
+
+---
+
+## 快速开始
+
+<Steps>
+  <Step title="启用策略">
+    策略是在每次 Agent 工具调用前后运行的规则。它们会在破坏性命令、密钥泄露及其他故障模式造成损害之前将其拦截。
+
+    ```bash
+    failproofai policies --install
+    ```
+
+    此命令会将钩子条目写入 Claude Code 的 `settings.json`。你也可以为单个项目安装，或选择特定策略：
+
+    ```bash
+    failproofai policies --install --scope project
+    failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
+    ```
+  </Step>
+  <Step title="验证安装">
+    ```bash
+    failproofai policies
+    ```
+
+    显示所有策略、是否已启用，以及已配置的参数。
+  </Step>
+  <Step title="启动控制台">
+    ```bash
+    failproofai
+    ```
+
+    在 `http://localhost:8020` 打开本地控制台，你可以在其中浏览会话、检查工具调用并管理策略。
+  </Step>
+  <Step title="运行你的 Agent">
+    像往常一样启动 Claude Code。如果 Agent 尝试执行有风险的操作，failproofai 会自动拦截。让它在无人值守的情况下运行，之后在控制台中查看发生了什么。
+  </Step>
+</Steps>
+
+---
+
+## 策略工作原理
+
+每次 Agent 运行工具时，Claude Code 会以子进程的方式调用 failproofai：
+
+```text
+Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
+                                                 evaluates policies
+                                                 writes decision to stdout
+```
+
+每条策略会返回以下三种决策之一：
+
+- **allow** - Agent 正常继续执行
+- **deny** - 操作被阻止，并告知 Agent 原因
+- **instruct** - 向 Agent 的提示词中添加额外上下文
+
+<Note>
+策略在你的本地进程中运行，不会向远程服务发送任何数据。
+</Note>
+
+---
+
+## 数据存储
+
+所有配置和日志均保存在你的本机上：
+
+| 路径 | 存储内容 |
+|------|----------------|
+| `~/.failproofai/policies-config.json` | 全局策略配置 |
+| `~/.failproofai/hook-activity.jsonl` | 钩子执行历史 |
+| `~/.failproofai/hook.log` | 自定义钩子错误的调试日志 |
+| `.failproofai/policies-config.json` | 项目级配置（可提交至版本控制） |
+| `.failproofai/policies-config.local.json` | 个人覆盖配置（已加入 .gitignore） |
+
+---
+
+## 卸载
+
+```bash
+failproofai policies --uninstall
+```
+
+从 `~/.claude/settings.json` 中移除钩子条目。`~/.failproofai/` 中的配置文件将被保留。
+
+---
+
+## 后续步骤
+
+<CardGroup cols={2}>
+
+<Card title="配置" icon="gear" href="/zh/configuration">
+  作用域与配置文件格式
+</Card>
+
+<Card title="内置策略" icon="shield" href="/zh/built-in-policies">
+  全部 26 条策略及其参数说明
+</Card>
+
+<Card title="自定义策略" icon="code" href="/zh/custom-policies">
+  使用 JavaScript 编写你自己的策略
+</Card>
+
+<Card title="Agent 监控" icon="chart-line" href="/zh/dashboard">
+  监控会话并查看策略活动
+</Card>
+
+</CardGroup>

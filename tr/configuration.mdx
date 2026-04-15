@@ -1,0 +1,176 @@
+---
+title: Yapılandırma
+description: "Yapılandırma dosyası formatı, üç kapsamlı sistem ve birleştirme kuralları"
+icon: gear
+---
+
+failproofai, hangi politikaların aktif olduğunu, nasıl davranacaklarını ve özel politikaların nereden yükleneceğini denetlemek için JSON yapılandırma dosyaları kullanır. Yapılandırma, ekibinizle kolayca paylaşılacak şekilde tasarlanmıştır; reponuza ekleyin ve her geliştirici aynı ajan güvenlik ağına kavuşsun.
+
+---
+
+## Yapılandırma kapsamları
+
+Öncelik sırasıyla değerlendirilen üç yapılandırma kapsamı vardır:
+
+| Kapsam | Dosya yolu | Amaç |
+|-------|-----------|---------|
+| **project** | `.failproofai/policies-config.json` | Repo başına ayarlar, sürüm kontrolüne eklenir |
+| **local** | `.failproofai/policies-config.local.json` | Kişisel repo başına geçersiz kılmalar, gitignore'da |
+| **global** | `~/.failproofai/policies-config.json` | Tüm projelerde kullanıcı düzeyi varsayılanlar |
+
+failproofai bir hook olayı aldığında, geçerli çalışma dizini için mevcut olan üç dosyayı da yükler ve birleştirir.
+
+### Birleştirme kuralları
+
+**`enabledPolicies`** - üç kapsamın birleşimidir. Herhangi bir düzeyde etkinleştirilen bir politika aktiftir.
+
+```text
+project:  ["block-sudo"]
+local:    ["block-rm-rf"]
+global:   ["block-sudo", "sanitize-api-keys"]
+
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← tekilleştirilmiş birleşim
+```
+
+**`policyParams`** - belirli bir politika için parametre tanımlayan ilk kapsam tamamen kazanır. Bir politikanın parametreleri içinde derin birleştirme yapılmaz.
+
+```text
+project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← project kazanır, global görmezden gelinir
+```
+
+```text
+project:  (block-sudo girişi yok)
+local:    (block-sudo girişi yok)
+global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
+
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← global'e düşer
+```
+
+**`customPoliciesPath`** - onu tanımlayan ilk kapsam kazanır.
+
+**`llm`** - onu tanımlayan ilk kapsam kazanır.
+
+---
+
+## Yapılandırma dosyası formatı
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "sanitize-jwt",
+    "block-env-files",
+    "block-read-outside-cwd"
+  ],
+  "policyParams": {
+    "block-sudo": {
+      "allowPatterns": ["sudo systemctl status", "sudo journalctl"]
+    },
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "prod"]
+    },
+    "block-rm-rf": {
+      "allowPaths": ["/tmp"]
+    },
+    "block-read-outside-cwd": {
+      "allowPaths": ["/shared/data", "/opt/company"]
+    },
+    "sanitize-api-keys": {
+      "additionalPatterns": [
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
+      ]
+    },
+    "warn-large-file-write": {
+      "thresholdKb": 512
+    }
+  },
+  "customPoliciesPath": "/home/alice/myproject/my-policies.js"
+}
+```
+
+---
+
+## Alan referansı
+
+### `enabledPolicies`
+
+Tür: `string[]`
+
+Etkinleştirilecek politika adlarının listesi. Adlar, `failproofai policies` tarafından gösterilen politika tanımlayıcılarıyla tam olarak eşleşmelidir. Tam liste için [Yerleşik Politikalar](/tr/built-in-policies) sayfasına bakın.
+
+`enabledPolicies` listesinde olmayan politikalar, `policyParams` içinde girişleri olsa bile etkin değildir.
+
+### `policyParams`
+
+Tür: `Record<string, Record<string, unknown>>`
+
+Politika başına parametre geçersiz kılmaları. Dış anahtar politika adıdır; iç anahtarlar politikaya özeldir. Her politika, kullanılabilir parametrelerini [Yerleşik Politikalar](/tr/built-in-policies) sayfasında belgeler.
+
+Bir politikanın parametreleri varsa ancak siz belirtmezseniz, politikanın yerleşik varsayılanları kullanılır. `policyParams` hiç yapılandırmayan kullanıcılar, önceki sürümlerle özdeş davranış alır.
+
+Bir politikanın parametre bloğundaki bilinmeyen anahtarlar, hook tetiklendiğinde sessizce yok sayılır; ancak `failproofai policies` çalıştırdığınızda uyarı olarak işaretlenir.
+
+### `customPoliciesPath`
+
+Tür: `string` (mutlak yol)
+
+Özel hook politikalarını içeren bir JavaScript dosyasına giden yol. Bu, `failproofai policies --install --custom <path>` komutu tarafından otomatik olarak ayarlanır (yol, depolanmadan önce mutlak yola çözümlenir).
+
+Dosya her hook olayında taze olarak yüklenir; önbelleğe alma yapılmaz. Yazım ayrıntıları için [Özel Politikalar](/tr/custom-policies) sayfasına bakın.
+
+### `llm`
+
+Tür: `object` (isteğe bağlı)
+
+Yapay zeka çağrısı yapan politikalar için LLM istemci yapılandırması. Çoğu kurulum için gerekli değildir.
+
+```json
+{
+  "llm": {
+    "model": "claude-sonnet-4-6",
+    "apiKey": "sk-ant-..."
+  }
+}
+```
+
+---
+
+## CLI'dan yapılandırma yönetimi
+
+`policies --install` ve `policies --uninstall` komutları Claude Code'un `settings.json` dosyasına yazar (hook giriş noktaları), `policies-config.json` ise doğrudan yönettiğiniz dosyadır. İkisi birbirinden ayrıdır:
+
+- **`settings.json`** - Claude Code'a her araç kullanımında `failproofai --hook <event>` çağırmasını söyler
+- **`policies-config.json`** - failproofai'ye hangi politikaları ve hangi parametrelerle değerlendireceğini söyler
+
+`policies-config.json` dosyasını istediğiniz zaman doğrudan düzenleyebilirsiniz; değişiklikler yeniden başlatmaya gerek kalmadan bir sonraki hook olayında hemen geçerli olur.
+
+---
+
+## Örnek: ekip varsayılanlarıyla proje düzeyi yapılandırma
+
+`.failproofai/policies-config.json` dosyasını reponuza ekleyin:
+
+```json
+{
+  "enabledPolicies": [
+    "block-sudo",
+    "block-rm-rf",
+    "block-push-master",
+    "sanitize-api-keys",
+    "block-env-files"
+  ],
+  "policyParams": {
+    "block-push-master": {
+      "protectedBranches": ["main", "release", "hotfix"]
+    }
+  }
+}
+```
+
+Her geliştirici daha sonra takım arkadaşlarını etkilemeden kişisel geçersiz kılmalar için `.failproofai/policies-config.local.json` (gitignore'da) oluşturabilir.

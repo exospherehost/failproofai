@@ -1,0 +1,30 @@
+---
+title: معالج الخطاف (داخلي)
+description: "العملية الفرعية التي يستدعيها Claude Code عند كل حدث أداة"
+---
+
+```bash
+failproofai --hook <EventType>
+```
+
+هذا هو الأمر المسجّل في ملف `settings.json` الخاص بـ Claude Code بواسطة `failproofai policies --install`. لا تحتاج عادةً إلى استدعائه مباشرةً.
+
+يقرأ حمولة JSON من stdin، ويُقيّم جميع السياسات المفعّلة، ثم يخرج برمز يُشير إلى القرار المتخذ:
+
+| رمز الخروج | القرار | التأثير |
+|-----------|--------|---------|
+| `0` | `allow` | السماح بالإجراء |
+| `1` | `deny` | حظر الإجراء - يرى Claude سبب الرفض |
+| `2` | `instruct` | حقن توجيهات في سياق Claude |
+
+### أنواع الأحداث المدعومة
+
+| الفئة | الأحداث |
+|-------|---------|
+| **تنفيذ الأدوات** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
+| **دورة حياة الجلسة** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
+| **تفاعل المستخدم** | `UserPromptSubmit`, `Notification`, `Elicitation`, `ElicitationResult` |
+| **الوكلاء الفرعيون والمهام** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
+| **الإعدادات** | `InstructionsLoaded`, `ConfigChange`, `CwdChanged` |
+| **نظام الملفات** | `FileChanged`, `WorktreeCreate`, `WorktreeRemove` |
+| **السياق** | `PreCompact`, `PostCompact` |
