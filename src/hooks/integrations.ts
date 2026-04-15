@@ -417,6 +417,7 @@ const gemini: Integration = {
       type: "command",
       command: `"${process.execPath}" "${binaryPath}" --hook ${eventType} --integration gemini --stdin`,
       timeout: 10000,
+      [FAILPROOFAI_HOOK_MARKER]: true,
     };
   },
 
@@ -802,6 +803,7 @@ const codex: Integration = {
       type: "command",
       command: `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --integration codex`,
       timeout: 60,
+      [FAILPROOFAI_HOOK_MARKER]: true,
     };
   },
 
@@ -813,13 +815,24 @@ const codex: Integration = {
     const hooks = settings.hooks as Record<string, any[]>;
 
     for (const eventType of CODEX_HOOK_EVENT_TYPES) {
-      const entry = this.buildHookEntry(binaryPath, eventType);
-      if (!hooks[eventType]) hooks[eventType] = [];
-      const idx = hooks[eventType].findIndex((h) => this.isFailproofaiHook(h));
-      if (idx >= 0) {
-        hooks[eventType][idx] = entry;
-      } else {
-        hooks[eventType].push(entry);
+      const hookEntry = this.buildHookEntry(binaryPath, eventType);
+      // Codex uses PascalCase event keys in hooks.json
+      const pascalKey = CODEX_EVENT_MAP[eventType as CodexHookEventType] ?? eventType;
+      if (!hooks[pascalKey]) hooks[pascalKey] = [];
+      const matchers: ClaudeHookMatcher[] = hooks[pascalKey];
+
+      let found = false;
+      for (const matcher of matchers) {
+        if (!matcher.hooks) continue;
+        const idx = matcher.hooks.findIndex((h) => this.isFailproofaiHook(h as Record<string, unknown>));
+        if (idx >= 0) {
+          matcher.hooks[idx] = hookEntry as any;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        matchers.push({ hooks: [hookEntry as any] });
       }
     }
   },
@@ -830,13 +843,18 @@ const codex: Integration = {
     const hooks = settings.hooks as Record<string, any[]>;
 
     let removed = 0;
-    for (const eventType of Object.keys(hooks)) {
-      const entries = hooks[eventType];
-      if (!Array.isArray(entries)) continue;
-      const before = entries.length;
-      hooks[eventType] = entries.filter((h) => !this.isFailproofaiHook(h));
-      removed += before - hooks[eventType].length;
-      if (hooks[eventType].length === 0) delete hooks[eventType];
+    for (const key of Object.keys(hooks)) {
+      const matchers = hooks[key];
+      if (!Array.isArray(matchers)) continue;
+      for (let i = matchers.length - 1; i >= 0; i--) {
+        const matcher: ClaudeHookMatcher = matchers[i];
+        if (!matcher.hooks) continue;
+        const before = matcher.hooks.length;
+        matcher.hooks = matcher.hooks.filter((h) => !this.isFailproofaiHook(h as Record<string, unknown>));
+        removed += before - matcher.hooks.length;
+        if (matcher.hooks.length === 0) matchers.splice(i, 1);
+      }
+      if (matchers.length === 0) delete hooks[key];
     }
     if (Object.keys(hooks).length === 0) delete settings.hooks;
     this.writeSettings(settingsPath, settings);
@@ -849,8 +867,11 @@ const codex: Integration = {
     try {
       const settings = this.readSettings(settingsPath);
       if (!settings.hooks) return false;
-      for (const entries of Object.values(settings.hooks as Record<string, any[]>)) {
-        if (entries.some((h) => this.isFailproofaiHook(h))) return true;
+      for (const matchers of Object.values(settings.hooks as Record<string, any[]>)) {
+        if (!Array.isArray(matchers)) continue;
+        for (const matcher of matchers) {
+          if (matcher.hooks && matcher.hooks.some((h: Record<string, unknown>) => this.isFailproofaiHook(h))) return true;
+        }
       }
     } catch {
       return false;
