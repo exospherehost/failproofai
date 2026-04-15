@@ -90,6 +90,8 @@ jobs:
           name: cache-${{ matrix.lang }}
           path: scripts/translate-docs/.translation-cache.json
           retention-days: 1
+          if-no-files-found: warn
+          include-hidden-files: true
 
   consolidate:
     needs: [prepare, translate]
@@ -103,12 +105,14 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Download all translations
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: translations-*
           merge-multiple: true
 
       - name: Download cache fragments
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           pattern: cache-*
@@ -120,6 +124,7 @@ jobs:
           const fs = require('fs');
           const path = require('path');
           const dir = 'cache-fragments';
+          if (!fs.existsSync(dir)) { console.log('No cache fragments found, skipping merge'); process.exit(0); }
           const merged = { sourceHash: '', lastUpdated: '', translations: {} };
           let baseLoaded = false;
           for (const sub of fs.readdirSync(dir).sort()) {
