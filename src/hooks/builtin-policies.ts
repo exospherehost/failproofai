@@ -1385,7 +1385,6 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     match: { events: ["Stop"] },
     defaultEnabled: false,
     category: "Workflow",
-    beta: true,
   },
   {
     name: "require-push-before-stop",
@@ -1394,7 +1393,6 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     match: { events: ["Stop"] },
     defaultEnabled: false,
     category: "Workflow",
-    beta: true,
     params: {
       remote: {
         type: "string",
@@ -1415,7 +1413,6 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     match: { events: ["Stop"] },
     defaultEnabled: false,
     category: "Workflow",
-    beta: true,
     params: {
       baseBranch: {
         type: "string",
@@ -1431,7 +1428,6 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     match: { events: ["Stop"] },
     defaultEnabled: false,
     category: "Workflow",
-    beta: true,
   },
 ];
 

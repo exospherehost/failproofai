@@ -4,7 +4,7 @@ description: "All 30 built-in policies that catch common agent failure modes"
 icon: shield
 ---
 
-failproofai ships with 30 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Nine policies accept parameters that let you tune their behavior without writing code. Four beta workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
+failproofai ships with 30 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Nine policies accept parameters that let you tune their behavior without writing code. Four workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
 
 ---
 
@@ -21,7 +21,7 @@ Policies are grouped into categories:
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [Database](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [Warnings](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
-| [Workflow (beta)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+| [Workflow](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
 
 - **`block-`** — stop the agent from proceeding.
 - **`warn-`** — give the agent additional context so it can self-correct.
@@ -449,7 +449,7 @@ No parameters.
 
 ---
 
-## Workflow (beta)
+## Workflow
 
 Enforce a disciplined end-of-session workflow. These policies fire on the **Stop** event and deny Claude from stopping until each condition is met. They follow a natural dependency chain: commit → push → PR → CI. If a policy denies, later policies in the chain are skipped (deny short-circuits).
 
@@ -518,33 +518,6 @@ Actions workflow runs and the Checks API. If `gh` is not installed or not authen
 </Note>
 
 ---
-
-## Beta policies
-
-Some policies are marked `beta` and are not installed by default. Beta policies may have rough edges or generate false positives. They graduate to stable in future releases.
-
-**Current beta policies:**
-
-- `require-commit-before-stop` — commit all changes before stopping
-- `require-push-before-stop` — push all commits to remote
-- `require-pr-before-stop` — ensure a PR exists for the branch
-- `require-ci-green-before-stop` — all CI checks must pass
-
-Together, these enforce a **commit → push → PR → CI** workflow.
-
-To install all beta policies:
-
-```bash
-failproofai policies --install --beta
-```
-
-Or install specific workflow policies:
-
-```bash
-failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
-```
-
-Run `failproofai policies` to see which policies carry the beta flag.
 
 ---
 

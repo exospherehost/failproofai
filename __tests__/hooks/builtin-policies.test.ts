@@ -1708,9 +1708,9 @@ describe("hooks/builtin-policies", () => {
       ]);
     });
 
-    it("all workflow policies are marked beta", () => {
+    it("all workflow policies are stable (not beta)", () => {
       for (const p of workflowPolicies) {
-        expect(p.beta).toBe(true);
+        expect(p.beta).toBeUndefined();
       }
     });
 

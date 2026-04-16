@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Features
+- Graduate 4 workflow policies from beta to stable: `require-commit-before-stop`, `require-push-before-stop`, `require-pr-before-stop`, `require-ci-green-before-stop` (#105)
+
 ## 0.0.3 — 2026-04-15
 
 ### Features
