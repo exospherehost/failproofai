@@ -212,6 +212,36 @@ function getThirdPartyCheckRuns(cwd: string, sha: string): CiCheck[] {
   }
 }
 
+/** Fetch commit statuses (legacy Status API) and normalize to CiCheck format. */
+function getCommitStatuses(cwd: string, sha: string): CiCheck[] {
+  try {
+    const json = execFileSync(
+      "gh",
+      [
+        "api",
+        `repos/{owner}/{repo}/commits/${sha}/statuses`,
+        "--jq",
+        'map({name: .context, state: .state}) | unique_by(.name)',
+      ],
+      {
+        cwd,
+        encoding: "utf8",
+        timeout: 15000,
+      },
+    ).trim();
+
+    if (!json || json === "[]") return [];
+    const statuses = JSON.parse(json) as Array<{ name: string; state: string }>;
+    return statuses.map((s) => ({
+      name: s.name,
+      status: s.state === "pending" ? "in_progress" : "completed",
+      conclusion: s.state === "pending" ? "" : s.state === "success" ? "success" : "failure",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Check if a command matches an allow pattern using token-by-token comparison.
  * The "*" token is a wildcard. Extra command tokens beyond the pattern are allowed,
@@ -859,7 +889,7 @@ function requireCommitBeforeStop(ctx: PolicyContext): PolicyResult {
 
     if (status.length > 0) {
       return deny(
-        "You have uncommitted changes in the working directory. Commit all changes before stopping.",
+        "You have uncommitted changes in the working directory. Commit all changes now.",
       );
     }
     return allow("All changes are committed.");
@@ -937,7 +967,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
     if (!hasTracking) {
       return deny(
         `Branch "${branch}" has not been pushed to remote "${remote}". ` +
-        `Push your branch with: git push -u ${remote} ${branch}`,
+        `Run now: git push -u ${remote} ${branch}`,
       );
     }
 
@@ -952,7 +982,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
       const commitCount = unpushed.split("\n").length;
       return deny(
         `You have ${commitCount} unpushed commit${commitCount > 1 ? "s" : ""} on branch "${branch}". ` +
-        `Push your changes with: git push`,
+        `Run now: git push`,
       );
     }
 
@@ -1024,7 +1054,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       // gh pr view exits non-zero when no PR exists
       return deny(
         `No pull request found for branch "${branch}". ` +
-        `Create one with: gh pr create`,
+        `Run now: gh pr create`,
       );
     }
 
@@ -1035,7 +1065,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
     }
 
     return deny(
-      `Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Create a new PR with: gh pr create`,
+      `Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Run now: gh pr create`,
     );
   } catch {
     return allow("Could not check PR status, skipping.");
@@ -1075,13 +1105,15 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
 
     // 2. Third-party check runs (CodeRabbit, SonarCloud, Codecov, etc.)
     let thirdPartyChecks: CiCheck[] = [];
+    let commitStatuses: CiCheck[] = [];
     const sha = getHeadSha(cwd);
     if (sha) {
       thirdPartyChecks = getThirdPartyCheckRuns(cwd, sha);
+      commitStatuses = getCommitStatuses(cwd, sha);
     }
 
     // 3. Merge all checks
-    const allChecks = [...workflowRuns, ...thirdPartyChecks];
+    const allChecks = [...workflowRuns, ...thirdPartyChecks, ...commitStatuses];
 
     if (allChecks.length === 0) return allow(`No CI runs found for branch "${branch}".`);
 
@@ -1091,7 +1123,7 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     if (failing.length > 0) {
       const names = failing.map((r) => `"${r.name}"`).join(", ");
       return deny(
-        `CI checks are failing on branch "${branch}": ${names}. Fix the failing checks before stopping.`,
+        `CI checks are failing on branch "${branch}": ${names}. Fix the failing checks now.`,
       );
     }
 
@@ -1101,7 +1133,7 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     if (pending.length > 0) {
       const names = pending.map((r) => `"${r.name}"`).join(", ");
       return deny(
-        `CI checks are still running on branch "${branch}": ${names}. Wait for all checks to complete and verify they pass.`,
+        `CI checks are still running on branch "${branch}": ${names}. Wait for all checks to complete, then verify they pass.`,
       );
     }
 
