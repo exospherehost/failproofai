@@ -1,13 +1,13 @@
 ---
-title: Installa le politiche
-description: "Abilita le politiche in modo che vengano eseguite ad ogni chiamata di strumento dell'agente"
+title: Installa policies
+description: "Abilita le policies in modo che vengano eseguite ad ogni chiamata di tool dell'agent"
 ---
 
 ```bash
 failproofai policies --install [policy-names...] [options]
 ```
 
-Scrive le voci hook nel `settings.json` di Claude Code in modo che failproofai intercetti le chiamate agli strumenti.
+Scrive voci di hook nel file `settings.json` di Claude Code in modo che failproofai intercetti le chiamate ai tool.
 
 Alias: `failproofai p -i`
 
@@ -18,30 +18,29 @@ Alias: `failproofai p -i`
 | `--scope user` | Installa in `~/.claude/settings.json` (predefinito - tutte le sessioni) |
 | `--scope project` | Installa in `.claude/settings.json` nella directory corrente |
 | `--scope local` | Installa in `.claude/settings.local.json` nella directory corrente |
-| `--custom <path>` / `-c` | Percorso di un file JS contenente politiche hook personalizzate |
-| `--beta` | Includi politiche beta |
+| `--custom <path>` / `-c` | Percorso di un file JS contenente custom hook policies |
 
 ## Comportamento
 
-- **Nessun nome di politica** - apre un prompt interattivo per selezionare le politiche
-- **Nomi specifici** - abilita quelle politiche (aggiunte a quelle già abilitate)
-- **`all`** - abilita tutte le politiche disponibili
+- **Nessun nome di policy** - apre un prompt interattivo per selezionare le policies
+- **Nomi specifici** - abilita quelle policies (aggiunte a quelle già abilitate)
+- **`all`** - abilita tutte le policies disponibili
 
-L'installazione è cumulativa: eseguire `--install` di nuovo aggiunge nuove politiche senza rimuovere quelle esistenti.
+L'installazione è additiva: eseguire `--install` di nuovo aggiunge nuove policies senza rimuovere quelle esistenti.
 
 ## Esempi
 
 ```bash
-# Installa tutte le politiche predefinite globalmente (interattivo)
+# Installa tutte le policies predefinite globalmente (interattivo)
 failproofai policies --install
 
-# Installa politiche specifiche per il progetto corrente
+# Installa policies specifiche per il progetto corrente
 failproofai policies --install block-sudo sanitize-api-keys --scope project
 
-# Abilita tutte le politiche contemporaneamente
+# Abilita tutte le policies contemporaneamente
 failproofai policies --install all
 
-# Installa con un file di politiche personalizzate
+# Installa con un file di custom policies
 failproofai policies --install --custom ./my-policies.js
 ```
 

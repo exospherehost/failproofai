@@ -9,7 +9,7 @@ failproofai policies --install [policy-names...] [options]
 
 Schreibt Hook-Einträge in Claude Codes `settings.json`, damit failproofai Tool-Aufrufe abfängt.
 
-Aliasse: `failproofai p -i`
+Aliase: `failproofai p -i`
 
 ## Optionen
 
@@ -19,15 +19,14 @@ Aliasse: `failproofai p -i`
 | `--scope project` | In `.claude/settings.json` im aktuellen Verzeichnis installieren |
 | `--scope local` | In `.claude/settings.local.json` im aktuellen Verzeichnis installieren |
 | `--custom <path>` / `-c` | Pfad zu einer JS-Datei mit benutzerdefinierten Hook-Richtlinien |
-| `--beta` | Beta-Richtlinien einschließen |
 
 ## Verhalten
 
-- **Keine Richtliniennamen** – öffnet eine interaktive Auswahl zur Auswahl von Richtlinien
+- **Keine Richtliniennamen** – öffnet eine interaktive Eingabeaufforderung zur Auswahl von Richtlinien
 - **Bestimmte Namen** – aktiviert diese Richtlinien (werden zu bereits aktivierten hinzugefügt)
 - **`all`** – aktiviert alle verfügbaren Richtlinien
 
-Die Installation ist additiv: Ein erneuter Aufruf von `--install` fügt neue Richtlinien hinzu, ohne bestehende zu entfernen.
+Die Installation ist additiv: Ein erneutes Ausführen von `--install` fügt neue Richtlinien hinzu, ohne bestehende zu entfernen.
 
 ## Beispiele
 

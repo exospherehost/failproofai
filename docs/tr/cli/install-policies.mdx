@@ -1,13 +1,13 @@
 ---
 title: Politikaları Yükle
-description: "Politikaları etkinleştirin, böylece her agent araç çağrısında çalışırlar"
+description: "Politikaları etkinleştirin, böylece her aracı çağrısında çalışırlar"
 ---
 
 ```bash
 failproofai policies --install [policy-names...] [options]
 ```
 
-Claude Code'un `settings.json` dosyasına hook girdileri yazarak failproofai'nin araç çağrılarını kesmesini sağlar.
+Claude Code'un `settings.json` dosyasına kanca girişleri yazarak failproofai'nin araç çağrılarını kesintiye uğratmasını sağlar.
 
 Takma adlar: `failproofai p -i`
 
@@ -15,34 +15,33 @@ Takma adlar: `failproofai p -i`
 
 | Bayrak | Açıklama |
 |------|-------------|
-| `--scope user` | `~/.claude/settings.json` dosyasına yükle (varsayılan - tüm oturumlar) |
-| `--scope project` | Geçerli dizindeki `.claude/settings.json` dosyasına yükle |
-| `--scope local` | Geçerli dizindeki `.claude/settings.local.json` dosyasına yükle |
-| `--custom <path>` / `-c` | Özel hook politikaları içeren JS dosyasının yolu |
-| `--beta` | Beta politikaları dahil et |
+| `--scope user` | `~/.claude/settings.json` içine yükle (varsayılan - tüm oturumlar) |
+| `--scope project` | Mevcut dizindeki `.claude/settings.json` içine yükle |
+| `--scope local` | Mevcut dizindeki `.claude/settings.local.json` içine yükle |
+| `--custom <path>` / `-c` | Özel kanca politikaları içeren JS dosyasının yolu |
 
 ## Davranış
 
-- **Politika adı belirtilmemişse** - politikaları seçmek için etkileşimli bir istem açar
-- **Belirli adlar** - o politikaları etkinleştirir (zaten etkinleştirilmiş olanlara eklenir)
+- **Politika adı yok** - politika seçmek için etkileşimli bir istem açar
+- **Belirli adlar** - bu politikaları etkinleştirir (zaten etkinleştirilmiş olanlar eklenir)
 - **`all`** - mevcut tüm politikaları etkinleştirir
 
-Yükleme toplaştırıcıdır: `--install` komutunu tekrar çalıştırmak mevcut olanları kaldırmadan yeni politikalar ekler.
+Yükleme toplamsal işlemdir: `--install` komutunu tekrar çalıştırmak mevcut olanları kaldırmadan yeni politikaları ekler.
 
 ## Örnekler
 
 ```bash
-# Tüm varsayılan politikaları global olarak yükle (etkileşimli)
+# Tüm varsayılan politikaları genel olarak yükle (etkileşimli)
 failproofai policies --install
 
-# Geçerli proje için belirli politikaları yükle
+# Mevcut proje için belirli politikaları yükle
 failproofai policies --install block-sudo sanitize-api-keys --scope project
 
-# Tüm politikaları bir kez etkinleştir
+# Tüm politikaları birden etkinleştir
 failproofai policies --install all
 
-# Özel bir politika dosyası ile yükle
+# Özel politikalar dosyası ile yükle
 failproofai policies --install --custom ./my-policies.js
 ```
 
-`--custom <path>` sağlandığında, dosya hemen doğrulanır - en az bir kez `customPolicies.add()` çağrısı yapmalıdır. Çözümlenen yol, `policies-config.json` dosyasına `customPoliciesPath` olarak kaydedilir.
+`--custom <path>` sağlandığında, dosya hemen doğrulanır - en az bir kez `customPolicies.add()` çağrısı yapması gerekir. Çözülen yol, `customPoliciesPath` olarak `policies-config.json` içine kaydedilir.

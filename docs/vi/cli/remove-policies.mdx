@@ -15,30 +15,29 @@ Bí danh: `failproofai p -u`
 
 | Flag | Mô tả |
 |------|-------------|
-| `--scope user` | Xóa từ cài đặt toàn cầu (mặc định) |
-| `--scope project` | Xóa từ cài đặt dự án |
-| `--scope local` | Xóa từ cài đặt cục bộ |
-| `--scope all` | Xóa từ tất cả các phạm vi cùng một lúc |
-| `--custom` / `-c` | Xóa `customPoliciesPath` khỏi cấu hình |
-| `--beta` | Chỉ xóa các beta policies khỏi cấu hình |
+| `--scope user` | Xóa từ global settings (mặc định) |
+| `--scope project` | Xóa từ project settings |
+| `--scope local` | Xóa từ local settings |
+| `--scope all` | Xóa từ tất cả các scopes cùng lúc |
+| `--custom` / `-c` | Xóa `customPoliciesPath` khỏi config |
 
 ## Hành vi
 
-- **Không có tên policy** - xóa tất cả failproofai hook entries khỏi file cài đặt
-- **Các tên cụ thể** - vô hiệu hóa các policies đó nhưng giữ lại các hooks đã cài đặt
+- **Không có tên policy** - xóa tất cả failproofai hook entries khỏi file settings
+- **Tên cụ thể** - tắt các policies đó nhưng giữ lại hooks đã cài đặt
 
 ## Ví dụ
 
 ```bash
-# Xóa tất cả hooks toàn cầu
+# Remove all hooks globally
 failproofai policies --uninstall
 
-# Vô hiệu hóa một policy cụ thể (giữ lại hooks đã cài đặt)
+# Disable a specific policy (keeps hooks installed)
 failproofai policies --uninstall block-sudo
 
-# Xóa hooks từ mọi phạm vi
+# Remove hooks from every scope
 failproofai policies --uninstall --scope all
 
-# Xóa đường dẫn custom policies
+# Clear custom policies path
 failproofai policies --uninstall --custom
 ```

@@ -1,34 +1,33 @@
 ---
 ---
 title: تثبيت السياسات
-description: "تفعيل السياسات بحيث تعمل على كل استدعاء أداة للوكيل"
+description: "تفعيل السياسات لتعمل على كل استدعاء أداة للوكيل"
 ---
 
 ```bash
 failproofai policies --install [policy-names...] [options]
 ```
 
-يكتب إدخالات الخطاف إلى `settings.json` في Claude Code بحيث يعترض failproofai استدعاءات الأدوات.
+يكتب مدخلات الخطاف في `settings.json` الخاص بـ Claude Code بحيث يعترض failproofai استدعاءات الأدوات.
 
-الاختصارات: `failproofai p -i`
+الأسماء المختصرة: `failproofai p -i`
 
 ## الخيارات
 
 | العلم | الوصف |
-|------|-------------|
+|------|--------|
 | `--scope user` | التثبيت في `~/.claude/settings.json` (الافتراضي - جميع الجلسات) |
 | `--scope project` | التثبيت في `.claude/settings.json` في المجلد الحالي |
 | `--scope local` | التثبيت في `.claude/settings.local.json` في المجلد الحالي |
 | `--custom <path>` / `-c` | المسار إلى ملف JS يحتوي على سياسات الخطاف المخصصة |
-| `--beta` | تضمين السياسات التجريبية |
 
 ## السلوك
 
-- **بدون أسماء سياسات** - يفتح موجه تفاعلي لتحديد السياسات
-- **أسماء محددة** - يفعّل تلك السياسات (تُضاف إلى أي سياسات مفعّلة بالفعل)
-- **`all`** - يفعّل كل سياسة متاحة
+- **بدون أسماء سياسات** - يفتح موجه تفاعلي لاختيار السياسات
+- **أسماء محددة** - يفعّل تلك السياسات (مضافة إلى أي سياسات مفعّلة بالفعل)
+- **`all`** - يفعّل كل السياسات المتاحة
 
-التثبيت إضافي: تشغيل `--install` مجددًا يضيف سياسات جديدة دون إزالة السياسات الموجودة.
+التثبيت إضافي: تشغيل `--install` مرة أخرى يضيف سياسات جديدة دون إزالة السياسات الموجودة.
 
 ## أمثلة
 
@@ -39,11 +38,11 @@ failproofai policies --install
 # تثبيت سياسات محددة للمشروع الحالي
 failproofai policies --install block-sudo sanitize-api-keys --scope project
 
-# تفعيل جميع السياسات في المرة الواحدة
+# تفعيل جميع السياسات دفعة واحدة
 failproofai policies --install all
 
 # التثبيت مع ملف سياسات مخصص
 failproofai policies --install --custom ./my-policies.js
 ```
 
-عند توفير `--custom <path>`، يتم التحقق من الملف فورًا - يجب أن يستدعي `customPolicies.add()` مرة واحدة على الأقل. يتم حفظ المسار المحل إلى `policies-config.json` باسم `customPoliciesPath`.
+عند توفير `--custom <path>`، يتم التحقق من الملف فورًا - يجب أن يستدعي `customPolicies.add()` مرة واحدة على الأقل. يتم حفظ المسار المحلول في `policies-config.json` باسم `customPoliciesPath`.

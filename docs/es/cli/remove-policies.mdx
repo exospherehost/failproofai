@@ -19,18 +19,17 @@ Alias: `failproofai p -u`
 | `--scope project` | Eliminar de la configuración del proyecto |
 | `--scope local` | Eliminar de la configuración local |
 | `--scope all` | Eliminar de todos los ámbitos a la vez |
-| `--custom` / `-c` | Limpiar el `customPoliciesPath` de la configuración |
-| `--beta` | Eliminar solo las políticas beta de la configuración |
+| `--custom` / `-c` | Limpiar `customPoliciesPath` de la configuración |
 
 ## Comportamiento
 
-- **Sin nombres de política** - elimina todas las entradas de hooks de failproofai del archivo de configuración
-- **Nombres específicos** - deshabilita esas políticas pero mantiene los hooks instalados
+- **Sin nombres de política** — elimina todas las entradas de hooks de failproofai del archivo de configuración
+- **Nombres específicos** — deshabilita esas políticas pero mantiene los hooks instalados
 
 ## Ejemplos
 
 ```bash
-# Eliminar todos los hooks de forma global
+# Eliminar todos los hooks globalmente
 failproofai policies --uninstall
 
 # Deshabilitar una política específica (mantiene los hooks instalados)

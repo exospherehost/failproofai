@@ -1,59 +1,59 @@
 ---
-title: बिल्ट-इन पॉलिसीज़
-description: "30 बिल्ट-इन पॉलिसीज़ जो एजेंट की आम विफलताओं को पकड़ते हैं"
+title: Built-in Policies
+description: "सभी 30 built-in policies जो agent failure modes को catch करते हैं"
 icon: shield
 ---
 
-failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ आता है जो एजेंट की आम विफलताओं को पकड़ते हैं। प्रत्येक पॉलिसी एक विशिष्ट हुक इवेंट प्रकार और टूल नाम पर फायर होती है। नौ पॉलिसीज़ पैरामीटर स्वीकार करती हैं जो आपको बिना कोड लिखे उनके व्यवहार को ट्यून करने देते हैं। चार बीटा वर्कफ़्लो पॉलिसीज़ Claude के रुकने से पहले एक commit → push → PR → CI पाइपलाइन को लागू करती हैं।
+failproofai 30 built-in policies के साथ आता है जो common agent failure modes को catch करते हैं। प्रत्येक policy एक specific hook event type और tool name पर fire होती है। नौ policies parameters स्वीकार करती हैं जो आपको code लिखे बिना उनके behavior को tune करने देती हैं। चार workflow policies एक commit → push → PR → CI pipeline को enforce करती हैं जिसे Claude को stop करने से पहले पूरा करना होता है।
 
 ---
 
-## अवलोकन
+## Overview
 
-पॉलिसीज़ को श्रेणियों में समूहीकृत किया गया है:
+Policies को categories में grouped किया गया है:
 
-| श्रेणी | पॉलिसीज़ | हुक प्रकार |
+| Category | Policies | Hook type |
 |----------|----------|-----------|
-| [खतरनाक कमांड्स](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
-| [सीक्रेट्स (सैनिटाइज़र्स)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
-| [एनवायरनमेंट](#environment) | block-env-files, protect-env-vars | PreToolUse |
-| [फ़ाइल एक्सेस](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
+| [Dangerous commands](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
+| [Secrets (sanitizers)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
+| [Environment](#environment) | block-env-files, protect-env-vars | PreToolUse |
+| [File access](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
-| [डेटाबेस](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
-| [चेतावनियाँ](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
-| [वर्कफ़्लो (बीटा)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+| [Database](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
+| [Warnings](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
+| [Workflow](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
 
-- **`block-`** — एजेंट को आगे बढ़ने से रोकता है।
-- **`warn-`** — एजेंट को अतिरिक्त संदर्भ देता है ताकि वह आत्म-सुधार कर सके।
-- **`sanitize-`** — एजेंट को देखने से पहले टूल आउटपुट से संवेदनशील डेटा को हटाता है।
-- **`require-`** — स्टॉप इवेंट को तब तक ब्लॉक करता है जब तक शर्तें पूरी न हों।
+- **`block-`** — agent को proceed करने से रोकता है।
+- **`warn-`** — agent को additional context देता है ताकि वह self-correct कर सके।
+- **`sanitize-`** — tool output से sensitive data को scrub करता है इससे पहले कि agent को दिया जाए।
+- **`require-`** — Stop event को block करता है जब तक conditions पूरी न हो जाएं।
 
 ---
 
 <Tip>
-प्रत्येक पॉलिसी `policyParams` में एक वैकल्पिक `hint` फ़ील्ड का समर्थन करती है। हिंट को deny या instruct संदेश में जोड़ा जाता है जो Claude देखता है, जिससे पॉलिसी कोड को संशोधित किए बिना कार्रवाई योग्य मार्गदर्शन मिलता है। बिल्ट-इन, कस्टम और कन्वेंशन पॉलिसीज़ के साथ काम करता है। विवरण के लिए [कॉन्फ़िगरेशन → hint](/hi/configuration#hint-cross-cutting) देखें।
+हर policy `policyParams` में एक optional `hint` field को support करती है। Hint को deny या instruct message में append किया जाता है जो Claude देखता है, actionable guidance देते हुए बिना policy code को modify किए। Built-in, custom, और convention policies के साथ काम करता है। विस्तार के लिए [Configuration → hint](/hi/configuration#hint-cross-cutting) देखें।
 </Tip>
 
 ---
 
-## खतरनाक कमांड्स
+## Dangerous commands
 
-एजेंट्स को ऐसी संचालन से रोकें जो पूर्ववत करना मुश्किल है या जो होस्ट सिस्टम को नुकसान पहुंचा सकते हैं।
+Agents को उन operations से रोकें जो undo करने में मुश्किल हैं या host system को damage कर सकते हैं।
 
 ### `block-sudo`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** किसी भी `sudo` कमांड को अस्वीकार करता है।
+**Event:** PreToolUse (Bash)  
+**Default:** किसी भी `sudo` command को deny करता है।
 
-`sudo` कीवर्ड शामिल करने वाले आह्वानों को ब्लॉक करता है। पैटर्न मिलान raw स्ट्रिंग पर नहीं, बल्कि पार्स की गई कमांड टोकन पर किया जाता है, ताकि शेल ऑपरेटर इंजेक्शन के माध्यम से बाईपास को रोका जा सके।
+Invocations को block करता है जिनमें `sudo` keyword शामिल होता है। Pattern matching को shell operator injection के through bypass को रोकने के लिए raw string पर नहीं, parsed command tokens पर किया जाता है।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | सटीक कमांड प्रीफ़िक्स जो अनुमत हैं। प्रत्येक प्रविष्टि को पार्स किए गए argv टोकन के विरुद्ध मिलाया जाता है। |
+| `allowPatterns` | `string[]` | `[]` | Exact command prefixes जो permitted हैं। प्रत्येक entry को parsed argv tokens के against match किया जाता है। |
 
-**उदाहरण:**
+**Example:**
 
 ```json
 {
@@ -65,26 +65,26 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 }
 ```
 
-इस कॉन्फ़िगरेशन के साथ, `sudo systemctl status nginx` की अनुमति है, लेकिन `sudo rm /etc/hosts` अस्वीकार किया जाता है।
+इस config के साथ, `sudo systemctl status nginx` को allow किया जाता है, लेकिन `sudo rm /etc/hosts` को deny किया जाता है।
 
 <Note>
-पैटर्न्स को raw कमांड स्ट्रिंग के विरुद्ध नहीं, बल्कि पार्स किए गए टोकन के विरुद्ध मिलाया जाता है। यह जोड़े गए शेल ऑपरेटर्स (जैसे `sudo systemctl status x; rm -rf /` से बाईपास को रोकता है जो `sudo systemctl status *` से मेल नहीं खाता)।
+Patterns को raw command string पर नहीं, parsed tokens के against match किया जाता है। यह appended shell operators के through bypass को रोकता है (उदाहरण के लिए `sudo systemctl status x; rm -rf /` को `sudo systemctl status *` से match नहीं किया जाता)।
 </Note>
 
 ---
 
 ### `block-rm-rf`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** `rm -rf`, `rm -fr` और समान रिकर्सिव डिलीशन फॉर्म्स को अस्वीकार करता है।
+**Event:** PreToolUse (Bash)  
+**Default:** `rm -rf`, `rm -fr`, और similar recursive deletion forms को deny करता है।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | पाथ जो रिकर्सिवली डिलीट करने के लिए सुरक्षित हैं (जैसे `/tmp`)। |
+| `allowPaths` | `string[]` | `[]` | Paths जो recursively delete करने के लिए safe हैं (जैसे `/tmp`)। |
 
-**उदाहरण:**
+**Example:**
 
 ```json
 {
@@ -100,55 +100,55 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 
 ### `block-curl-pipe-sh`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** `curl <url> | bash`, `curl <url> | sh`, `wget <url> | bash` और समान पैटर्न्स को अस्वीकार करता है।
+**Event:** PreToolUse (Bash)  
+**Default:** `curl <url> | bash`, `curl <url> | sh`, `wget <url> | bash`, और similar patterns को deny करता है।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `block-failproofai-commands`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** कमांड्स को अस्वीकार करता है जो failproofai को अनइंस्टॉल या डिसेबल कर सकते हैं (जैसे `npm uninstall failproofai`, `failproofai policies --uninstall`)।
+**Event:** PreToolUse (Bash)  
+**Default:** उन commands को deny करता है जो failproofai को uninstall या disable करेंगे (जैसे `npm uninstall failproofai`, `failproofai policies --uninstall`)।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
-## सीक्रेट्स (सैनिटाइज़र्स)
+## Secrets (sanitizers)
 
-एजेंट्स को क्रेडेंशियल्स को अपने कंटेक्स्ट या आउटपुट में लीक करने से रोकें। सैनिटाइज़र पॉलिसीज़ **PostToolUse** इवेंट्स पर फायर होती हैं। जब Claude एक Bash कमांड चलाता है, एक फ़ाइल पढ़ता है, या कोई भी टूल कॉल करता है, तो ये पॉलिसीज़ आउटपुट को Claude को वापस किए जाने से पहले निरीक्षण करती हैं। यदि एक सीक्रेट पैटर्न पाया जाता है, तो पॉलिसी एक deny निर्णय लौटाती है जो आउटपुट को वापस पास होने से रोकता है।
+Agents को अपने context या output में credentials leak करने से रोकें। Sanitizer policies **PostToolUse** events पर fire होती हैं। जब Claude एक Bash command run करता है, एक file read करता है, या कोई भी tool call करता है, ये policies output को inspect करती हैं इससे पहले कि वह Claude को return किया जाए। अगर secret pattern detect होता है, तो policy एक deny decision return करती है जो output को pass back होने से रोकता है।
 
 ### `sanitize-jwt`
 
-**इवेंट:** PostToolUse (सभी टूल्स)  
-**डिफ़ॉल्ट:** JWT टोकन्स को छिपाता है (`.` से अलग किए गए तीन base64url सेगमेंट्स)।
+**Event:** PostToolUse (सभी tools)  
+**Default:** JWT tokens को redact करता है (तीन base64url segments को `.` से separated)।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `sanitize-api-keys`
 
-**इवेंट:** PostToolUse (सभी टूल्स)  
-**डिफ़ॉल्ट:** सामान्य API कुंजी फॉर्मेट्स को छिपाता है: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), AWS एक्सेस कुंजियाँ (`AKIA`), Stripe कुंजियाँ (`sk_live_`, `sk_test_`), और Google API कुंजियाँ (`AIza`)।
+**Event:** PostToolUse (सभी tools)  
+**Default:** Common API key formats को redact करता है: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), AWS access keys (`AKIA`), Stripe keys (`sk_live_`, `sk_test_`), और Google API keys (`AIza`)।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | सीक्रेट्स के रूप में व्यवहार करने के लिए अतिरिक्त regex पैटर्न्स। |
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Additional regex patterns को secrets मानने के लिए। |
 
-**उदाहरण:**
+**Example:**
 
 ```json
 {
   "policyParams": {
     "sanitize-api-keys": {
       "additionalPatterns": [
-        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo आंतरिक API कुंजी" },
-        { "regex": "pat_[0-9a-f]{40}", "label": "आंतरिक PAT" }
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo internal API key" },
+        { "regex": "pat_[0-9a-f]{40}", "label": "Internal PAT" }
       ]
     }
   }
@@ -159,71 +159,71 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 
 ### `sanitize-connection-strings`
 
-**इवेंट:** PostToolUse (सभी टूल्स)  
-**डिफ़ॉल्ट:** डेटाबेस कनेक्शन स्ट्रिंग्स को छिपाता है जिनमें एम्बेडेड क्रेडेंशियल्स होते हैं (जैसे `postgresql://user:password@host/db`)।
+**Event:** PostToolUse (सभी tools)  
+**Default:** Database connection strings को redact करता है जिनमें embedded credentials होते हैं (जैसे `postgresql://user:password@host/db`)।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `sanitize-private-key-content`
 
-**इवेंट:** PostToolUse (सभी टूल्स)  
-**डिफ़ॉल्ट:** PEM ब्लॉक्स को छिपाता है (`-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----`, आदि)।
+**Event:** PostToolUse (सभी tools)  
+**Default:** PEM blocks को redact करता है (`-----BEGIN PRIVATE KEY-----`, `-----BEGIN RSA PRIVATE KEY-----`, आदि)।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `sanitize-bearer-tokens`
 
-**इवेंट:** PostToolUse (सभी टूल्स)  
-**डिफ़ॉल्ट:** `Authorization: Bearer <token>` हेडर्स को छिपाता है जहाँ टोकन 20 या अधिक वर्णों का है।
+**Event:** PostToolUse (सभी tools)  
+**Default:** `Authorization: Bearer <token>` headers को redact करता है जहां token 20 या उससे ज्यादा characters है।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
-## एनवायरनमेंट
+## Environment
 
-संवेदनशील एनवायरनमेंट कॉन्फ़िगरेशन को एजेंट्स द्वारा पढ़े या उजागर होने से रक्षा करें।
+Agents द्वारा sensitive environment configuration को read या expose किए जाने से बचाएं।
 
 ### `block-env-files`
 
-**इवेंट:** PreToolUse (Bash, Read)  
-**डिफ़ॉल्ट:** `.env` फ़ाइलों को `cat .env` के माध्यम से, फ़ाइल पाथ के रूप में `.env` के साथ Read टूल कॉल्स आदि को पढ़ने से अस्वीकार करता है।
+**Event:** PreToolUse (Bash, Read)  
+**Default:** `.env` files को read करने को deny करता है जैसे `cat .env`, `.env` को file path के रूप में `Read` tool calls, आदि।
 
-`.envrc` या अन्य एनवायरनमेंट-सन्निहित फ़ाइलों को ब्लॉक नहीं करता - केवल `.env` नाम की फ़ाइलों को।
+`.envrc` या अन्य environment-adjacent files को block नहीं करता — केवल exactly `.env` नाम की files।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `protect-env-vars`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** एनवायरनमेंट वेरिएबल्स को प्रिंट करने वाली कमांड्स को अस्वीकार करता है: `printenv`, `env`, `echo $VAR`।
+**Event:** PreToolUse (Bash)  
+**Default:** उन commands को deny करता है जो environment variables को print करते हैं: `printenv`, `env`, `echo $VAR`।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
-## फ़ाइल एक्सेस
+## File access
 
-एजेंट्स को प्रोजेक्ट बाउंड्रीज़ के अंदर काम करते रहें और संवेदनशील फ़ाइलों से दूर रखें।
+Agents को project boundaries के अंदर काम करने और sensitive files से दूर रहने के लिए रखें।
 
 ### `block-read-outside-cwd`
 
-**इवेंट:** PreToolUse (Read, Bash)  
-**डिफ़ॉल्ट:** करंट वर्किंग डायरेक्टरी (प्रोजेक्ट रूट) के बाहर फ़ाइलों को पढ़ने से अस्वीकार करता है।
+**Event:** PreToolUse (Read, Bash)  
+**Default:** Current working directory (project root) के बाहर files को read करने को deny करता है।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | निरपेक्ष पाथ प्रीफ़िक्स जो अनुमत हैं भले ही cwd के बाहर हों। |
+| `allowPaths` | `string[]` | `[]` | Absolute path prefixes जो permitted हैं भले ही cwd के बाहर हों। |
 
-**उदाहरण:**
+**Example:**
 
 ```json
 {
@@ -239,16 +239,16 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 
 ### `block-secrets-write`
 
-**इवेंट:** PreToolUse (Write, Edit)  
-**डिफ़ॉल्ट:** प्राइवेट कुंजियों और सर्टिफिकेट्स के लिए आमतौर पर उपयोग की जाने वाली फ़ाइलों को लिखने से अस्वीकार करता है: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`।
+**Event:** PreToolUse (Write, Edit)  
+**Default:** Private keys और certificates के लिए commonly used files में writes को deny करता है: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `additionalPatterns` | `string[]` | `[]` | अतिरिक्त फ़ाइलनाम पैटर्न्स (glob-style) को ब्लॉक करने के लिए। |
+| `additionalPatterns` | `string[]` | `[]` | Additional filename patterns (glob-style) को block करने के लिए। |
 
-**उदाहरण:**
+**Example:**
 
 ```json
 {
@@ -264,20 +264,20 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 
 ## Git
 
-आकस्मिक पुश, फ़ोर्स-पुश और ब्रांच गलतियों को रोकें जो पूर्ववत करना मुश्किल है।
+Accidental pushes, force-pushes, और branch mistakes को रोकें जो undo करने में मुश्किल हैं।
 
 ### `block-push-master`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** `git push origin main` और `git push origin master` को अस्वीकार करता है।
+**Event:** PreToolUse (Bash)  
+**Default:** `git push origin main` और `git push origin master` को deny करता है।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `protectedBranches` | `string[]` | `["main", "master"]` | ब्रांच नाम जो सीधे पुश नहीं किए जा सकते। |
+| `protectedBranches` | `string[]` | `["main", "master"]` | Branch names जिन्हें directly push नहीं किया जा सकता। |
 
-**उदाहरण:**
+**Example:**
 
 ```json
 {
@@ -290,36 +290,36 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 ```
 
 <Tip>
-सभी ब्रांच्स को पुश करने की अनुमति देने के लिए (प्रभावी रूप से इस पॉलिसी को `enabledPolicies` से हटाए बिना अक्षम करें), `protectedBranches: []` सेट करें।
+सभी branches में push करने की allow करने के लिए (effectively इस policy को `enabledPolicies` से remove किए बिना disable करने के लिए), `protectedBranches: []` set करें।
 </Tip>
 
 ---
 
 ### `block-work-on-main`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** `main` या `master` ब्रांच्स को सीधे चेक आउट करने से अस्वीकार करता है।
+**Event:** PreToolUse (Bash)  
+**Default:** `main` या `master` branches को directly checkout करने को deny करता है।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `protectedBranches` | `string[]` | `["main", "master"]` | ब्रांच नाम जो सीधे चेक आउट नहीं किए जा सकते। |
+| `protectedBranches` | `string[]` | `["main", "master"]` | Branch names जिन्हें directly checkout नहीं किया जा सकता। |
 
 ---
 
 ### `block-force-push`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** `git push --force` और `git push -f` को अस्वीकार करता है।
+**Event:** PreToolUse (Bash)  
+**Default:** `git push --force` और `git push -f` को deny करता है।
 
-कोई पॉलिसी-विशिष्ट पैरामीटर नहीं। क्रॉस-कटिंग [`hint`](/hi/configuration#hint-cross-cutting) का उपयोग करके विकल्प सुझाएँ:
+कोई policy-specific parameters नहीं। Cross-cutting [`hint`](/hi/configuration#hint-cross-cutting) का उपयोग करके alternatives suggest करें:
 
 ```json
 {
   "policyParams": {
     "block-force-push": {
-      "hint": "अपने वर्तमान HEAD से एक नई ब्रांच बनाएँ (जैसे `git checkout -b <new-branch>`) और उसके बजाय उसे पुश करें।"
+      "hint": "अपने current HEAD से एक नई branch बनाएं (जैसे `git checkout -b <new-branch>`) और इसके बजाय उसे push करें।"
     }
   }
 }
@@ -329,69 +329,69 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 
 ### `warn-git-amend`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** Claude को `git commit --amend` चलाते समय सावधानी से आगे बढ़ने का निर्देश देता है। कमांड को ब्लॉक नहीं करता।
+**Event:** PreToolUse (Bash)  
+**Default:** Claude को carefully proceed करने के लिए instruct करता है जब `git commit --amend` run करता है। Command को block नहीं करता।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `warn-git-stash-drop`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** Claude को `git stash drop` चलाने से पहले पुष्टि करने के लिए निर्देश देता है। कमांड को ब्लॉक नहीं करता।
+**Event:** PreToolUse (Bash)  
+**Default:** Claude को confirm करने के लिए instruct करता है `git stash drop` run करने से पहले। Command को block नहीं करता।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `warn-all-files-staged`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** Claude को `git add -A` या `git add .` चलाते समय देखने के लिए क्या स्टेज कर रहा है इसकी समीक्षा करने का निर्देश देता है। कमांड को ब्लॉक नहीं करता।
+**Event:** PreToolUse (Bash)  
+**Default:** Claude को review करने के लिए instruct करता है कि वह क्या stage कर रहा है जब `git add -A` या `git add .` run करता है। Command को block नहीं करता।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
-## डेटाबेस
+## Database
 
-विनाशकारी SQL ऑपरेशन्स को आपके डेटाबेस के विरुद्ध निष्पादित होने से पहले पकड़ें।
+Destructive SQL operations को execute होने से पहले catch करें आपके database के against।
 
 ### `warn-destructive-sql`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** Claude को `DROP TABLE`, `DROP DATABASE`, या `WHERE` क्लॉज के बिना `DELETE` युक्त SQL चलाने से पहले पुष्टि करने का निर्देश देता है।
+**Event:** PreToolUse (Bash)  
+**Default:** Claude को confirm करने के लिए instruct करता है `DROP TABLE`, `DROP DATABASE`, या `DELETE` (बिना `WHERE` clause के) containing SQL run करने से पहले।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `warn-schema-alteration`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** Claude को `ALTER TABLE` स्टेटमेंट्स चलाने से पहले पुष्टि करने का निर्देश देता है।
+**Event:** PreToolUse (Bash)  
+**Default:** Claude को confirm करने के लिए instruct करता है `ALTER TABLE` statements run करने से पहले।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
-## चेतावनियाँ
+## Warnings
 
-एजेंट्स को संभावित रूप से जोखिम भरी लेकिन गैर-विनाशकारी ऑपरेशन्स से पहले अतिरिक्त संदर्भ दें।
+Agents को potentially risky लेकिन non-destructive operations से पहले extra context दें।
 
 ### `warn-large-file-write`
 
-**इवेंट:** PreToolUse (Write)  
-**डिफ़ॉल्ट:** Claude को 1024 KB से बड़ी फ़ाइलें लिखने से पहले पुष्टि करने का निर्देश देता है।
+**Event:** PreToolUse (Write)  
+**Default:** Claude को confirm करने के लिए instruct करता है 1024 KB से बड़ी files write करने से पहले।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `thresholdKb` | `number` | `1024` | फ़ाइल आकार थ्रेशोल्ड किलोबाइट्स में जिसके ऊपर चेतावनी जारी की जाती है। |
+| `thresholdKb` | `number` | `1024` | File size threshold kilobytes में जिसके ऊपर warning issue की जाती है। |
 
-**उदाहरण:**
+**Example:**
 
 ```json
 {
@@ -404,78 +404,78 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 ```
 
 <Note>
-हुक हैंडलर पेलोड्स पर 1 MB stdin लिमिट लागू करता है। छोटी कंटेंट के साथ इस पॉलिसी को परीक्षण करने के लिए, `thresholdKb` को 1024 से अच्छी तरह नीचे एक मान पर सेट करें।
+Hook handler payloads पर 1 MB stdin limit को enforce करता है। इस policy को small content के साथ test करने के लिए, `thresholdKb` को 1024 से well below value पर set करें।
 </Note>
 
 ---
 
 ### `warn-package-publish`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** Claude को `npm publish` चलाने से पहले पुष्टि करने का निर्देश देता है।
+**Event:** PreToolUse (Bash)  
+**Default:** Claude को confirm करने के लिए instruct करता है `npm publish` run करने से पहले।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `warn-background-process`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** Claude को `nohup`, `&`, `disown`, या `screen` के माध्यम से बैकग्राउंड प्रक्रिया शुरू करते समय सावधान रहने का निर्देश देता है।
+**Event:** PreToolUse (Bash)  
+**Default:** Claude को careful रहने के लिए instruct करता है जब `nohup`, `&`, `disown`, या `screen` के through background processes launch करते हैं।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `warn-global-package-install`
 
-**इवेंट:** PreToolUse (Bash)  
-**डिफ़ॉल्ट:** Claude को `npm install -g`, `yarn global add`, या `pip install` (बिना वर्चुअल एनवायरनमेंट के) चलाने से पहले पुष्टि करने का निर्देश देता है।
+**Event:** PreToolUse (Bash)  
+**Default:** Claude को confirm करने के लिए instruct करता है `npm install -g`, `yarn global add`, या `pip install` (virtual environment के बिना) run करने से पहले।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
-## AI व्यवहार
+## AI behavior
 
-पता लगाएँ कि कब एजेंट्स फँस जाते हैं या अप्रत्याशित रूप से व्यवहार करते हैं।
+Detect करें जब agents stuck हो जाएं या unexpectedly behave करें।
 
 ### `warn-repeated-tool-calls`
 
-**इवेंट:** PreToolUse (सभी टूल्स)  
-**डिफ़ॉल्ट:** Claude को पुनः विचार करने का निर्देश देता है जब समान टूल को समान पैरामीटर्स के साथ 3+ बार कॉल किया जाता है - एक सामान्य संकेत जो एजेंट एक लूप में फँसा है।
+**Event:** PreToolUse (सभी tools)  
+**Default:** Claude को reconsider करने के लिए instruct करता है जब same tool को 3+ times identical parameters के साथ call किया जाता है — एक common sign कि agent loop में stuck है।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
-## वर्कफ़्लो (बीटा)
+## Workflow
 
-एक अनुशासित सेशन-अंत वर्कफ़्लो को लागू करें। ये पॉलिसीज़ **Stop** इवेंट पर फायर होती हैं और Claude को तब तक रुकने से अस्वीकार करती हैं जब तक प्रत्येक शर्त पूरी न हो। वे एक प्राकृतिक निर्भरता श्रृंखला का पालन करते हैं: commit → push → PR → CI। यदि कोई पॉलिसी अस्वीकार करती है, तो श्रृंखला में बाद की पॉलिसीज़ छोड़ दी जाती हैं (deny शॉर्ट-सर्किट करता है)।
+एक disciplined end-of-session workflow को enforce करें। ये policies **Stop** event पर fire होती हैं और Claude को stop करने को deny करती हैं जब तक कि प्रत्येक condition पूरी न हो जाए। वे एक natural dependency chain follow करते हैं: commit → push → PR → CI। अगर एक policy deny करती है, तो chain में later policies को skip किया जाता है (deny short-circuits)।
 
-सभी वर्कफ़्लो पॉलिसीज़ **fail-open** हैं: यदि आवश्यक टूल उपलब्ध नहीं है (जैसे `gh` इंस्टॉल नहीं है, कोई git रिमोट नहीं), तो पॉलिसी एक सूचनात्मक संदेश के साथ अनुमति देती है जो बताता है कि जाँच को क्यों छोड़ा गया।
+सभी workflow policies **fail-open** हैं: अगर required tool available नहीं है (जैसे `gh` installed नहीं, no git remote), policy एक informational message के साथ allow करती है जो explain करता है कि check को क्यों skip किया गया।
 
 ### `require-commit-before-stop`
 
-**इवेंट:** Stop  
-**डिफ़ॉल्ट:** असंबद्ध परिवर्तन (संशोधित, स्टेज किए गए, या ट्रैक न किए गए फ़ाइलें) होने पर रुकने से अस्वीकार करता है। वर्किंग डायरेक्टरी साफ होने पर एक सूचनात्मक संदेश लौटाता है।
+**Event:** Stop  
+**Default:** Uncommitted changes (modified, staged, या untracked files) होने पर stopping को deny करता है। Working directory clean होने पर informational message return करता है।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 ---
 
 ### `require-push-before-stop`
 
-**इवेंट:** Stop  
-**डिफ़ॉल्ट:** अपुष्ट कमिट्स होने या करंट ब्रांच के पास कोई रिमोट ट्रैकिंग ब्रांच न होने पर रुकने से अस्वीकार करता है। यदि आवश्यक हो तो ट्रैकिंग ब्रांच बनाने के लिए `git push -u` का सुझाव देता है। यदि कोई रिमोट कॉन्फ़िगर नहीं है तो fail open करता है।
+**Event:** Stop  
+**Default:** Unpushed commits होने पर या जब current branch के पास no remote tracking branch हो तो stopping को deny करता है। अगर जरूरत पड़े तो tracking branch बनाने के लिए `git push -u` suggest करता है। अगर no remote configured है तो fail open होता है।
 
-**पैरामीटर्स:**
+**Parameters:**
 
-| पैरामीटर | प्रकार | डिफ़ॉल्ट | विवरण |
+| Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `remote` | `string` | `"origin"` | पुश करने के लिए रिमोट नाम। |
+| `remote` | `string` | `"origin"` | Remote name जिसे push करना है। |
 
-**उदाहरण:**
+**Example:**
 
 ```json
 {
@@ -491,66 +491,37 @@ failproofai 30 बिल्ट-इन पॉलिसीज़ के साथ 
 
 ### `require-pr-before-stop`
 
-**इवेंट:** Stop  
-**डिफ़ॉल्ट:** करंट ब्रांच के लिए कोई pull request मौजूद न होने पर, या मौजूदा PR के बंद/मर्ज होने पर रुकने से अस्वीकार करता है। Claude को `gh pr create` के साथ PR बनाने का निर्देश देता है।
+**Event:** Stop  
+**Default:** जब current branch के लिए कोई pull request exist न हो, या जब existing PR closed/merged हो तो stopping को deny करता है। Claude को `gh pr create` के साथ PR बनाने के लिए instruct करता है।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 <Note>
-इस पॉलिसी के लिए [GitHub CLI](https://cli.github.com/) (`gh`) को इंस्टॉल और प्रमाणित किया जाना आवश्यक है।
-pull requests के लिए रीड एक्सेस के साथ `repo` स्कोप वाले व्यक्तिगत एक्सेस टोकन के साथ `gh auth login` चलाएँ।
-यदि `gh` इंस्टॉल नहीं है या प्रमाणित नहीं है, तो पॉलिसी fail open करती है और Claude को कारण की रिपोर्ट करती है।
+इस policy को [GitHub CLI](https://cli.github.com/) (`gh`) को installed और authenticated होना आवश्यक है।
+`gh auth login` को एक personal access token के साथ run करें जिसके पास `repo` scope हो pull requests के लिए read access के लिए। अगर `gh` installed नहीं है या authenticated नहीं है, तो policy fail open होती है और reason को Claude को report करती है।
 </Note>
 
 ---
 
 ### `require-ci-green-before-stop`
 
-**इवेंट:** Stop  
-**डिफ़ॉल्ट:** CI चेक्स करंट ब्रांच पर विफल हो रहे हों या अभी भी चल रहे हों तो रुकने से अस्वीकार करता है। GitHub Actions वर्कफ़्लो रन्स और थर्ड-पार्टी बॉट चेक्स (जैसे CodeRabbit, SonarCloud, Codecov) दोनों को चेक करता है। `skipped` निष्कर्ष को सफलता के रूप में मानता है। जब सभी चेक्स पास हों तो एक सूचनात्मक संदेश लौटाता है।
+**Event:** Stop  
+**Default:** जब CI checks current branch पर failing या still running हों तो stopping को deny करता है। GitHub Actions workflow runs और third-party bot checks (जैसे CodeRabbit, SonarCloud, Codecov) दोनों को check करता है। `skipped` conclusions को success मानता है। सभी checks pass होने पर informational message return करता है।
 
-कोई पैरामीटर नहीं।
+कोई parameters नहीं।
 
 <Note>
-इस पॉलिसी के लिए [GitHub CLI](https://cli.github.com/) (`gh`) को इंस्टॉल और प्रमाणित किया जाना आवश्यक है।
-Actions वर्कफ़्लो रन्स और Checks API के लिए रीड एक्सेस के साथ `repo` स्कोप वाले व्यक्तिगत एक्सेस टोकन के साथ `gh auth login` चलाएँ।
-यदि `gh` इंस्टॉल नहीं है या प्रमाणित नहीं है, तो पॉलिसी fail open करती है और Claude को कारण की रिपोर्ट करती है।
+इस policy को [GitHub CLI](https://cli.github.com/) (`gh`) को installed और authenticated होना आवश्यक है।
+`gh auth login` को एक personal access token के साथ run करें जिसके पास `repo` scope हो Actions workflow runs और Checks API के लिए read access के लिए। अगर `gh` installed नहीं है या authenticated नहीं है, तो policy fail open होती है और reason को Claude को report करती है।
 </Note>
 
 ---
 
-## बीटा पॉलिसीज़
-
-कुछ पॉलिसीज़ को `beta` के रूप में चिह्नित किया गया है और डिफ़ॉल्ट रूप से इंस्टॉल नहीं हैं। बीटा पॉलिसीज़ में मोटे किनारे या झूठे पॉज़िटिव हो सकते हैं। वे भविष्य की रिलीज़ में स्थिर में स्नातक होते हैं।
-
-**वर्तमान बीटा पॉलिसीज़:**
-
-- `require-commit-before-stop` — रुकने से पहले सभी परिवर्तन कमिट करें
-- `require-push-before-stop` — सभी कमिट्स को रिमोट में पुश करें
-- `require-pr-before-stop` — ब्रांच के लिए PR मौजूद होना सुनिश्चित करें
-- `require-ci-green-before-stop` — सभी CI चेक्स पास होने चाहिए
-
-साथ में, ये एक **commit → push → PR → CI** वर्कफ़्लो को लागू करते हैं।
-
-सभी बीटा पॉलिसीज़ इंस्टॉल करने के लिए:
-
-```bash
-failproofai policies --install --beta
-```
-
-या विशिष्ट वर्कफ़्लो पॉलिसीज़ इंस्टॉल करें:
-
-```bash
-failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
-```
-
-कौन सी पॉलिसीज़ बीटा फ़्लैग ले जाती हैं यह देखने के लिए `failproofai policies` चलाएँ।
-
 ---
 
-## व्यक्तिगत पॉलिसीज़ को अक्षम करना
+## Individual policies को disable करना
 
-अपने कॉन्फ़िगरेशन में `enabledPolicies` से एक विशिष्ट पॉलिसी को हटाएँ, या डैशबोर्ड के Policies टैब में इसे बंद करें।
+अपने config में `enabledPolicies` से एक specific policy को remove करें, या dashboard के Policies tab में इसे toggle off करें।
 
 ```json
 {
@@ -561,4 +532,4 @@ failproofai policies --install require-commit-before-stop require-push-before-st
 }
 ```
 
-`enabledPolicies` में सूचीबद्ध नहीं की गई पॉलिसीज़ नहीं चलती हैं, भले ही उनके लिए `policyParams` प्रविष्टियाँ मौजूद हों।
+Policies जो `enabledPolicies` में listed नहीं हैं, run नहीं होती हैं, भले ही उनके लिए `policyParams` entries exist करें।

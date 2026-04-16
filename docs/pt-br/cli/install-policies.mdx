@@ -7,7 +7,7 @@ description: "Ative políticas para que sejam executadas em cada chamada de ferr
 failproofai policies --install [policy-names...] [options]
 ```
 
-Grava entradas de hook no `settings.json` do Claude Code para que o failproofai intercepte chamadas de ferramentas.
+Escreve entradas de hook no `settings.json` do Claude Code para que o failproofai intercepte chamadas de ferramentas.
 
 Aliases: `failproofai p -i`
 
@@ -15,17 +15,16 @@ Aliases: `failproofai p -i`
 
 | Flag | Descrição |
 |------|-----------|
-| `--scope user` | Instala em `~/.claude/settings.json` (padrão — todas as sessões) |
+| `--scope user` | Instala em `~/.claude/settings.json` (padrão - todas as sessões) |
 | `--scope project` | Instala em `.claude/settings.json` no diretório atual |
 | `--scope local` | Instala em `.claude/settings.local.json` no diretório atual |
 | `--custom <path>` / `-c` | Caminho para um arquivo JS contendo políticas de hook personalizadas |
-| `--beta` | Inclui políticas beta |
 
 ## Comportamento
 
-- **Sem nomes de política** — abre um prompt interativo para selecionar políticas
-- **Nomes específicos** — ativa essas políticas (adicionadas às que já estão habilitadas)
-- **`all`** — ativa todas as políticas disponíveis
+- **Sem nomes de política** - abre um prompt interativo para selecionar políticas
+- **Nomes específicos** - ativa essas políticas (adicionadas às que já estão ativas)
+- **`all`** - ativa todas as políticas disponíveis
 
 A instalação é aditiva: executar `--install` novamente adiciona novas políticas sem remover as existentes.
 

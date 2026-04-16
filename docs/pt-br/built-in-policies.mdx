@@ -1,19 +1,19 @@
 ---
 title: Políticas Integradas
-description: "Todas as 30 políticas integradas que capturam modos comuns de falha de agentes"
+description: "Todas as 30 políticas integradas que detectam falhas comuns de agentes"
 icon: shield
 ---
 
-failproofai vem com 30 políticas integradas que capturam modos comuns de falha de agentes. Cada política é acionada em um tipo específico de evento de hook e nome de ferramenta. Nove políticas aceitam parâmetros que permitem ajustar seu comportamento sem escrever código. Quatro políticas de fluxo de trabalho em beta impõem um pipeline de commit → push → PR → CI antes que Claude pare.
+failproofai vem com 30 políticas integradas que detectam falhas comuns de agentes. Cada política é acionada em um tipo específico de evento de hook e nome de ferramenta. Nove políticas aceitam parâmetros que permitem ajustar seu comportamento sem escrever código. Quatro políticas de fluxo de trabalho impõem um pipeline de commit → push → PR → CI antes que Claude pare.
 
 ---
 
-## Visão Geral
+## Visão geral
 
 As políticas são agrupadas em categorias:
 
 | Categoria | Políticas | Tipo de hook |
-|----------|----------|-----------|
+|-----------|-----------|--------------|
 | [Comandos perigosos](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
 | [Segredos (sanitizadores)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
 | [Ambiente](#environment) | block-env-files, protect-env-vars | PreToolUse |
@@ -21,7 +21,7 @@ As políticas são agrupadas em categorias:
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [Banco de dados](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [Avisos](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
-| [Fluxo de trabalho (beta)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+| [Fluxo de trabalho](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
 
 - **`block-`** — impede o agente de prosseguir.
 - **`warn-`** — fornece contexto adicional ao agente para que ele possa se autocorrigir.
@@ -31,26 +31,26 @@ As políticas são agrupadas em categorias:
 ---
 
 <Tip>
-Toda política suporta um campo opcional `hint` em `policyParams`. O hint é anexado à mensagem de deny ou instruct que Claude vê, fornecendo orientações práticas sem modificar o código da política. Funciona com políticas integradas, personalizadas e de convenção. Veja [Configuração → hint](/pt-br/configuration#hint-cross-cutting) para mais detalhes.
+Toda política suporta um campo opcional `hint` em `policyParams`. O hint é anexado à mensagem de deny ou instruct que Claude vê, fornecendo orientações práticas sem modificar o código da política. Funciona com políticas integradas, personalizadas e de convenção. Consulte [Configuração → hint](/pt-br/configuration#hint-cross-cutting) para mais detalhes.
 </Tip>
 
 ---
 
 ## Comandos perigosos
 
-Impede agentes de executar operações difíceis de desfazer ou que possam danificar o sistema host.
+Impede que agentes executem operações difíceis de desfazer ou que possam danificar o sistema host.
 
 ### `block-sudo`
 
 **Evento:** PreToolUse (Bash)  
 **Padrão:** Nega qualquer comando `sudo`.
 
-Bloqueia invocações que incluem a palavra-chave `sudo`. A correspondência de padrões é feita em tokens de comando analisados, não na string bruta, para evitar bypass via injeção de operadores shell.
+Bloqueia invocações que incluam a palavra-chave `sudo`. A correspondência de padrões é feita nos tokens de comando analisados, não na string bruta, para evitar bypass via injeção de operadores de shell.
 
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
+|-----------|------|--------|-----------|
 | `allowPatterns` | `string[]` | `[]` | Prefixos de comando exatos que são permitidos. Cada entrada é comparada com os tokens argv analisados. |
 
 **Exemplo:**
@@ -68,7 +68,7 @@ Bloqueia invocações que incluem a palavra-chave `sudo`. A correspondência de 
 Com essa configuração, `sudo systemctl status nginx` é permitido, mas `sudo rm /etc/hosts` é negado.
 
 <Note>
-Os padrões são comparados com tokens analisados, não com a string de comando bruta. Isso impede bypass via operadores shell concatenados (ex.: `sudo systemctl status x; rm -rf /` não corresponde a `sudo systemctl status *`).
+Os padrões são comparados com os tokens analisados, não com a string de comando bruta. Isso evita bypass via operadores de shell anexados (por exemplo, `sudo systemctl status x; rm -rf /` não corresponde a `sudo systemctl status *`).
 </Note>
 
 ---
@@ -81,8 +81,8 @@ Os padrões são comparados com tokens analisados, não com a string de comando 
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | Caminhos que podem ser excluídos recursivamente com segurança (ex.: `/tmp`). |
+|-----------|------|--------|-----------|
+| `allowPaths` | `string[]` | `[]` | Caminhos que são seguros para excluir recursivamente (ex: `/tmp`). |
 
 **Exemplo:**
 
@@ -110,7 +110,7 @@ Sem parâmetros.
 ### `block-failproofai-commands`
 
 **Evento:** PreToolUse (Bash)  
-**Padrão:** Nega comandos que desinstalariam ou desativariam o próprio failproofai (ex.: `npm uninstall failproofai`, `failproofai policies --uninstall`).
+**Padrão:** Nega comandos que desinstalem ou desabilitem o próprio failproofai (ex: `npm uninstall failproofai`, `failproofai policies --uninstall`).
 
 Sem parâmetros.
 
@@ -118,7 +118,7 @@ Sem parâmetros.
 
 ## Segredos (sanitizadores)
 
-Impede agentes de vazar credenciais para seu contexto ou saída. As políticas de sanitização são acionadas em eventos **PostToolUse**. Quando Claude executa um comando Bash, lê um arquivo ou chama qualquer ferramenta, essas políticas inspecionam a saída antes de ela ser retornada ao Claude. Se um padrão de segredo for detectado, a política retorna uma decisão de negação que impede a saída de ser repassada.
+Impede que agentes vazem credenciais em seu contexto ou saída. As políticas de sanitização são acionadas em eventos **PostToolUse**. Quando Claude executa um comando Bash, lê um arquivo ou chama qualquer ferramenta, essas políticas inspecionam a saída antes que ela seja retornada ao Claude. Se um padrão de segredo for detectado, a política retorna uma decisão de deny que impede a saída de ser passada de volta.
 
 ### `sanitize-jwt`
 
@@ -137,8 +137,8 @@ Sem parâmetros.
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
-| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Padrões regex adicionais a serem tratados como segredos. |
+|-----------|------|--------|-----------|
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Padrões regex adicionais para tratar como segredos. |
 
 **Exemplo:**
 
@@ -160,7 +160,7 @@ Sem parâmetros.
 ### `sanitize-connection-strings`
 
 **Evento:** PostToolUse (todas as ferramentas)  
-**Padrão:** Redige strings de conexão de banco de dados que contêm credenciais embutidas (ex.: `postgresql://user:password@host/db`).
+**Padrão:** Redige strings de conexão de banco de dados que contêm credenciais incorporadas (ex: `postgresql://user:password@host/db`).
 
 Sem parâmetros.
 
@@ -193,7 +193,7 @@ Protege a configuração de ambiente sensível de ser lida ou exposta por agente
 **Evento:** PreToolUse (Bash, Read)  
 **Padrão:** Nega a leitura de arquivos `.env` via `cat .env`, chamadas da ferramenta `Read` com `.env` como caminho do arquivo, etc.
 
-Não bloqueia `.envrc` ou outros arquivos relacionados ao ambiente — apenas arquivos com o nome exato `.env`.
+Não bloqueia `.envrc` ou outros arquivos relacionados ao ambiente — apenas arquivos nomeados exatamente `.env`.
 
 Sem parâmetros.
 
@@ -202,7 +202,7 @@ Sem parâmetros.
 ### `protect-env-vars`
 
 **Evento:** PreToolUse (Bash)  
-**Padrão:** Nega comandos que imprimem variáveis de ambiente: `printenv`, `env`, `echo $VAR`.
+**Padrão:** Nega comandos que imprimam variáveis de ambiente: `printenv`, `env`, `echo $VAR`.
 
 Sem parâmetros.
 
@@ -210,7 +210,7 @@ Sem parâmetros.
 
 ## Acesso a arquivos
 
-Mantém os agentes trabalhando dentro dos limites do projeto e longe de arquivos sensíveis.
+Mantém agentes trabalhando dentro dos limites do projeto e longe de arquivos sensíveis.
 
 ### `block-read-outside-cwd`
 
@@ -220,8 +220,8 @@ Mantém os agentes trabalhando dentro dos limites do projeto e longe de arquivos
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | Prefixos de caminho absoluto que são permitidos mesmo fora do cwd. |
+|-----------|------|--------|-----------|
+| `allowPaths` | `string[]` | `[]` | Prefixos de caminho absoluto que são permitidos mesmo se estiverem fora do cwd. |
 
 **Exemplo:**
 
@@ -245,8 +245,8 @@ Mantém os agentes trabalhando dentro dos limites do projeto e longe de arquivos
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
-| `additionalPatterns` | `string[]` | `[]` | Padrões de nome de arquivo adicionais (estilo glob) a serem bloqueados. |
+|-----------|------|--------|-----------|
+| `additionalPatterns` | `string[]` | `[]` | Padrões de nome de arquivo adicionais (estilo glob) para bloquear. |
 
 **Exemplo:**
 
@@ -274,7 +274,7 @@ Previne pushes acidentais, force-pushes e erros de branch que são difíceis de 
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
+|-----------|------|--------|-----------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | Nomes de branches que não podem receber push diretamente. |
 
 **Exemplo:**
@@ -290,7 +290,7 @@ Previne pushes acidentais, force-pushes e erros de branch que são difíceis de 
 ```
 
 <Tip>
-Para permitir push em todos os branches (desativando efetivamente esta política sem removê-la de `enabledPolicies`), defina `protectedBranches: []`.
+Para permitir push para todos os branches (desabilitando efetivamente esta política sem removê-la de `enabledPolicies`), defina `protectedBranches: []`.
 </Tip>
 
 ---
@@ -303,8 +303,8 @@ Para permitir push em todos os branches (desativando efetivamente esta política
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
-| `protectedBranches` | `string[]` | `["main", "master"]` | Nomes de branches que não podem ser verificados diretamente. |
+|-----------|------|--------|-----------|
+| `protectedBranches` | `string[]` | `["main", "master"]` | Nomes de branches que não podem ser obtidos diretamente via checkout. |
 
 ---
 
@@ -348,7 +348,7 @@ Sem parâmetros.
 ### `warn-all-files-staged`
 
 **Evento:** PreToolUse (Bash)  
-**Padrão:** Instrui Claude a revisar o que está sendo staged ao executar `git add -A` ou `git add .`. Não bloqueia o comando.
+**Padrão:** Instrui Claude a revisar o que está sendo adicionado ao stage ao executar `git add -A` ou `git add .`. Não bloqueia o comando.
 
 Sem parâmetros.
 
@@ -356,7 +356,7 @@ Sem parâmetros.
 
 ## Banco de dados
 
-Identifica operações SQL destrutivas antes que sejam executadas no banco de dados.
+Detecta operações SQL destrutivas antes que sejam executadas no banco de dados.
 
 ### `warn-destructive-sql`
 
@@ -378,7 +378,7 @@ Sem parâmetros.
 
 ## Avisos
 
-Fornece contexto adicional aos agentes antes de operações potencialmente arriscadas, mas não destrutivas.
+Fornece contexto extra aos agentes antes de operações potencialmente arriscadas, mas não destrutivas.
 
 ### `warn-large-file-write`
 
@@ -388,7 +388,7 @@ Fornece contexto adicional aos agentes antes de operações potencialmente arris
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
+|-----------|------|--------|-----------|
 | `thresholdKb` | `number` | `1024` | Limite de tamanho de arquivo em kilobytes acima do qual um aviso é emitido. |
 
 **Exemplo:**
@@ -404,7 +404,7 @@ Fornece contexto adicional aos agentes antes de operações potencialmente arris
 ```
 
 <Note>
-O handler do hook impõe um limite de 1 MB de stdin em payloads. Para testar esta política com conteúdo pequeno, defina `thresholdKb` para um valor bem abaixo de 1024.
+O handler de hook impõe um limite de 1 MB de stdin nos payloads. Para testar esta política com conteúdo pequeno, defina `thresholdKb` para um valor bem abaixo de 1024.
 </Note>
 
 ---
@@ -438,7 +438,7 @@ Sem parâmetros.
 
 ## Comportamento de IA
 
-Detecta quando agentes ficam presos ou se comportam de forma inesperada.
+Detecta quando agentes ficam travados ou se comportam de forma inesperada.
 
 ### `warn-repeated-tool-calls`
 
@@ -449,16 +449,16 @@ Sem parâmetros.
 
 ---
 
-## Fluxo de trabalho (beta)
+## Fluxo de trabalho
 
-Impõe um fluxo de trabalho disciplinado ao final da sessão. Essas políticas são acionadas no evento **Stop** e negam que Claude pare até que cada condição seja atendida. Elas seguem uma cadeia de dependência natural: commit → push → PR → CI. Se uma política negar, as políticas posteriores na cadeia são ignoradas (negação em curto-circuito).
+Impõe um fluxo de trabalho disciplinado ao final da sessão. Essas políticas são acionadas no evento **Stop** e impedem Claude de parar até que cada condição seja atendida. Elas seguem uma cadeia de dependência natural: commit → push → PR → CI. Se uma política nega, as políticas seguintes na cadeia são ignoradas (deny interrompe o fluxo).
 
-Todas as políticas de fluxo de trabalho são **fail-open**: se a ferramenta necessária não estiver disponível (ex.: `gh` não instalado, sem remote git), a política permite com uma mensagem informativa explicando por que a verificação foi ignorada.
+Todas as políticas de fluxo de trabalho são **fail-open**: se a ferramenta necessária não estiver disponível (ex: `gh` não instalado, sem remote git), a política permite com uma mensagem informativa explicando por que a verificação foi ignorada.
 
 ### `require-commit-before-stop`
 
 **Evento:** Stop  
-**Padrão:** Nega a parada quando há alterações não confirmadas (arquivos modificados, staged ou não rastreados). Retorna uma mensagem informativa quando o diretório de trabalho está limpo.
+**Padrão:** Nega a parada quando há alterações não commitadas (arquivos modificados, em stage ou não rastreados). Retorna uma mensagem informativa quando o diretório de trabalho está limpo.
 
 Sem parâmetros.
 
@@ -467,12 +467,12 @@ Sem parâmetros.
 ### `require-push-before-stop`
 
 **Evento:** Stop  
-**Padrão:** Nega a parada quando há commits não enviados ou quando o branch atual não possui branch de rastreamento remoto. Sugere `git push -u` para criar um branch de rastreamento, se necessário. Falha aberto se nenhum remote estiver configurado.
+**Padrão:** Nega a parada quando há commits não enviados por push ou quando o branch atual não tem um branch de rastreamento remoto. Sugere `git push -u` para criar um branch de rastreamento se necessário. Falha de forma aberta se nenhum remote estiver configurado.
 
 **Parâmetros:**
 
 | Parâmetro | Tipo | Padrão | Descrição |
-|-------|------|---------|-------------|
+|-----------|------|--------|-----------|
 | `remote` | `string` | `"origin"` | Nome do remote para o qual fazer push. |
 
 **Exemplo:**
@@ -492,14 +492,14 @@ Sem parâmetros.
 ### `require-pr-before-stop`
 
 **Evento:** Stop  
-**Padrão:** Nega a parada quando não existe pull request para o branch atual, ou quando o PR existente está fechado/merged. Instrui Claude a criar um PR com `gh pr create`.
+**Padrão:** Nega a parada quando não existe pull request para o branch atual, ou quando o PR existente está fechado/mesclado. Instrui Claude a criar um PR com `gh pr create`.
 
 Sem parâmetros.
 
 <Note>
 Esta política requer que o [GitHub CLI](https://cli.github.com/) (`gh`) esteja instalado e autenticado.
 Execute `gh auth login` com um token de acesso pessoal que tenha escopo `repo` para acesso de leitura a
-pull requests. Se `gh` não estiver instalado ou autenticado, a política falha aberto e informa o motivo ao Claude.
+pull requests. Se `gh` não estiver instalado ou autenticado, a política falha de forma aberta e reporta o motivo ao Claude.
 </Note>
 
 ---
@@ -507,50 +507,23 @@ pull requests. Se `gh` não estiver instalado ou autenticado, a política falha 
 ### `require-ci-green-before-stop`
 
 **Evento:** Stop  
-**Padrão:** Nega a parada quando as verificações de CI estão falhando ou ainda em execução no branch atual. Verifica tanto as execuções de fluxo de trabalho do GitHub Actions quanto as verificações de bots de terceiros (ex.: CodeRabbit, SonarCloud, Codecov). Trata conclusões `skipped` como sucesso. Retorna uma mensagem informativa quando todas as verificações passam.
+**Padrão:** Nega a parada quando as verificações de CI estão falhando ou ainda em execução no branch atual. Verifica tanto as execuções de workflow do GitHub Actions quanto as verificações de bots de terceiros (ex: CodeRabbit, SonarCloud, Codecov). Trata conclusões `skipped` como sucesso. Retorna uma mensagem informativa quando todas as verificações passam.
 
 Sem parâmetros.
 
 <Note>
 Esta política requer que o [GitHub CLI](https://cli.github.com/) (`gh`) esteja instalado e autenticado.
 Execute `gh auth login` com um token de acesso pessoal que tenha escopo `repo` para acesso de leitura às
-execuções de fluxo de trabalho do Actions e à API de Verificações. Se `gh` não estiver instalado ou autenticado, a política falha aberto e informa o motivo ao Claude.
+execuções de workflow do Actions e à API de Verificações. Se `gh` não estiver instalado ou autenticado, a política falha de forma aberta e reporta o motivo ao Claude.
 </Note>
 
 ---
 
-## Políticas beta
-
-Algumas políticas são marcadas como `beta` e não são instaladas por padrão. Políticas beta podem ter imperfeições ou gerar falsos positivos. Elas são promovidas para estáveis em versões futuras.
-
-**Políticas beta atuais:**
-
-- `require-commit-before-stop` — confirmar todas as alterações antes de parar
-- `require-push-before-stop` — enviar todos os commits para o remote
-- `require-pr-before-stop` — garantir que existe um PR para o branch
-- `require-ci-green-before-stop` — todas as verificações de CI devem passar
-
-Juntas, essas políticas impõem um fluxo de trabalho **commit → push → PR → CI**.
-
-Para instalar todas as políticas beta:
-
-```bash
-failproofai policies --install --beta
-```
-
-Ou instale políticas de fluxo de trabalho específicas:
-
-```bash
-failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
-```
-
-Execute `failproofai policies` para ver quais políticas carregam a flag beta.
-
 ---
 
-## Desativando políticas individuais
+## Desabilitando políticas individuais
 
-Remova uma política específica de `enabledPolicies` em sua configuração, ou desative-a na aba Políticas do dashboard.
+Remova uma política específica de `enabledPolicies` na sua configuração, ou desative-a na aba Políticas do dashboard.
 
 ```json
 {
