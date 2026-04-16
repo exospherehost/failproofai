@@ -367,13 +367,15 @@ const cursor: Integration = {
   },
 
   detect(payload) {
-    const hookName = (payload.hook_event_name as string) || "";
-    return (
+    const hookName = (payload.hook_event_name as string) || (payload.hookEventName as string) || "";
+    // Cursor uses workspace_roots or specific camelCase hook names
+    return !!(
       Array.isArray(payload.workspace_roots) ||
-      hookName.startsWith("before") ||
-      hookName.startsWith("after") ||
-      hookName === "preToolUse" ||
-      hookName === "postToolUse"
+      (payload.integration === "cursor") ||
+      (hookName === "preToolUse") ||
+      (hookName === "postToolUse") ||
+      (hookName.startsWith("before") && hookName !== "BeforeTool") || // avoid Gemini collision
+      (hookName.startsWith("after") && hookName !== "AfterTool" && hookName !== "AfterAgent") // avoid Gemini collision
     );
   },
 
@@ -393,7 +395,7 @@ const cursor: Integration = {
 const gemini: Integration = {
   id: "gemini",
   displayName: "Gemini CLI",
-  scopes: HOOK_SCOPES,
+  scopes: ["user", "project"] as const,
   eventTypes: GEMINI_HOOK_EVENT_TYPES,
   hookMarker: FAILPROOFAI_HOOK_MARKER,
 
@@ -502,8 +504,8 @@ const gemini: Integration = {
   },
 
   detect(payload) {
-    const h = payload.hook_event_name as string;
-    // Exclusive detection: avoid SessionStart/SessionEnd collisions with Claude Code
+    const h = (payload.hook_event_name as string) || "";
+    // Gemini uses very specific PascalCase event names that are unique
     return [
       "BeforeTool",
       "AfterTool",
@@ -547,16 +549,24 @@ function getCopilotHomeDir(): string {
 }
 
 /**
- * Appends a single `failproofai copilot-sync 2>/dev/null` line to ~/.bashrc
+ * Appends a `env failproofai copilot-sync 2>/dev/null` line to ~/.bashrc
  * (and ~/.zshrc if it exists) so that whenever the user opens a new terminal
  * after a snap update, the revision symlink is automatically recreated before
  * they ever type `copilot`.
  *
+ * Uses `env` instead of bare `failproofai` so the command bypasses bash's hash
+ * table and does a fresh PATH lookup every shell startup — preventing stale
+ * cached paths (e.g. after `nvm use` switches node versions or after
+ * reinstalling to a different location).
+ *
  * Safe to call multiple times — the marker comment prevents duplicate entries.
+ * Upgrades existing entries that still use the old bare `failproofai` format.
  */
-function appendCopilotSyncToBashrc(): void {
-  const MARKER = "# failproofai copilot-sync";
-  const LINE   = `${MARKER}\nfailproofai copilot-sync 2>/dev/null\n`;
+export function appendCopilotSyncToBashrc(): void {
+  const MARKER  = "# failproofai copilot-sync";
+  const OLD_CMD = "failproofai copilot-sync 2>/dev/null";
+  const NEW_CMD = "env failproofai copilot-sync 2>/dev/null";
+  const LINE    = `${MARKER}\n${NEW_CMD}\n`;
   const rcFiles = [
     resolve(homedir(), ".bashrc"),
     resolve(homedir(), ".zshrc"),
@@ -564,8 +574,19 @@ function appendCopilotSyncToBashrc(): void {
   for (const rc of rcFiles) {
     if (!existsSync(rc)) continue;
     try {
-      const content = readFileSync(rc, "utf8");
-      if (content.includes(MARKER)) continue; // already present
+      let content = readFileSync(rc, "utf8");
+      if (content.includes(MARKER)) {
+        // Already present — upgrade bare command to env-prefixed if needed.
+        // Match only lines where failproofai is NOT already preceded by "env "
+        const upgraded = content.replace(
+          /(^|\n)failproofai copilot-sync 2>\/dev\/null/g,
+          "$1env failproofai copilot-sync 2>/dev/null",
+        );
+        if (upgraded !== content) {
+          writeFileSync(rc, upgraded, "utf8");
+        }
+        continue;
+      }
       writeFileSync(rc, content.endsWith("\n") ? content + LINE : content + "\n" + LINE, "utf8");
     } catch {
       // Best-effort — don't fail the install
@@ -574,40 +595,118 @@ function appendCopilotSyncToBashrc(): void {
 }
 
 /**
+ * Removes the failproofai copilot-sync line from ~/.bashrc and ~/.zshrc.
+ * Called by the preuninstall script so no stale entries remain after removal.
+ */
+export function removeCopilotSyncFromRcFiles(): void {
+  const MARKER = "# failproofai copilot-sync";
+  const rcFiles = [
+    resolve(homedir(), ".bashrc"),
+    resolve(homedir(), ".zshrc"),
+  ];
+  for (const rc of rcFiles) {
+    if (!existsSync(rc)) continue;
+    try {
+      const content = readFileSync(rc, "utf8");
+      if (!content.includes(MARKER)) continue;
+      // Remove the marker comment line and the command line that follows it
+      const updated = content.replace(/# failproofai copilot-sync\n[^\n]+\n?/g, "");
+      writeFileSync(rc, updated, "utf8");
+    } catch {
+      // Best-effort — don't block uninstall
+    }
+  }
+}
+
+/**
  * After writing hooks into common/, create a symlink from the current snap
  * revision's hooks directory → common/hooks/ so Copilot can find it.
  *
- * Without this symlink, Copilot reads its revision-specific HOME
- * (~/snap/copilot-cli/<rev>/) which is empty after a snap install or update.
- * The symlink bridges the revision HOME to the persistent common/ store.
- *
- * Safe to call multiple times — no-ops if the symlink already exists.
+ * Also synchronizes any project-level hooks found in .github/hooks/failproofai.json
+ * into the global ~/.copilot/config.json so they are active for the current session.
  */
 export function ensureCopilotRevisionSymlink(): void {
+  // 1. Handle Snap revision symlink
   const snapBase = resolve(homedir(), "snap", "copilot-cli");
   const currentLink = resolve(snapBase, "current");
-  if (!existsSync(currentLink)) return;
+  if (existsSync(currentLink)) {
+    let rev: string;
+    try {
+      rev = readlinkSync(currentLink);
+      const commonHooks = resolve(snapBase, "common", ".config", "github-copilot", "hooks");
+      const revHooks    = resolve(snapBase, rev,      ".config", "github-copilot", "hooks");
 
-  let rev: string;
-  try {
-    rev = readlinkSync(currentLink);
-  } catch {
-    return; // can't resolve current revision — skip silently
+      if (existsSync(commonHooks) && !existsSync(revHooks)) {
+        mkdirSync(resolve(snapBase, rev, ".config", "github-copilot"), { recursive: true });
+        symlinkSync(commonHooks, revHooks);
+      }
+    } catch {
+      // Silenced
+    }
   }
 
-  const commonHooks = resolve(snapBase, "common", ".config", "github-copilot", "hooks");
-  const revHooks    = resolve(snapBase, rev,      ".config", "github-copilot", "hooks");
+  // 2. Synchronize project-level hooks
+  synchronizeCopilotProjectHooks();
+}
 
-  if (!existsSync(commonHooks)) return; // nothing to link to yet
-  if (existsSync(revHooks)) return;     // already present (real dir or existing symlink)
+/**
+ * Searches for .github/hooks/failproofai.json in current/parent dirs
+ * and merges its hooks into the user's global ~/.copilot/config.json.
+ */
+export function synchronizeCopilotProjectHooks(): void {
+  const globalSettingsPath = resolve(getCopilotHomeDir(), "config.json");
+  if (!existsSync(globalSettingsPath)) return;
 
   try {
-    mkdirSync(resolve(snapBase, rev, ".config", "github-copilot"), { recursive: true });
-    symlinkSync(commonHooks, revHooks);
+    const globalSettings = readJsonFile(globalSettingsPath);
+    if (!globalSettings.hooks) globalSettings.hooks = {};
+    const gHooks = globalSettings.hooks as Record<string, any[]>;
+
+    // Remove existing project hooks (marked with --scope project or found via path check)
+    for (const event of Object.keys(gHooks)) {
+      gHooks[event] = gHooks[event].filter((h: any) =>
+        !h.bash?.includes("--scope project") &&
+        !h.bash?.includes("npx -y failproofai")
+      );
+    }
+
+    // Search for project settings
+    let currentDir = process.cwd();
+    let projectSettingsPath: string | null = null;
+    const maxDepth = 10;
+    for (let i = 0; i < maxDepth; i++) {
+      const candidate = resolve(currentDir, ".github", "hooks", "failproofai.json");
+      if (existsSync(candidate)) {
+        projectSettingsPath = candidate;
+        break;
+      }
+      const parent = resolve(currentDir, "..");
+      if (parent === currentDir) break;
+      currentDir = parent;
+    }
+
+    if (projectSettingsPath) {
+      const pSettings = readJsonFile(projectSettingsPath);
+      if (pSettings.hooks) {
+        const pHooks = pSettings.hooks as Record<string, any[]>;
+        for (const [event, entries] of Object.entries(pHooks)) {
+          if (!gHooks[event]) gHooks[event] = [];
+          for (const entry of entries) {
+            // Avoid duplicate commands
+            if (!gHooks[event].some((h: any) => h.bash === entry.bash)) {
+              gHooks[event].push(entry);
+            }
+          }
+        }
+      }
+    }
+
+    writeJsonFile(globalSettingsPath, globalSettings);
   } catch {
-    // Best-effort — don't fail the install if symlink creation fails
+    // Silenced — never break shell startup
   }
 }
+
 
 const copilot: Integration = {
   id: "copilot",
@@ -638,11 +737,16 @@ const copilot: Integration = {
     writeJsonFile(settingsPath, settings);
   },
 
-  buildHookEntry(binaryPath: string, eventType: string): Record<string, unknown> {
+  buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown> {
     const pascalEvent = COPILOT_EVENT_MAP[eventType as CopilotHookEventType] ?? eventType;
+    // Project scope uses npx so the hooks file contains no machine-specific paths
+    // and can be safely committed to git.
+    const bash = scope === "project"
+      ? `npx -y failproofai --hook ${pascalEvent} --integration copilot`
+      : `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --integration copilot`;
     return {
       type: "command",
-      bash: `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --integration copilot`,
+      bash,
       timeoutSec: 60,
     };
   },
@@ -657,13 +761,13 @@ const copilot: Integration = {
     return cmd.includes("failproofai") && cmd.includes("--hook");
   },
 
-  writeHookEntries(settings: Record<string, unknown>, binaryPath: string): void {
+  writeHookEntries(settings: Record<string, unknown>, binaryPath: string, scope?: string): void {
     if (!settings.version) settings.version = 1;
     if (!settings.hooks) settings.hooks = {};
     const hooks = settings.hooks as Record<string, any[]>;
 
     for (const eventType of COPILOT_HOOK_EVENT_TYPES) {
-      const entry = this.buildHookEntry(binaryPath, eventType);
+      const entry = this.buildHookEntry(binaryPath, eventType, scope);
       if (!hooks[eventType]) hooks[eventType] = [];
       const idx = hooks[eventType].findIndex((h) => this.isFailproofaiHook(h));
       if (idx >= 0) {
@@ -713,13 +817,15 @@ const copilot: Integration = {
   },
 
   detect(payload) {
-    // Copilot payloads typically use camelCase for these fields
+    // Copilot payloads typically use camelCase and are unique
+    // We must be careful not to match Claude Code which uses PascalCase (PreToolUse) or SnakeCase (session_id).
+    const hookName = (payload.hook_event_name as string) || (payload.hookEventName as string) || "";
     return (
       "sessionId" in payload ||
       "toolName" in payload ||
       "hookEventName" in payload ||
-      COPILOT_HOOK_EVENT_TYPES.includes(payload.hook_event_name as any) ||
-      COPILOT_HOOK_EVENT_TYPES.includes(payload.hookEventName as any)
+      // Strictly avoid PascalCase events from Claude
+      (COPILOT_HOOK_EVENT_TYPES.includes(hookName as any) && !/^[A-Z]/.test(hookName))
     );
   },
 

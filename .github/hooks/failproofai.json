@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "\"/home/yashu/.nvm/versions/node/v24.14.0/bin/node\" \"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook SessionStart --integration copilot",
+        "timeoutSec": 60
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "\"/home/yashu/.nvm/versions/node/v24.14.0/bin/node\" \"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook SessionEnd --integration copilot",
+        "timeoutSec": 60
+      }
+    ],
+    "userPromptSubmitted": [
+      {
+        "type": "command",
+        "bash": "\"/home/yashu/.nvm/versions/node/v24.14.0/bin/node\" \"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook UserPromptSubmit --integration copilot",
+        "timeoutSec": 60
+      }
+    ],
+    "preToolUse": [
+      {
+        "type": "command",
+        "bash": "\"/home/yashu/.nvm/versions/node/v24.14.0/bin/node\" \"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook PreToolUse --integration copilot",
+        "timeoutSec": 60
+      }
+    ],
+    "postToolUse": [
+      {
+        "type": "command",
+        "bash": "\"/home/yashu/.nvm/versions/node/v24.14.0/bin/node\" \"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook PostToolUse --integration copilot",
+        "timeoutSec": 60
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "\"/home/yashu/.nvm/versions/node/v24.14.0/bin/node\" \"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook Stop --integration copilot",
+        "timeoutSec": 60
+      }
+    ],
+    "subagentStop": [
+      {
+        "type": "command",
+        "bash": "\"/home/yashu/.nvm/versions/node/v24.14.0/bin/node\" \"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook SubagentStop --integration copilot",
+        "timeoutSec": 60
+      }
+    ],
+    "errorOccurred": [
+      {
+        "type": "command",
+        "bash": "\"/home/yashu/.nvm/versions/node/v24.14.0/bin/node\" \"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook Stop --integration copilot",
+        "timeoutSec": 60
+      }
+    ]
+  }
+}

@@ -3,10 +3,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
-import { 
-  getIntegration, 
-  INTEGRATIONS, 
-  listIntegrationIds 
+import {
+  getIntegration,
+  INTEGRATIONS,
+  listIntegrationIds,
+  appendCopilotSyncToBashrc,
+  removeCopilotSyncFromRcFiles,
+  synchronizeCopilotProjectHooks,
 } from "../../src/hooks/integrations";
 import { 
   CURSOR_HOOK_EVENT_TYPES, 
@@ -95,7 +98,7 @@ describe("hooks/integrations", () => {
     it("has correct properties", () => {
       expect(gemini.id).toBe("gemini");
       expect(gemini.displayName).toBe("Gemini CLI");
-      expect(gemini.scopes).toEqual(["user", "project", "local"]); // Gemini uses same scopes as Claude
+      expect(gemini.scopes).toEqual(["user", "project"]);
       expect(gemini.eventTypes).toHaveLength(GEMINI_HOOK_EVENT_TYPES.length);
     });
 
@@ -214,9 +217,129 @@ describe("hooks/integrations", () => {
       const settingsPath = "/mock/path/failproofai.ts";
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("failproofai logic here");
-      
+
       const count = opencode.removeHooksFromFile(settingsPath);
       expect(count).toBe(OPENCODE_HOOK_EVENT_TYPES.length);
+    });
+  });
+
+  describe("appendCopilotSyncToBashrc", () => {
+    it("writes env-prefixed command on first install", () => {
+      vi.mocked(existsSync).mockImplementation((p) => String(p).endsWith(".bashrc"));
+      vi.mocked(readFileSync).mockReturnValue("# existing content\n");
+
+      appendCopilotSyncToBashrc();
+
+      const written = vi.mocked(writeFileSync).mock.calls[0][1] as string;
+      expect(written).toContain("env failproofai copilot-sync 2>/dev/null");
+      expect(written).not.toContain("\nfailproofai copilot-sync"); // no bare command
+    });
+
+    it("upgrades old bare command to env-prefixed on reinstall", () => {
+      const oldContent = "# existing\n# failproofai copilot-sync\nfailproofai copilot-sync 2>/dev/null\n";
+      vi.mocked(existsSync).mockImplementation((p) => String(p).endsWith(".bashrc"));
+      vi.mocked(readFileSync).mockReturnValue(oldContent);
+
+      appendCopilotSyncToBashrc();
+
+      const written = vi.mocked(writeFileSync).mock.calls[0][1] as string;
+      expect(written).toContain("env failproofai copilot-sync 2>/dev/null");
+      // bare command line (at start of line) must be gone
+      expect(written).not.toMatch(/\nfailproofai copilot-sync 2>\/dev\/null/);
+    });
+
+    it("skips write when env-prefixed command already present", () => {
+      // NEW_CMD contains OLD_CMD as substring — regex must not match env-prefixed line
+      const newContent = "# failproofai copilot-sync\nenv failproofai copilot-sync 2>/dev/null\n";
+      vi.mocked(existsSync).mockImplementation((p) => String(p).endsWith(".bashrc"));
+      vi.mocked(readFileSync).mockReturnValue(newContent);
+
+      appendCopilotSyncToBashrc();
+
+      expect(vi.mocked(writeFileSync)).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("removeCopilotSyncFromRcFiles", () => {
+    it("removes marker and command line from bashrc", () => {
+      const content = "# other stuff\n# failproofai copilot-sync\nenv failproofai copilot-sync 2>/dev/null\n# more stuff\n";
+      vi.mocked(existsSync).mockImplementation((p) => String(p).endsWith(".bashrc"));
+      vi.mocked(readFileSync).mockReturnValue(content);
+
+      removeCopilotSyncFromRcFiles();
+
+      const written = vi.mocked(writeFileSync).mock.calls[0][1] as string;
+      expect(written).not.toContain("failproofai copilot-sync");
+      expect(written).toContain("# other stuff");
+      expect(written).toContain("# more stuff");
+    });
+
+    it("does nothing when marker is absent", () => {
+      vi.mocked(existsSync).mockImplementation((p) => String(p).endsWith(".bashrc"));
+      vi.mocked(readFileSync).mockReturnValue("# unrelated content\n");
+
+      removeCopilotSyncFromRcFiles();
+
+      expect(vi.mocked(writeFileSync)).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("synchronizeCopilotProjectHooks", () => {
+    it("merges project hooks into global config", () => {
+      const globalPath = resolve(homedir(), ".copilot", "config.json");
+      const projectPath = resolve(process.cwd(), ".github", "hooks", "failproofai.json");
+
+      vi.mocked(existsSync).mockImplementation((p) => {
+        const path = String(p);
+        return path === globalPath || path === projectPath;
+      });
+
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        const path = String(p);
+        if (path === globalPath) return JSON.stringify({ hooks: { preToolUse: [] } });
+        if (path === projectPath) return JSON.stringify({ hooks: { preToolUse: [{ bash: "npx failproofai" }] } });
+        return "";
+      });
+
+      synchronizeCopilotProjectHooks();
+
+      const lastWrite = vi.mocked(writeFileSync).mock.calls.find(c => String(c[0]) === globalPath);
+      expect(lastWrite).toBeDefined();
+      const data = JSON.parse(lastWrite![1] as string);
+      expect(data.hooks.preToolUse).toHaveLength(1);
+      expect(data.hooks.preToolUse[0].bash).toBe("npx failproofai");
+    });
+
+    it("clears old project hooks before adding new ones", () => {
+      const globalPath = resolve(homedir(), ".copilot", "config.json");
+      const projectPath = resolve(process.cwd(), ".github", "hooks", "failproofai.json");
+
+      vi.mocked(existsSync).mockImplementation((p) => String(p) === globalPath || String(p) === projectPath);
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        const path = String(p);
+        if (path === globalPath) {
+          return JSON.stringify({
+            hooks: {
+              preToolUse: [{ bash: "npx -y failproofai --hook PreToolUse --integration copilot" }]
+            }
+          });
+        }
+        if (path === projectPath) {
+          return JSON.stringify({
+            hooks: {
+              preToolUse: [{ bash: "npx -y failproofai --hook PreToolUse --integration copilot --NEW" }]
+            }
+          });
+        }
+        return "";
+      });
+
+      synchronizeCopilotProjectHooks();
+
+      const lastWrite = vi.mocked(writeFileSync).mock.calls.find(c => String(c[0]) === globalPath);
+      const data = JSON.parse(lastWrite![1] as string);
+      expect(data.hooks.preToolUse).toHaveLength(1);
+      expect(data.hooks.preToolUse[0].bash).toContain("--NEW");
     });
   });
 });

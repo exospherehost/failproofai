@@ -93,7 +93,7 @@ describe("hooks/manager", () => {
         expect(hook.type).toBe("command");
         expect(hook.timeout).toBe(60_000);
         expect(hook.command).toBe(
-          `"${process.execPath}" "${MOCK_BINARY_PATH}" --hook ${eventType} --integration claude-code --stdin`,
+          `"${MOCK_BINARY_PATH}" --hook ${eventType}`,
         );
       }
     });
@@ -227,7 +227,7 @@ describe("hooks/manager", () => {
 
       expect(written.hooks.PreToolUse).toHaveLength(1);
       expect(written.hooks.PreToolUse[0].hooks[0].command).toBe(
-        `"${process.execPath}" "${MOCK_BINARY_PATH}" --hook PreToolUse --integration claude-code --stdin`,
+        `"${MOCK_BINARY_PATH}" --hook PreToolUse`,
       );
     });
 

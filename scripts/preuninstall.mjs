@@ -17,6 +17,29 @@ import { resolve } from "node:path";
 import { homedir, platform, arch } from "node:os";
 import { trackInstallEvent } from "./install-telemetry.mjs";
 
+/**
+ * Removes the failproofai copilot-sync lines from ~/.bashrc and ~/.zshrc.
+ */
+function removeCopilotSyncFromRcFiles() {
+  const MARKER = "# failproofai copilot-sync";
+  const rcFiles = [
+    resolve(homedir(), ".bashrc"),
+    resolve(homedir(), ".zshrc"),
+  ];
+  for (const rc of rcFiles) {
+    if (!existsSync(rc)) continue;
+    try {
+      const content = readFileSync(rc, "utf8");
+      if (!content.includes(MARKER)) continue;
+      const updated = content.replace(/# failproofai copilot-sync\n[^\n]+\n?/g, "");
+      writeFileSync(rc, updated, "utf8");
+      console.log(`[failproofai] Removed copilot-sync entry from ${rc}.`);
+    } catch {
+      // Best-effort — don't block uninstall
+    }
+  }
+}
+
 // Skip when running in development context (same guard as postinstall.mjs).
 if (process.env.INIT_CWD && process.env.INIT_CWD === process.cwd()) process.exit(0);
 
@@ -117,6 +140,12 @@ try {
   if (totalRemoved === 0) {
     console.log("[failproofai] No hook entries found to remove.");
   }
+} catch {
+  // Never block uninstall
+}
+
+try {
+  removeCopilotSyncFromRcFiles();
 } catch {
   // Never block uninstall
 }

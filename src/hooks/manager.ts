@@ -277,8 +277,14 @@ export async function installHooks(
 
   console.log(`Failproof AI hooks installed for all ${integ.eventTypes.length} event types (scope: ${scope}).`);
   console.log(`Settings: ${settingsPath}`);
-  if (scope === "project") {
+  // claude-code and copilot project-scope hooks use npx — no machine-specific paths.
+  // Other integrations embed absolute binary paths even in project scope.
+  const isPortableProjectInstall = scope === "project" &&
+    (integration === "claude-code" || integration === "copilot");
+  if (scope === "project" && integration === "claude-code") {
     console.log(`Command:  npx -y failproofai`);
+  }
+  if (isPortableProjectInstall) {
     console.log(`\nThis file can be committed to git — no machine-specific paths.`);
   } else {
     console.log(`Binary:   ${binaryPath}`);
