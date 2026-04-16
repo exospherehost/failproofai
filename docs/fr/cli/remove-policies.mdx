@@ -18,9 +18,8 @@ Alias : `failproofai p -u`
 | `--scope user` | Supprimer des paramètres globaux (par défaut) |
 | `--scope project` | Supprimer des paramètres du projet |
 | `--scope local` | Supprimer des paramètres locaux |
-| `--scope all` | Supprimer de tous les périmètres à la fois |
+| `--scope all` | Supprimer de tous les scopes à la fois |
 | `--custom` / `-c` | Effacer le `customPoliciesPath` de la configuration |
-| `--beta` | Supprimer uniquement les politiques bêta de la configuration |
 
 ## Comportement
 
@@ -36,7 +35,7 @@ failproofai policies --uninstall
 # Désactiver une politique spécifique (conserve les hooks installés)
 failproofai policies --uninstall block-sudo
 
-# Supprimer les hooks de tous les périmètres
+# Supprimer les hooks de tous les scopes
 failproofai policies --uninstall --scope all
 
 # Effacer le chemin des politiques personnalisées

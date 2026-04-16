@@ -4,16 +4,16 @@ description: "Las 30 políticas integradas que detectan los modos de fallo más 
 icon: shield
 ---
 
-failproofai incluye 30 políticas integradas que detectan los modos de fallo más comunes en agentes. Cada política se activa en un tipo de evento de hook específico y en un nombre de herramienta determinado. Nueve políticas aceptan parámetros que permiten ajustar su comportamiento sin escribir código. Cuatro políticas de flujo de trabajo en beta hacen cumplir un pipeline de commit → push → PR → CI antes de que Claude se detenga.
+failproofai incluye 30 políticas integradas que detectan los modos de fallo más comunes en agentes. Cada política se activa en un tipo de evento de hook específico y en un nombre de herramienta determinado. Nueve políticas aceptan parámetros que permiten ajustar su comportamiento sin necesidad de escribir código. Cuatro políticas de flujo de trabajo imponen una secuencia commit → push → PR → CI antes de que Claude se detenga.
 
 ---
 
 ## Descripción general
 
-Las políticas están agrupadas por categorías:
+Las políticas están agrupadas en categorías:
 
 | Categoría | Políticas | Tipo de hook |
-|----------|----------|-----------|
+|-----------|-----------|--------------|
 | [Comandos peligrosos](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
 | [Secretos (sanitizadores)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
 | [Entorno](#environment) | block-env-files, protect-env-vars | PreToolUse |
@@ -21,37 +21,37 @@ Las políticas están agrupadas por categorías:
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [Base de datos](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [Advertencias](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
-| [Flujo de trabajo (beta)](#workflow-beta) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+| [Flujo de trabajo](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
 
 - **`block-`** — impide que el agente continúe.
-- **`warn-`** — proporciona contexto adicional al agente para que pueda corregirse.
-- **`sanitize-`** — elimina datos sensibles de la salida de la herramienta antes de que el agente la vea.
+- **`warn-`** — proporciona al agente contexto adicional para que pueda corregirse.
+- **`sanitize-`** — elimina datos sensibles de la salida de una herramienta antes de que el agente la reciba.
 - **`require-`** — bloquea el evento Stop hasta que se cumplan las condiciones.
 
 ---
 
 <Tip>
-Todas las políticas admiten un campo opcional `hint` en `policyParams`. El hint se añade al mensaje de deny o instruct que ve Claude, proporcionando orientación práctica sin modificar el código de la política. Funciona con políticas integradas, personalizadas y de convención. Consulta [Configuración → hint](/es/configuration#hint-cross-cutting) para más detalles.
+Toda política admite un campo opcional `hint` en `policyParams`. El hint se añade al mensaje deny o instruct que recibe Claude, ofreciendo orientación práctica sin necesidad de modificar el código de la política. Funciona con políticas integradas, personalizadas y de convención. Consulta [Configuración → hint](/es/configuration#hint-cross-cutting) para más detalles.
 </Tip>
 
 ---
 
 ## Comandos peligrosos
 
-Evita que los agentes ejecuten operaciones difíciles de deshacer o que podrían dañar el sistema anfitrión.
+Evita que los agentes ejecuten operaciones difíciles de deshacer o que puedan dañar el sistema anfitrión.
 
 ### `block-sudo`
 
 **Evento:** PreToolUse (Bash)  
 **Comportamiento predeterminado:** Deniega cualquier comando `sudo`.
 
-Bloquea las invocaciones que incluyen la palabra clave `sudo`. La coincidencia de patrones se realiza sobre los tokens del comando parseado, no sobre la cadena sin procesar, para evitar evasiones mediante inyección de operadores de shell.
+Bloquea las invocaciones que incluyen la palabra clave `sudo`. La coincidencia de patrones se realiza sobre los tokens del comando analizado, no sobre la cadena de texto sin procesar, para evitar eludir la política mediante inyección de operadores de shell.
 
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefijos de comando exactos que están permitidos. Cada entrada se compara con los tokens argv parseados. |
+|-----------|------|----------------|-------------|
+| `allowPatterns` | `string[]` | `[]` | Prefijos exactos de comandos que están permitidos. Cada entrada se compara con los tokens argv analizados. |
 
 **Ejemplo:**
 
@@ -65,10 +65,10 @@ Bloquea las invocaciones que incluyen la palabra clave `sudo`. La coincidencia d
 }
 ```
 
-Con esta configuración, `sudo systemctl status nginx` está permitido, pero `sudo rm /etc/hosts` es denegado.
+Con esta configuración, `sudo systemctl status nginx` está permitido, pero `sudo rm /etc/hosts` está denegado.
 
 <Note>
-Los patrones se comparan con los tokens parseados, no con la cadena de comando sin procesar. Esto evita evasiones mediante operadores de shell añadidos (p. ej., `sudo systemctl status x; rm -rf /` no coincide con `sudo systemctl status *`).
+Los patrones se comparan con los tokens analizados, no con la cadena de comandos sin procesar. Esto evita eludir la política mediante operadores de shell añadidos (por ejemplo, `sudo systemctl status x; rm -rf /` no coincide con `sudo systemctl status *`).
 </Note>
 
 ---
@@ -81,8 +81,8 @@ Los patrones se comparan con los tokens parseados, no con la cadena de comando s
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | Rutas seguras para eliminar de forma recursiva (p. ej., `/tmp`). |
+|-----------|------|----------------|-------------|
+| `allowPaths` | `string[]` | `[]` | Rutas en las que es seguro realizar una eliminación recursiva (p. ej. `/tmp`). |
 
 **Ejemplo:**
 
@@ -110,7 +110,7 @@ Sin parámetros.
 ### `block-failproofai-commands`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Deniega comandos que desinstalarían o deshabilitarían failproofai (p. ej., `npm uninstall failproofai`, `failproofai policies --uninstall`).
+**Comportamiento predeterminado:** Deniega comandos que desinstalarían o desactivarían failproofai (p. ej. `npm uninstall failproofai`, `failproofai policies --uninstall`).
 
 Sin parámetros.
 
@@ -118,7 +118,7 @@ Sin parámetros.
 
 ## Secretos (sanitizadores)
 
-Evita que los agentes filtren credenciales en su contexto o salida. Las políticas de sanitización se activan en eventos **PostToolUse**. Cuando Claude ejecuta un comando Bash, lee un archivo o llama a cualquier herramienta, estas políticas inspeccionan la salida antes de que se devuelva a Claude. Si se detecta un patrón de secreto, la política devuelve una decisión de deny que impide que la salida sea enviada de vuelta.
+Evita que los agentes filtren credenciales en su contexto o en la salida. Las políticas sanitizadoras se activan en eventos **PostToolUse**. Cuando Claude ejecuta un comando Bash, lee un archivo o llama a cualquier herramienta, estas políticas inspeccionan la salida antes de que se devuelva a Claude. Si se detecta un patrón de secreto, la política devuelve una decisión de denegación que impide que la salida sea enviada de vuelta.
 
 ### `sanitize-jwt`
 
@@ -132,13 +132,13 @@ Sin parámetros.
 ### `sanitize-api-keys`
 
 **Evento:** PostToolUse (todas las herramientas)  
-**Comportamiento predeterminado:** Redacta formatos comunes de claves API: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), claves de acceso AWS (`AKIA`), claves Stripe (`sk_live_`, `sk_test_`) y claves de API de Google (`AIza`).
+**Comportamiento predeterminado:** Redacta los formatos de clave API más comunes: Anthropic (`sk-ant-`), OpenAI (`sk-`), PATs de GitHub (`ghp_`), claves de acceso de AWS (`AKIA`), claves de Stripe (`sk_live_`, `sk_test_`) y claves de API de Google (`AIza`).
 
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
-| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Patrones regex adicionales para tratar como secretos. |
+|-----------|------|----------------|-------------|
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Patrones de expresiones regulares adicionales que deben tratarse como secretos. |
 
 **Ejemplo:**
 
@@ -160,7 +160,7 @@ Sin parámetros.
 ### `sanitize-connection-strings`
 
 **Evento:** PostToolUse (todas las herramientas)  
-**Comportamiento predeterminado:** Redacta cadenas de conexión a bases de datos que contienen credenciales embebidas (p. ej., `postgresql://user:password@host/db`).
+**Comportamiento predeterminado:** Redacta cadenas de conexión a bases de datos que contienen credenciales embebidas (p. ej. `postgresql://user:password@host/db`).
 
 Sin parámetros.
 
@@ -178,7 +178,7 @@ Sin parámetros.
 ### `sanitize-bearer-tokens`
 
 **Evento:** PostToolUse (todas las herramientas)  
-**Comportamiento predeterminado:** Redacta encabezados `Authorization: Bearer <token>` donde el token tiene 20 o más caracteres.
+**Comportamiento predeterminado:** Redacta cabeceras `Authorization: Bearer <token>` cuando el token tiene 20 o más caracteres.
 
 Sin parámetros.
 
@@ -186,14 +186,14 @@ Sin parámetros.
 
 ## Entorno
 
-Protege la configuración de entorno sensible para que los agentes no puedan leerla ni exponerla.
+Protege la configuración sensible del entorno para que los agentes no puedan leerla ni exponerla.
 
 ### `block-env-files`
 
 **Evento:** PreToolUse (Bash, Read)  
 **Comportamiento predeterminado:** Deniega la lectura de archivos `.env` mediante `cat .env`, llamadas a la herramienta `Read` con `.env` como ruta de archivo, etc.
 
-No bloquea `.envrc` ni otros archivos relacionados con el entorno; solo bloquea archivos llamados exactamente `.env`.
+No bloquea `.envrc` ni otros archivos relacionados con el entorno; solo bloquea archivos con el nombre exacto `.env`.
 
 Sin parámetros.
 
@@ -220,8 +220,8 @@ Mantiene a los agentes trabajando dentro de los límites del proyecto y alejados
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | Prefijos de ruta absoluta que están permitidos aunque estén fuera del directorio de trabajo actual. |
+|-----------|------|----------------|-------------|
+| `allowPaths` | `string[]` | `[]` | Prefijos de rutas absolutas que están permitidos aunque estén fuera del directorio de trabajo actual. |
 
 **Ejemplo:**
 
@@ -240,13 +240,13 @@ Mantiene a los agentes trabajando dentro de los límites del proyecto y alejados
 ### `block-secrets-write`
 
 **Evento:** PreToolUse (Write, Edit)  
-**Comportamiento predeterminado:** Deniega escrituras en archivos comúnmente utilizados para claves privadas y certificados: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
+**Comportamiento predeterminado:** Deniega escrituras en archivos habitualmente usados para claves privadas y certificados: `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
 
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
-| `additionalPatterns` | `string[]` | `[]` | Patrones de nombre de archivo adicionales (estilo glob) a bloquear. |
+|-----------|------|----------------|-------------|
+| `additionalPatterns` | `string[]` | `[]` | Patrones de nombre de archivo adicionales (estilo glob) que se deben bloquear. |
 
 **Ejemplo:**
 
@@ -264,7 +264,7 @@ Mantiene a los agentes trabajando dentro de los límites del proyecto y alejados
 
 ## Git
 
-Previene pushes accidentales, force-pushes y errores de rama que son difíciles de deshacer.
+Evita pushes accidentales, force-pushes y errores de rama difíciles de deshacer.
 
 ### `block-push-master`
 
@@ -274,7 +274,7 @@ Previene pushes accidentales, force-pushes y errores de rama que son difíciles 
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
+|-----------|------|----------------|-------------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | Nombres de ramas a las que no se puede hacer push directamente. |
 
 **Ejemplo:**
@@ -290,7 +290,7 @@ Previene pushes accidentales, force-pushes y errores de rama que son difíciles 
 ```
 
 <Tip>
-Para permitir el push a todas las ramas (deshabilitando esta política sin eliminarla de `enabledPolicies`), establece `protectedBranches: []`.
+Para permitir el push a todas las ramas (desactivando efectivamente esta política sin eliminarla de `enabledPolicies`), establece `protectedBranches: []`.
 </Tip>
 
 ---
@@ -298,13 +298,13 @@ Para permitir el push a todas las ramas (deshabilitando esta política sin elimi
 ### `block-work-on-main`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Deniega hacer checkout directamente de las ramas `main` o `master`.
+**Comportamiento predeterminado:** Deniega hacer checkout directamente en las ramas `main` o `master`.
 
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
-| `protectedBranches` | `string[]` | `["main", "master"]` | Nombres de ramas que no pueden ser chequeadas directamente. |
+|-----------|------|----------------|-------------|
+| `protectedBranches` | `string[]` | `["main", "master"]` | Nombres de ramas a las que no se puede hacer checkout directamente. |
 
 ---
 
@@ -313,7 +313,7 @@ Para permitir el push a todas las ramas (deshabilitando esta política sin elimi
 **Evento:** PreToolUse (Bash)  
 **Comportamiento predeterminado:** Deniega `git push --force` y `git push -f`.
 
-Sin parámetros específicos de la política. Usa el [`hint`](/es/configuration#hint-cross-cutting) transversal para sugerir alternativas:
+Sin parámetros específicos de política. Usa el campo transversal [`hint`](/es/configuration#hint-cross-cutting) para sugerir alternativas:
 
 ```json
 {
@@ -330,7 +330,7 @@ Sin parámetros específicos de la política. Usa el [`hint`](/es/configuration#
 ### `warn-git-amend`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Instruye a Claude a proceder con cuidado al ejecutar `git commit --amend`. No bloquea el comando.
+**Comportamiento predeterminado:** Instruye a Claude para que proceda con cuidado al ejecutar `git commit --amend`. No bloquea el comando.
 
 Sin parámetros.
 
@@ -339,7 +339,7 @@ Sin parámetros.
 ### `warn-git-stash-drop`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Instruye a Claude a confirmar antes de ejecutar `git stash drop`. No bloquea el comando.
+**Comportamiento predeterminado:** Instruye a Claude para que confirme antes de ejecutar `git stash drop`. No bloquea el comando.
 
 Sin parámetros.
 
@@ -348,7 +348,7 @@ Sin parámetros.
 ### `warn-all-files-staged`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Instruye a Claude a revisar lo que está añadiendo al stage cuando ejecuta `git add -A` o `git add .`. No bloquea el comando.
+**Comportamiento predeterminado:** Instruye a Claude para que revise lo que está añadiendo al área de staging cuando ejecuta `git add -A` o `git add .`. No bloquea el comando.
 
 Sin parámetros.
 
@@ -361,7 +361,7 @@ Detecta operaciones SQL destructivas antes de que se ejecuten contra tu base de 
 ### `warn-destructive-sql`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Instruye a Claude a confirmar antes de ejecutar SQL que contenga `DROP TABLE`, `DROP DATABASE` o `DELETE` sin una cláusula `WHERE`.
+**Comportamiento predeterminado:** Instruye a Claude para que confirme antes de ejecutar SQL que contenga `DROP TABLE`, `DROP DATABASE` o `DELETE` sin cláusula `WHERE`.
 
 Sin parámetros.
 
@@ -370,7 +370,7 @@ Sin parámetros.
 ### `warn-schema-alteration`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Instruye a Claude a confirmar antes de ejecutar sentencias `ALTER TABLE`.
+**Comportamiento predeterminado:** Instruye a Claude para que confirme antes de ejecutar sentencias `ALTER TABLE`.
 
 Sin parámetros.
 
@@ -378,17 +378,17 @@ Sin parámetros.
 
 ## Advertencias
 
-Proporciona contexto adicional a los agentes antes de operaciones potencialmente arriesgadas pero no destructivas.
+Proporciona a los agentes contexto adicional antes de operaciones potencialmente arriesgadas pero no destructivas.
 
 ### `warn-large-file-write`
 
 **Evento:** PreToolUse (Write)  
-**Comportamiento predeterminado:** Instruye a Claude a confirmar antes de escribir archivos de más de 1024 KB.
+**Comportamiento predeterminado:** Instruye a Claude para que confirme antes de escribir archivos de más de 1024 KB.
 
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
+|-----------|------|----------------|-------------|
 | `thresholdKb` | `number` | `1024` | Umbral de tamaño de archivo en kilobytes a partir del cual se emite una advertencia. |
 
 **Ejemplo:**
@@ -404,7 +404,7 @@ Proporciona contexto adicional a los agentes antes de operaciones potencialmente
 ```
 
 <Note>
-El manejador de hooks aplica un límite de 1 MB en stdin para los payloads. Para probar esta política con contenido pequeño, establece `thresholdKb` a un valor bastante por debajo de 1024.
+El manejador de hooks impone un límite de 1 MB en stdin para los payloads. Para probar esta política con contenido pequeño, establece `thresholdKb` con un valor bastante inferior a 1024.
 </Note>
 
 ---
@@ -412,7 +412,7 @@ El manejador de hooks aplica un límite de 1 MB en stdin para los payloads. Para
 ### `warn-package-publish`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Instruye a Claude a confirmar antes de ejecutar `npm publish`.
+**Comportamiento predeterminado:** Instruye a Claude para que confirme antes de ejecutar `npm publish`.
 
 Sin parámetros.
 
@@ -421,7 +421,7 @@ Sin parámetros.
 ### `warn-background-process`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Instruye a Claude a tener cuidado al lanzar procesos en segundo plano mediante `nohup`, `&`, `disown` o `screen`.
+**Comportamiento predeterminado:** Instruye a Claude para que tenga cuidado al lanzar procesos en segundo plano mediante `nohup`, `&`, `disown` o `screen`.
 
 Sin parámetros.
 
@@ -430,35 +430,35 @@ Sin parámetros.
 ### `warn-global-package-install`
 
 **Evento:** PreToolUse (Bash)  
-**Comportamiento predeterminado:** Instruye a Claude a confirmar antes de ejecutar `npm install -g`, `yarn global add` o `pip install` sin un entorno virtual.
+**Comportamiento predeterminado:** Instruye a Claude para que confirme antes de ejecutar `npm install -g`, `yarn global add` o `pip install` sin un entorno virtual.
 
 Sin parámetros.
 
 ---
 
-## Comportamiento de IA
+## Comportamiento de la IA
 
-Detecta cuando los agentes se quedan atascados o se comportan de forma inesperada.
+Detecta cuándo los agentes se quedan bloqueados o se comportan de forma inesperada.
 
 ### `warn-repeated-tool-calls`
 
 **Evento:** PreToolUse (todas las herramientas)  
-**Comportamiento predeterminado:** Instruye a Claude a reconsiderar cuando la misma herramienta es llamada 3 o más veces con parámetros idénticos, una señal común de que el agente está atrapado en un bucle.
+**Comportamiento predeterminado:** Instruye a Claude para que reconsidere cuando la misma herramienta se llama 3 o más veces con parámetros idénticos, lo cual es una señal habitual de que el agente está atrapado en un bucle.
 
 Sin parámetros.
 
 ---
 
-## Flujo de trabajo (beta)
+## Flujo de trabajo
 
-Hace cumplir un flujo de trabajo disciplinado al final de la sesión. Estas políticas se activan en el evento **Stop** y deniegan a Claude la posibilidad de detenerse hasta que cada condición se cumpla. Siguen una cadena de dependencias natural: commit → push → PR → CI. Si una política deniega, las políticas posteriores en la cadena son omitidas (el deny hace cortocircuito).
+Impone un flujo de trabajo disciplinado al final de la sesión. Estas políticas se activan en el evento **Stop** y deniegan a Claude la posibilidad de detenerse hasta que se cumpla cada condición. Siguen una cadena de dependencias natural: commit → push → PR → CI. Si una política deniega, las políticas posteriores de la cadena se omiten (la denegación provoca un cortocircuito).
 
-Todas las políticas de flujo de trabajo son **fail-open**: si la herramienta requerida no está disponible (p. ej., `gh` no instalado, sin remote de git), la política permite el paso con un mensaje informativo explicando por qué se omitió la verificación.
+Todas las políticas de flujo de trabajo son **fail-open**: si la herramienta requerida no está disponible (p. ej. `gh` no está instalado, no hay remote de git), la política permite continuar con un mensaje informativo que explica por qué se omitió la verificación.
 
 ### `require-commit-before-stop`
 
 **Evento:** Stop  
-**Comportamiento predeterminado:** Deniega la detención cuando hay cambios sin confirmar (archivos modificados, en stage o sin seguimiento). Devuelve un mensaje informativo cuando el directorio de trabajo está limpio.
+**Comportamiento predeterminado:** Deniega la detención cuando hay cambios sin confirmar (archivos modificados, en staging o sin seguimiento). Devuelve un mensaje informativo cuando el directorio de trabajo está limpio.
 
 Sin parámetros.
 
@@ -467,12 +467,12 @@ Sin parámetros.
 ### `require-push-before-stop`
 
 **Evento:** Stop  
-**Comportamiento predeterminado:** Deniega la detención cuando hay commits sin enviar o cuando la rama actual no tiene rama de seguimiento remoto. Sugiere `git push -u` para crear una rama de seguimiento si es necesario. Falla de forma abierta si no hay ningún remote configurado.
+**Comportamiento predeterminado:** Deniega la detención cuando hay commits sin enviar o cuando la rama actual no tiene rama de seguimiento remota. Sugiere `git push -u` para crear una rama de seguimiento si es necesario. Es fail-open si no hay ningún remote configurado.
 
 **Parámetros:**
 
 | Parámetro | Tipo | Predeterminado | Descripción |
-|-------|------|---------|-------------|
+|-----------|------|----------------|-------------|
 | `remote` | `string` | `"origin"` | Nombre del remote al que hacer push. |
 
 **Ejemplo:**
@@ -492,14 +492,14 @@ Sin parámetros.
 ### `require-pr-before-stop`
 
 **Evento:** Stop  
-**Comportamiento predeterminado:** Deniega la detención cuando no existe ningún pull request para la rama actual, o cuando el PR existente está cerrado o fusionado. Instruye a Claude a crear un PR con `gh pr create`.
+**Comportamiento predeterminado:** Deniega la detención cuando no existe ningún pull request para la rama actual, o cuando el PR existente está cerrado o ya fue mergeado. Instruye a Claude para que cree un PR con `gh pr create`.
 
 Sin parámetros.
 
 <Note>
 Esta política requiere que [GitHub CLI](https://cli.github.com/) (`gh`) esté instalado y autenticado.
-Ejecuta `gh auth login` con un token de acceso personal que tenga el scope `repo` para acceso de lectura a
-pull requests. Si `gh` no está instalado o no está autenticado, la política falla de forma abierta e informa el motivo a Claude.
+Ejecuta `gh auth login` con un token de acceso personal que tenga alcance `repo` para acceso de lectura a
+pull requests. Si `gh` no está instalado o no está autenticado, la política es fail-open e informa del motivo a Claude.
 </Note>
 
 ---
@@ -507,50 +507,23 @@ pull requests. Si `gh` no está instalado o no está autenticado, la política f
 ### `require-ci-green-before-stop`
 
 **Evento:** Stop  
-**Comportamiento predeterminado:** Deniega la detención cuando las verificaciones de CI están fallando o todavía en ejecución en la rama actual. Verifica tanto las ejecuciones de flujos de trabajo de GitHub Actions como las verificaciones de bots de terceros (p. ej., CodeRabbit, SonarCloud, Codecov). Trata las conclusiones `skipped` como éxito. Devuelve un mensaje informativo cuando todas las verificaciones pasan.
+**Comportamiento predeterminado:** Deniega la detención cuando las verificaciones de CI están fallando o aún en ejecución en la rama actual. Comprueba tanto las ejecuciones de flujos de trabajo de GitHub Actions como las verificaciones de bots de terceros (p. ej. CodeRabbit, SonarCloud, Codecov). Trata las conclusiones `skipped` como éxito. Devuelve un mensaje informativo cuando todas las verificaciones pasan.
 
 Sin parámetros.
 
 <Note>
 Esta política requiere que [GitHub CLI](https://cli.github.com/) (`gh`) esté instalado y autenticado.
-Ejecuta `gh auth login` con un token de acceso personal que tenga el scope `repo` para acceso de lectura a
-ejecuciones de flujos de trabajo de Actions y la API de Checks. Si `gh` no está instalado o no está autenticado, la política falla de forma abierta e informa el motivo a Claude.
+Ejecuta `gh auth login` con un token de acceso personal que tenga alcance `repo` para acceso de lectura a
+las ejecuciones de flujos de trabajo de Actions y la API de Checks. Si `gh` no está instalado o no está autenticado, la política es fail-open e informa del motivo a Claude.
 </Note>
 
 ---
 
-## Políticas beta
-
-Algunas políticas están marcadas como `beta` y no se instalan por defecto. Las políticas beta pueden tener aristas imperfectas o generar falsos positivos. Pasan a estable en versiones futuras.
-
-**Políticas beta actuales:**
-
-- `require-commit-before-stop` — confirmar todos los cambios antes de detenerse
-- `require-push-before-stop` — enviar todos los commits al remote
-- `require-pr-before-stop` — asegurar que existe un PR para la rama
-- `require-ci-green-before-stop` — todas las verificaciones de CI deben pasar
-
-En conjunto, estas hacen cumplir un flujo de trabajo de **commit → push → PR → CI**.
-
-Para instalar todas las políticas beta:
-
-```bash
-failproofai policies --install --beta
-```
-
-O instalar políticas de flujo de trabajo específicas:
-
-```bash
-failproofai policies --install require-commit-before-stop require-push-before-stop require-pr-before-stop require-ci-green-before-stop
-```
-
-Ejecuta `failproofai policies` para ver qué políticas llevan el indicador beta.
-
 ---
 
-## Deshabilitar políticas individuales
+## Desactivar políticas individuales
 
-Elimina una política específica de `enabledPolicies` en tu configuración, o desactívala en la pestaña Políticas del panel de control.
+Elimina una política específica de `enabledPolicies` en tu configuración, o desactívala en la pestaña Políticas del dashboard.
 
 ```json
 {
@@ -561,4 +534,4 @@ Elimina una política específica de `enabledPolicies` en tu configuración, o d
 }
 ```
 
-Las políticas que no están listadas en `enabledPolicies` no se ejecutan, aunque existan entradas en `policyParams` para ellas.
+Las políticas que no aparecen en `enabledPolicies` no se ejecutan, aunque existan entradas en `policyParams` para ellas.
