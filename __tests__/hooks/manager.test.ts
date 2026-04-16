@@ -62,6 +62,7 @@ describe("hooks/manager", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     process.env.FAILPROOFAI_DIST_PATH = MOCK_DIST_PATH;
+    vi.mocked(execSync).mockReturnValue("/usr/local/bin/failproofai\n");
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
 
@@ -304,7 +305,7 @@ describe("hooks/manager", () => {
       const written = JSON.parse(content as string);
 
       const hook = written.hooks.PreToolUse[0].hooks[0];
-      expect(hook.command).toBe('"/usr/local/bin/failproofai" --hook PreToolUse');
+      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse`);
     });
 
     it("local scope uses absolute binary path, not npx", async () => {
@@ -318,7 +319,7 @@ describe("hooks/manager", () => {
       const written = JSON.parse(content as string);
 
       const hook = written.hooks.PreToolUse[0].hooks[0];
-      expect(hook.command).toBe('"/usr/local/bin/failproofai" --hook PreToolUse');
+      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse`);
     });
 
     it("re-install on project scope migrates absolute-path hooks to npx format", async () => {

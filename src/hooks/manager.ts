@@ -53,7 +53,7 @@ function resolveFailproofaiBinary(): string {
 
     const distCli = resolve(process.env.FAILPROOFAI_DIST_PATH, "cli.mjs");
     if (existsSync(distCli)) return distCli;
-    
+
     const rootBin = resolve(process.env.FAILPROOFAI_DIST_PATH, "..", "bin", "failproofai.mjs");
     if (existsSync(rootBin)) return rootBin;
   }
@@ -64,8 +64,17 @@ function resolveFailproofaiBinary(): string {
   const relativeSrc = resolve(__dirname, "..", "..", "bin", "failproofai.mjs");
   if (existsSync(relativeSrc)) return relativeSrc;
 
-  // Fallback to global bun bin (typical for users)
-  return resolve(homedir(), ".bun", "bin", "failproofai");
+  // Fall back to whichever global binary is in PATH
+  try {
+    const cmd = process.platform === "win32" ? "where failproofai" : "which failproofai";
+    const result = execSync(cmd, { encoding: "utf8" }).trim();
+    return result.split("\n")[0].trim();
+  } catch {
+    throw new CliError(
+      "failproofai binary not found in PATH.\n" +
+      "Install it globally first: npm install -g failproofai",
+    );
+  }
 }
 
 function scopeLabel(integration: Integration, scope: string, cwd?: string): string {
@@ -194,7 +203,7 @@ export async function installHooks(
 
   const settingsPath = integ.getSettingsPath(scope as any, cwd);
   const settings = integ.readSettings(settingsPath);
-  integ.writeHookEntries(settings, binaryPath);
+  integ.writeHookEntries(settings, binaryPath, scope);
   integ.writeSettings(settingsPath, settings);
   integ.postInstall?.();
 

@@ -53,7 +53,7 @@ export interface Integration {
   writeSettings(settingsPath: string, settings: Record<string, unknown>): void;
 
   /** Build a single hook entry for this integration. */
-  buildHookEntry(binaryPath: string, eventType: string): Record<string, unknown>;
+  buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown>;
 
   /** Check whether a hook entry belongs to failproofai. */
   isFailproofaiHook(hook: Record<string, unknown>): boolean;
@@ -62,7 +62,7 @@ export interface Integration {
    * Write hook entries into the settings object for all supported event types.
    * Mutates `settings` in place.
    */
-  writeHookEntries(settings: Record<string, unknown>, binaryPath: string): void;
+  writeHookEntries(settings: Record<string, unknown>, binaryPath: string, scope?: string): void;
 
   /**
    * Remove failproofai hook entries from a settings file.
@@ -148,7 +148,10 @@ const claudeCode: Integration = {
     writeJsonFile(settingsPath, settings);
   },
 
-  buildHookEntry(binaryPath: string, eventType: string): Record<string, unknown> {
+  buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown> {
+    const command = scope === "project"
+      ? `npx -y failproofai --hook ${eventType}`
+      : `"${binaryPath}" --hook ${eventType}`;
     return {
       type: "command",
       command: `"${process.execPath}" "${binaryPath}" --hook ${eventType} --integration claude-code --stdin`,
@@ -159,12 +162,12 @@ const claudeCode: Integration = {
 
   isFailproofaiHook: isMarkedHook,
 
-  writeHookEntries(settings: Record<string, unknown>, binaryPath: string): void {
+  writeHookEntries(settings: Record<string, unknown>, binaryPath: string, scope?: string): void {
     const s = settings as ClaudeSettings;
     if (!s.hooks) s.hooks = {};
 
     for (const eventType of HOOK_EVENT_TYPES) {
-      const hookEntry = this.buildHookEntry(binaryPath, eventType);
+      const hookEntry = this.buildHookEntry(binaryPath, eventType, scope);
 
       if (!s.hooks[eventType]) s.hooks[eventType] = [];
       const matchers: ClaudeHookMatcher[] = s.hooks[eventType];
