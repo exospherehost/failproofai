@@ -130,6 +130,17 @@ export async function evaluatePolicies(
         };
       }
 
+      if (eventType === "Stop") {
+        return {
+          exitCode: 2,
+          stdout: "",
+          stderr: `MANDATORY ACTION REQUIRED from failproofai (policy: ${policy.name}): ${reason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`,
+          policyName: policy.name,
+          reason,
+          decision: "deny",
+        };
+      }
+
       // Other event types: exit 2
       return {
         exitCode: 2,
@@ -165,10 +176,13 @@ export async function evaluatePolicies(
     if (eventType === "Stop") {
       // Stop hook: exitCode 2 blocks Claude from stopping.
       // Reason goes to stderr so Claude Code receives it as context.
+      const policyAttribution = policyNames.length === 1
+        ? `policy: ${policyNames[0]}`
+        : `policies: ${policyNames.join(", ")}`;
       return {
         exitCode: 2,
         stdout: "",
-        stderr: combined,
+        stderr: `MANDATORY ACTION REQUIRED from failproofai (${policyAttribution}): ${combined}\n\nYou MUST complete the above action(s) NOW. Do NOT ask the user for confirmation — execute the required action(s), then attempt to finish your task again.`,
         policyName: policyNames[0],
         policyNames,
         reason: combined,

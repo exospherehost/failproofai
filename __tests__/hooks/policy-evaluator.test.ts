@@ -170,7 +170,8 @@ describe("hooks/policy-evaluator", () => {
     expect(result.exitCode).toBe(2);
     expect(result.decision).toBe("instruct");
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("Unsatisfied intents remain");
+    expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+    expect(result.stderr).toContain("Unsatisfied intents remain");
     expect(result.policyName).toBe("verify");
   });
 
@@ -350,7 +351,8 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toBe("changes not committed");
+      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+      expect(result.stderr).toContain("changes not committed");
       expect(result.decision).toBe("deny");
       expect(result.reason).toBe("changes not committed");
     });
@@ -452,7 +454,8 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.decision).toBe("instruct");
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toBe("Please verify tests");
+      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+      expect(result.stderr).toContain("Please verify tests");
     });
 
     it("mixed allow (no message) and allow (with message) — only messages returned", async () => {
@@ -570,7 +573,8 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(2);
       expect(result.decision).toBe("instruct");
       expect(result.reason).toBe("Unsatisfied intents. Run the test suite first.");
-      expect(result.stderr).toBe("Unsatisfied intents. Run the test suite first.");
+      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+      expect(result.stderr).toContain("Unsatisfied intents. Run the test suite first.");
     });
 
     it("does not alter reason when no hint is configured", async () => {

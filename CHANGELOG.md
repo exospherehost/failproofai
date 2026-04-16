@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixes
+- Strengthen Stop-event deny/instruct instructions with mandatory framing so agents execute required actions instead of asking for confirmation (#109)
+
 ## 0.0.4 — 2026-04-16
 
 ### Features
