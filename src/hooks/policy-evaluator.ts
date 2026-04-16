@@ -157,6 +157,15 @@ export async function evaluatePolicies(
             reason,
             decision: "deny",
           };
+        } else if (session?.integration === "pi") {
+          return {
+            exitCode: 1,
+            stdout: "",
+            stderr: reason,
+            policyName: policy.name,
+            reason,
+            decision: "deny",
+          };
         }
         return {
           exitCode: 0,
@@ -301,13 +310,25 @@ export async function evaluatePolicies(
     }
 
     const supportsHookSpecificOutput = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
+    const isOpencode = session?.integration === "opencode";
+
     const response: any = supportsHookSpecificOutput
       ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: `Note from failproofai: ${combined}` } }
       : { reason: combined };
+
     if (session?.integration === "cursor" && supportsHookSpecificOutput) {
       response.agentMessage = response.hookSpecificOutput.additionalContext;
     }
-    return { exitCode: 0, stdout: JSON.stringify(response), stderr: stderrMsg + "\n", policyName: policyNames[0], policyNames, reason: combined, decision: "allow" };
+
+    return {
+      exitCode: 0,
+      stdout: isOpencode ? "" : JSON.stringify(response),
+      stderr: stderrMsg + "\n",
+      policyName: policyNames[0],
+      policyNames,
+      reason: combined,
+      decision: "allow",
+    };
   }
   return {
     exitCode: 0,

@@ -5,8 +5,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook BeforeTool --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook BeforeTool --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -17,8 +17,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook AfterTool --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook AfterTool --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -29,8 +29,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook BeforeAgent --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook BeforeAgent --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -41,8 +41,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook AfterAgent --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook AfterAgent --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -53,8 +53,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook BeforeModel --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook BeforeModel --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -65,8 +65,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook AfterModel --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook AfterModel --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -77,8 +77,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook BeforeToolSelection --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook BeforeToolSelection --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -89,8 +89,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook SessionStart --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook SessionStart --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -101,8 +101,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook SessionEnd --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook SessionEnd --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -113,8 +113,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook Notification --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook Notification --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]
@@ -125,8 +125,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -lc '\"/home/yashu/fp/failproofai/dist/cli.mjs\" --hook PreCompress --integration gemini'",
-            "timeout": 60000,
+            "command": "npx -y failproofai --hook PreCompress --integration gemini --stdin",
+            "timeout": 10000,
             "__failproofai_hook__": true
           }
         ]

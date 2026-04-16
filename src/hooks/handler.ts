@@ -22,9 +22,6 @@ import { getIntegration, INTEGRATIONS } from "./integrations";
 
 export async function handleHookEvent(eventType: string, integrationOverride?: string): Promise<number> {
   const startTime = performance.now();
-  try {
-    appendFileSync("/tmp/failproofai-debug.log", `[${new Date().toISOString()}] Hook called: event=${eventType} integration=${integrationOverride}\n`);
-  } catch {}
 
   // Read stdin payload (Claude/Cursor passes JSON)
   const MAX_STDIN_BYTES = 1_048_576; // 1 MB
@@ -71,9 +68,12 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
     }
   }
 
-  // 1. Modular Integration Detection (Fix Bug 1)
+  // 1. Modular Integration Detection
   // Priority: CLI Override -> Payload Field -> Heuristics
+  // We prioritize explicit overrides to ensure that hard-coded plugins (Pi/OpenCode)
+  // never fall back to heuristic misidentification.
   let integrationType: IntegrationType = (integrationOverride as IntegrationType) || (parsed.integration as IntegrationType);
+  
   if (!integrationType) {
     if (INTEGRATIONS.copilot.detect(parsed)) {
       integrationType = "copilot";
@@ -81,7 +81,11 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
       integrationType = "gemini";
     } else if (INTEGRATIONS.cursor.detect(parsed)) {
       integrationType = "cursor";
-    } else if (CODEX_HOOK_EVENT_TYPES.includes(parsed.hook_event_name as any)) {
+    } else if (INTEGRATIONS.opencode.detect(parsed)) {
+      integrationType = "opencode";
+    } else if (INTEGRATIONS.pi.detect(parsed)) {
+      integrationType = "pi";
+    } else if (INTEGRATIONS.codex.detect(parsed) || CODEX_HOOK_EVENT_TYPES.includes(parsed.hook_event_name as any)) {
       integrationType = "codex";
     } else {
       integrationType = "claude-code";
@@ -98,12 +102,12 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
 
   // Extract session metadata from payload
   const session: SessionMetadata = {
-    sessionId: (parsed.session_id as string | undefined) || `session-${integrationType}-${(parsed.cwd as string | undefined)?.split('/').pop() ?? 'default'}`,
+    sessionId: (parsed.session_id as string | undefined) || (parsed.sessionId as string | undefined) || `session-${integrationType}-${(parsed.cwd as string | undefined)?.split('/').pop() ?? 'default'}`,
     transcriptPath: parsed.transcript_path as string | undefined,
     cwd: parsed.cwd as string | undefined,
     permissionMode: parsed.permission_mode as string | undefined,
     hookEventName: parsed.hook_event_name as string | undefined,
-    integration: integrationType,
+    integration: integrationType || "claude-code",
   };
 
   // Build transcriptPath for Copilot sessions — Copilot payloads don't include one,

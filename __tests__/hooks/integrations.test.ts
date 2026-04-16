@@ -41,7 +41,8 @@ describe("hooks/integrations", () => {
       expect(ids).toContain("gemini");
       expect(ids).toContain("codex");
       expect(ids).toContain("opencode");
-      expect(ids.length).toBe(6);
+      expect(ids).toContain("pi");
+      expect(ids.length).toBe(7);
     });
   });
 

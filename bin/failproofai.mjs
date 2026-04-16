@@ -59,6 +59,15 @@ if (hookIdx >= 0) {
     console.error("Usage: failproofai --hook <event>  (e.g. PreToolUse, PostToolUse)");
     process.exit(1);
   }
+
+  // 1. Global Hook Deduplication
+  // Prevents multiple hooks (e.g. user + project) from executing in the same process tree.
+  const hookKey = `FAILPROOFAI_HOOK_ACTIVE_${args[hookIdx + 1]}`;
+  if (process.env[hookKey]) {
+    process.exit(0);
+  }
+  process.env[hookKey] = "true";
+
   try {
     const integrationIdx = args.indexOf("--integration");
     const integrationOverride = integrationIdx >= 0 ? args[integrationIdx + 1] : undefined;

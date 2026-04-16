@@ -113,7 +113,7 @@ const SCHEMA_ALTER_RE = /\bALTER\s+TABLE\b[\s\S]*\b(?:DROP\s+COLUMN|ADD\s+COLUMN
 const PUBLISH_CMD_RE = /(?:npm\s+publish|bun\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|poetry\s+publish|cargo\s+publish|gem\s+push)\b/;
 
 // protectEnvVars
-const ENV_PRINTENV_RE = /(?:^|\s|;|&&|\|\|)(?:env|printenv)(?:\s|$|;|&&|\|)/;
+const ENV_PRINTENV_RE = /(?:^|[;\|&!])\s*(?:env|printenv)(?:\s|$|[;\|&!])/;
 const ECHO_ENV_RE = /echo\s+.*\$\{?[A-Za-z_]/;
 const EXPORT_RE = /(?:^|\s|;|&&|\|\|)export\s+\w+/;
 const PS_ENV_VAR_RE = /\$env:[A-Za-z_]/i;
@@ -122,8 +122,8 @@ const DOTNET_GETENV_RE = /\[Environment\]::GetEnvironment/i;
 const CMD_ECHO_ENV_RE = /echo\s+%[A-Za-z_]/i;
 
 // blockEnvFiles
-const ENV_FILE_PATH_RE = /(?:^|[\\/])\.env(?:\.|$)/;
-const ENV_CMD_RE = /\.env(?:\b|\s|$|\.)/;
+const ENV_FILE_PATH_RE = /(?:^|[\\/])(?:\.env|env_)\w*/i;
+const ENV_CMD_RE = /(?:\.env|env_)\w*/i;
 
 // blockSudo
 const SUDO_RE = /(?:^|;|&&|\|\|)\s*sudo\s/;

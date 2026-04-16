@@ -5,7 +5,7 @@
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude-code", "cursor", "gemini", "copilot", "codex", "opencode"] as const;
+export const INTEGRATION_TYPES = ["claude-code", "cursor", "gemini", "copilot", "codex", "opencode", "pi"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CURSOR_HOOK_SCOPES = ["user", "project"] as const;
@@ -212,6 +212,7 @@ export const CODEX_EVENT_MAP: Record<CodexHookEventType, string> = {
   user_prompt_submit: "UserPromptSubmit",
 };
 
+
 // ── opencode Integration ──────────────────────────────────────────────────────
 
 export const OPENCODE_HOOK_EVENT_TYPES = [
@@ -230,4 +231,22 @@ export const OPENCODE_EVENT_MAP: Record<string, string> = {
   "tool.execute.before": "PreToolUse",
   "tool.execute.after": "PostToolUse",
   "chat.message": "UserPromptSubmit",
+};
+
+// ── pi Integration ────────────────────────────────────────────────────────────
+
+export const PI_HOOK_EVENT_TYPES = [
+  "session_start",
+  "tool_call",
+  "tool_result",
+  "input",
+] as const;
+
+export type PiHookEventType = (typeof PI_HOOK_EVENT_TYPES)[number];
+
+export const PI_EVENT_MAP: Record<string, string> = {
+  "session_start": "SessionStart",
+  "tool_call": "PreToolUse",
+  "tool_result": "PostToolUse",
+  "input": "UserPromptSubmit",
 };
