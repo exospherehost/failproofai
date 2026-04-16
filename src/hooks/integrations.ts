@@ -529,28 +529,15 @@ const gemini: Integration = {
 // ── GitHub Copilot integration ──────────────────────────────────────────────
 
 /**
- * Returns the GitHub Copilot config directory for the current user.
+ * Returns the Copilot CLI home directory.
  *
- * On Linux/macOS with a snap install of copilot-cli, we write into
- * ~/snap/copilot-cli/common/ — the one directory shared across ALL snap
- * revisions. This survives snap updates that would otherwise wipe the
- * revision-specific isolated HOME.
- *
- * On standard Linux/macOS (no snap), uses ~/.config/github-copilot.
- * On Windows, uses %APPDATA%/github-copilot.
+ * Copilot CLI reads user-level settings from:
+ *   ${COPILOT_HOME:-~/.copilot}/config.json
  */
-function getCopilotConfigDir(): string {
-  if (process.platform === "win32") {
-    return resolve(
-      process.env.APPDATA || resolve(homedir(), "AppData", "Roaming"),
-      "github-copilot"
-    );
-  }
-  const snapCommon = resolve(homedir(), "snap", "copilot-cli", "common");
-  if (existsSync(snapCommon)) {
-    return resolve(snapCommon, ".config", "github-copilot");
-  }
-  return resolve(homedir(), ".config", "github-copilot");
+function getCopilotHomeDir(): string {
+  const envHome = process.env.COPILOT_HOME;
+  if (envHome && envHome.trim().length > 0) return resolve(envHome);
+  return resolve(homedir(), ".copilot");
 }
 
 /**
@@ -627,7 +614,7 @@ const copilot: Integration = {
     const base = cwd ? resolve(cwd) : process.cwd();
     switch (scope) {
       case "user":
-        return resolve(getCopilotConfigDir(), "hooks", "hooks.json");
+        return resolve(getCopilotHomeDir(), "config.json");
       case "project":
         return resolve(base, ".github", "hooks", "failproofai.json");
       default:

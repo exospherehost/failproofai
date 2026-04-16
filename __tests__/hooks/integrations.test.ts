@@ -142,17 +142,16 @@ describe("hooks/integrations", () => {
       expect(copilot.getCanonicalEventName({}, "SessionEnd")).toBe("SessionEnd");
     });
 
-    it("resolves user settings path with APPDATA fallback for windows", () => {
-      // Mock process.platform
-      const originalPlatform = process.platform;
-      Object.defineProperty(process, 'platform', { value: 'linux' });
-      expect(copilot.getSettingsPath("user")).toBe(resolve(homedir(), ".config", "github-copilot", "hooks", "hooks.json"));
-      
-      Object.defineProperty(process, 'platform', { value: 'win32' });
-      // APPDATA is typically defined in test env or mocked
-      expect(copilot.getSettingsPath("user")).toContain("github-copilot");
-      
-      Object.defineProperty(process, 'platform', { value: originalPlatform });
+    it("resolves user settings path via COPILOT_HOME or ~/.copilot", () => {
+      const oldHome = process.env.COPILOT_HOME;
+      delete process.env.COPILOT_HOME;
+      expect(copilot.getSettingsPath("user")).toBe(resolve(homedir(), ".copilot", "config.json"));
+
+      process.env.COPILOT_HOME = "/tmp/copilot-home";
+      expect(copilot.getSettingsPath("user")).toBe(resolve("/tmp/copilot-home", "config.json"));
+
+      if (oldHome) process.env.COPILOT_HOME = oldHome;
+      else delete process.env.COPILOT_HOME;
     });
   });
 
