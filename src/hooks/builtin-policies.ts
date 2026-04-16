@@ -212,6 +212,36 @@ function getThirdPartyCheckRuns(cwd: string, sha: string): CiCheck[] {
   }
 }
 
+/** Fetch commit statuses (legacy Status API) and normalize to CiCheck format. */
+function getCommitStatuses(cwd: string, sha: string): CiCheck[] {
+  try {
+    const json = execFileSync(
+      "gh",
+      [
+        "api",
+        `repos/{owner}/{repo}/commits/${sha}/statuses`,
+        "--jq",
+        'map({name: .context, state: .state}) | unique_by(.name)',
+      ],
+      {
+        cwd,
+        encoding: "utf8",
+        timeout: 15000,
+      },
+    ).trim();
+
+    if (!json || json === "[]") return [];
+    const statuses = JSON.parse(json) as Array<{ name: string; state: string }>;
+    return statuses.map((s) => ({
+      name: s.name,
+      status: s.state === "pending" ? "in_progress" : "completed",
+      conclusion: s.state === "pending" ? "" : s.state === "success" ? "success" : "failure",
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Check if a command matches an allow pattern using token-by-token comparison.
  * The "*" token is a wildcard. Extra command tokens beyond the pattern are allowed,
@@ -1075,13 +1105,15 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
 
     // 2. Third-party check runs (CodeRabbit, SonarCloud, Codecov, etc.)
     let thirdPartyChecks: CiCheck[] = [];
+    let commitStatuses: CiCheck[] = [];
     const sha = getHeadSha(cwd);
     if (sha) {
       thirdPartyChecks = getThirdPartyCheckRuns(cwd, sha);
+      commitStatuses = getCommitStatuses(cwd, sha);
     }
 
     // 3. Merge all checks
-    const allChecks = [...workflowRuns, ...thirdPartyChecks];
+    const allChecks = [...workflowRuns, ...thirdPartyChecks, ...commitStatuses];
 
     if (allChecks.length === 0) return allow(`No CI runs found for branch "${branch}".`);
 

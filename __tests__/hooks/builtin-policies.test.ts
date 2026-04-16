@@ -2321,10 +2321,11 @@ describe("hooks/builtin-policies", () => {
     function mockCiScenario(
       branch: string,
       ghRunListResult: string | Error,
-      options?: { checkRunsResult?: string | Error; headSha?: string },
+      options?: { checkRunsResult?: string | Error; statusesResult?: string | Error; headSha?: string },
     ) {
       const headSha = options?.headSha ?? "deadbeef0000";
       const checkRunsResult = options?.checkRunsResult ?? "[]";
+      const statusesResult = options?.statusesResult ?? "[]";
 
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("gh --version")) return "gh version 2.40.0\n";
@@ -2340,8 +2341,13 @@ describe("hooks/builtin-policies", () => {
           if (ghRunListResult instanceof Error) throw ghRunListResult;
           return ghRunListResult;
         }
-        // gh api (check-runs)
+        // gh api (check-runs vs statuses)
         if (file === "gh" && argsArr.includes("api")) {
+          const apiUrl = argsArr.find((a) => a.includes("/commits/"));
+          if (apiUrl && apiUrl.includes("/statuses")) {
+            if (statusesResult instanceof Error) throw statusesResult;
+            return statusesResult;
+          }
           if (checkRunsResult instanceof Error) throw checkRunsResult;
           return checkRunsResult;
         }
@@ -2675,6 +2681,96 @@ describe("hooks/builtin-policies", () => {
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
+    });
+
+    // -- Commit status (legacy Status API) tests --
+
+    it("denies when a commit status is pending (e.g. CodeRabbit)", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        {
+          statusesResult: JSON.stringify([
+            { name: "CodeRabbit", state: "pending" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("still running");
+      expect(result.reason).toContain('"CodeRabbit"');
+    });
+
+    it("denies when a commit status is error", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        {
+          statusesResult: JSON.stringify([
+            { name: "CodeRabbit", state: "error" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("failing");
+      expect(result.reason).toContain('"CodeRabbit"');
+    });
+
+    it("denies when a commit status is failure", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        {
+          statusesResult: JSON.stringify([
+            { name: "CodeRabbit", state: "failure" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("failing");
+    });
+
+    it("allows when commit status is success", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        {
+          statusesResult: JSON.stringify([
+            { name: "CodeRabbit", state: "success" },
+          ]),
+        },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("All CI checks passed");
+    });
+
+    it("fail-open when statuses API errors", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "build" },
+        ]),
+        { statusesResult: new Error("API rate limit") },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("All CI checks passed");
     });
   });
 });

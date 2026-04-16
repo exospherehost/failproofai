@@ -4,6 +4,7 @@
 
 ### Fixes
 - Strengthen Stop-event deny/instruct instructions with mandatory framing so agents execute required actions instead of asking for confirmation (#109)
+- Include legacy commit statuses (CodeRabbit, etc.) in CI green check — previously only Check Runs API was queried (#109)
 
 ## 0.0.4 — 2026-04-16
 
