@@ -993,5 +993,10 @@
       "github": "https://github.com/exospherehost/failproofai",
       "x": "https://x.com/exospherehost"
     }
+  },
+  "integrations": {
+    "ga4": {
+      "measurementId": "G-Z3Z6GJ74H9"
+    }
   }
 }
