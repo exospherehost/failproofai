@@ -148,6 +148,15 @@ export async function evaluatePolicies(
             reason,
             decision: "deny",
           };
+        } else if (session?.integration === "opencode") {
+          return {
+            exitCode: 2,
+            stdout: "",
+            stderr: `FailproofAI blocked ${displayTool}: ${reason}`,
+            policyName: policy.name,
+            reason,
+            decision: "deny",
+          };
         }
         return {
           exitCode: 0,

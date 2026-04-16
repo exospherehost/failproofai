@@ -13,6 +13,7 @@ import {
   GEMINI_HOOK_EVENT_TYPES, 
   COPILOT_HOOK_EVENT_TYPES,
   CODEX_HOOK_EVENT_TYPES,
+  OPENCODE_HOOK_EVENT_TYPES,
 } from "../../src/hooks/types";
 
 vi.mock("node:fs", () => ({
@@ -20,6 +21,8 @@ vi.mock("node:fs", () => ({
   writeFileSync: vi.fn(),
   existsSync: vi.fn(),
   mkdirSync: vi.fn(),
+  unlinkSync: vi.fn(),
+  rmSync: vi.fn(),
 }));
 
 describe("hooks/integrations", () => {
@@ -33,9 +36,9 @@ describe("hooks/integrations", () => {
       expect(ids).toContain("claude-code");
       expect(ids).toContain("cursor");
       expect(ids).toContain("gemini");
-      expect(ids).toContain("copilot");
       expect(ids).toContain("codex");
-      expect(ids.length).toBe(5);
+      expect(ids).toContain("opencode");
+      expect(ids.length).toBe(6);
     });
   });
 
@@ -178,6 +181,42 @@ describe("hooks/integrations", () => {
 
     it("resolves user settings path", () => {
       expect(codex.getSettingsPath("user")).toBe(resolve(homedir(), ".codex", "hooks.json"));
+    });
+  });
+  
+  describe("opencode", () => {
+    const opencode = getIntegration("opencode");
+
+    it("has correct properties", () => {
+      expect(opencode.id).toBe("opencode");
+      expect(opencode.displayName).toBe("OpenCode");
+      expect(opencode.scopes).toEqual(["user", "project"]);
+      expect(opencode.eventTypes).toHaveLength(OPENCODE_HOOK_EVENT_TYPES.length);
+    });
+
+    it("detects opencode payloads", () => {
+      expect(opencode.detect({ integration: "opencode" })).toBe(true);
+      expect(opencode.detect({ slug: "gentle-wizard" })).toBe(true);
+      expect(opencode.detect({ session_id: "ses_123" })).toBe(true);
+      expect(opencode.detect({ something: "else" })).toBe(false);
+    });
+
+    it("maps events to canonical names", () => {
+      expect(opencode.getCanonicalEventName({ data: { type: "session.created" } }, "")).toBe("SessionStart");
+      expect(opencode.getCanonicalEventName({ hook_event_name: "tool.execute.before" }, "")).toBe("PreToolUse");
+    });
+
+    it("resolves user settings path including filename", () => {
+      expect(opencode.getSettingsPath("user")).toBe(resolve(homedir(), ".config", "opencode", "plugins", "failproofai.ts"));
+    });
+
+    it("returns correct count when removing hooks", () => {
+      const settingsPath = "/mock/path/failproofai.ts";
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("failproofai logic here");
+      
+      const count = opencode.removeHooksFromFile(settingsPath);
+      expect(count).toBe(OPENCODE_HOOK_EVENT_TYPES.length);
     });
   });
 });

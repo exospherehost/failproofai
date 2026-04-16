@@ -474,6 +474,39 @@ EXAMPLES
   launch("start");
 }
 
+// ── Emergency Reset (Hygiene) ────────────────────────────────────────────────
+/**
+ * Resets terminal state: disables mouse tracking and shows cursor.
+ * Ensures the shell isn't left in a corrupted state after a TUI exit.
+ */
+function emergencyReset() {
+  // \x1b[?1000l: disable normal mouse reporting
+  // \x1b[?1002l: disable button event mouse reporting
+  // \x1b[?1003l: disable any event mouse reporting
+  // \x1b[?1005l: disable UTF-8 mouse reporting
+  // \x1b[?1006l: disable SGR mouse mode
+  // \x1b[?1049l: switch to normal screen buffer
+  // \x1b[?25h:   show cursor
+  process.stdout.write("\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1005l\x1b[?1006l\x1b[?1049l\x1b[?25h");
+  if (process.stdin.isTTY && process.stdin.setRawMode) {
+    try {
+      process.stdin.setRawMode(false);
+    } catch {
+      // Silenced
+    }
+  }
+}
+
+// Register signals for clean exit
+process.on("SIGINT", () => {
+  emergencyReset();
+  process.exit(130); // Standard for SIGINT
+});
+process.on("SIGTERM", () => {
+  emergencyReset();
+  process.exit(143); // Standard for SIGTERM
+});
+
 // ── Import CliError for use in the guard above ────────────────────────────────
 const { CliError } = await import("../src/cli-error");
 
@@ -489,4 +522,6 @@ try {
   const msg = err instanceof Error ? err.message : String(err);
   console.error(`Unexpected error: ${msg}`);
   process.exit(2);
+} finally {
+  emergencyReset();
 }

@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
-import { getClaudeProjectsPath, getCopilotSessionStatePath } from "./paths";
+import { getClaudeProjectsPath, getCopilotSessionStatePath, getOpencodeLogPath } from "./paths";
 import { resolveProjectPath, resolveCopilotSessionDir, UUID_RE } from "./projects";
 import { resolveSubagentPath } from "./resolve-subagent-path";
 import { runtimeCache } from "./runtime-cache";
@@ -418,15 +418,69 @@ export async function parseSessionLog(
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
 
-    // Fallback: this may be a Copilot session where projectName IS the sessionId
-    // and the log lives at ~/.copilot/session-state/<sessionId>/events.jsonl.
     if (UUID_RE.test(projectName)) {
       const copilotDir = resolveCopilotSessionDir(projectName);
       const copilotEventsPath = join(copilotDir, "events.jsonl");
       // Let this throw naturally (ENOENT) if the Copilot session doesn't exist either.
       fileContent = await readFile(copilotEventsPath, "utf-8");
+    } else if (projectName.startsWith("ses_") || sessionId.startsWith("ses_")) {
+      // opencode sessions: pull from the structured activity store since we don't 
+      // have a dedicated JSONL log from the agent itself.
+      const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
+      const sid = sessionId.startsWith("ses_") ? sessionId : projectName;
+      const allActivity = getAllHookActivityEntries();
+      const entries = allActivity
+        .filter((e) => (e.sessionId === sid || `ses_${e.sessionId}` === sid || e.sessionId === `ses_${sid}`) && e.integration === "opencode")
+        .map((e) => {
+          const date = new Date(e.timestamp);
+          const timestamp = date.toISOString();
+          
+          // Map security events to assistant/system entries for the dashboard
+          if (e.eventType === "PreToolUse" || e.eventType === "PostToolUse") {
+             return {
+               type: "assistant",
+               _source: "session",
+               uuid: "",
+               parentUuid: null,
+               timestamp,
+               timestampMs: e.timestamp,
+               timestampFormatted: formatDate(date),
+               message: {
+                 role: "assistant",
+                 content: [{
+                   type: "tool_use",
+                   id: e.sessionId || "",
+                   name: e.toolName || "unknown",
+                   input: {},
+                   result: e.decision === "deny" ? {
+                     timestamp,
+                     timestampFormatted: formatDate(date),
+                     content: `Action blocked by policy: ${e.policyName}\nReason: ${e.reason}`,
+                     durationMs: e.durationMs,
+                     durationFormatted: formatDuration(e.durationMs)
+                   } : undefined
+                 }]
+               }
+             } as AssistantEntry;
+          }
+
+          return {
+            type: "system",
+            _source: "session",
+            uuid: "",
+            parentUuid: null,
+            timestamp,
+            timestampMs: e.timestamp,
+            timestampFormatted: formatDate(date),
+            raw: { ...e },
+          } as GenericEntry;
+        });
+
+      // Sort opencode entries by timestamp ascending
+      entries.sort((a, b) => a.timestampMs - b.timestampMs);
+      return { entries, rawLines: [], subagentIds: [] };
     } else {
-      throw e; // not a UUID — re-throw original error
+      throw e; // not a UUID or opencode session — re-throw original error
     }
   }
 

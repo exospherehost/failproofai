@@ -17,6 +17,14 @@ export function getCopilotSessionStatePath(): string {
   return process.env.COPILOT_SESSION_STATE_PATH ?? join(homedir(), ".copilot", "session-state");
 }
 
+export function getOpencodeLogPath(): string {
+  return process.env.OPENCODE_LOG_PATH ?? join(homedir(), ".local", "share", "opencode", "log");
+}
+
+export function getOpencodeStoragePath(): string {
+  return process.env.OPENCODE_STORAGE_PATH ?? join(homedir(), ".local", "share", "opencode", "storage");
+}
+
 export function getDefaultClaudeProjectsPath(): string {
   // ~/.claude/projects on all platforms (including Windows)
   return join(homedir(), ".claude", "projects");

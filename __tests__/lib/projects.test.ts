@@ -10,6 +10,7 @@ vi.mock("fs/promises", () => ({
 vi.mock("@/lib/paths", () => ({
   getClaudeProjectsPath: vi.fn(() => "/mock/.claude/projects"),
   getCopilotSessionStatePath: vi.fn(() => "/mock/.copilot/session-state"),
+  getOpencodeStoragePath: vi.fn(() => "/mock/.local/share/opencode/storage"),
 }));
 
 vi.mock("@/lib/utils", () => ({
@@ -50,23 +51,26 @@ describe("getProjectFolders", () => {
   });
 
   it("returns empty array when directory doesn't exist", async () => {
-    mockStat.mockRejectedValueOnce(new Error("ENOENT"));
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Claude
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode
     const result = await getProjectFolders();
     expect(result).toEqual([]);
   });
 
   it("returns empty array when path is not a directory", async () => {
-    mockStat.mockResolvedValueOnce({
-      isDirectory: () => false,
-    } as any);
+    mockStat.mockResolvedValueOnce({ isDirectory: () => false } as any); // Claude
+    mockStat.mockResolvedValueOnce({ isDirectory: () => false } as any); // Copilot
+    mockStat.mockResolvedValueOnce({ isDirectory: () => false } as any); // opencode
     const result = await getProjectFolders();
     expect(result).toEqual([]);
   });
 
   it("returns only directories (not files)", async () => {
-    // Claude root stat, Copilot root stat (rejected — no copilot sessions), then per-dir stats
+    // Claude root stat, Copilot root stat, opencode root stat
     mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
     mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode root not found
     mockReaddir.mockResolvedValueOnce([
       { name: "project-a", isDirectory: () => true, isFile: () => false } as any,
       { name: "file.txt", isDirectory: () => false, isFile: () => true } as any,
@@ -84,9 +88,10 @@ describe("getProjectFolders", () => {
   });
 
   it("sorts newest-first by mtime", async () => {
-    // Claude root stat, Copilot root stat (rejected), then per-dir stats
+    // Claude root stat, Copilot root stat, opencode root stat
     mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
     mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode root not found
     mockReaddir.mockResolvedValueOnce([
       { name: "old", isDirectory: () => true, isFile: () => false } as any,
       { name: "new", isDirectory: () => true, isFile: () => false } as any,
@@ -101,9 +106,10 @@ describe("getProjectFolders", () => {
   });
 
   it("uses fallback Date(0) when individual stat fails", async () => {
-    // Claude root stat, Copilot root stat (rejected), then per-dir stat (rejected)
+    // Claude root stat, Copilot root stat, opencode root stat
     mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
     mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode root not found
     mockReaddir.mockResolvedValueOnce([
       { name: "broken", isDirectory: () => true, isFile: () => false } as any,
     ] as any);

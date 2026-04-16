@@ -5,7 +5,7 @@
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude-code", "cursor", "gemini", "copilot", "codex"] as const;
+export const INTEGRATION_TYPES = ["claude-code", "cursor", "gemini", "copilot", "codex", "opencode"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CURSOR_HOOK_SCOPES = ["user", "project"] as const;
@@ -210,4 +210,24 @@ export const CODEX_EVENT_MAP: Record<CodexHookEventType, string> = {
   session_start: "SessionStart",
   stop: "Stop",
   user_prompt_submit: "UserPromptSubmit",
+};
+
+// ── opencode Integration ──────────────────────────────────────────────────────
+
+export const OPENCODE_HOOK_EVENT_TYPES = [
+  "session.created",
+  "session.idle",
+  "tool.execute.before",
+  "tool.execute.after",
+  "chat.message",
+] as const;
+
+export type OpencodeHookEventType = (typeof OPENCODE_HOOK_EVENT_TYPES)[number];
+
+export const OPENCODE_EVENT_MAP: Record<string, string> = {
+  "session.created": "SessionStart",
+  "session.idle": "SessionEnd",
+  "tool.execute.before": "PreToolUse",
+  "tool.execute.after": "PostToolUse",
+  "chat.message": "UserPromptSubmit",
 };

@@ -7,7 +7,7 @@
  */
 import { readdir, stat } from "fs/promises";
 import { join, resolve, sep, basename } from "path";
-import { getClaudeProjectsPath, getCopilotSessionStatePath } from "./paths";
+import { getClaudeProjectsPath, getCopilotSessionStatePath, getOpencodeStoragePath } from "./paths";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
 import { logWarn, logError } from "./logger";
@@ -22,7 +22,7 @@ export interface ProjectFolder {
   isDirectory: boolean;
   lastModified: Date;
   lastModifiedFormatted?: string; // Pre-formatted date string to avoid hydration issues
-  source?: "claude" | "copilot"; // Which AI agent owns this project/session
+  source?: "claude" | "copilot" | "opencode"; // Which AI agent owns this project/session
 }
 
 export interface SessionFile {
@@ -85,15 +85,42 @@ async function readFolderEntries(
     .map((r) => r.value);
 }
 
+async function readOpencodeEntries(rootPath: string): Promise<ProjectFolder[]> {
+  const entries = await safeReaddir(rootPath);
+  if (!entries) return [];
+
+  const settled = await batchAll(
+    entries
+      .filter((e) => e.isFile() && e.name.startsWith("ses_"))
+      .map((entry) => async () => {
+        const filePath = join(rootPath, entry.name);
+        const mtime = await getMtime(filePath, entry.name);
+        return {
+          name: entry.name.replace(".json", ""),
+          path: filePath,
+          isDirectory: false,
+          lastModified: mtime,
+          lastModifiedFormatted: formatDate(mtime),
+          source: "opencode",
+        } as ProjectFolder;
+      }),
+    16,
+  );
+  return settled
+    .filter((r): r is PromiseFulfilledResult<ProjectFolder> => r.status === "fulfilled")
+    .map((r) => r.value);
+}
+
 export async function getProjectFolders(): Promise<ProjectFolder[]> {
   try {
-    const [claudeFolders, copilotFolders] = await Promise.all([
+    const [claudeFolders, copilotFolders, opencodeFolders] = await Promise.all([
       readFolderEntries(getClaudeProjectsPath(), "claude"),
       // Copilot session dirs are UUIDs; skip anything that isn't.
       readFolderEntries(getCopilotSessionStatePath(), "copilot", (name) => UUID_RE.test(name)),
+      readOpencodeEntries(join(getOpencodeStoragePath(), "session_diff")),
     ]);
 
-    const folders = [...claudeFolders, ...copilotFolders];
+    const folders = [...claudeFolders, ...copilotFolders, ...opencodeFolders];
     folders.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
     return folders;
   } catch (error) {
@@ -150,7 +177,7 @@ export function resolveCopilotSessionDir(sessionId: string): string {
  */
 export function resolveAnyProjectPath(
   name: string,
-): { path: string; source: "claude" | "copilot" } {
+): { path: string; source: "claude" | "copilot" | "opencode" } {
   try {
     return { path: resolveProjectPath(name), source: "claude" };
   } catch {
@@ -158,7 +185,10 @@ export function resolveAnyProjectPath(
     if (UUID_RE.test(name)) {
       return { path: resolveCopilotSessionDir(name), source: "copilot" };
     }
-    throw new RangeError(`Project "${name}" not found in Claude or Copilot paths`);
+    if (name.startsWith("ses_")) {
+      return { path: join(getOpencodeStoragePath(), "session_diff", `${name}.json`), source: "opencode" };
+    }
+    throw new RangeError(`Project "${name}" not found in Claude, Copilot, or opencode paths`);
   }
 }
 
@@ -229,6 +259,19 @@ export async function getSessionFiles(projectPath: string): Promise<SessionFile[
         lastModifiedFormatted: formatDate(mtime),
         sessionId: dirName, // parent directory UUID is the session ID
       }];
+    }
+
+    // opencode sessions: the file itself is the session marker.
+    // We already resolveOpencodeSessionDir to the session_diff file.
+    if (projectPath.includes("session_diff") && basename(projectPath).startsWith("ses_")) {
+       const mtime = await getMtime(projectPath, basename(projectPath));
+       return [{
+         name: basename(projectPath),
+         path: projectPath,
+         lastModified: mtime,
+         lastModifiedFormatted: formatDate(mtime),
+         sessionId: basename(projectPath).replace(".json", ""),
+       }];
     }
 
     return [];
