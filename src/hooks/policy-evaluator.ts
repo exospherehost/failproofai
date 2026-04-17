@@ -311,6 +311,8 @@ export async function evaluatePolicies(
 
     const supportsHookSpecificOutput = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
     const isOpencode = session?.integration === "opencode";
+    const isPi = session?.integration === "pi";
+    const suppressStderr = isOpencode || isPi; // These integrations display stderr in UI, suppress diagnostic noise
 
     const response: any = supportsHookSpecificOutput
       ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: `Note from failproofai: ${combined}` } }
@@ -323,7 +325,7 @@ export async function evaluatePolicies(
     return {
       exitCode: 0,
       stdout: isOpencode ? "" : JSON.stringify(response),
-      stderr: stderrMsg + "\n",
+      stderr: suppressStderr ? "" : stderrMsg + "\n",
       policyName: policyNames[0],
       policyNames,
       reason: combined,
