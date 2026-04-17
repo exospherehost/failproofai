@@ -153,7 +153,7 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← 向下回落到 glob
 
 每次 hook 事件触发时都会重新加载该文件，不存在缓存机制。关于编写自定义策略的详情，请参阅[自定义策略](/zh/custom-policies)。
 
-### 基于约定的策略（v0.0.2-beta.7+）
+### 基于约定的策略
 
 除显式指定的 `customPoliciesPath` 外，failproofai 还会自动发现并加载 `.failproofai/policies/` 目录中的策略文件：
 

@@ -39,7 +39,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ## Hai cách để tải chính sách tùy chỉnh
 
-### Lựa chọn 1: Dựa trên quy ước (được khuyến nghị, v0.0.2-beta.7+)
+### Lựa chọn 1: Dựa trên quy ước (được khuyến nghị)
 
 Thả các tệp `*policies.{js,mjs,ts}` vào `.failproofai/policies/` và chúng sẽ được tải tự động — không cần cờ hoặc thay đổi cấu hình. Cách này hoạt động giống như git hooks: thả một tệp, nó sẽ hoạt động.
 
@@ -125,11 +125,8 @@ customPolicies.add({
 Bạn có thể nối thêm hướng dẫn bổ sung vào bất kỳ thông báo `deny` hoặc `instruct` nào bằng cách thêm trường `hint` trong `policyParams` — không cần thay đổi mã. Điều này hoạt động cho các chính sách tùy chỉnh (`custom/`), quy ước dự án (`.failproofai-project/`), và quy ước người dùng (`.failproofai-user/`) cũng vậy. Xem [Cấu hình → hint](/vi/configuration#hint-cross-cutting) để biết chi tiết.
 </Tip>
 
-### Thông báo allow thông tin (beta)
+### Thông báo allow thông tin
 
-<Note>
-`allow(message)` là tính năng beta có sẵn từ v0.0.2-beta.3. API có thể thay đổi trong các phiên bản tương lai. Các phiên bản trước chỉ hỗ trợ `allow()` mà không có đối số.
-</Note>
 
 `allow(message)` cho phép hoạt động **và** gửi một thông báo thông tin quay lại cho Claude. Thông báo được gửi dưới dạng `additionalContext` trong phản hồi stdout của trình xử lý hook — cơ chế tương tự được sử dụng bởi `instruct`, nhưng về mặt ngữ nghĩa khác: đó là một cập nhật trạng thái, không phải cảnh báo.
 

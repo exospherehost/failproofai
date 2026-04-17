@@ -208,7 +208,7 @@ failproofai policies --install --custom ./my-policies.js
 | İşlev | Etki |
 |-------|------|
 | `allow()` | İşleme izin ver |
-| `allow(message)` | İzin ver ve bilgilendirici bağlam Claude'a gönder *(beta)* |
+| `allow(message)` | İzin ver ve bilgilendirici bağlam Claude'a gönder |
 | `deny(message)` | İşlemi engelle; ileti Claude'a gösterilir |
 | `instruct(message)` | Claude'un istemine bağlam ekle; engelleme yapmaz |
 
@@ -226,7 +226,7 @@ failproofai policies --install --custom ./my-policies.js
 
 Özel hooklar geçişli yerel içe aktarmaları, async/await'i ve `process.env` erişimini destekler. Hatalar açık başarısızlık modunda yapılır (günlüklenir: `~/.failproofai/hook.log`, yerleşik politikalar devam eder). Tam rehber için bkz. [docs/custom-hooks.mdx](docs/custom-hooks.mdx).
 
-### Kural tabanlı politikalar (v0.0.2-beta.7+)
+### Kural tabanlı politikalar
 
 `*policies.{js,mjs,ts}` dosyalarını `.failproofai/policies/` klasörüne bırakın ve otomatik olarak yüklenir — `--custom` bayrağı veya yapılandırma değişiklikleri gerekmez. Git hook'ları gibi çalışır: bir dosya bırakın, her şey çalışır.
 

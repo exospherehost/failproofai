@@ -2,11 +2,14 @@
 
 ## Unreleased
 
-## 0.0.5-beta.0 — 2026-04-16
+## 0.0.5 — 2026-04-17
 
 ### Fixes
 - Strengthen Stop-event deny/instruct instructions with mandatory framing so agents execute required actions instead of asking for confirmation (#109)
 - Include legacy commit statuses (CodeRabbit, etc.) in CI green check — previously only Check Runs API was queried (#109)
+
+### Docs
+- Remove beta version annotations from convention-based policies and allow(message) documentation (#110)
 
 ## 0.0.4 — 2026-04-16
 

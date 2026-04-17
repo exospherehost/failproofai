@@ -103,9 +103,9 @@ Claude Code לאחר מכן מפעיל את `failproofai --hook PreToolUse` כת
 - קוד יציאה: `0`
 - stdout ריק
 
-**Allow עם הודעה (beta):**
+**Allow עם הודעה:**
 
-מאז v0.0.2-beta.3, `allow(message)` מאפשר למדיניות לשלוח הקשר מידע חזור ל-Claude גם כאשר הפעולה מורשית. מטפל ה-hook כותב את ה-JSON הבא ל-**stdout** (לא קובץ הגדרות — זו תגובת המטפל ל-Claude Code, בדיוק כמו תגובות deny ו-instruct לעיל):
+`allow(message)` מאפשר למדיניות לשלוח הקשר מידע חזור ל-Claude גם כאשר הפעולה מורשית. מטפל ה-hook כותב את ה-JSON הבא ל-**stdout** (לא קובץ הגדרות — זו תגובת המטפל ל-Claude Code, בדיוק כמו תגובות deny ו-instruct לעיל):
 
 ```json
 // כתוב ל-stdout על ידי תהליך מטפל ה-hook

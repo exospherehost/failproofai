@@ -39,7 +39,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ## Zwei Wege zum Laden benutzerdefinierter Richtlinien
 
-### Option 1: Konventionsbasiert (empfohlen, v0.0.2-beta.7+)
+### Option 1: Konventionsbasiert (empfohlen)
 
 Legen Sie `*policies.{js,mjs,ts}`-Dateien in `.failproofai/policies/` ab – sie werden automatisch geladen, ohne Flags oder Konfigurationsänderungen. Das funktioniert wie Git-Hooks: Datei ablegen, fertig.
 
@@ -125,11 +125,8 @@ customPolicies.add({
 Sie können jeder `deny`- oder `instruct`-Nachricht zusätzliche Hinweise hinzufügen, indem Sie ein `hint`-Feld in `policyParams` setzen – ohne Codeänderung. Das funktioniert auch für benutzerdefinierte (`custom/`), Projekt-Konventions- (`.failproofai-project/`) und Benutzer-Konventionsrichtlinien (`.failproofai-user/`). Siehe [Konfiguration → hint](/de/configuration#hint-cross-cutting) für Details.
 </Tip>
 
-### Informative allow-Nachrichten (Beta)
+### Informative allow-Nachrichten
 
-<Note>
-`allow(message)` ist eine Beta-Funktion, verfügbar seit v0.0.2-beta.3. Die API kann sich in zukünftigen Releases ändern. Ältere Versionen unterstützen nur `allow()` ohne Argumente.
-</Note>
 
 `allow(message)` lässt die Operation zu **und** sendet eine informative Nachricht an Claude zurück. Die Nachricht wird als `additionalContext` in der stdout-Antwort des Hook-Handlers zugestellt – derselbe Mechanismus wie bei `instruct`, jedoch semantisch anders: Es handelt sich um eine Statusmeldung, nicht um eine Warnung.
 

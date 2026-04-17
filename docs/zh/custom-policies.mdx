@@ -39,7 +39,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ## 两种加载自定义策略的方式
 
-### 方式一：基于约定（推荐，v0.0.2-beta.7+）
+### 方式一：基于约定（推荐）
 
 将 `*policies.{js,mjs,ts}` 文件放入 `.failproofai/policies/` 目录，它们会被自动加载——无需任何标志或配置更改。这类似于 git hooks：放入文件即可生效。
 
@@ -125,11 +125,8 @@ customPolicies.add({
 您可以通过在 `policyParams` 中添加 `hint` 字段，为任何 `deny` 或 `instruct` 消息追加额外指导——无需修改代码。这对自定义（`custom/`）、项目约定（`.failproofai-project/`）和用户约定（`.failproofai-user/`）策略同样适用。详情请参阅[配置 → hint](/zh/configuration#hint-cross-cutting)。
 </Tip>
 
-### 信息性 allow 消息（Beta）
+### 信息性 allow 消息
 
-<Note>
-`allow(message)` 是自 v0.0.2-beta.3 起提供的 Beta 功能。API 可能在未来版本中发生变化。早期版本仅支持不带参数的 `allow()`。
-</Note>
 
 `allow(message)` 允许操作**并**向 Claude 发送一条信息性消息。该消息以 `additionalContext` 的形式通过 hook 处理器的 stdout 响应发送——与 `instruct` 使用相同的机制，但语义不同：它是状态更新，而非警告。
 

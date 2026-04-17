@@ -102,9 +102,9 @@ The handler enforces a 1 MB stdin limit. Payloads exceeding this are discarded a
 - Exit code: `0`
 - Empty stdout
 
-**Allow with message (beta):**
+**Allow with message:**
 
-Since v0.0.2-beta.3, `allow(message)` lets a policy send informational context back to Claude even when the operation is permitted. The hook handler writes the following JSON to **stdout** (not a config file — this is the handler's response to Claude Code, just like deny and instruct responses above):
+`allow(message)` lets a policy send informational context back to Claude even when the operation is permitted. The hook handler writes the following JSON to **stdout** (not a config file — this is the handler's response to Claude Code, just like deny and instruct responses above):
 
 ```json
 // Written to stdout by the hook handler process

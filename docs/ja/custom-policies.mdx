@@ -39,7 +39,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ## カスタムポリシーの読み込み方法（2通り）
 
-### 方法1: 規約ベース（推奨、v0.0.2-beta.7+）
+### 方法1: 規約ベース（推奨）
 
 `*policies.{js,mjs,ts}` ファイルを `.failproofai/policies/` に置くだけで自動的に読み込まれます。フラグや設定変更は不要です。gitフックと同じ仕組みです。ファイルを置けばそのまま動きます。
 
@@ -125,11 +125,8 @@ customPolicies.add({
 `policyParams` の `hint` フィールドを追加することで、`deny` や `instruct` のメッセージに追加のガイダンスを付け加えられます。コードの変更は不要です。これはカスタム（`custom/`）、プロジェクト規約（`.failproofai-project/`）、ユーザー規約（`.failproofai-user/`）ポリシーでも機能します。詳細は [設定 → hint](/ja/configuration#hint-cross-cutting) を参照してください。
 </Tip>
 
-### 情報提供用のallowメッセージ（ベータ版）
+### 情報提供用のallowメッセージ
 
-<Note>
-`allow(message)` はv0.0.2-beta.3から利用できるベータ機能です。APIは将来のリリースで変更される可能性があります。それ以前のバージョンでは引数なしの `allow()` のみサポートされています。
-</Note>
 
 `allow(message)` は操作を許可し**つつ**、情報提供のメッセージをClaudeに送信します。メッセージはフックハンドラーのstdoutレスポンスの `additionalContext` として配信されます。これは `instruct` と同じ仕組みですが、意味的に異なります。警告ではなくステータスの更新として扱われます。
 

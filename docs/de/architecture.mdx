@@ -102,9 +102,9 @@ Der Handler setzt ein Limit von 1 MB für stdin. Payloads, die dieses Limit übe
 - Exit-Code: `0`
 - Leerer stdout
 
-**Allow mit Nachricht (Beta):**
+**Allow mit Nachricht:**
 
-Seit v0.0.2-beta.3 ermöglicht `allow(message)` einer Policy, informativen Kontext an Claude zurückzusenden, auch wenn die Operation erlaubt wird. Der Hook-Handler schreibt folgendes JSON nach **stdout** (keine Konfigurationsdatei – dies ist die Antwort des Handlers an Claude Code, genau wie deny- und instruct-Antworten oben):
+`allow(message)` ermöglicht einer Policy, informativen Kontext an Claude zurückzusenden, auch wenn die Operation erlaubt wird. Der Hook-Handler schreibt folgendes JSON nach **stdout** (keine Konfigurationsdatei – dies ist die Antwort des Handlers an Claude Code, genau wie deny- und instruct-Antworten oben):
 
 ```json
 // Written to stdout by the hook handler process

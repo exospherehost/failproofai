@@ -208,7 +208,7 @@ failproofai policies --install --custom ./my-policies.js
 | 함수 | 동작 |
 |------|------|
 | `allow()` | 작업 허용 |
-| `allow(message)` | 허용하고 Claude에 정보성 컨텍스트 전달 *(베타)* |
+| `allow(message)` | 허용하고 Claude에 정보성 컨텍스트 전달 |
 | `deny(message)` | 작업 차단; 메시지가 Claude에 표시됨 |
 | `instruct(message)` | Claude 프롬프트에 컨텍스트 추가; 차단하지 않음 |
 
@@ -226,7 +226,7 @@ failproofai policies --install --custom ./my-policies.js
 
 커스텀 훅은 전이적 로컬 임포트, async/await, `process.env` 접근을 지원합니다. 오류는 fail-open 방식으로 처리됩니다 (`~/.failproofai/hook.log`에 기록되며, 기본 제공 정책은 계속 실행됩니다). 전체 가이드는 [docs/custom-hooks.mdx](docs/custom-hooks.mdx)를 참고하세요.
 
-### 컨벤션 기반 정책 (v0.0.2-beta.7 이상)
+### 컨벤션 기반 정책
 
 `.failproofai/policies/` 디렉토리에 `*policies.{js,mjs,ts}` 파일을 추가하면 자동으로 로드됩니다 — `--custom` 플래그나 설정 변경이 필요 없습니다. git 훅처럼 파일을 추가하기만 하면 바로 동작합니다.
 

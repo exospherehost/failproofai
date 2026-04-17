@@ -208,7 +208,7 @@ failproofai policies --install --custom ./my-policies.js
 | Funktion | Wirkung |
 |----------|---------|
 | `allow()` | Erlaubt die Operation |
-| `allow(message)` | Erlaubt und sendet informativen Kontext an Claude *(beta)* |
+| `allow(message)` | Erlaubt und sendet informativen Kontext an Claude |
 | `deny(message)` | Blockiert die Operation; Nachricht wird Claude angezeigt |
 | `instruct(message)` | Fügt Claude's Prompt Kontext hinzu; blockiert nicht |
 
@@ -226,7 +226,7 @@ failproofai policies --install --custom ./my-policies.js
 
 Benutzerdefinierte Hooks unterstützen transitive lokale Importe, async/await und Zugriff auf `process.env`. Fehler sind fail-open (werden in `~/.failproofai/hook.log` protokolliert, integrierte Richtlinien laufen weiter). Eine vollständige Anleitung finden Sie unter [docs/custom-hooks.mdx](docs/custom-hooks.mdx).
 
-### Konventionsbasierte Richtlinien (v0.0.2-beta.7+)
+### Konventionsbasierte Richtlinien
 
 Legen Sie `*policies.{js,mjs,ts}`-Dateien in `.failproofai/policies/` ab – sie werden automatisch geladen, ohne `--custom`-Flag oder Konfigurationsänderungen. Funktioniert wie Git-Hooks: Datei ablegen, fertig.
 

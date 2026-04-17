@@ -102,9 +102,9 @@ Le gestionnaire impose une limite de 1 Mo sur stdin. Les payloads dépassant cet
 - Code de sortie : `0`
 - stdout vide
 
-**Autorisation avec message (bêta) :**
+**Autorisation avec message :**
 
-Depuis la version v0.0.2-beta.3, `allow(message)` permet à une politique d'envoyer un contexte informatif à Claude même lorsque l'opération est autorisée. Le gestionnaire de hooks écrit le JSON suivant sur **stdout** (pas dans un fichier de configuration — il s'agit de la réponse du gestionnaire à Claude Code, tout comme les réponses de refus et d'instruction ci-dessus) :
+`allow(message)` permet à une politique d'envoyer un contexte informatif à Claude même lorsque l'opération est autorisée. Le gestionnaire de hooks écrit le JSON suivant sur **stdout** (pas dans un fichier de configuration — il s'agit de la réponse du gestionnaire à Claude Code, tout comme les réponses de refus et d'instruction ci-dessus) :
 
 ```json
 // Written to stdout by the hook handler process

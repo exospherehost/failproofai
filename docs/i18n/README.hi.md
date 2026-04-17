@@ -208,7 +208,7 @@ failproofai policies --install --custom ./my-policies.js
 | कार्य | प्रभाव |
 |----------|--------|
 | `allow()` | संचालन की अनुमति दें |
-| `allow(message)` | अनुमति दें और Claude को सूचनात्मक संदर्भ भेजें *(बीटा)* |
+| `allow(message)` | अनुमति दें और Claude को सूचनात्मक संदर्भ भेजें |
 | `deny(message)` | संचालन को ब्लॉक करें; संदेश Claude को दिखाया जाता है |
 | `instruct(message)` | Claude के प्रॉम्प्ट में संदर्भ जोड़ें; ब्लॉक नहीं करता है |
 
@@ -226,7 +226,7 @@ failproofai policies --install --custom ./my-policies.js
 
 कस्टम हुक्स सकर्मक स्थानीय आयातों, async/await, और `process.env` के लिए पहुंच का समर्थन करते हैं। त्रुटियाँ fail-open हैं (लॉग किए गए `~/.failproofai/hook.log` में, बिल्ट-इन नीतियाँ जारी रहती हैं)। संपूर्ण गाइड के लिए [docs/custom-hooks.mdx](docs/custom-hooks.mdx) देखें।
 
-### कन्वेंशन-आधारित नीतियाँ (v0.0.2-beta.7+)
+### कन्वेंशन-आधारित नीतियाँ
 
 `.failproofai/policies/` में `*policies.{js,mjs,ts}` फ़ाइलें छोड़ें और वे स्वचालित रूप से लोड होते हैं — कोई `--custom` फ्लैग या कॉन्फ़िगरेशन परिवर्तन की आवश्यकता नहीं। यह git हुक्स की तरह काम करता है: एक फ़ाइल छोड़ें, यह बस काम करता है।
 

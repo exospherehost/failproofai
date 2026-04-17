@@ -202,7 +202,7 @@ failproofai policies --install --custom ./my-policies.js
 | Function | Effect |
 |----------|--------|
 | `allow()` | Permit the operation |
-| `allow(message)` | Permit and send informational context to Claude *(beta)* |
+| `allow(message)` | Permit and send informational context to Claude |
 | `deny(message)` | Block the operation; message shown to Claude |
 | `instruct(message)` | Add context to Claude's prompt; does not block |
 
@@ -220,7 +220,7 @@ failproofai policies --install --custom ./my-policies.js
 
 Custom hooks support transitive local imports, async/await, and access to `process.env`. Errors are fail-open (logged to `~/.failproofai/hook.log`, built-in policies continue). See [docs/custom-hooks.mdx](docs/custom-hooks.mdx) for the full guide.
 
-### Convention-based policies (v0.0.2-beta.7+)
+### Convention-based policies
 
 Drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` and they're automatically loaded — no `--custom` flag or config changes needed. Works like git hooks: drop a file, it just works.
 

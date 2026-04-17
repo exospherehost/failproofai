@@ -39,7 +39,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ## Özel politikaları yüklemenin iki yolu
 
-### Seçenek 1: Kural tabanlı (önerilen, v0.0.2-beta.7+)
+### Seçenek 1: Kural tabanlı (önerilen)
 
 `.failproofai/policies/` dizinine `*policies.{js,mjs,ts}` dosyalarını bırakın ve otomatik olarak yüklenirler — hiçbir bayrak veya yapılandırma değişikliğine gerek yoktur. Bu git hook'ları gibi çalışır: bir dosya bırakın ve çalışır.
 
@@ -125,11 +125,8 @@ customPolicies.add({
 `policyParams` içinde `hint` alanı ekleyerek herhangi bir `deny` veya `instruct` iletisine ekstra rehberlik ekleyebilirsiniz — kod değişikliğine gerek yoktur. Bu özel (`custom/`), proje kural (`.failproofai-project/`) ve kullanıcı kural (`.failproofai-user/`) politikaları için de çalışır. Ayrıntılar için [Yapılandırma → hint](/tr/configuration#hint-cross-cutting) bölümüne bakın.
 </Tip>
 
-### Bilgilendirici izin iletileri (beta)
+### Bilgilendirici izin iletileri
 
-<Note>
-`allow(message)` v0.0.2-beta.3'ten beri mevcut olan bir beta özelliğidir. API gelecek sürümlerde değişebilir. Önceki sürümler yalnızca `allow()` öğesini argümanlar olmadan destekler.
-</Note>
 
 `allow(message)` işleme izin verir **ve** Claude'a bilgilendirici bir ileti gönderir. İleti, hook işleyicisinin stdout yanıtında `additionalContext` olarak iletilir — `instruct` tarafından kullanılan mekanizmayla aynı, ancak anlamsal olarak farklı: bir uyarı değil, bir durum güncellemesidir.
 

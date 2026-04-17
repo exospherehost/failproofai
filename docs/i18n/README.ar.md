@@ -210,7 +210,7 @@ failproofai policies --install --custom ./my-policies.js
 | الدالة | التأثير |
 |----------|--------|
 | `allow()` | السماح بالعملية |
-| `allow(message)` | السماح وإرسال السياق المعلوماتي إلى Claude *(تجريبي)* |
+| `allow(message)` | السماح وإرسال السياق المعلوماتي إلى Claude |
 | `deny(message)` | حظر العملية؛ الرسالة معروضة ل Claude |
 | `instruct(message)` | إضافة سياق إلى موجه Claude؛ لا تحظر |
 
@@ -228,7 +228,7 @@ failproofai policies --install --custom ./my-policies.js
 
 تدعم الخطافات المخصصة الاستيراد المحلي العابر، والانتظار غير المتزامن، والوصول إلى `process.env`. الأخطاء مفتوحة للفشل (تسجيل في `~/.failproofai/hook.log`، استمرار السياسات المدمجة). انظر [docs/custom-hooks.mdx](docs/custom-hooks.mdx) للحصول على الدليل الكامل.
 
-### السياسات المستندة إلى الاتفاقية (v0.0.2-beta.7+)
+### السياسات المستندة إلى الاتفاقية
 
 ضع ملفات `*policies.{js,mjs,ts}` في `.failproofai/policies/` وسيتم تحميلها تلقائياً - لا حاجة لعلم `--custom` أو تغييرات التكوين. يعمل مثل git hooks: ضع الملف، وسيعمل.
 
