@@ -122,8 +122,8 @@ const DOTNET_GETENV_RE = /\[Environment\]::GetEnvironment/i;
 const CMD_ECHO_ENV_RE = /echo\s+%[A-Za-z_]/i;
 
 // blockEnvFiles
-const ENV_FILE_PATH_RE = /(?:^|[\\/])(?:\.env|env_)\w*/i;
-const ENV_CMD_RE = /(?:\.env|env_)\w*/i;
+const ENV_FILE_PATH_RE = /(?:^|[\\/])(?:\.env(?!\w)|env_\w*)/i;
+const ENV_CMD_RE = /(?:\.env(?!\w)|env_\w*)/i;
 
 // blockSudo
 const SUDO_RE = /(?:^|;|&&|\|\|)\s*sudo\s/;
