@@ -36,6 +36,7 @@ let resolved = false;
 let currentLevel: LogLevel = "warn";
 let fileLoggingEnabled = false;
 let logDir = DEFAULT_LOG_DIR;
+let suppressStderr = false;
 
 function ensureResolved(): void {
   if (resolved) return;
@@ -55,6 +56,17 @@ function ensureResolved(): void {
       logDir = rawFile;
     }
   }
+
+  // Suppress stderr for integrations that capture it (OpenCode, Pi, etc.)
+  // These integrations display stderr in the UI, so we only want the JSON response there.
+  // Detect by environment variables these integrations set.
+  const isOpenCode = !!process.env.OPENCODE_SESSION_ID || !!process.env.OPENCODE_WORKSPACE_ID;
+  const isPi = !!process.env.PI_SESSION_ID;
+  const suppressFor = (process.env.FAILPROOFAI_SUPPRESS_STDERR_FOR ?? "").toLowerCase().split(",").filter(Boolean);
+
+  if (isOpenCode || isPi || suppressFor.includes("*") || suppressFor.some(s => s === "opencode" || s === "pi")) {
+    suppressStderr = true;
+  }
 }
 
 function shouldEmit(level: LogLevel): boolean {
@@ -65,6 +77,7 @@ function shouldEmit(level: LogLevel): boolean {
 // ── Stderr output ──
 
 function emitStderr(label: string, msg: string): void {
+  if (suppressStderr) return;
   process.stderr.write(`[failproofai:hook] ${label} ${msg}\n`);
 }
 
@@ -130,4 +143,5 @@ export function _resetHookLogger(): void {
   currentLevel = "warn";
   fileLoggingEnabled = false;
   logDir = DEFAULT_LOG_DIR;
+  suppressStderr = false;
 }
