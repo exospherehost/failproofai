@@ -20,6 +20,9 @@ import {
   existsSync,
   statSync,
   unlinkSync,
+  openSync,
+  readSync,
+  closeSync,
 } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -118,6 +121,14 @@ export function persistHookActivity(entry: HookActivityEntry): void {
     const countPath = join(storeDir, COUNT_FILE);
 
     const lineCount = readCount(countPath);
+    
+    // ── Storage-Level Deduplication ──
+    if (!process.env.FAILPROOFAI_SKIP_DEDUP && lineCount > 0 && existsSync(currentPath)) {
+      if (isDuplicateInLog(entry, currentPath)) {
+        return; // Silent drop of duplicate
+      }
+    }
+
     if (lineCount >= PAGE_SIZE) {
       try {
         rotate(currentPath, countPath);
@@ -222,20 +233,80 @@ function readStats(): HookActivityStats {
 
 // ── Reading (lazy, per-page) ──
 
+/**
+ * Read-time deduplication. Collapses twin entries from multi-scope hook firings
+ * (e.g. user-scope + project-scope both firing for the same event) and from
+ * cross-version twins (your local dev binary vs `npx -y failproofai` running
+ * an older published version).
+ *
+ * Why this exists in addition to the write-time dedup:
+ * If an older failproofai version writes after the newer one, we can't make
+ * that older code check for dupes correctly. Read-time collapse guarantees the
+ * dashboard shows one row per event regardless of which version wrote.
+ *
+ * Entries are considered twins when:
+ *   - same sessionId
+ *   - same eventType
+ *   - same decision
+ *   - same toolName (relevant only for Tool events)
+ *   - timestamps within 5s for non-tool events, 2.5s for tool events
+ *     (tighter for tools because rapid-fire legit tool calls are more common)
+ *
+ * When twins are found, the richer entry wins (one that has a policyName and
+ * an integration field) so the dashboard displays the most informative row.
+ */
+function collapseDuplicates(entries: HookActivityEntry[]): HookActivityEntry[] {
+  const out: HookActivityEntry[] = [];
+
+  const richness = (e: HookActivityEntry): number =>
+    (e.policyName ? 2 : 0) + ((e as any).integration ? 1 : 0);
+
+  for (const entry of entries) {
+    // Only collapse when we have a real sessionId to match on. Real multi-scope
+    // twins always share a sessionId (it's literally the same user action);
+    // without one, we can't tell a twin from a genuinely separate event.
+    if (!entry.sessionId) {
+      out.push(entry);
+      continue;
+    }
+
+    const isTool = entry.eventType.includes("Tool");
+    const window = isTool ? 2500 : 5000;
+
+    const twinIdx = out.findIndex((r) =>
+      r.sessionId && r.sessionId === entry.sessionId &&
+      r.eventType === entry.eventType &&
+      r.decision === entry.decision &&
+      (r.toolName ?? null) === (entry.toolName ?? null) &&
+      Math.abs(r.timestamp - entry.timestamp) < window
+    );
+
+    if (twinIdx === -1) {
+      out.push(entry);
+    } else if (richness(entry) > richness(out[twinIdx])) {
+      // Keep the richer entry, drop the thinner twin.
+      out[twinIdx] = entry;
+    }
+    // Otherwise the existing entry is already as-good-or-better; skip.
+  }
+
+  return out;
+}
+
 export function getHookActivityPage(page: number): HookActivityEntry[] {
   ensureDir();
   if (page < 1) return [];
 
   if (page === 1) {
     const currentPath = join(storeDir, CURRENT_FILE);
-    return readJsonlFile(currentPath).reverse();
+    return collapseDuplicates(readJsonlFile(currentPath).reverse());
   }
 
   const archives = getArchiveFiles();
   const archiveIndex = page - 2;
   if (archiveIndex >= archives.length) return [];
 
-  return readJsonlFile(join(storeDir, archives[archiveIndex])).reverse();
+  return collapseDuplicates(readJsonlFile(join(storeDir, archives[archiveIndex])).reverse());
 }
 
 export function getHookActivityPageCount(): number {
@@ -256,7 +327,7 @@ export function getAllHookActivityEntries(): HookActivityEntry[] {
     archiveEntries.push(...entries.reverse());
   }
 
-  return [...currentEntries, ...archiveEntries];
+  return collapseDuplicates([...currentEntries, ...archiveEntries]);
 }
 
 
@@ -313,6 +384,59 @@ export function getHookActivityHistory(page: number): {
 }
 
 // ── Internal helpers ──
+
+/**
+ * Returns true if an identical entry (same sessionId, eventType, and toolName)
+ * already exists in the last few lines of the JSONL file within a 5s window.
+ */
+function isDuplicateInLog(entry: HookActivityEntry, filePath: string): boolean {
+  try {
+    const stats = statSync(filePath);
+    if (stats.size === 0) return false;
+
+    // Read the last 8KB (plenty for 10-20 JSONL lines)
+    const readSize = Math.min(stats.size, 8192);
+    const fd = openSync(filePath, "r");
+    const buffer = Buffer.alloc(readSize);
+    readSync(fd, buffer, 0, readSize, stats.size - readSize);
+    closeSync(fd);
+
+    const lines = buffer.toString("utf-8").trim().split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
+      try {
+        const line = lines[i].trim();
+        if (!line) continue;
+        const prev = JSON.parse(line) as HookActivityEntry;
+
+        if (prev.sessionId === entry.sessionId && prev.eventType === entry.eventType) {
+          // Extra safety - only deduplicate if the decision and policy names also match.
+          // This ensures that different policy outcomes for the same event (unlikely in normal use
+          // but common in tests/re-runs) are preserved.
+          if (prev.decision === entry.decision && prev.policyName === entry.policyName) {
+            // If sessionId + eventType + decision + policyName all match within 5s,
+            // it's a duplicate — no legitimate case produces two identical entries that fast.
+            // The previous 50ms floor let near-simultaneous twins from another scope
+            // (or a different failproofai version running via `npx -y`) slip through.
+            const delta = Math.abs(prev.timestamp - entry.timestamp);
+            if (delta < 5000) {
+              // Found a twin from another scope/process!
+              if (entry.eventType.includes("Tool")) {
+                if (prev.toolName === entry.toolName) return true;
+              } else {
+                return true;
+              }
+            }
+          }
+        }
+      } catch {
+        continue;
+      }
+    }
+  } catch {
+    // Fail-safe: recording is more important than deduplicating if read fails
+  }
+  return false;
+}
 
 function readJsonlFile(filePath: string): HookActivityEntry[] {
   const content = readFileSafe(filePath);

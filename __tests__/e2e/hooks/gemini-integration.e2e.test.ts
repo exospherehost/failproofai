@@ -2,15 +2,21 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execSync, spawnSync } from "node:child_process";
 import { writeFileSync, readFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { resolve } from "node:path";
+import { homedir } from "node:os";
 import { GeminiPayloads } from "../helpers/payloads";
 
 const BINARY_PATH = resolve(__dirname, "../../../bin/failproofai.mjs");
 const PROJECT_DIR = resolve(__dirname, "../../fixtures/gemini-project");
 const GEMINI_SETTINGS_PATH = resolve(PROJECT_DIR, ".gemini", "settings.json");
+// Cursor and Copilot e2e tests share the same SESSION_ID + sudo fingerprint as
+// Gemini, so their firing-lock file (5s bucket) can still be on disk when
+// Gemini runs and block this test with "instant-catch twin". Clear it.
+const DEDUP_DIR = resolve(homedir(), ".failproofai", "cache", "dedup");
 
 describe("E2E: Gemini Integration", () => {
   beforeEach(() => {
     if (existsSync(PROJECT_DIR)) rmSync(PROJECT_DIR, { recursive: true, force: true });
+    if (existsSync(DEDUP_DIR)) rmSync(DEDUP_DIR, { recursive: true, force: true });
     mkdirSync(PROJECT_DIR, { recursive: true });
     mkdirSync(resolve(PROJECT_DIR, ".gemini"), { recursive: true });
     writeFileSync(GEMINI_SETTINGS_PATH, JSON.stringify({ hooks: {} }));

@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { handleHookEvent } from "../../src/hooks/handler";
+import { handleHookEvent, _resetDedupeCache } from "../../src/hooks/handler";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
 
 vi.mock("../../src/hooks/hooks-config", () => ({
   readMergedHooksConfig: vi.fn(() => ({ enabledPolicies: ["block-sudo"] })),
@@ -81,6 +84,7 @@ describe("hooks/handler", () => {
     stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     vi.clearAllMocks();
+    _resetDedupeCache();
   });
 
   afterEach(() => {
@@ -618,6 +622,52 @@ describe("hooks/handler", () => {
       await handleHookEvent("PreToolUse");
 
       expect(hookLogWarn).toHaveBeenCalledWith(expect.stringContaining("activity persistence failed"));
+    });
+  });
+
+  describe("Mechanism-Level Deduplication", () => {
+    it("prevents duplicate log entries at the STORAGE level (Choke Point)", async () => {
+      // Unmock the store for this specific test to hit the real logic
+      vi.doUnmock("../../src/hooks/hook-activity-store");
+      const { persistHookActivity, _resetForTest } = await import("../../src/hooks/hook-activity-store");
+      
+      const testDir = path.join(os.homedir(), ".failproofai-test-dedup-storage");
+      _resetForTest(testDir);
+      
+      // Simulation: First record call
+      const entry1 = { 
+        timestamp: Date.now(), 
+        eventType: "Stop", 
+        sessionId: "sess-dedup", 
+        decision: "allow",
+        policyName: "test-policy",
+        durationMs: 100 
+      } as any;
+      persistHookActivity(entry1);
+
+      // Simulation: Second record call with slightly different duration/timestamp
+      // but same sessionId and eventType.
+      // Window is > 50ms to hit "Twin" detection.
+      const entry2 = { 
+        timestamp: Date.now() + 200, 
+        eventType: "Stop", 
+        sessionId: "sess-dedup", 
+        decision: "allow", 
+        policyName: "test-policy",
+        durationMs: 95 
+      } as any;
+      persistHookActivity(entry2);
+
+      // Verify that after the second call, the store logic should have dropped it
+      const fs = await import("node:fs");
+      const logPath = path.join(testDir, "current.jsonl");
+      const content = fs.readFileSync(logPath, "utf-8").trim();
+      const lines = content.split("\n").filter(l => l.trim().length > 0);
+      
+      expect(lines.length).toBe(1); // ONLY ONE LINE recorded despite two persist calls
+      
+      // Cleanup
+      fs.rmSync(testDir, { recursive: true, force: true });
     });
   });
 
