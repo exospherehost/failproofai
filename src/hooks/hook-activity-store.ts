@@ -349,6 +349,84 @@ function getArchiveFiles(): string[] {
   }
 }
 
+// ── Migration: backfill integration field for old entries ──
+
+const MIGRATION_MARKER = "integration-migration-v1.done";
+
+function hasMigrationRun(): boolean {
+  try {
+    return existsSync(join(storeDir, MIGRATION_MARKER));
+  } catch {
+    return false;
+  }
+}
+
+function markMigrationDone(): void {
+  try {
+    writeFileSync(join(storeDir, MIGRATION_MARKER), "", "utf-8");
+  } catch {
+    // Non-fatal
+  }
+}
+
+export function migrateIntegrationField(): void {
+  ensureDir();
+  if (hasMigrationRun()) return;
+
+  try {
+    let migrated = 0;
+    const currentPath = join(storeDir, CURRENT_FILE);
+    const entries = readJsonlFile(currentPath);
+
+    if (entries.some((e) => !e.integration)) {
+      const updated = entries.map((e) => {
+        if (e.integration) return e;
+        // Infer from payload: check hook_event_name patterns for platform hints
+        let inferred = "claude-code"; // default fallback
+        if (e.hookEventName) {
+          const name = e.hookEventName;
+          if (name.startsWith("before") || name.startsWith("after")) {
+            if (!name.startsWith("Before") && !name.startsWith("After")) {
+              inferred = "cursor"; // camelCase before/after = Cursor
+            }
+          }
+        }
+        migrated++;
+        return { ...e, integration: inferred };
+      });
+      writeFileSync(currentPath, updated.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf-8");
+    }
+
+    // Migrate archived files
+    const archives = getArchiveFiles();
+    for (const archiveName of archives) {
+      const archivePath = join(storeDir, archiveName);
+      const archivedEntries = readJsonlFile(archivePath);
+      if (archivedEntries.some((e) => !e.integration)) {
+        const updated = archivedEntries.map((e) => {
+          if (e.integration) return e;
+          let inferred = "claude-code";
+          if (e.hookEventName) {
+            const name = e.hookEventName;
+            if (name.startsWith("before") || name.startsWith("after")) {
+              if (!name.startsWith("Before") && !name.startsWith("After")) {
+                inferred = "cursor";
+              }
+            }
+          }
+          migrated++;
+          return { ...e, integration: inferred };
+        });
+        writeFileSync(archivePath, updated.map((e) => JSON.stringify(e)).join("\n") + "\n", "utf-8");
+      }
+    }
+
+    markMigrationDone();
+  } catch (e) {
+    // Non-fatal: migration failure doesn't block the system
+  }
+}
+
 // ── Test helpers ──
 
 export function _resetForTest(testDir?: string): void {

@@ -3,6 +3,7 @@
 import {
   getHookActivityHistory,
   searchHookActivity,
+  migrateIntegrationField,
   type HookActivityEntry,
   type HookActivityFilters,
   type HookActivityStats,
@@ -16,6 +17,7 @@ export interface HookActivityPayload {
 }
 
 export async function getHookActivityAction(page: number): Promise<HookActivityPayload> {
+  migrateIntegrationField();
   return getHookActivityHistory(page);
 }
 
@@ -23,5 +25,6 @@ export async function searchHookActivityAction(
   filters: HookActivityFilters,
   page: number,
 ): Promise<HookActivityPayload> {
+  migrateIntegrationField();
   return searchHookActivity(filters, page);
 }

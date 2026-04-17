@@ -109,14 +109,16 @@ function DecisionBadge({ decision }: { decision: "allow" | "deny" | "instruct" }
 }
 
 function IntegrationBadge({ integration }: { integration?: string }) {
-  if (!integration) return <span className="text-muted-foreground text-[0.6rem] font-mono">\u2014</span>;
   const labels: Record<string, string> = {
     "claude-code": "Claude",
     "cursor": "Cursor",
     "gemini": "Gemini",
     "copilot": "Copilot",
+    "codex": "Codex",
+    "opencode": "OpenCode",
+    "pi": "Pi",
   };
-  const label = labels[integration] || integration;
+  const label = labels[integration || "claude-code"] || integration || "Claude";
   return (
     <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium bg-primary/10 text-primary border border-primary/20">
       {label}

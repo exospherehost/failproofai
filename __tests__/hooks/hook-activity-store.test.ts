@@ -10,6 +10,7 @@ import {
   getAllHookActivityEntries,
   searchHookActivity,
   getHookActivityHistory,
+  migrateIntegrationField,
   _resetForTest,
   PAGE_SIZE,
   type HookActivityEntry,
@@ -172,6 +173,34 @@ describe("hooks/hook-activity-store", () => {
       _resetForTest(newDir);
       expect(getHookActivityPage(1)).toHaveLength(0);
       rmSync(newDir, { recursive: true, force: true });
+    });
+  });
+
+  describe("migrateIntegrationField", () => {
+    it("adds integration field to entries that lack it", () => {
+      const { writeFileSync } = require("node:fs");
+      // Manually write old-format entries without integration field
+      const entry1 = { timestamp: 1000, eventType: "PreToolUse", decision: "allow", durationMs: 10 } as any;
+      const entry2 = { timestamp: 2000, eventType: "PostToolUse", decision: "allow", durationMs: 20 } as any;
+      const currentFile = join(testDir, "current.jsonl");
+      writeFileSync(currentFile, `${JSON.stringify(entry1)}\n${JSON.stringify(entry2)}\n`, "utf-8");
+
+      migrateIntegrationField();
+
+      const entries = getHookActivityPage(1);
+      expect(entries).toHaveLength(2);
+      expect(entries[0]).toHaveProperty("integration");
+      expect(entries[1]).toHaveProperty("integration");
+      expect(entries[0].integration).toBe("claude-code");
+      expect(entries[1].integration).toBe("claude-code");
+    });
+
+    it("runs only once (marks with migration marker)", () => {
+      persistHookActivity(makeEntry());
+      migrateIntegrationField();
+      migrateIntegrationField(); // Should be no-op
+      const entries = getHookActivityPage(1);
+      expect(entries).toHaveLength(1);
     });
   });
 });
