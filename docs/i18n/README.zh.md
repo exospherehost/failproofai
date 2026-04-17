@@ -208,7 +208,7 @@ failproofai policies --install --custom ./my-policies.js
 | 函数 | 效果 |
 |------|------|
 | `allow()` | 允许该操作 |
-| `allow(message)` | 允许并向 Claude 发送信息性上下文 *（beta）* |
+| `allow(message)` | 允许并向 Claude 发送信息性上下文 |
 | `deny(message)` | 阻止该操作；消息将显示给 Claude |
 | `instruct(message)` | 向 Claude 的提示词添加上下文；不会阻止操作 |
 
@@ -226,7 +226,7 @@ failproofai policies --install --custom ./my-policies.js
 
 自定义 hook 支持传递性本地导入、async/await，以及访问 `process.env`。错误采用放行处理（记录到 `~/.failproofai/hook.log`，内置策略继续执行）。完整指南参见 [docs/custom-hooks.mdx](docs/custom-hooks.mdx)。
 
-### 基于约定的策略（v0.0.2-beta.7+）
+### 基于约定的策略
 
 将 `*policies.{js,mjs,ts}` 文件放入 `.failproofai/policies/` 目录，它们将自动加载——无需 `--custom` 标志或配置变更。就像 git hooks 一样：放入文件即可生效。
 

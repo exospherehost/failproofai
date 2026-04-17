@@ -103,9 +103,9 @@ Handler thực thi giới hạn 1 MB cho stdin. Các payload vượt quá giới
 - Mã thoát: `0`
 - Stdout trống
 
-**Allow with message (beta):**
+**Allow with message:**
 
-Kể từ v0.0.2-beta.3, `allow(message)` cho phép một chính sách gửi context thông tin trở lại Claude ngay cả khi thao tác được cho phép. Hook handler ghi JSON sau đây vào **stdout** (không phải một tệp cấu hình — đây là phản hồi của handler process đối với Claude Code, giống như các phản hồi deny và instruct ở trên):
+`allow(message)` cho phép một chính sách gửi context thông tin trở lại Claude ngay cả khi thao tác được cho phép. Hook handler ghi JSON sau đây vào **stdout** (không phải một tệp cấu hình — đây là phản hồi của handler process đối với Claude Code, giống như các phản hồi deny và instruct ở trên):
 
 ```json
 // Được ghi vào stdout bởi hook handler process

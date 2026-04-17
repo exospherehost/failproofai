@@ -39,7 +39,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ## Deux façons de charger des politiques personnalisées
 
-### Option 1 : Par convention (recommandé, v0.0.2-beta.7+)
+### Option 1 : Par convention (recommandé)
 
 Déposez des fichiers `*policies.{js,mjs,ts}` dans `.failproofai/policies/` et ils sont chargés automatiquement — aucun indicateur ni changement de configuration requis. Cela fonctionne comme les git hooks : déposez un fichier, il est pris en compte immédiatement.
 
@@ -125,11 +125,8 @@ customPolicies.add({
 Vous pouvez ajouter des instructions supplémentaires à n'importe quel message `deny` ou `instruct` en ajoutant un champ `hint` dans `policyParams` — sans modifier le code. Cela fonctionne également pour les politiques personnalisées (`custom/`), par convention projet (`.failproofai-project/`) et par convention utilisateur (`.failproofai-user/`). Voir [Configuration → hint](/fr/configuration#hint-cross-cutting) pour les détails.
 </Tip>
 
-### Messages allow informationnels (bêta)
+### Messages allow informationnels
 
-<Note>
-`allow(message)` est une fonctionnalité bêta disponible depuis la v0.0.2-beta.3. L'API peut changer dans les versions futures. Les versions antérieures ne prennent en charge que `allow()` sans arguments.
-</Note>
 
 `allow(message)` autorise l'opération **et** envoie un message informationnel à Claude. Le message est délivré en tant que `additionalContext` dans la réponse stdout du gestionnaire de hook — le même mécanisme qu'`instruct`, mais sémantiquement différent : c'est une mise à jour de statut, pas un avertissement.
 

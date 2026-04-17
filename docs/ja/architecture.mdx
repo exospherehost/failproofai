@@ -102,9 +102,9 @@ Claude Code は各ツール呼び出しの前に `failproofai --hook PreToolUse`
 - 終了コード: `0`
 - stdout は空
 
-**メッセージ付き Allow（ベータ）:**
+**メッセージ付き Allow:**
 
-v0.0.2-beta.3 以降、`allow(message)` を使用することで、操作が許可されている場合でもポリシーが Claude に情報コンテキストを返せるようになりました。フックハンドラーは以下の JSON を **stdout** に書き込みます（設定ファイルではありません。上記の deny や instruct のレスポンスと同様に、Claude Code へのハンドラープロセスのレスポンスです）。
+`allow(message)` を使用することで、操作が許可されている場合でもポリシーが Claude に情報コンテキストを返せるようになりました。フックハンドラーは以下の JSON を **stdout** に書き込みます（設定ファイルではありません。上記の deny や instruct のレスポンスと同様に、Claude Code へのハンドラープロセスのレスポンスです）。
 
 ```json
 // フックハンドラープロセスによって stdout に書き込まれます

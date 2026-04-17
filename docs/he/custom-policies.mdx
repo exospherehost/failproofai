@@ -39,7 +39,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ## שתי דרכים לטעון מדיניויות מותאמות
 
-### אפשרות 1: מבוססת קונבנציה (מומלצת, v0.0.2-beta.7+)
+### אפשרות 1: מבוססת קונבנציה (מומלצת)
 
 שים קבצים `*policies.{js,mjs,ts}` בתיקייה `.failproofai/policies/` והם יוטענו באופן אוטומטי — ללא דגלים או שינויי קונפיגורציה. זה עובד כמו git hooks: שים קובץ, זה פשוט עובד.
 
@@ -125,11 +125,8 @@ customPolicies.add({
 אתה יכול להצמיד הנחיות נוספות לכל הודעת `deny` או `instruct` על ידי הוספת שדה `hint` ב-`policyParams` — ללא צורך בשינוי קוד. זה עובד גם על מדיניויות custom (`custom/`), קונבנציה של פרויקט (`.failproofai-project/`), וקונבנציה של משתמש (`.failproofai-user/`). ראה [Configuration → hint](/he/configuration#hint-cross-cutting) לפרטים.
 </Tip>
 
-### הודעות allow מידע (beta)
+### הודעות allow מידע
 
-<Note>
-`allow(message)` היא תכונת beta זמינה מ-v0.0.2-beta.3. ה-API עשוי להשתנות בגרסאות עתידיות. גרסאות קודמות תומכות רק ב-`allow()` ללא טיעונים.
-</Note>
 
 `allow(message)` מתיר את הפעולה **ו**שולח הודעה מידע בחזרה ל-Claude. ההודעה מועברת כ-`additionalContext` בתגובת stdout של hook handler — אותה מנגנון שבו משתמשים `instruct`, אך שונה מבחינה סמנטית: זה עדכון סטטוס, לא אזהרה.
 

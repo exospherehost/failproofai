@@ -208,7 +208,7 @@ failproofai policies --install --custom ./my-policies.js
 | 関数 | 効果 |
 |------|------|
 | `allow()` | 操作を許可 |
-| `allow(message)` | 許可し、情報コンテキストを Claude に送信 *（ベータ）* |
+| `allow(message)` | 許可し、情報コンテキストを Claude に送信 |
 | `deny(message)` | 操作をブロック。メッセージが Claude に表示される |
 | `instruct(message)` | Claude のプロンプトにコンテキストを追加。ブロックはしない |
 
@@ -226,7 +226,7 @@ failproofai policies --install --custom ./my-policies.js
 
 カスタムフックは推移的なローカルインポート、async/await、`process.env` へのアクセスをサポートしています。エラーはフェイルオープン（`~/.failproofai/hook.log` に記録され、ビルトインポリシーは継続）となります。詳細なガイドは [docs/custom-hooks.mdx](docs/custom-hooks.mdx) を参照してください。
 
-### 規約ベースのポリシー（v0.0.2-beta.7+）
+### 規約ベースのポリシー
 
 `*policies.{js,mjs,ts}` ファイルを `.failproofai/policies/` に配置するだけで自動的に読み込まれます — `--custom` フラグや設定変更は不要です。gitフックと同じように、ファイルを置くだけで動作します。
 

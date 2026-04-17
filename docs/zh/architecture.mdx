@@ -102,9 +102,9 @@ failproofai 包含两个独立的子系统：
 - 退出码：`0`
 - stdout 为空
 
-**允许并携带消息（测试版）：**
+**允许并携带消息：**
 
-自 v0.0.2-beta.3 起，`allow(message)` 允许策略在操作被允许时仍向 Claude 发送信息性上下文。钩子处理器将以下 JSON 写入 **stdout**（这不是配置文件——这是处理器对 Claude Code 的响应，与 deny 和 instruct 响应的方式相同）：
+`allow(message)` 允许策略在操作被允许时仍向 Claude 发送信息性上下文。钩子处理器将以下 JSON 写入 **stdout**（这不是配置文件——这是处理器对 Claude Code 的响应，与 deny 和 instruct 响应的方式相同）：
 
 ```json
 // Written to stdout by the hook handler process

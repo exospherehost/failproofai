@@ -208,7 +208,7 @@ failproofai policies --install --custom ./my-policies.js
 | Hàm | Hiệu ứng |
 |-----|---------|
 | `allow()` | Cho phép thao tác |
-| `allow(message)` | Cho phép và gửi ngữ cảnh thông tin tới Claude *(beta)* |
+| `allow(message)` | Cho phép và gửi ngữ cảnh thông tin tới Claude |
 | `deny(message)` | Chặn thao tác; thông báo được hiển thị tới Claude |
 | `instruct(message)` | Thêm ngữ cảnh vào yêu cầu của Claude; không chặn |
 
@@ -226,7 +226,7 @@ failproofai policies --install --custom ./my-policies.js
 
 Các hook tùy chỉnh hỗ trợ nhập cục bộ chuyển tiếp, async/await và truy cập `process.env`. Các lỗi là fail-open (được ghi vào `~/.failproofai/hook.log`, các chính sách tích hợp sẵn tiếp tục). Xem [docs/custom-hooks.mdx](docs/custom-hooks.mdx) để biết hướng dẫn đầy đủ.
 
-### Chính sách dựa trên quy ước (v0.0.2-beta.7+)
+### Chính sách dựa trên quy ước
 
 Thả các tệp `*policies.{js,mjs,ts}` vào `.failproofai/policies/` và chúng sẽ được tải tự động — không cần cờ `--custom` hoặc thay đổi cấu hình. Hoạt động giống như git hooks: thả một tệp, nó hoạt động.
 

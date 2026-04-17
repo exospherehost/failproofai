@@ -103,9 +103,9 @@ Il gestore applica un limite di 1 MB per stdin. I payload che superano questo li
 - Exit code: `0`
 - Stdout vuoto
 
-**Allow con messaggio (beta):**
+**Allow con messaggio:**
 
-A partire da v0.0.2-beta.3, `allow(message)` consente a una politica di inviare un contesto informativo a Claude anche quando l'operazione è consentita. Il gestore di hook scrive il seguente JSON su **stdout** (non in un file di configurazione — questa è la risposta del gestore a Claude Code, proprio come le risposte deny e instruct sopra):
+`allow(message)` consente a una politica di inviare un contesto informativo a Claude anche quando l'operazione è consentita. Il gestore di hook scrive il seguente JSON su **stdout** (non in un file di configurazione — questa è la risposta del gestore a Claude Code, proprio come le risposte deny e instruct sopra):
 
 ```json
 // Written to stdout by the hook handler process

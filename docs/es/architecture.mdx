@@ -102,9 +102,9 @@ El manejador aplica un límite de 1 MB en stdin. Los payloads que superen este l
 - Código de salida: `0`
 - stdout vacío
 
-**Permitir con mensaje (beta):**
+**Permitir con mensaje:**
 
-Desde v0.0.2-beta.3, `allow(message)` permite que una política envíe contexto informativo a Claude incluso cuando la operación está permitida. El manejador de hooks escribe el siguiente JSON en **stdout** (no en un archivo de configuración — esta es la respuesta del manejador a Claude Code, igual que las respuestas de deny e instruct anteriores):
+`allow(message)` permite que una política envíe contexto informativo a Claude incluso cuando la operación está permitida. El manejador de hooks escribe el siguiente JSON en **stdout** (no en un archivo de configuración — esta es la respuesta del manejador a Claude Code, igual que las respuestas de deny e instruct anteriores):
 
 ```json
 // Written to stdout by the hook handler process

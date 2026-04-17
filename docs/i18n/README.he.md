@@ -210,7 +210,7 @@ failproofai policies --install --custom ./my-policies.js
 | פונקציה | השפעה |
 |----------|--------|
 | `allow()` | אפשר את הפעולה |
-| `allow(message)` | אפשר ושלח תיאור מידע ל-Claude *(beta)* |
+| `allow(message)` | אפשר ושלח תיאור מידע ל-Claude |
 | `deny(message)` | חסום את הפעולה; ההודעה מוצגת ל-Claude |
 | `instruct(message)` | הוסף הקשר להנמקה של Claude; לא חוסם |
 
@@ -228,7 +228,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ווו מותאם אישית תומך בייבואים מקומיים חילופיים, async/await, וגישה ל-`process.env`. שגיאות הן fail-open (מתועדות ל-`~/.failproofai/hook.log`, מדיניויות מובנות ממשיכות). ראה [docs/custom-hooks.mdx](docs/custom-hooks.mdx) לקבלת מדריך מלא.
 
-### מדיניויות על בסיס קונוונציה (v0.0.2-beta.7+)
+### מדיניויות על בסיס קונוונציה
 
 שחרר קבצי `*policies.{js,mjs,ts}` ל-`.failproofai/policies/` והם נטענים באופן אוטומטי — אין צורך בדגל `--custom` או שינויי הגדרה. עובד כמו git hooks: שחרור קובץ, זה פשוט עובד.
 

@@ -39,7 +39,7 @@ failproofai policies --install --custom ./my-policies.js
 
 ## 커스텀 정책을 불러오는 두 가지 방법
 
-### 방법 1: 컨벤션 기반 (권장, v0.0.2-beta.7 이상)
+### 방법 1: 컨벤션 기반 (권장)
 
 `.failproofai/policies/` 디렉터리에 `*policies.{js,mjs,ts}` 파일을 넣으면 자동으로 불러옵니다 — 별도의 플래그나 설정 변경이 필요 없습니다. git 훅처럼 파일을 넣으면 바로 작동합니다.
 
@@ -125,11 +125,8 @@ customPolicies.add({
 `policyParams`의 `hint` 필드를 추가하면 코드 변경 없이 `deny` 또는 `instruct` 메시지에 추가 안내를 덧붙일 수 있습니다. 커스텀(`custom/`), 프로젝트 컨벤션(`.failproofai-project/`), 사용자 컨벤션(`.failproofai-user/`) 정책 모두에서 작동합니다. 자세한 내용은 [Configuration → hint](/ko/configuration#hint-cross-cutting)를 참고하세요.
 </Tip>
 
-### 정보성 allow 메시지 (베타)
+### 정보성 allow 메시지
 
-<Note>
-`allow(message)`는 v0.0.2-beta.3부터 사용 가능한 베타 기능입니다. API는 향후 릴리스에서 변경될 수 있습니다. 이전 버전은 인수 없는 `allow()`만 지원합니다.
-</Note>
 
 `allow(message)`는 작업을 허용하면서 **동시에** 정보성 메시지를 Claude에게 전달합니다. 메시지는 훅 핸들러의 stdout 응답에서 `additionalContext`로 전달됩니다 — `instruct`와 동일한 메커니즘이지만, 의미적으로 다릅니다. 이는 경고가 아닌 상태 업데이트입니다.
 

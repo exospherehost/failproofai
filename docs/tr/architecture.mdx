@@ -103,9 +103,9 @@ Handler 1 MB'lık stdin sınırını zorunlu kılar. Bu limiti aşan payload'lar
 - Çıkış kodu: `0`
 - Boş stdout
 
-**İzinle mesaj (beta):**
+**İzinle mesaj:**
 
-v0.0.2-beta.3'ten itibaren `allow(message)`, bir policy işleme izin verildiğinde bile Claude'a bilgilendirici bağlam gönderebilir. Hook handler aşağıdaki JSON'u **stdout'a** yazar (bir config dosyasına değil — bu handler'ın Claude Code'a yanıtıdır, reddet ve talimat yanıtları gibi):
+`allow(message)`, bir policy işleme izin verildiğinde bile Claude'a bilgilendirici bağlam gönderebilir. Hook handler aşağıdaki JSON'u **stdout'a** yazar (bir config dosyasına değil — bu handler'ın Claude Code'a yanıtıdır, reddet ve talimat yanıtları gibi):
 
 ```json
 // Hook handler işlemi tarafından stdout'a yazılır
