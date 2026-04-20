@@ -46,8 +46,8 @@ describe("custom-hooks core mechanics", () => {
     env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("ls", env.cwd), { homeDir: env.home });
     assertInstruct(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
-    expect(output?.additionalContext).toContain("do this first");
+    // Instruction is in stderr
+    expect(result.stderr).toContain("do this first");
   });
 
   it("custom hook that calls allow() → allow with empty stdout", () => {
@@ -130,10 +130,9 @@ describe("custom-hooks core mechanics", () => {
     `);
     env.writeConfig({ enabledPolicies: ["block-sudo"], customPoliciesPath: hookPath });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm /", env.cwd), { homeDir: env.home });
-    // Builtin deny — permissionDecisionReason should mention block-sudo, not custom
+    // Builtin deny — stderr should mention block-sudo, not custom
     assertPreToolUseDeny(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
-    expect(output?.permissionDecisionReason).toMatch(/sudo/i);
+    expect(result.stderr).toMatch(/sudo/i);
   });
 
   it("custom fires after builtin allow: builtin allows ls, custom denies", () => {

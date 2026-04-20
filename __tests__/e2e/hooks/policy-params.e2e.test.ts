@@ -285,8 +285,7 @@ describe("policyParams hint", () => {
     });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm -rf /", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    expect(output.permissionDecisionReason).toContain("Use apt-get directly instead.");
+    expect(result.stderr).toContain("Use apt-get directly instead.");
   });
 
   it("appends hint to instruct message for PreToolUse", () => {
@@ -298,8 +297,7 @@ describe("policyParams hint", () => {
     const content = "x".repeat(150 * 1024); // 150KB > 100KB threshold
     const result = runHook("PreToolUse", Payloads.preToolUse.write(`${env.cwd}/out.txt`, content, env.cwd), { homeDir: env.home });
     assertInstruct(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    expect(output.additionalContext).toContain("Split into smaller files.");
+    expect(result.stderr).toContain("Split into smaller files.");
   });
 
   it("deny message is unchanged when no hint is configured", () => {
@@ -309,10 +307,9 @@ describe("policyParams hint", () => {
     });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm -rf /", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    const reason = output.permissionDecisionReason as string;
+    const reason = result.stderr;
     // Should contain the standard deny message but NOT any hint appendage
-    expect(reason).toContain("failproofai because:");
+    expect(reason).toContain("[failproofai]");
     expect(reason).not.toContain(". .");
   });
 
@@ -325,8 +322,7 @@ describe("policyParams hint", () => {
     const output = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
     const result = runHook("PostToolUse", Payloads.postToolUse.bash("cat key.txt", output, env.cwd), { homeDir: env.home });
     assertPostToolUseDeny(result);
-    const hookOutput = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    expect(hookOutput.additionalContext).toContain("Redact the key before sharing.");
+    expect(result.stderr).toContain("Redact the key before sharing.");
   });
 
   it("ignores non-string hint value", () => {
@@ -337,8 +333,7 @@ describe("policyParams hint", () => {
     });
     const result = runHook("PreToolUse", Payloads.preToolUse.bash("sudo rm -rf /", env.cwd), { homeDir: env.home });
     assertPreToolUseDeny(result);
-    const output = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    const reason = output.permissionDecisionReason as string;
+    const reason = result.stderr;
     // Should not have ". 42" appended
     expect(reason).not.toContain("42");
   });
@@ -353,8 +348,7 @@ describe("policyParams hint", () => {
     const jwtOutput = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
     const result = runHook("PostToolUse", Payloads.postToolUse.bash("cat token.txt", jwtOutput, env.cwd), { homeDir: env.home });
     assertPostToolUseDeny(result);
-    const hookOutput = result.parsed?.hookSpecificOutput as Record<string, unknown>;
-    expect(hookOutput.additionalContext).toContain("Redact the token before sharing.");
+    expect(result.stderr).toContain("Redact the token before sharing.");
   });
 });
 

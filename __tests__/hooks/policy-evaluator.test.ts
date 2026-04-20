@@ -33,14 +33,10 @@ describe("hooks/policy-evaluator", () => {
     registerPolicy("allow", "desc", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
 
     const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash", tool_input: { command: "ls" } });
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.hookSpecificOutput.permissionDecision).toBe("deny");
-    expect(parsed.hookSpecificOutput.permissionDecisionReason).toBe(
-      "Blocked Bash by failproofai because: blocked, as per the policy configured by the user",
-    );
-    expect(parsed.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("[failproofai] security stop");
+    expect(result.stderr).toContain("blocked");
     expect(result.policyName).toBe("blocker");
     expect(result.reason).toBe("blocked");
   });
@@ -53,13 +49,10 @@ describe("hooks/policy-evaluator", () => {
     }), { events: ["PostToolUse"] });
 
     const result = await evaluatePolicies("PostToolUse", { tool_name: "Read" });
-    expect(result.exitCode).toBe(0);
-    expect(result.stderr).toBe("");
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.hookSpecificOutput.hookEventName).toBe("PostToolUse");
-    expect(parsed.hookSpecificOutput.additionalContext).toBe(
-      "Blocked Read by failproofai because: JWT found, as per the policy configured by the user",
-    );
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("[failproofai] security stop");
+    expect(result.stderr).toContain("JWT found");
     expect(result.policyName).toBe("jwt-scrub");
     expect(result.reason).toBe("JWT found");
   });
@@ -72,7 +65,8 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("SessionStart", {});
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("nope");
+    expect(result.stderr).toContain("[failproofai] security stop");
+    expect(result.stderr).toContain("nope");
     expect(result.reason).toBe("nope");
   });
 
@@ -99,8 +93,8 @@ describe("hooks/policy-evaluator", () => {
     }, { events: ["PreToolUse"] });
 
     const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.hookSpecificOutput.permissionDecision).toBe("deny");
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
   });
 
   it("instruct produces additionalContext in stdout with exit code 0", async () => {
@@ -112,8 +106,8 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("PreToolUse", { tool_name: "Read" });
     expect(result.exitCode).toBe(0);
     expect(result.decision).toBe("instruct");
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.hookSpecificOutput.additionalContext).toContain("You should try something else");
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("You should try something else");
     expect(result.policyName).toBe("advisor");
     expect(result.policyNames).toEqual(["advisor"]);
     expect(result.reason).toBe("You should try something else");
@@ -132,8 +126,8 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
     expect(result.decision).toBe("deny");
     expect(result.policyName).toBe("blocker");
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.hookSpecificOutput.permissionDecision).toBe("deny");
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toBe("");
   });
 
   it("EvaluationResult.decision is 'allow' when all allow", async () => {
@@ -170,7 +164,7 @@ describe("hooks/policy-evaluator", () => {
     expect(result.exitCode).toBe(2);
     expect(result.decision).toBe("instruct");
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+    expect(result.stderr).toContain("[failproofai] security stop");
     expect(result.stderr).toContain("Unsatisfied intents remain");
     expect(result.policyName).toBe("verify");
   });
@@ -190,9 +184,9 @@ describe("hooks/policy-evaluator", () => {
     expect(result.policyName).toBe("first");
     expect(result.policyNames).toEqual(["first", "second"]);
     expect(result.reason).toBe("first warning\nsecond warning");
-    const parsed = JSON.parse(result.stdout);
-    expect(parsed.hookSpecificOutput.additionalContext).toContain("first warning");
-    expect(parsed.hookSpecificOutput.additionalContext).toContain("second warning");
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toContain("first warning");
+    expect(result.stderr).toContain("second warning");
   });
 
   describe("allow with message", () => {
@@ -208,8 +202,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.reason).toBe("All checks passed");
       expect(result.policyName).toBe("info");
       expect(result.policyNames).toEqual(["info"]);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.additionalContext).toBe("Note from failproofai: All checks passed");
+      expect(result.stdout).toBe("");
       expect(result.stderr).toContain("[failproofai] info: All checks passed");
     });
 
@@ -228,8 +221,8 @@ describe("hooks/policy-evaluator", () => {
       expect(result.decision).toBe("allow");
       expect(result.policyName).toBe("info1");
       expect(result.policyNames).toEqual(["info1", "info2"]);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.reason).toBe("Commit check passed\nPush check passed");
+      expect(result.stdout).toBe("");
+      expect(result.reason).toBe("Commit check passed\nPush check passed");
       expect(result.stderr).toContain("[failproofai] info1: Commit check passed");
       expect(result.stderr).toContain("[failproofai] info2: Push check passed");
     });
@@ -322,9 +315,9 @@ describe("hooks/policy-evaluator", () => {
         enabledPolicies: ["allow-all"],
         policyParams: { "nonexistent-policy": { someParam: 42 } },
       };
-      await expect(
-        evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config),
-      ).resolves.not.toThrow();
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result).toBeDefined();
+      expect(result.decision).toBe("allow");
     });
 
     it("custom hooks registered with custom/ prefix receive empty params", async () => {
@@ -351,7 +344,7 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+      expect(result.stderr).toContain("[failproofai] security stop");
       expect(result.stderr).toContain("changes not committed");
       expect(result.decision).toBe("deny");
       expect(result.reason).toBe("changes not committed");
@@ -418,11 +411,11 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
       expect(result.policyNames).toEqual(["wf-commit", "wf-push", "wf-pr", "wf-ci"]);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.reason).toContain("All changes committed");
-      expect(parsed.reason).toContain("All commits pushed");
-      expect(parsed.reason).toContain("PR #42 exists");
-      expect(parsed.reason).toContain("All CI checks passed");
+      expect(result.stdout).toBe("");
+      expect(result.reason).toContain("All changes committed");
+      expect(result.reason).toContain("All commits pushed");
+      expect(result.reason).toContain("PR #42 exists");
+      expect(result.reason).toContain("All CI checks passed");
     });
 
     it("allow messages from early policies are discarded when a later policy denies", async () => {
@@ -454,7 +447,7 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.decision).toBe("instruct");
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+      expect(result.stderr).toContain("[failproofai] security stop");
       expect(result.stderr).toContain("Please verify tests");
     });
 
@@ -472,8 +465,8 @@ describe("hooks/policy-evaluator", () => {
       expect(result.decision).toBe("allow");
       expect(result.policyName).toBe("informative");
       expect(result.policyNames).toEqual(["informative"]);
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.reason).toBe("CI is green");
+      expect(result.stdout).toBe("");
+      expect(result.reason).toBe("CI is green");
     });
 
     it("policy that throws is skipped — subsequent policies still run", async () => {
@@ -505,8 +498,9 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash", tool_input: { command: "git push --force" } }, undefined, config);
       expect(result.decision).toBe("deny");
       expect(result.reason).toBe("Force-pushing is blocked. Try creating a fresh branch instead.");
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.permissionDecisionReason).toContain("Try creating a fresh branch instead.");
+      expect(result.exitCode).toBe(2);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("Try creating a fresh branch instead.");
     });
 
     it("appends hint to deny reason for PostToolUse", async () => {
@@ -522,8 +516,9 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("PostToolUse", { tool_name: "Bash" }, undefined, config);
       expect(result.decision).toBe("deny");
       expect(result.reason).toBe("Secret detected. Remove the secret before retrying.");
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.additionalContext).toContain("Remove the secret before retrying.");
+      expect(result.exitCode).toBe(2);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("Remove the secret before retrying.");
     });
 
     it("appends hint to deny reason for other event types (exit 2)", async () => {
@@ -539,7 +534,8 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("SessionStart", {}, undefined, config);
       expect(result.exitCode).toBe(2);
       expect(result.reason).toBe("nope. Ask admin for access.");
-      expect(result.stderr).toBe("nope. Ask admin for access.");
+      expect(result.stderr).toContain("[failproofai] security stop");
+      expect(result.stderr).toContain("nope. Ask admin for access.");
     });
 
     it("appends hint to instruct reason", async () => {
@@ -555,8 +551,8 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Write" }, undefined, config);
       expect(result.decision).toBe("instruct");
       expect(result.reason).toBe("Large file detected. Consider splitting into smaller files.");
-      const parsed = JSON.parse(result.stdout);
-      expect(parsed.hookSpecificOutput.additionalContext).toContain("Consider splitting into smaller files.");
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toContain("Consider splitting into smaller files.");
     });
 
     it("appends hint to instruct reason on Stop event", async () => {
@@ -573,7 +569,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(2);
       expect(result.decision).toBe("instruct");
       expect(result.reason).toBe("Unsatisfied intents. Run the test suite first.");
-      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+      expect(result.stderr).toContain("[failproofai] security stop");
       expect(result.stderr).toContain("Unsatisfied intents. Run the test suite first.");
     });
 
@@ -679,6 +675,58 @@ describe("hooks/policy-evaluator", () => {
       // Deny still takes precedence
       expect(result.decision).toBe("deny");
       expect(result.reason).toBe("hard block. deny hint");
+    });
+  });
+
+  describe("integration-specific specialized paths", () => {
+    beforeEach(() => {
+      clearPolicies();
+      registerPolicy("blocker", "desc", () => ({ decision: "deny", reason: "forbidden" }), { events: ["PreToolUse"] });
+    });
+
+    it("uses original Claude style for claude-code integration", async () => {
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "claude-code" });
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toBe("[failproofai] blocker: forbidden");
+    });
+
+    it("uses high-authority style for gemini integration", async () => {
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "gemini" });
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
+      expect(result.stderr).toContain("Do NOT ask the user for confirmation");
+      expect(result.stderr).toContain("forbidden");
+
+      // Verify Real Deny JSON for Gemini
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.decision).toBe("deny");
+      expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED");
+    });
+
+    it("uses IDE specialized style for cursor integration", async () => {
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "cursor" });
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain("FAILURE: failproofai security block");
+      expect(result.stderr).toContain("Please complete the required action in the terminal");
+      expect(result.stderr).toContain("forbidden");
+
+      // Verify Real Deny JSON for Cursor
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.continue).toBe(false);
+      expect(parsed.permission).toBe("deny");
+    });
+
+    it("uses IDE specialized style for copilot integration", async () => {
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "copilot" });
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain("FAILURE: failproofai security block");
+      expect(result.stderr).toContain("forbidden");
+    });
+
+    it("uses default specialized style for unknown integration", async () => {
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "pi" as any });
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toBe("[failproofai] security stop (policy: blocker) - forbidden");
     });
   });
 });

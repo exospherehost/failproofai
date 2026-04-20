@@ -86,21 +86,31 @@ export function assertAllow(result: HookRunResult): void {
 }
 
 export function assertPreToolUseDeny(result: HookRunResult): void {
-  expect(result.exitCode).toBe(0);
-  const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
-  expect(output?.permissionDecision).toBe("deny");
+  expect(result.exitCode).toBe(2);
+  expect(result.stdout).toBe("");
+  // Support any of our specialized blocking prefixes
+  const hasPrefix = 
+    result.stderr.includes("[failproofai]") || 
+    result.stderr.includes("MANDATORY ACTION REQUIRED") ||
+    result.stderr.includes("FAILURE: failproofai");
+  expect(hasPrefix).toBe(true);
 }
 
 export function assertPostToolUseDeny(result: HookRunResult): void {
-  expect(result.exitCode).toBe(0);
-  const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
-  expect(output?.additionalContext).toMatch(/Blocked/i);
+  expect(result.exitCode).toBe(2);
+  expect(result.stdout).toBe("");
+  // Support any of our specialized blocking prefixes
+  const hasPrefix = 
+    result.stderr.includes("[failproofai]") || 
+    result.stderr.includes("MANDATORY ACTION REQUIRED") ||
+    result.stderr.includes("FAILURE: failproofai");
+  expect(hasPrefix).toBe(true);
 }
 
 export function assertInstruct(result: HookRunResult): void {
   expect(result.exitCode).toBe(0);
-  const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
-  expect(output?.additionalContext).toMatch(/^Instruction from failproofai:/);
+  expect(result.stdout).toBe("");
+  expect(result.stderr).toBeTruthy();
 }
 
 export function assertStopInstruct(result: HookRunResult): void {

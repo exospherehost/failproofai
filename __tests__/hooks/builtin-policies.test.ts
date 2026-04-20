@@ -1971,47 +1971,51 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockReset();
     });
 
-    it("denies when there are modified files", async () => {
+    it("warns (non-blocking) when there are modified files", async () => {
       vi.mocked(execSync).mockReturnValue("M  src/index.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("uncommitted changes");
     });
 
-    it("denies when there are untracked files", async () => {
+    it("warns (non-blocking) when there are untracked files", async () => {
       vi.mocked(execSync).mockReturnValue("?? newfile.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("uncommitted changes");
     });
 
-    it("denies when there are staged but uncommitted files", async () => {
+    it("warns (non-blocking) when there are staged but uncommitted files", async () => {
       vi.mocked(execSync).mockReturnValue("A  staged-file.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("uncommitted changes");
     });
 
-    it("denies when there are deleted files", async () => {
+    it("warns (non-blocking) when there are deleted files", async () => {
       vi.mocked(execSync).mockReturnValue("D  removed.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("uncommitted changes");
     });
 
-    it("denies when there are renamed files", async () => {
+    it("warns (non-blocking) when there are renamed files", async () => {
       vi.mocked(execSync).mockReturnValue("R  old.ts -> new.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("uncommitted changes");
     });
 
-    it("denies with mixed status output (modified + untracked)", async () => {
+    it("warns (non-blocking) with mixed status output (modified + untracked)", async () => {
       vi.mocked(execSync).mockReturnValue("M  src/index.ts\n?? newfile.ts\n A staged.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("uncommitted changes");
     });
 
@@ -2120,38 +2124,38 @@ describe("hooks/builtin-policies", () => {
       });
     }
 
-    it("denies when there are unpushed commits (plural message)", async () => {
+    it("warns (non-blocking) when there are unpushed commits (plural message)", async () => {
       mockPushScenario({ unpushedOutput: "abc123 fix\ndef456 update\n" });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("2 unpushed commits");
       expect(result.reason).toContain("git push");
     });
 
-    it("denies with singular message for 1 unpushed commit", async () => {
+    it("warns (non-blocking) with singular message for 1 unpushed commit", async () => {
       mockPushScenario({ unpushedOutput: "abc123 fix\n" });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("1 unpushed commit");
       expect(result.reason).not.toContain("commits");
     });
 
-    it("denies when no tracking branch exists", async () => {
+    it("warns (non-blocking) when no tracking branch exists", async () => {
       mockPushScenario({ branch: "new-feature", hasTracking: false });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("push -u");
       expect(result.reason).toContain("new-feature");
     });
 
-    it("deny message includes branch name and remote", async () => {
+    it("warning message includes branch name and remote", async () => {
       mockPushScenario({ branch: "my-feature", hasTracking: false });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain('"my-feature"');
       expect(result.reason).toContain('"origin"');
     });
@@ -2204,7 +2208,7 @@ describe("hooks/builtin-policies", () => {
       mockPushScenario({ remote: "upstream", branch: "feat", hasTracking: false });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" }, params: { remote: "upstream" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("upstream");
     });
 
@@ -2354,20 +2358,20 @@ describe("hooks/builtin-policies", () => {
       });
     }
 
-    it("denies when no PR exists", async () => {
+    it("warns (non-blocking) when no PR exists", async () => {
       mockPrScenario({ prResult: null });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
-      expect(result.reason).toContain("No pull request");
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("no pull request");
       expect(result.reason).toContain("gh pr create");
     });
 
-    it("deny message includes the branch name", async () => {
+    it("warning message includes the branch name", async () => {
       mockPrScenario({ branch: "my-feature", prResult: null });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain('"my-feature"');
     });
 
@@ -2380,11 +2384,11 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("https://github.com/org/repo/pull/42");
     });
 
-    it("denies when PR is closed", async () => {
+    it("warns (non-blocking) when PR is closed", async () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "CLOSED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("closed");
       expect(result.reason).toContain("gh pr create");
     });
@@ -2393,7 +2397,7 @@ describe("hooks/builtin-policies", () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("merged");
     });
 
@@ -2582,12 +2586,12 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("PR #10");
     });
 
-    it("falls through to deny when origin/{baseBranch} ref missing and no PR exists", async () => {
+    it("falls through to warn when origin/{baseBranch} ref missing and no PR exists", async () => {
       mockPrScenario({ baseRefExists: false, prResult: null });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
-      expect(result.reason).toContain("No pull request");
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("no pull request");
     });
 
     it("uses custom baseBranch param for git log comparison", async () => {

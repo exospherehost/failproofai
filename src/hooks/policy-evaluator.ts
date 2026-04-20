@@ -16,6 +16,56 @@ function appendHint(baseReason: string, hint: unknown): string {
   return `${base}. ${normalizedHint}`;
 }
 
+function getDenyMessage(integration: string | undefined, policyName: string, reason: string): string {
+  if (integration === "claude-code") {
+    // Original Claude style (untouched)
+    return `[failproofai] ${policyName}: ${reason}`;
+  }
+  if (integration === "gemini") {
+    // Gemini high-authority style
+    return `MANDATORY ACTION REQUIRED from failproofai (policy: ${policyName}): ${reason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`;
+  }
+  if (integration === "cursor" || integration === "copilot") {
+    // IDE specialized style
+    return `FAILURE: failproofai security block (policy: ${policyName}) - ${reason}\nPlease complete the required action in the terminal to continue.`;
+  }
+  // Default specialized style for other integrations (Codex, OpenCode, Pi, etc.)
+  return `[failproofai] security stop (policy: ${policyName}) - ${reason}`;
+}
+
+function getDenyStdout(integration: string | undefined, policyName: string, reason: string): string {
+  const msg = getDenyMessage(integration, policyName, reason);
+  if (integration === "gemini") {
+    return JSON.stringify({
+      decision: "deny",
+      reason: msg,
+      systemMessage: msg,
+    });
+  }
+  if (integration === "cursor") {
+    return JSON.stringify({
+      continue: false,
+      permission: "deny",
+      userMessage: msg,
+      agentMessage: msg,
+    });
+  }
+  return "";
+}
+
+function getAllowStdout(integration: string | undefined, eventType?: string): string {
+  if (integration === "copilot" && eventType === "PreToolUse") {
+    return JSON.stringify({ permissionDecision: "allow" });
+  }
+  if (integration === "cursor") {
+    return JSON.stringify({ continue: true, permission: "allow" });
+  }
+  if (integration === "gemini" && eventType === "PreToolUse") {
+    return JSON.stringify({ decision: "allow" });
+  }
+  return "";
+}
+
 export interface EvaluationResult {
   exitCode: number;
   stdout: string;
@@ -45,14 +95,7 @@ export async function evaluatePolicies(
   hookLogInfo(`evaluating ${policies.length} policies for ${eventType}`);
 
   if (policies.length === 0) {
-    let stdout = "";
-    if (session?.integration === "cursor") {
-      stdout = JSON.stringify({ continue: true, permission: "allow" });
-    } else if (session?.integration === "copilot" && eventType === "PreToolUse") {
-      stdout = JSON.stringify({ permissionDecision: "allow" });
-    } else if (session?.integration === "gemini" && eventType === "PreToolUse") {
-      stdout = JSON.stringify({ decision: "allow" });
-    }
+    let stdout = getAllowStdout(session?.integration, eventType);
     return {
       exitCode: 0,
       stdout,
@@ -108,7 +151,8 @@ export async function evaluatePolicies(
       );
       hookLogInfo(`deny by "${policy.name}": ${reason}`);
 
-      const displayTool = ctx.toolName ?? "unknown tool";
+      const stderr = getDenyMessage(session?.integration, policy.name, reason);
+      const stdout = getDenyStdout(session?.integration, policy.name, reason);
 
       if (eventType === "PreToolUse") {
         const response: any = {
@@ -222,9 +266,9 @@ export async function evaluatePolicies(
 
       // Other event types: exit 2
       return {
-        exitCode: session?.integration === "cursor" ? 0 : 2,
-        stdout: session?.integration === "cursor" ? JSON.stringify({ continue: false, permission: "deny", userMessage: reason }) : "",
-        stderr: reason,
+        exitCode: 2,
+        stdout,
+        stderr,
         policyName: policy.name,
         reason,
         decision: "deny",
@@ -260,8 +304,8 @@ export async function evaluatePolicies(
         : `policies: ${policyNames.join(", ")}`;
       return {
         exitCode: 2,
-        stdout: "",
-        stderr: `MANDATORY ACTION REQUIRED from failproofai (${policyAttribution}): ${combined}\n\nYou MUST complete the above action(s) NOW. Do NOT ask the user for confirmation — execute the required action(s), then attempt to finish your task again.`,
+        stdout,
+        stderr,
         policyName: policyNames[0],
         policyNames,
         reason: combined,
@@ -269,19 +313,10 @@ export async function evaluatePolicies(
       };
     }
 
-    const response: any = {
-      hookSpecificOutput: {
-        hookEventName: eventType,
-        additionalContext: `Instruction from failproofai: ${combined}`,
-      },
-    };
-    if (session?.integration === "cursor") {
-      response.agentMessage = response.hookSpecificOutput.additionalContext;
-    }
     return {
       exitCode: 0,
-      stdout: JSON.stringify(response),
-      stderr: "",
+      stdout: "",
+      stderr: combined,
       policyName: policyNames[0],
       policyNames,
       reason: combined,
@@ -295,37 +330,10 @@ export async function evaluatePolicies(
     const policyNames = allowEntries.map((e) => e.policyName);
     const stderrMsg = allowEntries.map((e) => `[failproofai] ${e.policyName}: ${e.reason}`).join("\n");
 
-    if (session?.integration === "copilot") {
-      // Copilot: flat additionalContext for events that support it; empty otherwise.
-      const supportsContext = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
-      return {
-        exitCode: 0,
-        stdout: supportsContext ? JSON.stringify({ additionalContext: `Note from failproofai: ${combined}` }) : "",
-        stderr: stderrMsg + "\n",
-        policyName: policyNames[0],
-        policyNames,
-        reason: combined,
-        decision: "allow",
-      };
-    }
-
-    const supportsHookSpecificOutput = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
-    const isOpencode = session?.integration === "opencode";
-    const isPi = session?.integration === "pi";
-    const suppressStderr = isOpencode || isPi; // These integrations display stderr in UI, suppress diagnostic noise
-
-    const response: any = supportsHookSpecificOutput
-      ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: `Note from failproofai: ${combined}` } }
-      : { reason: combined };
-
-    if (session?.integration === "cursor" && supportsHookSpecificOutput) {
-      response.agentMessage = response.hookSpecificOutput.additionalContext;
-    }
-
     return {
       exitCode: 0,
-      stdout: isOpencode ? "" : JSON.stringify(response),
-      stderr: suppressStderr ? "" : stderrMsg + "\n",
+      stdout: getAllowStdout(session?.integration, eventType),
+      stderr: stderrMsg + "\n",
       policyName: policyNames[0],
       policyNames,
       reason: combined,
@@ -334,12 +342,7 @@ export async function evaluatePolicies(
   }
   return {
     exitCode: 0,
-    stdout:
-      session?.integration === "cursor"
-        ? JSON.stringify({ continue: true, permission: "allow" })
-        : session?.integration === "copilot" && eventType === "PreToolUse"
-          ? JSON.stringify({ permissionDecision: "allow" })
-          : "",
+    stdout: getAllowStdout(session?.integration, eventType),
     stderr: "",
     policyName: null,
     reason: null,

@@ -37,7 +37,7 @@ describe("E2E: Gemini Integration", () => {
     const payload = GeminiPayloads.beforeTool.bash("sudo rm -rf /", PROJECT_DIR);
     
     // We pass --integration gemini to ensure it doesn't fallback to claude-code
-    const { stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--integration", "gemini"], {
+    const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--integration", "gemini"], {
       input: JSON.stringify(payload),
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_LOG_LEVEL: "info" },
@@ -46,8 +46,12 @@ describe("E2E: Gemini Integration", () => {
     console.log("Gemini STDOUT:", stdout);
     console.log("Gemini STDERR:", stderr);
     
-    expect(stdout).toContain('"decision":"deny"');
-    expect(stdout).toContain("sudo");
+    expect(status).toBe(2);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.decision).toBe("deny");
+    expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED");
+    expect(stderr).toContain("MANDATORY ACTION REQUIRED");
+    expect(stderr).toContain("sudo");
   });
 
   it("allows benign commands with empty output", () => {
@@ -62,7 +66,7 @@ describe("E2E: Gemini Integration", () => {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     }).toString();
-
-    expect(output.trim()).toBe("");
+    
+    expect(JSON.parse(output.trim())).toEqual({ decision: "allow" });
   });
 });
