@@ -1068,7 +1068,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
     // used a stale ref. Fetch and re-verify before denying.
     if (pr.state === "MERGED") {
       try {
-        execFileSync("git", ["fetch", "origin", baseBranch], {
+        execFileSync("git", ["fetch", "origin", `+refs/heads/${baseBranch}:refs/remotes/origin/${baseBranch}`], {
           cwd,
           encoding: "utf8",
           timeout: 10000,
