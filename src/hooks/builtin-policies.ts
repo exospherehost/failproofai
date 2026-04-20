@@ -871,6 +871,9 @@ function warnGlobalPackageInstall(ctx: PolicyContext): PolicyResult {
   return allow();
 }
 
+// Split a compound shell command into independent segments.
+const SEGMENT_SPLIT_RE = /\s*(?:&&|\|\||\||;)\s*/;
+
 function preferPackageManager(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
@@ -880,45 +883,55 @@ function preferPackageManager(ctx: PolicyContext): PolicyResult {
   if (allowed.length === 0) return allow();
 
   const allowedSet = new Set(allowed.map((a) => a.toLowerCase()));
+  const blocked = (ctx.params?.blocked ?? []) as string[];
+  const allowedList = allowed.join(", ");
 
-  // First pass: if any allowed manager appears in the command, allow immediately.
-  // This handles cases like "uv pip install" where pip>uv is configured.
-  for (const manager of allowedSet) {
-    const patterns = PKG_MANAGER_DETECTORS[manager];
-    if (!patterns) continue;
-    for (const pattern of patterns) {
-      if (pattern.test(cmd)) return allow();
+  // Evaluate each shell segment independently so that
+  // "uv --version && pip install flask" correctly denies the pip segment.
+  const segments = cmd.split(SEGMENT_SPLIT_RE);
+
+  for (const segment of segments) {
+    const trimmed = segment.trim();
+    if (!trimmed) continue;
+
+    // Check if this segment uses an allowed manager — if so, skip it.
+    let segmentAllowed = false;
+    for (const manager of allowedSet) {
+      const patterns = PKG_MANAGER_DETECTORS[manager];
+      if (!patterns) continue;
+      for (const pattern of patterns) {
+        if (pattern.test(trimmed)) { segmentAllowed = true; break; }
+      }
+      if (segmentAllowed) break;
     }
-  }
+    if (segmentAllowed) continue;
 
-  // Second pass: deny if any non-allowed builtin manager is detected.
-  for (const [manager, patterns] of Object.entries(PKG_MANAGER_DETECTORS)) {
-    if (allowedSet.has(manager)) continue;
-    for (const pattern of patterns) {
-      if (pattern.test(cmd)) {
-        const allowedList = allowed.join(", ");
+    // Check if this segment uses a non-allowed builtin manager.
+    for (const [manager, patterns] of Object.entries(PKG_MANAGER_DETECTORS)) {
+      if (allowedSet.has(manager)) continue;
+      for (const pattern of patterns) {
+        if (pattern.test(trimmed)) {
+          return deny(
+            `"${manager}" is not an allowed package manager. ` +
+              `Allowed package managers for this project: ${allowedList}. ` +
+              `Rewrite this command using an allowed package manager.`,
+          );
+        }
+      }
+    }
+
+    // Check user-specified blocked managers.
+    for (const name of blocked) {
+      const lower = name.toLowerCase();
+      if (allowedSet.has(lower)) continue;
+      const re = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+      if (re.test(trimmed)) {
         return deny(
-          `"${manager}" is not an allowed package manager. ` +
+          `"${lower}" is not an allowed package manager. ` +
             `Allowed package managers for this project: ${allowedList}. ` +
             `Rewrite this command using an allowed package manager.`,
         );
       }
-    }
-  }
-
-  // Third pass: deny if any user-specified blocked manager is detected.
-  const blocked = (ctx.params?.blocked ?? []) as string[];
-  for (const name of blocked) {
-    const lower = name.toLowerCase();
-    if (allowedSet.has(lower)) continue;
-    const re = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
-    if (re.test(cmd)) {
-      const allowedList = allowed.join(", ");
-      return deny(
-        `"${lower}" is not an allowed package manager. ` +
-          `Allowed package managers for this project: ${allowedList}. ` +
-          `Rewrite this command using an allowed package manager.`,
-      );
     }
   }
 

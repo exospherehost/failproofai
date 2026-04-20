@@ -1509,6 +1509,42 @@ describe("hooks/builtin-policies", () => {
       });
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
+
+    it("denies pip in compound command even when uv appears in another segment", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "uv --version && pip install flask" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows both segments when both use allowed managers", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "uv add flask && bun install express" },
+        params: { allowed: ["uv", "bun"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("denies blocked manager in piped command", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "cat requirements.txt | pip install -r -" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("denies blocked manager after semicolon", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "echo installing; npm install express" },
+        params: { allowed: ["bun"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
   });
 
   describe("warn-background-process", () => {
