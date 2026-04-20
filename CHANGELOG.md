@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixes
+- Fix `require-pr-before-stop` falsely denying when PR is already merged and `origin/main` is stale (#112)
+
 ## 0.0.5 — 2026-04-17
 
 ### Fixes

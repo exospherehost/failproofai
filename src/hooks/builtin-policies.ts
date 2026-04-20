@@ -1064,6 +1064,36 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       return allow(`PR #${pr.number} exists: ${pr.url}`);
     }
 
+    // PR is merged/closed. The earlier origin/{baseBranch} checks may have
+    // used a stale ref. Fetch and re-verify before denying.
+    if (pr.state === "MERGED") {
+      try {
+        execFileSync("git", ["fetch", "origin", baseBranch], {
+          cwd,
+          encoding: "utf8",
+          timeout: 10000,
+        });
+        const freshAhead = execFileSync(
+          "git",
+          ["log", `origin/${baseBranch}..HEAD`, "--oneline"],
+          { cwd, encoding: "utf8", timeout: 5000 },
+        ).trim();
+        if (!freshAhead) {
+          return allow(`PR #${pr.number} was merged; branch is up to date with ${baseBranch}.`);
+        }
+        const freshDiff = execFileSync(
+          "git",
+          ["diff", "--stat", `origin/${baseBranch}`, "HEAD"],
+          { cwd, encoding: "utf8", timeout: 5000 },
+        ).trim();
+        if (!freshDiff) {
+          return allow(`PR #${pr.number} was merged; no file changes vs ${baseBranch}.`);
+        }
+      } catch {
+        // Fetch or git command failed — fall through to deny
+      }
+    }
+
     return deny(
       `Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Run now: gh pr create`,
     );
