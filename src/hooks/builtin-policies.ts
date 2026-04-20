@@ -1467,7 +1467,6 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     fn: preferPackageManager,
     match: { events: ["PreToolUse"], toolNames: ["Bash"] },
     defaultEnabled: false,
-    beta: true,
     category: "Packages & System",
     params: {
       allowed: {
