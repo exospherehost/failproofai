@@ -106,7 +106,7 @@ jobs:
 
       - name: Download all translations
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: translations-*
           merge-multiple: true
@@ -114,7 +114,7 @@ jobs:
 
       - name: Download cache fragments
         continue-on-error: true
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: cache-*
           path: cache-fragments/
