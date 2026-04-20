@@ -21,6 +21,7 @@ Policies are grouped into categories:
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [Database](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [Warnings](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
+| [Package managers](#package-managers) | prefer-package-manager | PreToolUse |
 | [Workflow](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
 
 - **`block-`** — stop the agent from proceeding.
@@ -433,6 +434,38 @@ No parameters.
 **Default:** Instructs Claude to confirm before running `npm install -g`, `yarn global add`, or `pip install` without a virtual environment.
 
 No parameters.
+
+---
+
+## Package managers
+
+Enforce which package managers the agent is allowed to use.
+
+### `prefer-package-manager`
+
+**Event:** PreToolUse (Bash)  
+**Default:** Disabled. When enabled, blocks any package manager command not in the `allowed` list and tells Claude to rewrite the command using an allowed manager.
+
+Detects: pip, pip3, python -m pip, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `allowed` | string[] | `[]` | Allowed package manager names. Any detected manager not in this list is blocked. When empty, the policy is a no-op. |
+
+**Example configuration:**
+
+```json
+{
+  "enabledPolicies": ["prefer-package-manager"],
+  "policyParams": {
+    "prefer-package-manager": {
+      "allowed": ["uv", "bun"]
+    }
+  }
+}
+```
+
+With this config, `pip install flask` is denied with a message telling Claude to use `uv` instead. Commands like `uv pip install flask` are allowed because `uv` is in the allowlist and is checked first.
 
 ---
 
