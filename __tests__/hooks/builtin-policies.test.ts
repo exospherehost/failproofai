@@ -1471,6 +1471,44 @@ describe("hooks/builtin-policies", () => {
       expect(result.decision).toBe("deny");
       expect(result.reason).toContain("uv, poetry");
     });
+
+    it("denies user-specified blocked manager", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pdm install flask" },
+        params: { allowed: ["uv"], blocked: ["pdm"] },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("pdm");
+    });
+
+    it("denies user-specified blocked manager (pipx)", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pipx run black ." },
+        params: { allowed: ["uv"], blocked: ["pipx"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows user-specified blocked manager if also in allowed", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pdm install flask" },
+        params: { allowed: ["uv", "pdm"], blocked: ["pdm"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows command not matching any blocked entry", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "git status" },
+        params: { allowed: ["uv"], blocked: ["pdm"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
   });
 
   describe("warn-background-process", () => {

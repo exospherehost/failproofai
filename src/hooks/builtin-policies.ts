@@ -891,7 +891,7 @@ function preferPackageManager(ctx: PolicyContext): PolicyResult {
     }
   }
 
-  // Second pass: deny if any non-allowed manager is detected.
+  // Second pass: deny if any non-allowed builtin manager is detected.
   for (const [manager, patterns] of Object.entries(PKG_MANAGER_DETECTORS)) {
     if (allowedSet.has(manager)) continue;
     for (const pattern of patterns) {
@@ -903,6 +903,22 @@ function preferPackageManager(ctx: PolicyContext): PolicyResult {
             `Rewrite this command using an allowed package manager.`,
         );
       }
+    }
+  }
+
+  // Third pass: deny if any user-specified blocked manager is detected.
+  const blocked = (ctx.params?.blocked ?? []) as string[];
+  for (const name of blocked) {
+    const lower = name.toLowerCase();
+    if (allowedSet.has(lower)) continue;
+    const re = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+    if (re.test(cmd)) {
+      const allowedList = allowed.join(", ");
+      return deny(
+        `"${lower}" is not an allowed package manager. ` +
+          `Allowed package managers for this project: ${allowedList}. ` +
+          `Rewrite this command using an allowed package manager.`,
+      );
     }
   }
 
@@ -1472,6 +1488,11 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
       allowed: {
         type: "string[]",
         description: "Allowed package manager names (e.g. ['uv', 'bun']). Any detected manager not in this list is blocked.",
+        default: [],
+      },
+      blocked: {
+        type: "string[]",
+        description: "Additional manager names to block beyond the built-in list (e.g. ['pdm', 'pipx']).",
         default: [],
       },
     } satisfies PolicyParamsSchema,

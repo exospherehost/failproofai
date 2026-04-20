@@ -451,6 +451,9 @@ Detects: pip, pip3, python -m pip, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, po
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `allowed` | string[] | `[]` | Allowed package manager names. Any detected manager not in this list is blocked. When empty, the policy is a no-op. |
+| `blocked` | string[] | `[]` | Additional manager names to block beyond the built-in list (e.g. `['pdm', 'pipx']`). |
+
+The built-in block list covers: pip, pip3, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo. Use `blocked` to append managers not in this list.
 
 **Example configuration:**
 
@@ -459,13 +462,14 @@ Detects: pip, pip3, python -m pip, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, po
   "enabledPolicies": ["prefer-package-manager"],
   "policyParams": {
     "prefer-package-manager": {
-      "allowed": ["uv", "bun"]
+      "allowed": ["uv", "bun"],
+      "blocked": ["pdm", "pipx"]
     }
   }
 }
 ```
 
-With this config, `pip install flask` is denied with a message telling Claude to use `uv` instead. Commands like `uv pip install flask` are allowed because `uv` is in the allowlist and is checked first.
+With this config, `pip install flask` and `pdm install flask` are both denied with a message telling Claude to use `uv` or `bun` instead. Commands like `uv pip install flask` are allowed because `uv` is in the allowlist and is checked first.
 
 ---
 
