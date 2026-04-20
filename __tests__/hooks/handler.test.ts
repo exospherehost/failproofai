@@ -94,14 +94,16 @@ describe("hooks/handler", () => {
 
   it("returns exit code from policy evaluation", async () => {
     mockStdin();
-    const exitCode = await handleHookEvent("PreToolUse");
-    expect(exitCode).toBe(0);
+    const result = await handleHookEvent("PreToolUse");
+    expect(result.exitCode).toBe(0);
+    expect(result.hardStop).toBe(false);
   });
 
-  it("returns number (not void)", async () => {
+  it("returns an object with exitCode and hardStop", async () => {
     mockStdin();
     const result = await handleHookEvent("SessionStart");
-    expect(typeof result).toBe("number");
+    expect(typeof result.exitCode).toBe("number");
+    expect(typeof result.hardStop).toBe("boolean");
   });
 
   it("does not write raw stderr (logging is via hook-logger)", async () => {
@@ -140,7 +142,7 @@ describe("hooks/handler", () => {
     mockStdin();
     const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
 
-    await handleHookEvent("PreToolUse");
+    const result = await handleHookEvent("PreToolUse");
 
     expect(persistHookActivity).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -164,7 +166,7 @@ describe("hooks/handler", () => {
     mockStdin(JSON.stringify({ tool_name: "Bash" }));
     const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
 
-    await handleHookEvent("PreToolUse");
+    const result = await handleHookEvent("PreToolUse");
 
     expect(persistHookActivity).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -346,9 +348,9 @@ describe("hooks/handler", () => {
       const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
       vi.mocked(trackHookEvent).mockRejectedValueOnce(new Error("PostHog unavailable"));
 
-      const exitCode = await handleHookEvent("PreToolUse");
+      const result = await handleHookEvent("PreToolUse");
 
-      expect(exitCode).toBe(0);
+      expect(result.exitCode).toBe(0);
     });
 
     it("fires custom_hooks_loaded with count, names, and event types when custom hooks are present", async () => {
@@ -476,7 +478,7 @@ describe("hooks/handler", () => {
     mockStdin(sessionPayload);
     const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
 
-    await handleHookEvent("PreToolUse");
+    const result = await handleHookEvent("PreToolUse");
 
     expect(persistHookActivity).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -493,7 +495,7 @@ describe("hooks/handler", () => {
     mockStdin();
     const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
 
-    await handleHookEvent("PreToolUse");
+    const result = await handleHookEvent("PreToolUse");
 
     expect(persistHookActivity).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -561,7 +563,7 @@ describe("hooks/handler", () => {
     mockStdin(JSON.stringify({ tool_name: "Read" }));
     const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
 
-    await handleHookEvent("PreToolUse");
+    const result = await handleHookEvent("PreToolUse");
 
     expect(persistHookActivity).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -607,10 +609,10 @@ describe("hooks/handler", () => {
       mockStdin(oversized);
       const { hookLogWarn } = await import("../../src/hooks/hook-logger");
 
-      const exitCode = await handleHookEvent("PreToolUse");
+      const result = await handleHookEvent("PreToolUse");
 
       expect(hookLogWarn).toHaveBeenCalledWith(expect.stringContaining("exceeds 1 MB"));
-      expect(exitCode).toBe(0);
+      expect(result.exitCode).toBe(0);
     });
 
     it("logs warning when activity persistence fails", async () => {
@@ -627,9 +629,7 @@ describe("hooks/handler", () => {
 
   describe("Mechanism-Level Deduplication", () => {
     it("prevents duplicate log entries at the STORAGE level (Choke Point)", async () => {
-      // Unmock the store for this specific test to hit the real logic
-      vi.doUnmock("../../src/hooks/hook-activity-store");
-      const { persistHookActivity, _resetForTest } = await import("../../src/hooks/hook-activity-store");
+      const { persistHookActivity, _resetForTest } = await vi.importActual("../../src/hooks/hook-activity-store") as any;
       
       const testDir = path.join(os.homedir(), ".failproofai-test-dedup-storage");
       _resetForTest(testDir);

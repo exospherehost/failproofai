@@ -52,6 +52,7 @@ export function runHook(
     ...process.env,
     FAILPROOFAI_TELEMETRY_DISABLED: "1",
     FAILPROOFAI_DIST_PATH: getDistPath(),
+    FAILPROOFAI_SKIP_KILL: "true",
     ...(opts?.homeDir ? { HOME: opts.homeDir } : {}),
   };
 
@@ -90,9 +91,9 @@ export function assertPreToolUseDeny(result: HookRunResult): void {
   expect(result.stdout).toBe("");
   // Support any of our specialized blocking prefixes
   const hasPrefix = 
-    result.stderr.includes("[failproofai]") || 
+    result.stderr.includes("[FailproofAI") || 
     result.stderr.includes("MANDATORY ACTION REQUIRED") ||
-    result.stderr.includes("FAILURE: failproofai");
+    result.stderr.includes("ACTION BLOCKED BY FAILPROOFAI");
   expect(hasPrefix).toBe(true);
 }
 
@@ -101,9 +102,9 @@ export function assertPostToolUseDeny(result: HookRunResult): void {
   expect(result.stdout).toBe("");
   // Support any of our specialized blocking prefixes
   const hasPrefix = 
-    result.stderr.includes("[failproofai]") || 
+    result.stderr.includes("[FailproofAI") || 
     result.stderr.includes("MANDATORY ACTION REQUIRED") ||
-    result.stderr.includes("FAILURE: failproofai");
+    result.stderr.includes("ACTION BLOCKED BY FAILPROOFAI");
   expect(hasPrefix).toBe(true);
 }
 

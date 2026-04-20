@@ -66,6 +66,7 @@ function runCopilotHook(
 describe("E2E: Copilot Integration", () => {
   beforeEach(() => {
     if (existsSync(PROJECT_DIR)) rmSync(PROJECT_DIR, { recursive: true, force: true });
+    if (existsSync(DEDUP_DIR)) rmSync(DEDUP_DIR, { recursive: true, force: true });
     mkdirSync(PROJECT_DIR, { recursive: true });
     mkdirSync(resolve(PROJECT_DIR, ".github", "hooks"), { recursive: true });
     mkdirSync(COPILOT_HOME, { recursive: true });

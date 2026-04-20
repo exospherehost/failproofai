@@ -40,13 +40,15 @@ describe("E2E: Gemini Integration", () => {
     const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--integration", "gemini"], {
       input: JSON.stringify(payload),
       cwd: PROJECT_DIR,
-      env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_LOG_LEVEL: "info" },
+      env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_LOG_LEVEL: "info", FAILPROOFAI_SKIP_KILL: "true" },
       encoding: "utf8"
     });
     console.log("Gemini STDOUT:", stdout);
     console.log("Gemini STDERR:", stderr);
     
-    expect(status).toBe(2);
+    // Gemini expects Exit 0 for a protocol-compliant JSON denial.
+    // If we exit with 2, it may "fail open" and proceed with the action.
+    expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim());
     expect(parsed.decision).toBe("deny");
     expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED");
@@ -64,7 +66,7 @@ describe("E2E: Gemini Integration", () => {
     const output = execSync(`bun ${BINARY_PATH} --hook BeforeTool --integration gemini`, {
       input: JSON.stringify(payload),
       cwd: PROJECT_DIR,
-      env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
+      env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true" }
     }).toString();
     
     expect(JSON.parse(output.trim())).toEqual({ decision: "allow" });

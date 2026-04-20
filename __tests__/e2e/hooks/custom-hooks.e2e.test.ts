@@ -114,7 +114,7 @@ describe("custom-hooks core mechanics", () => {
     env.writeConfig({ enabledPolicies: [], customPoliciesPath: hookPath });
     const result = runHook("Stop", Payloads.stop(env.cwd), { homeDir: env.home });
     assertStopInstruct(result);
-    expect(result.stderr).toContain("wrap up before stopping");
+    expect(result.stderr).toContain("Wrap up before stopping");
   });
 
   it("builtin fires before custom: builtin deny short-circuits, custom never runs", () => {

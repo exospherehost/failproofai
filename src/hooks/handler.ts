@@ -182,7 +182,7 @@ function tryAcquireFiringLock(eventType: string, sessionId: string | undefined, 
   }
 }
 
-export async function handleHookEvent(eventType: string, integrationOverride?: string): Promise<number> {
+export async function handleHookEvent(eventType: string, integrationOverride?: string): Promise<{ exitCode: number; hardStop: boolean }> {
 
   // 1. Read stdin payload
   const MAX_STDIN_BYTES = 1_048_576; // 1 MB
@@ -264,15 +264,11 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
   if (!tryAcquireFiringLock(canonicalEventName, session.sessionId, fingerprint)) {
     hookLogInfo(`event=${eventType} skipped (instant-catch twin)`);
     
-    // For IDE integrations that expect a specific JSON response to proceed, 
-    // emit the "allow" payload before exiting so the agent isn't blocked.
-    if (session.integration === "cursor") {
-      process.stdout.write(JSON.stringify({ continue: true, permission: "allow" }) + "\n");
-    } else if (session.integration === "copilot" && (canonicalEventName === "PreToolUse" || canonicalEventName === "PostToolUse")) {
-      process.stdout.write(JSON.stringify({ permissionDecision: "allow" }) + "\n");
-    }
-    
-    return 0;
+    // For IDE integrations, we exit silently (0) to let the "twin" 
+    // process handle the authoritative decision. We do NOT output 
+    // an explicit "allow" JSON here, as that could bypass a "deny"
+    // from the primary hook process.
+    return { exitCode: 0, hardStop: false };
   }
 
   if (!payload && session.integration === "cursor") {
@@ -439,5 +435,19 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
     }
   }
 
-  return result.exitCode;
+  if (result.hardStop && process.env.FAILPROOFAI_SKIP_KILL !== "true") {
+    // Session-level Hard Stop for Gemini/Cursor.
+    // We use a small delay to ensure stdout (JSON denial) is flushed to the agent 
+    // before we terminate the process group.
+    setTimeout(() => {
+      try {
+        // Negative PID signals the entire process group
+        process.kill(-process.ppid, "SIGINT");
+      } catch {
+        try { process.kill(process.ppid, "SIGINT"); } catch {}
+      }
+    }, 50);
+  }
+
+  return { exitCode: result.exitCode, hardStop: !!result.hardStop };
 }

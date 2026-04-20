@@ -72,7 +72,13 @@ if (hookIdx >= 0) {
     const integrationIdx = args.indexOf("--integration");
     const integrationOverride = integrationIdx >= 0 ? args[integrationIdx + 1] : undefined;
     const { handleHookEvent } = await import("../src/hooks/handler");
-    const exitCode = await handleHookEvent(args[hookIdx + 1], integrationOverride);
+    const { exitCode, hardStop } = await handleHookEvent(args[hookIdx + 1], integrationOverride);
+
+    if (hardStop && process.env.FAILPROOFAI_SKIP_KILL !== "true") {
+      // Allow a small delay for stdout to flush before the process group is killed.
+      // The signal is sent by handleHookEvent's setTimeout.
+      await new Promise(r => setTimeout(r, 100));
+    }
     process.exit(exitCode);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

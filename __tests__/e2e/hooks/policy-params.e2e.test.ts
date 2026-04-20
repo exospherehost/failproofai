@@ -309,7 +309,7 @@ describe("policyParams hint", () => {
     assertPreToolUseDeny(result);
     const reason = result.stderr;
     // Should contain the standard deny message but NOT any hint appendage
-    expect(reason).toContain("[failproofai]");
+    expect(reason).toContain("[FailproofAI]");
     expect(reason).not.toContain(". .");
   });
 

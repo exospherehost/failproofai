@@ -17,20 +17,23 @@ function appendHint(baseReason: string, hint: unknown): string {
 }
 
 function getDenyMessage(integration: string | undefined, policyName: string, reason: string): string {
+  // Ensure the reason starts with a clean capital letter if it doesn't already
+  const cleanReason = reason.charAt(0).toUpperCase() + reason.slice(1);
+
   if (integration === "claude-code") {
-    // Original Claude style (untouched)
-    return `[failproofai] ${policyName}: ${reason}`;
+    // Professional FailproofAI style
+    return `[FailproofAI] ${policyName}: ${cleanReason}`;
   }
   if (integration === "gemini") {
     // Gemini high-authority style
-    return `MANDATORY ACTION REQUIRED from failproofai (policy: ${policyName}): ${reason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`;
+    return `MANDATORY ACTION REQUIRED from FailproofAI (policy: ${policyName}): ${cleanReason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`;
   }
   if (integration === "cursor" || integration === "copilot") {
-    // IDE specialized style
-    return `FAILURE: failproofai security block (policy: ${policyName}) - ${reason}\nPlease complete the required action in the terminal to continue.`;
+    // IDE specialized style - louder branding
+    return `ACTION BLOCKED BY FAILPROOFAI: ${cleanReason} (Policy: ${policyName})\n\nThis operation violates an active security policy. Please complete the required action in the terminal or adjust your settings to continue.`;
   }
   // Default specialized style for other integrations (Codex, OpenCode, Pi, etc.)
-  return `[failproofai] security stop (policy: ${policyName}) - ${reason}`;
+  return `[FailproofAI Security Stop] Policy: ${policyName} - ${cleanReason}`;
 }
 
 function getDenyStdout(integration: string | undefined, policyName: string, reason: string): string {
@@ -38,6 +41,7 @@ function getDenyStdout(integration: string | undefined, policyName: string, reas
   if (integration === "gemini") {
     return JSON.stringify({
       decision: "deny",
+      continue: false,
       reason: msg,
       systemMessage: msg,
     });
@@ -53,15 +57,23 @@ function getDenyStdout(integration: string | undefined, policyName: string, reas
   return "";
 }
 
+function triggerHardStop(integration: string | undefined): void {
+  // Logic moved to CLI wrapper to avoid piped hangs.
+  // evaluatePolicies now returns a hardStop flag instead of signaling directly.
+}
+
 function getAllowStdout(integration: string | undefined, eventType?: string): string {
-  if (integration === "copilot" && eventType === "PreToolUse") {
-    return JSON.stringify({ permissionDecision: "allow" });
+  // Use loose matching for tool hooks to cover both PascalCase (Claude) and camelCase (Cursor)
+  const isTool = eventType?.toLowerCase().includes("tool") || eventType?.toLowerCase().includes("shell") || eventType?.toLowerCase().includes("execution");
+
+  if (integration === "gemini" && isTool) {
+    return JSON.stringify({ decision: "allow" });
   }
-  if (integration === "cursor") {
+  if (integration === "cursor" && isTool) {
     return JSON.stringify({ continue: true, permission: "allow" });
   }
-  if (integration === "gemini" && eventType === "PreToolUse") {
-    return JSON.stringify({ decision: "allow" });
+  if (integration === "copilot" && (eventType === "PreToolUse" || eventType === "preToolUse")) {
+    return JSON.stringify({ permissionDecision: "allow" });
   }
   return "";
 }
@@ -71,9 +83,10 @@ export interface EvaluationResult {
   stdout: string;
   stderr: string;
   policyName: string | null;
-  policyNames?: string[];
+  policyNames?: string[]; // Used when multiple policies accumulate (e.g. allow/instruct)
   reason: string | null;
   decision: "allow" | "deny" | "instruct";
+  hardStop?: boolean; // If true, the session should be terminated (Gemini/Cursor)
 }
 
 // Build a map from policy name to its params schema (for injecting defaults)
@@ -266,12 +279,13 @@ export async function evaluatePolicies(
 
       // Other event types: exit 2
       return {
-        exitCode: 2,
+        exitCode,
         stdout,
         stderr,
         policyName: policy.name,
         reason,
         decision: "deny",
+        hardStop,
       };
     }
 
@@ -303,13 +317,14 @@ export async function evaluatePolicies(
         ? `policy: ${policyNames[0]}`
         : `policies: ${policyNames.join(", ")}`;
       return {
-        exitCode: 2,
+        exitCode,
         stdout,
         stderr,
         policyName: policyNames[0],
         policyNames,
         reason: combined,
         decision: "instruct",
+        hardStop,
       };
     }
 
@@ -328,7 +343,7 @@ export async function evaluatePolicies(
   if (allowEntries.length > 0) {
     const combined = allowEntries.map((e) => e.reason).join("\n");
     const policyNames = allowEntries.map((e) => e.policyName);
-    const stderrMsg = allowEntries.map((e) => `[failproofai] ${e.policyName}: ${e.reason}`).join("\n");
+    const stderrMsg = allowEntries.map((e) => `[FailproofAI] ${e.policyName}: ${e.reason}`).join("\n");
 
     return {
       exitCode: 0,

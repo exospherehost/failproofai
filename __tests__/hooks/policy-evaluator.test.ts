@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { evaluatePolicies } from "../../src/hooks/policy-evaluator";
 import { registerPolicy, clearPolicies } from "../../src/hooks/policy-registry";
 
@@ -35,8 +35,8 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash", tool_input: { command: "ls" } });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("[failproofai] security stop");
-    expect(result.stderr).toContain("blocked");
+    expect(result.stderr).toContain("[FailproofAI Security Stop]");
+    expect(result.stderr).toContain("Blocked");
     expect(result.policyName).toBe("blocker");
     expect(result.reason).toBe("blocked");
   });
@@ -51,7 +51,7 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("PostToolUse", { tool_name: "Read" });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("[failproofai] security stop");
+    expect(result.stderr).toContain("[FailproofAI Security Stop]");
     expect(result.stderr).toContain("JWT found");
     expect(result.policyName).toBe("jwt-scrub");
     expect(result.reason).toBe("JWT found");
@@ -65,8 +65,8 @@ describe("hooks/policy-evaluator", () => {
     const result = await evaluatePolicies("SessionStart", {});
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("[failproofai] security stop");
-    expect(result.stderr).toContain("nope");
+    expect(result.stderr).toContain("[FailproofAI Security Stop]");
+    expect(result.stderr).toContain("Nope");
     expect(result.reason).toBe("nope");
   });
 
@@ -164,7 +164,7 @@ describe("hooks/policy-evaluator", () => {
     expect(result.exitCode).toBe(2);
     expect(result.decision).toBe("instruct");
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("[failproofai] security stop");
+    expect(result.stderr).toContain("[FailproofAI Security Stop]");
     expect(result.stderr).toContain("Unsatisfied intents remain");
     expect(result.policyName).toBe("verify");
   });
@@ -203,7 +203,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.policyName).toBe("info");
       expect(result.policyNames).toEqual(["info"]);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toContain("[failproofai] info: All checks passed");
+      expect(result.stderr).toContain("[FailproofAI] info: All checks passed");
     });
 
     it("combines multiple allow messages with newline", async () => {
@@ -223,8 +223,8 @@ describe("hooks/policy-evaluator", () => {
       expect(result.policyNames).toEqual(["info1", "info2"]);
       expect(result.stdout).toBe("");
       expect(result.reason).toBe("Commit check passed\nPush check passed");
-      expect(result.stderr).toContain("[failproofai] info1: Commit check passed");
-      expect(result.stderr).toContain("[failproofai] info2: Push check passed");
+      expect(result.stderr).toContain("[FailproofAI] info1: Commit check passed");
+      expect(result.stderr).toContain("[FailproofAI] info2: Push check passed");
     });
 
     it("returns empty stdout when allow has no reason (backward-compatible)", async () => {
@@ -344,8 +344,8 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
-      expect(result.stderr).toContain("[failproofai] security stop");
-      expect(result.stderr).toContain("changes not committed");
+      expect(result.stderr).toContain("[FailproofAI Security Stop]");
+      expect(result.stderr).toContain("Changes not committed");
       expect(result.decision).toBe("deny");
       expect(result.reason).toBe("changes not committed");
     });
@@ -447,7 +447,7 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.decision).toBe("instruct");
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("[failproofai] security stop");
+      expect(result.stderr).toContain("[FailproofAI Security Stop]");
       expect(result.stderr).toContain("Please verify tests");
     });
 
@@ -534,8 +534,8 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("SessionStart", {}, undefined, config);
       expect(result.exitCode).toBe(2);
       expect(result.reason).toBe("nope. Ask admin for access.");
-      expect(result.stderr).toContain("[failproofai] security stop");
-      expect(result.stderr).toContain("nope. Ask admin for access.");
+      expect(result.stderr).toContain("[FailproofAI Security Stop]");
+      expect(result.stderr).toContain("Nope. Ask admin for access.");
     });
 
     it("appends hint to instruct reason", async () => {
@@ -569,7 +569,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(2);
       expect(result.decision).toBe("instruct");
       expect(result.reason).toBe("Unsatisfied intents. Run the test suite first.");
-      expect(result.stderr).toContain("[failproofai] security stop");
+      expect(result.stderr).toContain("[FailproofAI Security Stop]");
       expect(result.stderr).toContain("Unsatisfied intents. Run the test suite first.");
     });
 
@@ -687,28 +687,30 @@ describe("hooks/policy-evaluator", () => {
     it("uses original Claude style for claude-code integration", async () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "claude-code" });
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toBe("[failproofai] blocker: forbidden");
+      expect(result.stderr).toBe("[FailproofAI] blocker: Forbidden");
     });
 
-    it("uses high-authority style for gemini integration", async () => {
+    it("uses high-authority style and flags hard stop for gemini integration", async () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "gemini" });
-      expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
-      expect(result.stderr).toContain("Do NOT ask the user for confirmation");
-      expect(result.stderr).toContain("forbidden");
+      
+      // Gemini expects Exit 0 for clean JSON denial parsing
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
+      expect(result.hardStop).toBe(false); // Turn-level stop is non-destructive
 
       // Verify Real Deny JSON for Gemini
       const parsed = JSON.parse(result.stdout);
       expect(parsed.decision).toBe("deny");
-      expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED");
+      expect(parsed.continue).toBe(false);
     });
 
-    it("uses IDE specialized style for cursor integration", async () => {
+    it("uses IDE specialized style and flags hard stop for cursor integration", async () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "cursor" });
-      expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("FAILURE: failproofai security block");
-      expect(result.stderr).toContain("Please complete the required action in the terminal");
-      expect(result.stderr).toContain("forbidden");
+      
+      // Cursor expects Exit 0 for clean JSON denial parsing
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toContain("ACTION BLOCKED BY FAILPROOFAI");
+      expect(result.hardStop).toBe(false); // Turn-level stop is non-destructive
 
       // Verify Real Deny JSON for Cursor
       const parsed = JSON.parse(result.stdout);
@@ -716,17 +718,41 @@ describe("hooks/policy-evaluator", () => {
       expect(parsed.permission).toBe("deny");
     });
 
+    it("flags hard stop for gemini/cursor on terminal events (Stop)", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      const { registerPolicy, clearPolicies } = await import("../../src/hooks/policy-registry");
+      
+      clearPolicies();
+      registerPolicy("block-sudo", "deny sudo", async () => ({ decision: "deny", reason: "no sudo" }), { events: ["Stop", "PostToolUse"] });
+
+      // Gemini Stop hook -> Terminal (Kill)
+      const geminiStop = await evaluatePolicies("Stop", {}, { integration: "gemini" });
+      expect(geminiStop.hardStop).toBe(true);
+
+      // Gemini PostToolUse hook -> Turn-level (Stay)
+      const geminiPost = await evaluatePolicies("PostToolUse", {}, { integration: "gemini" });
+      expect(geminiPost.hardStop).toBe(false);
+      
+      // Cursor Stop hook -> Terminal (Kill)
+      const cursorStop = await evaluatePolicies("Stop", {}, { integration: "cursor" });
+      expect(cursorStop.hardStop).toBe(true);
+
+      // Cursor PostToolUse hook -> Safety-level (Kill)
+      const cursorPost = await evaluatePolicies("PostToolUse", {}, { integration: "cursor" });
+      expect(cursorPost.hardStop).toBe(true);
+    });
+
     it("uses IDE specialized style for copilot integration", async () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "copilot" });
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toContain("FAILURE: failproofai security block");
-      expect(result.stderr).toContain("forbidden");
+      expect(result.stderr).toContain("ACTION BLOCKED BY FAILPROOFAI");
+      expect(result.stderr).toContain("Forbidden");
     });
 
     it("uses default specialized style for unknown integration", async () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "pi" as any });
       expect(result.exitCode).toBe(2);
-      expect(result.stderr).toBe("[failproofai] security stop (policy: blocker) - forbidden");
+      expect(result.stderr).toBe("[FailproofAI Security Stop] Policy: blocker - Forbidden");
     });
   });
 });

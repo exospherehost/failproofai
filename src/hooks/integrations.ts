@@ -290,7 +290,7 @@ const cursor: Integration = {
     // eventType is the camelCase Cursor event name — map to PascalCase for --hook flag
     const pascalEvent = CURSOR_EVENT_MAP[eventType as CursorHookEventType] ?? eventType;
     return {
-      command: `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --integration cursor`,
+      command: `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --integration cursor --stdin`,
       timeout: 60,
     };
   },
@@ -385,9 +385,47 @@ const cursor: Integration = {
     if (!payload.cwd && Array.isArray(payload.workspace_roots) && payload.workspace_roots.length > 0) {
       payload.cwd = payload.workspace_roots[0] as string;
     }
+    // Map tool input fields — for file events, wrap top-level file_path into tool_input
+    if (!payload.tool_input) {
+      if (payload.file_path || payload.path) {
+        payload.tool_input = { file_path: (payload.file_path ?? payload.path) as string };
+      } else {
+        payload.tool_input = payload.toolInput ?? payload.command ?? payload.input ?? payload.tool_args ?? payload.toolArgs;
+      }
+    }
+    // Map tool output fields
+    if (!payload.tool_output) {
+      payload.tool_output = payload.toolOutput ?? payload.output ?? payload.tool_result ?? payload.toolResult;
+    }
+    // Map tool name — never fall back to hook_event_name: unknown event names like
+    // "beforeShellExecution" would fail isBashTool checks and toolNames policy matching.
+    if (!payload.tool_name) {
+      const hookEvent = payload.hook_event_name as string | undefined;
+      if (hookEvent === "beforeShellExecution" || hookEvent === "afterShellExecution") {
+        payload.tool_name = "run_terminal_command";
+      } else if (hookEvent === "beforeMCPExecution" || hookEvent === "afterMCPExecution") {
+        payload.tool_name = "mcp_tool";
+      } else if (
+        hookEvent === "beforeReadFile" || hookEvent === "beforeTabFileRead" ||
+        hookEvent === "afterFileEdit" || hookEvent === "afterTabFileEdit"
+      ) {
+        payload.tool_name = "edit_file";
+      } else {
+        payload.tool_name = payload.toolName ?? payload.tool_event_name;
+      }
+    }
   },
 
-  getCanonicalEventName: (_, cliArg) => cliArg,
+  getCanonicalEventName(payload, cliArg) {
+    // Safety net: derive canonical name from payload's hook_event_name if available.
+    // buildHookEntry already maps cursor events in --hook, but this handles edge cases.
+    const hookEventName = payload.hook_event_name as string | undefined;
+    if (hookEventName) {
+      const mapped = CURSOR_EVENT_MAP[hookEventName as CursorHookEventType];
+      if (mapped) return mapped;
+    }
+    return cliArg;
+  },
 };
 
 // ── Registry ────────────────────────────────────────────────────────────────

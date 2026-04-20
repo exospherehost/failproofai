@@ -2,7 +2,7 @@
  * Built-in security policies for Claude Code hooks.
  */
 import { resolve, join } from "node:path";
-import { readFile, writeFile, stat, open } from "node:fs/promises";
+import { readFile, writeFile, mkdir, stat, open } from "node:fs/promises";
 import { execSync, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
@@ -396,14 +396,14 @@ function warnDestructiveSql(ctx: PolicyContext): PolicyResult {
   // DROP or TRUNCATE always warns
   if (DESTRUCTIVE_SQL_RE.test(cmd)) {
     return instruct(
-      "STOP: This command contains destructive SQL (DROP/TRUNCATE/DELETE). Confirm with the user before executing.",
+      "FailproofAI Warning: This command contains destructive SQL (DROP/TRUNCATE/DELETE). Confirm with the user before executing.",
     );
   }
 
   // DELETE FROM without WHERE warns
   if (DELETE_NO_WHERE_RE.test(cmd) && !SQL_WHERE_RE.test(cmd)) {
     return instruct(
-      "STOP: This command contains destructive SQL (DROP/TRUNCATE/DELETE). Confirm with the user before executing.",
+      "FailproofAI Warning: This command contains destructive SQL (DROP/TRUNCATE/DELETE). Confirm with the user before executing.",
     );
   }
 
@@ -418,7 +418,7 @@ function warnLargeFileWrite(ctx: PolicyContext): PolicyResult {
   const thresholdBytes = thresholdKb * 1024;
   if (content.length > thresholdBytes) {
     return instruct(
-      `STOP: You are writing a file larger than ${thresholdKb}KB (${Math.round(content.length / 1024)}KB). This is unusually large. Confirm this is intentional before proceeding.`,
+      `FailproofAI Warning: You are writing a file larger than ${thresholdKb}KB (${Math.round(content.length / 1024)}KB). This is unusually large. Confirm this is intentional before proceeding.`,
     );
   }
   return allow();
@@ -429,7 +429,7 @@ function warnPackagePublish(ctx: PolicyContext): PolicyResult {
   const cmd = getCommand(ctx);
   if (PUBLISH_CMD_RE.test(cmd)) {
     return instruct(
-      "STOP: This command publishes a package to a public registry. Confirm with the user that this is intentional.",
+      "FailproofAI Warning: This command publishes a package to a public registry. Confirm with the user that this is intentional.",
     );
   }
   return allow();
@@ -440,29 +440,29 @@ function protectEnvVars(ctx: PolicyContext): PolicyResult {
   const cmd = getCommand(ctx);
   // Block: env, printenv, echo $VAR, export VAR=
   if (ENV_PRINTENV_RE.test(cmd)) {
-    return deny("Command reads environment variables");
+    return deny("Action blocked: command attempted to read environment variables.");
   }
   if (ECHO_ENV_RE.test(cmd)) {
-    return deny("Command echoes environment variable");
+    return deny("Action blocked: command attempted to echo sensitive environment variables.");
   }
   if (EXPORT_RE.test(cmd)) {
-    return deny("Command exports environment variable");
+    return deny("Action blocked: command attempted to export environment variables.");
   }
   // PowerShell: $env:VAR
   if (PS_ENV_VAR_RE.test(cmd)) {
-    return deny("Command reads environment variable via PowerShell");
+    return deny("Action blocked: command attempted to read environment variables via PowerShell.");
   }
   // PowerShell: Get-ChildItem Env: / dir env: / gci env: / ls env:
   if (PS_CHILDITEM_ENV_RE.test(cmd)) {
-    return deny("Command reads environment variables via PowerShell");
+    return deny("Action blocked: command attempted to read environment variables via PowerShell.");
   }
   // PowerShell: [Environment]::GetEnvironmentVariable
   if (DOTNET_GETENV_RE.test(cmd)) {
-    return deny("Command reads environment variable via .NET");
+    return deny("Action blocked: command attempted to read environment variables via .NET.");
   }
   // cmd: echo %VAR%
   if (CMD_ECHO_ENV_RE.test(cmd)) {
-    return deny("Command echoes environment variable via cmd");
+    return deny("Action blocked: command attempted to echo environment variables via cmd.");
   }
   return allow();
 }
@@ -473,11 +473,11 @@ function blockEnvFiles(ctx: PolicyContext): PolicyResult {
 
   // Check file_path for Read/Write tools (match both / and \ path separators)
   if (filePath && ENV_FILE_PATH_RE.test(filePath)) {
-    return deny("Access to .env file blocked");
+    return deny("Access to sensitive .env files is prohibited by security policy.");
   }
   // Check Bash commands referencing .env files
   if (isBashTool(ctx.toolName) && ENV_CMD_RE.test(cmd)) {
-    return deny("Command references .env file");
+    return deny("Commands referencing sensitive .env files are prohibited.");
   }
   return allow();
 }
@@ -489,15 +489,15 @@ function blockSudo(ctx: PolicyContext): PolicyResult {
     // Check allowPatterns — match against parsed tokens, not raw string
     const allowPatterns = ((ctx.params?.allowPatterns ?? []) as string[]);
     if (allowPatterns.some((p) => matchesAllowedPattern(cmd, p))) return allow();
-    return deny("sudo commands are blocked");
+    return deny("Execution of elevated commands (sudo) is prohibited by active security policy.");
   }
   // PowerShell: Start-Process -Verb RunAs (elevation)
   if (PS_ELEVATION_RE.test(cmd)) {
-    return deny("Elevated process launch is blocked");
+    return deny("Elevated process launch (UAC) is prohibited.");
   }
   // Windows: runas command
   if (RUNAS_RE.test(cmd)) {
-    return deny("runas elevation is blocked");
+    return deny("Execution of the runas elevation command is prohibited.");
   }
   return allow();
 }
@@ -506,11 +506,11 @@ function blockCurlPipeSh(ctx: PolicyContext): PolicyResult {
   if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
   if (CURL_PIPE_SH_RE.test(cmd)) {
-    return deny("Piping downloads to shell is blocked");
+    return deny("Piping remote downloads directly to a shell is prohibited to prevent remote code execution.");
   }
   // PowerShell: iwr | iex, irm | iex, Invoke-WebRequest | Invoke-Expression
   if (PS_WEB_PIPE_RE.test(cmd)) {
-    return deny("Piping downloads to Invoke-Expression is blocked");
+    return deny("Piping remote downloads to Invoke-Expression is prohibited to prevent remote code execution.");
   }
   return allow();
 }
@@ -530,7 +530,7 @@ function blockPushMaster(ctx: PolicyContext): PolicyResult {
   const args = extractGitPushArgs(getCommand(ctx));
   const branchPattern = new RegExp(`\\b(?:${protectedBranches.map((b) => b.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b`);
   if (args.some((a) => branchPattern.test(a))) {
-    return deny(`Pushing to ${protectedBranches.join("/")} is blocked`);
+    return deny(`Direct pushes to protected branches (${protectedBranches.join("/")}) are prohibited. Please use a feature branch and Pull Request.`);
   }
   return allow();
 }
@@ -594,7 +594,7 @@ function blockRmRf(ctx: PolicyContext): PolicyResult {
   )) {
     const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
     if (rmTargetIsAllowed(cmd, allowPaths)) return allow();
-    return deny("Catastrophic deletion blocked");
+    return deny("Catastrophic recursive deletion on sensitive directories or drives is prohibited.");
   }
 
   // Separated flags: rm -r -f /, rm -f -r /, rm -r -v -f /, etc.
@@ -607,16 +607,16 @@ function blockRmRf(ctx: PolicyContext): PolicyResult {
     if (hasRecursive && hasForce) {
       const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
       if (rmTargetIsAllowed(cmd, allowPaths)) return allow();
-      return deny("Catastrophic deletion blocked");
+      return deny("Catastrophic recursive deletion on sensitive directories or drives is prohibited.");
     }
   }
   // PowerShell: Remove-Item -Recurse -Force on root/drive
   if (/Remove-Item\s+.*-Recurse.*-Force.*(?:[A-Z]:\\(?:\s|$)|\\\*)/i.test(cmd)) {
-    return deny("Catastrophic deletion blocked");
+    return deny("Catastrophic recursive deletion on sensitive directories or drives is prohibited.");
   }
   // cmd: rd /s /q or rmdir /s /q on drive root
   if (/(?:rd|rmdir)\s+\/s\s+\/q\s+[A-Z]:\\/i.test(cmd)) {
-    return deny("Catastrophic deletion blocked");
+    return deny("Catastrophic recursive directory removal on system drives is prohibited.");
   }
   return allow();
 }
@@ -625,7 +625,7 @@ function blockForcePush(ctx: PolicyContext): PolicyResult {
   if (!isBashTool(ctx.toolName)) return allow();
   const args = extractGitPushArgs(getCommand(ctx));
   if (args.some((a) => FORCE_PUSH_RE.test(a))) {
-    return deny("Force-pushing is blocked");
+    return deny("Force-pushing to remote branches is prohibited to prevent history loss.");
   }
   return allow();
 }
@@ -634,7 +634,7 @@ function blockSecretsWrite(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Write") return allow();
   const filePath = getFilePath(ctx);
   if (SECRET_FILE_RE.test(filePath) || SECRET_FILE_ID_RSA_RE.test(filePath) || SECRET_FILE_CREDENTIALS_RE.test(filePath)) {
-    return deny("Writing secret key files is blocked");
+    return deny("Writing sensitive secret or private key files is prohibited.");
   }
   const additionalPatterns = ((ctx.params?.additionalPatterns ?? []) as string[]);
   for (const pattern of additionalPatterns) {
@@ -721,13 +721,13 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
     for (const p of paths) {
       const resolved = resolve(cwd, p);
       if (isClaudeSettingsFile(resolved)) {
-        return deny(`Reading Claude settings file blocked: ${resolved}`);
+        return deny(`Access to internal Claude configuration files is prohibited: ${resolved}`);
       }
       if (isClaudeInternalPath(resolved)) continue; // Whitelist ~/.claude/
       if (resolved === "/dev/null") continue; // Harmless special file
       if (resolved !== cwd && !resolved.startsWith(cwdWithSep)) {
         if (allowPaths.some((ap) => resolved === ap || resolved.startsWith(ap.endsWith("/") ? ap : ap + "/"))) continue;
-        return deny(`Bash read outside project directory blocked: ${resolved}`);
+        return deny(`Direct file access outside the project directory is prohibited by security policy: ${resolved}`);
       }
     }
     return allow();
@@ -744,7 +744,7 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
 
   // Block settings files in any .claude directory before whitelisting
   if (isClaudeSettingsFile(resolved)) {
-    return deny(`Reading Claude settings file blocked: ${resolved}`);
+    return deny(`Access to internal Claude configuration files is prohibited: ${resolved}`);
   }
 
   // Whitelist ~/.claude/ — Claude Code's own config, plans, memory, and settings
@@ -756,7 +756,7 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
   const cwdWithSep = cwd.endsWith("/") ? cwd : cwd + "/";
   if (resolved !== cwd && !resolved.startsWith(cwdWithSep)) {
     if (allowPaths.some((ap) => resolved === ap || resolved.startsWith(ap.endsWith("/") ? ap : ap + "/"))) return allow();
-    return deny(`Access outside project directory blocked: ${resolved}`);
+    return deny(`Accessing files outside the project directory is prohibited by security policy: ${resolved}`);
   }
   return allow();
 }
@@ -775,7 +775,7 @@ function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
   const protectedBranches = ((ctx.params?.protectedBranches ?? ["main", "master"]) as string[]);
   if (protectedBranches.includes(branch)) {
     return deny(
-      `Git ${cmd.match(/git\s+(\S+)/)?.[1] ?? "operation"} on ${branch} is blocked. Create a feature branch first.`,
+      `Direct Git ${cmd.match(/git\s+(\S+)/)?.[1] ?? "operations"} on protected branch ${branch} are prohibited. Please use a feature branch.`,
     );
   }
   return allow();
@@ -787,12 +787,12 @@ function blockFailproofaiCommands(ctx: PolicyContext): PolicyResult {
 
   // Block direct failproofai CLI invocations
   if (FAILPROOFAI_CLI_RE.test(cmd)) {
-    return deny("Running failproofai CLI commands is blocked");
+    return deny("Modifying FailproofAI configuration or state via the CLI is prohibited by active policy.");
   }
 
   // Block package-manager uninstallation of failproofai
   if (FAILPROOFAI_UNINSTALL_RE.test(cmd)) {
-    return deny("Uninstalling failproofai is blocked");
+    return deny("Unauthorized uninstallation of the FailproofAI security layer is prohibited.");
   }
 
   return allow();
@@ -805,11 +805,25 @@ const TOOL_CALL_TRACKER_MAX_BYTES = 65_536; // 64 KB
 
 async function warnRepeatedToolCalls(ctx: PolicyContext): Promise<PolicyResult> {
   const THRESHOLD = 3;
+  if (!ctx.toolName || !ctx.toolInput) return allow();
+
+  // Derive a tracker path:
+  // - Claude/Gemini: sidecar next to the transcript file (original behavior)
+  // - Cursor/Copilot/others: per-session file in ~/.failproofai/cache/tool-calls/
+  let trackerPath: string;
   const transcriptPath = ctx.session?.transcriptPath;
-  if (!transcriptPath || !ctx.toolName || !ctx.toolInput) return allow();
+  if (transcriptPath) {
+    trackerPath = `${transcriptPath}.tool-calls.json`;
+  } else if (ctx.session?.sessionId) {
+    const safeId = ctx.session.sessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
+    const dir = join(homedir(), ".failproofai", "cache", "tool-calls");
+    await mkdir(dir, { recursive: true }).catch(() => {});
+    trackerPath = join(dir, `${safeId}.json`);
+  } else {
+    return allow(); // No session identity to track against
+  }
 
   // Sidecar file tracks { fingerprint: count } — O(1) per call vs O(transcript) per call.
-  const trackerPath = `${transcriptPath}.tool-calls.json`;
   const fingerprint = JSON.stringify({ tool: ctx.toolName, input: ctx.toolInput });
 
   let counts: Record<string, number> = {};
