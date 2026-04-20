@@ -87,6 +87,58 @@ Policies run in your local process. Nothing is sent to a remote service.
 
 ---
 
+## Set up team policies with convention-based policies
+
+The fastest way to establish quality standards across your team is the `.failproofai/policies/` convention. Drop policy files into this directory and they're loaded automatically — no flags, no config changes, no install commands.
+
+<Steps>
+  <Step title="Create the policies directory">
+    ```bash
+    mkdir -p .failproofai/policies
+    ```
+  </Step>
+  <Step title="Add policy files">
+    Copy the starter examples or write your own:
+
+    ```bash
+    cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
+    ```
+
+    Or create a new one:
+
+    ```js
+    // .failproofai/policies/team-policies.mjs
+    import { customPolicies, allow, deny, instruct } from "failproofai";
+
+    customPolicies.add({
+      name: "test-before-commit",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        if (/git\s+commit/.test(ctx.toolInput?.command ?? "")) {
+          return instruct("Run tests before committing.");
+        }
+        return allow();
+      },
+    });
+    ```
+  </Step>
+  <Step title="Commit to git">
+    ```bash
+    git add .failproofai/policies/
+    git commit -m "Add team quality policies"
+    ```
+
+    Every team member who has failproofai installed picks up these policies automatically. No per-developer setup needed.
+  </Step>
+</Steps>
+
+<Tip>
+Commit `.failproofai/policies/` to your repo so the whole team shares the same standards. As your team discovers new failure modes, add policies and push — everyone gets the update on their next `git pull`. Over time these policies become a living quality standard that keeps improving.
+</Tip>
+
+---
+
 ## Data storage
 
 All configuration and logs stay on your machine:

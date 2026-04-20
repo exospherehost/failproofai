@@ -222,7 +222,7 @@ Custom hooks support transitive local imports, async/await, and access to `proce
 
 ### Convention-based policies
 
-Drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` and they're automatically loaded — no `--custom` flag or config changes needed. Works like git hooks: drop a file, it just works.
+Drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` and they're automatically loaded — no flags or config changes needed. Commit the directory to git and every team member gets the same quality standards automatically.
 
 ```text
 # Project level — committed to git, shared with the team
@@ -233,7 +233,7 @@ Drop `*policies.{js,mjs,ts}` files into `.failproofai/policies/` and they're aut
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-Both levels load (union). Files are loaded alphabetically within each directory. Prefix with `01-`, `02-`, etc. to control order. See [examples/convention-policies/](examples/convention-policies/) for ready-to-use examples.
+Both levels load (union). Files are loaded alphabetically within each directory. Prefix with `01-`, `02-`, etc. to control order. As your team discovers new failure modes, add a policy and push — everyone gets the update on their next pull. See [examples/convention-policies/](examples/convention-policies/) for ready-to-use examples.
 
 ---
 

@@ -7,6 +7,9 @@
 ### Features
 - Add `prefer-package-manager` builtin policy to enforce allowed package managers (e.g., uv instead of pip) (#126)
 
+### Docs
+- Emphasize convention-based policies as org-wide quality standards in getting-started, custom-policies, examples, and README (#126)
+
 ## 0.0.6-beta.0 — 2026-04-20
 
 ### Fixes
