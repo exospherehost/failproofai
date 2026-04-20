@@ -17,7 +17,8 @@ customPolicies.add({
       return instruct(
         "Check whether CHANGELOG.md needs an update for this commit. " +
         "Every PR must include an entry under the `## Unreleased` section. " +
-        "Use the appropriate subsection: Features, Fixes, Docs, or Dependencies."
+        "Use the appropriate subsection: Features, Fixes, Docs, or Dependencies.\n" +
+        "Check the version in package.json and ensure the changelog entry matches the current version."
       );
     }
     return allow();
