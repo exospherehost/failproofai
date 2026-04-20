@@ -1,11 +1,10 @@
 ---
----
-title: Criteri Personalizzati
-description: "Scrivi i tuoi criteri in JavaScript - applica convenzioni, previeni deviazioni, rilevai guasti, integra con sistemi esterni"
+title: Politiche personalizzate
+description: "Scrivi le tue politiche in JavaScript - applica convenzioni, previeni derive, rileva guasti, integrati con sistemi esterni"
 icon: code
 ---
 
-I criteri personalizzati ti permettono di scrivere regole per qualsiasi comportamento dell'agente: applica convenzioni di progetto, previeni deviazioni, blocca operazioni distruttive, rileva agenti bloccati, o integra con Slack, flussi di approvazione e altro. Usano lo stesso sistema di eventi hook e le decisioni `allow`, `deny`, `instruct` dei criteri integrati.
+Le politiche personalizzate ti permettono di scrivere regole per qualsiasi comportamento dell'agente: applica convenzioni di progetto, previeni derive, blocca operazioni distruttive, rileva agenti bloccati, oppure integrati con Slack, flussi di approvazione e altro. Utilizzano lo stesso sistema di eventi hook e le stesse decisioni `allow`, `deny`, `instruct` delle politiche integrate.
 
 ---
 
@@ -38,14 +37,14 @@ failproofai policies --install --custom ./my-policies.js
 
 ---
 
-## Due modi per caricare criteri personalizzati
+## Due modi per caricare politiche personalizzate
 
 ### Opzione 1: Basata su convenzione (consigliato)
 
-Inserisci i file `*policies.{js,mjs,ts}` in `.failproofai/policies/` e vengono caricati automaticamente — nessun flag o modifica di configurazione necessaria. Funziona come i git hook: inserisci un file e funziona.
+Inserisci file `*policies.{js,mjs,ts}` in `.failproofai/policies/` e verranno caricati automaticamente — nessun flag o modifica della configurazione necessari. Funziona come i git hook: inserisci un file, e semplicemente funziona.
 
 ```
-# Livello di progetto — incluso in git, condiviso con il team
+# Livello di progetto — commesso in git, condiviso con il team
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
@@ -54,44 +53,44 @@ Inserisci i file `*policies.{js,mjs,ts}` in `.failproofai/policies/` e vengono c
 ```
 
 **Come funziona:**
-- Entrambe le directory di progetto e utente vengono scansionate (unione — non primo ambito vince)
+- Entrambe le directory di progetto e utente vengono scansionate (unione — non vince il primo ambito)
 - I file vengono caricati alfabeticamente all'interno di ogni directory. Aggiungi il prefisso `01-`, `02-` per controllare l'ordine
 - Solo i file che corrispondono a `*policies.{js,mjs,ts}` vengono caricati; gli altri file vengono ignorati
 - Ogni file viene caricato indipendentemente (fail-open per file)
-- Funziona insieme ai criteri espliciti `--custom` e integrati
+- Funziona insieme alle politiche esplicite `--custom` e a quelle integrate
 
 <Tip>
-I criteri di convenzione sono il modo più semplice per condividere criteri tra un team. Includi `.failproofai/policies/` in git e ogni membro del team li otterrà automaticamente.
+Le politiche di convenzione sono il modo più semplice per condividere politiche in un team. Esegui il commit di `.failproofai/policies/` in git e ogni membro del team le otterrà automaticamente.
 </Tip>
 
 ### Opzione 2: Percorso file esplicito
 
 ```bash
-# Installa con un file di criteri personalizzati
+# Installa con un file di politiche personalizzate
 failproofai policies --install --custom ./my-policies.js
 
-# Sostituisci il percorso del file di criteri
+# Sostituisci il percorso del file di politiche
 failproofai policies --install --custom ./new-policies.js
 
-# Rimuovi il percorso dei criteri personalizzati dalla configurazione
+# Rimuovi il percorso delle politiche personalizzate dalla configurazione
 failproofai policies --uninstall --custom
 ```
 
-Il percorso assoluto risolto viene memorizzato in `policies-config.json` come `customPoliciesPath`. Il file viene caricato di nuovo ad ogni evento hook - non c'è caching tra gli eventi.
+Il percorso assoluto risolto viene memorizzato in `policies-config.json` come `customPoliciesPath`. Il file viene caricato nuovamente ad ogni evento hook - non esiste cache tra gli eventi.
 
 ### Usare entrambi insieme
 
-I criteri di convenzione e il file esplicito `--custom` possono coesistere. Ordine di caricamento:
+Le politiche di convenzione e il file esplicito `--custom` possono coesistere. Ordine di caricamento:
 
 1. File `customPoliciesPath` esplicito (se configurato)
-2. File di convenzione di progetto (`{cwd}/.failproofai/policies/`, alfabetici)
-3. File di convenzione utente (`~/.failproofai/policies/`, alfabetici)
+2. File di convenzione di progetto (`{cwd}/.failproofai/policies/`, alfabetico)
+3. File di convenzione utente (`~/.failproofai/policies/`, alfabetico)
 
 ---
 
 ## API
 
-### Importazione
+### Import
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
@@ -99,46 +98,45 @@ import { customPolicies, allow, deny, instruct } from "failproofai";
 
 ### `customPolicies.add(hook)`
 
-Registra un criterio. Chiama questo tutte le volte che necessario per più criteri nello stesso file.
+Registra una politica. Chiama questo metodo tutte le volte che è necessario per più politiche nello stesso file.
 
 ```ts
 customPolicies.add({
-  name: string;                         // obbligatorio - identificatore univoco
-  description?: string;                 // mostrato nell'output di `failproofai policies`
-  match?: { events?: HookEventType[] }; // filtra per tipo di evento; ometti per corrispondere a tutti
+  name: string;                         // required - unique identifier
+  description?: string;                 // shown in `failproofai policies` output
+  match?: { events?: HookEventType[] }; // filter by event type; omit to match all
   fn: (ctx: PolicyContext) => PolicyResult | Promise<PolicyResult>;
 });
 ```
 
-### Helper di decisione
+### Helper per decisioni
 
-| Funzione | Effetto | Usa quando |
-|----------|--------|----------|
+| Funzione | Effetto | Usare quando |
+|----------|---------|----------|
 | `allow()` | Consenti l'operazione silenziosamente | L'azione è sicura, nessun messaggio necessario |
-| `deny(message)` | Blocca l'operazione | L'agente non dovrebbe compiere questa azione |
-| `instruct(message)` | Aggiungi contesto senza bloccare | Dai all'agente contesto aggiuntivo per rimanere in traccia |
+| `deny(message)` | Blocca l'operazione | L'agente non dovrebbe intraprendere questa azione |
+| `instruct(message)` | Aggiungi contesto senza bloccare | Fornisci all'agente contesto extra per restare in pista |
 
-`deny(message)` - il messaggio viene visualizzato a Claude con prefisso `"Blocked by failproofai:"`. Un singolo `deny` fa corto circuito di tutta la valutazione ulteriore.
+`deny(message)` - il messaggio appare a Claude con prefisso `"Blocked by failproofai:"`. Un singolo `deny` interrompe la valutazione successiva.
 
 `instruct(message)` - il messaggio viene aggiunto al contesto di Claude per la chiamata dello strumento corrente. Tutti i messaggi `instruct` vengono accumulati e consegnati insieme.
 
 <Tip>
-Puoi aggiungere guidance extra a qualsiasi messaggio `deny` o `instruct` aggiungendo un campo `hint` in `policyParams` — nessuna modifica di codice necessaria. Questo funziona per i criteri personalizzati (`custom/`), di convenzione di progetto (`.failproofai-project/`), e di convenzione utente (`.failproofai-user/`) anche. Vedi [Configurazione → hint](/it/configuration#hint-cross-cutting) per i dettagli.
+Puoi aggiungere guidance extra a qualsiasi messaggio `deny` o `instruct` aggiungendo un campo `hint` in `policyParams` — nessuna modifica del codice necessaria. Questo funziona anche per le politiche personalizzate (`custom/`), di convenzione di progetto (`.failproofai-project/`), e di convenzione utente (`.failproofai-user/`). Vedi [Configuration → hint](/it/configuration#hint-cross-cutting) per dettagli.
 </Tip>
 
-### Messaggi di allow informativi
+### Messaggi informativi di consenso
 
+`allow(message)` consente l'operazione **e** invia un messaggio informativo a Claude. Il messaggio viene consegnato come `additionalContext` nella risposta stdout del gestore hook — lo stesso meccanismo utilizzato da `instruct`, ma semanticamente diverso: è un aggiornamento di stato, non un avviso.
 
-`allow(message)` consente l'operazione **e** invia un messaggio informativo indietro a Claude. Il messaggio viene consegnato come `additionalContext` nella risposta stdout del gestore dell'evento hook — lo stesso meccanismo usato da `instruct`, ma semanticamente diverso: è un aggiornamento di stato, non un avviso.
-
-| Funzione | Effetto | Usa quando |
-|----------|--------|----------|
-| `allow(message)` | Consenti e invia contesto a Claude | Conferma che un controllo è passato, o spiega perché un controllo è stato saltato |
+| Funzione | Effetto | Usare quando |
+|----------|---------|----------|
+| `allow(message)` | Consenti e invia contesto a Claude | Conferma che un controllo è stato superato, o spiega perché un controllo è stato saltato |
 
 Casi d'uso:
 - **Conferme di stato:** `allow("All CI checks passed.")` — dice a Claude che tutto è verde
-- **Spiegazioni fail-open:** `allow("GitHub CLI not installed, skipping CI check.")` — dice a Claude perché un controllo è stato saltato così ha il contesto completo
-- **Più messaggi si accumulano:** se più criteri ciascuno restituisce `allow(message)`, tutti i messaggi sono uniti con newline e consegnati insieme
+- **Spiegazioni fail-open:** `allow("GitHub CLI not installed, skipping CI check.")` — dice a Claude perché un controllo è stato saltato in modo da avere il contesto completo
+- **Più messaggi si accumulano:** se diverse politiche restituiscono `allow(message)`, tutti i messaggi vengono uniti con newline e consegnati insieme
 
 ```js
 customPolicies.add({
@@ -164,21 +162,21 @@ customPolicies.add({
 | `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
 | `toolName` | `string \| undefined` | Lo strumento che viene chiamato (es. `"Bash"`, `"Write"`, `"Read"`) |
 | `toolInput` | `Record<string, unknown> \| undefined` | I parametri di input dello strumento |
-| `payload` | `Record<string, unknown>` | Payload di evento grezzo completo da Claude Code |
-| `session` | `SessionMetadata \| undefined` | Contesto di sessione (vedi sotto) |
+| `payload` | `Record<string, unknown>` | Payload dell'evento grezzo completo da Claude Code |
+| `session` | `SessionMetadata \| undefined` | Contesto della sessione (vedi sotto) |
 
 ### Campi `SessionMetadata`
 
 | Campo | Tipo | Descrizione |
 |-------|------|-------------|
-| `sessionId` | `string` | Identificatore di sessione Claude Code |
+| `sessionId` | `string` | Identificatore della sessione Claude Code |
 | `cwd` | `string` | Directory di lavoro della sessione Claude Code |
-| `transcriptPath` | `string` | Percorso al file transcript JSONL della sessione |
+| `transcriptPath` | `string` | Percorso del file transcript JSONL della sessione |
 
 ### Tipi di evento
 
-| Evento | Quando si attiva | Contenuti `toolInput` |
-|-------|--------------|----------------------|
+| Evento | Quando viene attivato | Contenuti `toolInput` |
+|--------|----------------------|-----|
 | `PreToolUse` | Prima che Claude esegua uno strumento | L'input dello strumento (es. `{ command: "..." }` per Bash) |
 | `PostToolUse` | Dopo che uno strumento si completa | L'input dello strumento + `tool_result` (l'output) |
 | `Notification` | Quando Claude invia una notifica | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` - i hook devono sempre restituire `allow()`, non possono bloccare le notifiche |
@@ -188,22 +186,22 @@ customPolicies.add({
 
 ## Ordine di valutazione
 
-I criteri vengono valutati in questo ordine:
+Le politiche vengono valutate in questo ordine:
 
-1. Criteri integrati (in ordine di definizione)
-2. Criteri personalizzati espliciti da `customPoliciesPath` (in ordine `.add()`)
-3. Criteri di convenzione da `.failproofai/policies/` di progetto (file alfabetici, ordine `.add()` interno)
-4. Criteri di convenzione da `~/.failproofai/policies/` utente (file alfabetici, ordine `.add()` interno)
+1. Politiche integrate (in ordine di definizione)
+2. Politiche personalizzate esplicite da `customPoliciesPath` (in ordine `.add()`)
+3. Politiche di convenzione da progetto `.failproofai/policies/` (file alfabetico, ordine `.add()` all'interno)
+4. Politiche di convenzione da utente `~/.failproofai/policies/` (file alfabetico, ordine `.add()` all'interno)
 
 <Note>
-Il primo `deny` fa corto circuito di tutti i criteri successivi. Tutti i messaggi `instruct` vengono accumulati e consegnati insieme.
+Il primo `deny` interrompe tutte le politiche successive. Tutti i messaggi `instruct` vengono accumulati e consegnati insieme.
 </Note>
 
 ---
 
-## Importazioni transitive
+## Import transitivi
 
-I file di criteri personalizzati possono importare moduli locali usando percorsi relativi:
+I file di politiche personalizzate possono importare moduli locali utilizzando percorsi relativi:
 
 ```js
 // my-policies.js
@@ -220,13 +218,13 @@ customPolicies.add({
 });
 ```
 
-Tutte le importazioni relative raggiungibili dal file di entry vengono risolte. Questo viene implementato riscrivendo le importazioni `from "failproofai"` al percorso dist effettivo e creando file `.mjs` temporanei per assicurare la compatibilità ESM.
+Tutti gli import relativi raggiungibili dal file di entry vengono risolti. Questo viene implementato riscrivendo gli import `from "failproofai"` al percorso dist effettivo e creando file `.mjs` temporanei per garantire la compatibilità ESM.
 
 ---
 
-## Filtraggio del tipo di evento
+## Filtraggio per tipo di evento
 
-Usa `match.events` per limitare quando un criterio si attiva:
+Usa `match.events` per limitare quando una politica si attiva:
 
 ```js
 customPolicies.add({
@@ -234,32 +232,32 @@ customPolicies.add({
   match: { events: ["Stop"] },
   fn: async (ctx) => {
     // Si attiva solo quando la sessione termina
-    // ctx.session.transcriptPath contiene il log di sessione completo
+    // ctx.session.transcriptPath contiene il log della sessione completa
     return allow();
   },
 });
 ```
 
-Ometti `match` interamente per attivarsi su ogni tipo di evento.
+Ometti completamente `match` per attivarsi su ogni tipo di evento.
 
 ---
 
-## Gestione degli errori e modalità di errore
+## Gestione degli errori e modalità di fallimento
 
-I criteri personalizzati sono **fail-open**: gli errori non bloccano mai i criteri integrati o causano crash del gestore dell'hook.
+Le politiche personalizzate sono **fail-open**: gli errori non bloccano mai le politiche integrate o bloccano il gestore hook.
 
 | Errore | Comportamento |
-|---------|----------|
-| `customPoliciesPath` non impostato | Nessun criterio personalizzato esplicito viene eseguito; i criteri di convenzione e integrati continuano normalmente |
-| File non trovato | Avviso registrato su `~/.failproofai/hook.log`; i criteri integrati continuano |
-| Errore di sintassi/importazione (esplicito) | Errore registrato su `~/.failproofai/hook.log`; criteri personalizzati espliciti saltati |
-| Errore di sintassi/importazione (convenzione) | Errore registrato; quel file saltato, altri file di convenzione ancora caricati |
-| `fn` lancia al runtime | Errore registrato; quel hook trattato come `allow`; altri hook continuano |
+|--------|----------|
+| `customPoliciesPath` non impostato | Nessuna politica personalizzata esplicita viene eseguita; le politiche di convenzione e gli integrati continuano normalmente |
+| File non trovato | Avviso registrato in `~/.failproofai/hook.log`; gli integrati continuano |
+| Errore di sintassi/import (esplicito) | Errore registrato in `~/.failproofai/hook.log`; le politiche personalizzate esplicite vengono saltate |
+| Errore di sintassi/import (convenzione) | Errore registrato; quel file viene saltato, gli altri file di convenzione vengono ancora caricati |
+| `fn` genera errore a runtime | Errore registrato; quel hook viene trattato come `allow`; altri hook continuano |
 | `fn` impiega più di 10s | Timeout registrato; trattato come `allow` |
-| Directory di convenzione mancante | Nessun criterio di convenzione viene eseguito; nessun errore |
+| Directory di convenzione mancante | Nessuna politica di convenzione viene eseguita; nessun errore |
 
 <Tip>
-Per eseguire il debug degli errori di criteri personalizzati, guarda il file di log:
+Per eseguire il debug degli errori di politiche personalizzate, osserva il file di log:
 
 ```bash
 tail -f ~/.failproofai/hook.log
@@ -268,13 +266,13 @@ tail -f ~/.failproofai/hook.log
 
 ---
 
-## Esempio completo: più criteri
+## Esempio completo: più politiche
 
 ```js
 // my-policies.js
 import { customPolicies, allow, deny, instruct } from "failproofai";
 
-// Evita che l'agente scriva nella directory secrets/
+// Prevent agent from writing to secrets/ directory
 customPolicies.add({
   name: "block-secrets-dir",
   description: "Prevent agent from writing to secrets/ directory",
@@ -287,7 +285,7 @@ customPolicies.add({
   },
 });
 
-// Tieni l'agente in traccia: verifica i test prima di committare
+// Keep the agent on track: verify tests before committing
 customPolicies.add({
   name: "remind-test-before-commit",
   description: "Keep the agent on track: verify tests pass before committing",
@@ -302,7 +300,7 @@ customPolicies.add({
   },
 });
 
-// Previeni modifiche non pianificate alle dipendenze durante il freeze
+// Prevent unplanned dependency changes during freeze
 customPolicies.add({
   name: "dependency-freeze",
   description: "Prevent unplanned dependency changes during freeze period",
@@ -325,14 +323,14 @@ export { customPolicies };
 
 ## Esempi
 
-La directory `examples/` contiene file di criteri pronti all'uso:
+La directory `examples/` contiene file di politiche pronti all'uso:
 
 | File | Contenuti |
 |------|----------|
-| `examples/policies-basic.js` | Cinque criteri iniziali che coprono modalità di errore comuni dell'agente |
-| `examples/policies-advanced/index.js` | Schemi avanzati: importazioni transitive, chiamate asincrone, scrubbing di output, e hook di fine sessione |
-| `examples/convention-policies/security-policies.mjs` | Criteri di sicurezza basati su convenzione (blocca scritture .env, previeni riscrittura della cronologia git) |
-| `examples/convention-policies/workflow-policies.mjs` | Criteri di flusso di lavoro basati su convenzione (promemoria di test, file di scrittura di audit) |
+| `examples/policies-basic.js` | Cinque politiche iniziali che coprono modalità di fallimento comuni dell'agente |
+| `examples/policies-advanced/index.js` | Pattern avanzati: import transitivi, chiamate async, scrubbing dell'output, e hook di fine sessione |
+| `examples/convention-policies/security-policies.mjs` | Politiche di sicurezza basate su convenzione (blocca scritture .env, previeni riscrittura della cronologia git) |
+| `examples/convention-policies/workflow-policies.mjs` | Politiche di flusso di lavoro basate su convenzione (promemoria test, controllare scritture di file) |
 
 ### Uso di esempi di file espliciti
 
@@ -343,13 +341,13 @@ failproofai policies --install --custom ./examples/policies-basic.js
 ### Uso di esempi basati su convenzione
 
 ```bash
-# Copia a livello di progetto
+# Copy to project level
 mkdir -p .failproofai/policies
 cp examples/convention-policies/*.mjs .failproofai/policies/
 
-# Oppure copia a livello di utente
+# Or copy to user level
 mkdir -p ~/.failproofai/policies
 cp examples/convention-policies/*.mjs ~/.failproofai/policies/
 ```
 
-Nessun comando di installazione necessario — i file vengono prelevati automaticamente al prossimo evento hook.
+Nessun comando install necessario — i file vengono ripresi automaticamente al prossimo evento hook.
