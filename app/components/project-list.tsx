@@ -22,8 +22,9 @@ import {
   keywordsToParam, paramToKeywords,
   pageToParam, paramToPage,
 } from "@/lib/url-filter-serializers";
-import { Folder, Search, X } from "lucide-react";
+import { Calendar, Folder, Search, X, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
+import { IntegrationBadge } from "@/components/integration-badge";
 import PaginationControls from "./pagination-controls";
 import DatePickerInput from "./date-picker-input";
 
@@ -32,12 +33,12 @@ interface ProjectListProps {
   folders: ProjectFolder[];
 }
 
+// Replace `/` with `-` so users can search by filesystem path (e.g. "/home/user")
+// and still match the encoded folder name (e.g. "-home-user").
 function DateDisplay({ date, formatted }: { date: Date; formatted?: string }) {
   return <span>{formatted || formatDate(date)}</span>;
 }
 
-// Replace `/` with `-` so users can search by filesystem path (e.g. "/home/user")
-// and still match the encoded folder name (e.g. "-home-user").
 function normalizeKeywordForSearch(keyword: string): string {
   return keyword.trim().toLowerCase().replace(/\//g, "-");
 }
@@ -275,6 +276,9 @@ export default function ProjectList({ folders }: ProjectListProps) {
                   Path
                 </th>
                 <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-foreground">
+                  Integration
+                </th>
+                <th scope="col" className="px-4 py-3 text-left text-sm font-semibold text-foreground">
                   Last Modified
                 </th>
               </tr>
@@ -305,6 +309,13 @@ export default function ProjectList({ folders }: ProjectListProps) {
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell truncate max-w-md">
                       {folder.path}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-wrap gap-1.5">
+                        {(folder.sources || []).map((s) => (
+                          <IntegrationBadge key={s} integration={s} />
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       <DateDisplay

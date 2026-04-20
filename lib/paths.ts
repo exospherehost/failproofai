@@ -44,7 +44,30 @@ export function decodeFolderName(name: string): string {
   if (/^[A-Za-z]--/.test(name)) {
     return name[0] + ":/" + name.slice(3).replace(/-/g, "/");
   }
+  // Linux/macOS: Claude only adds a leading dash if the path was absolute (starting with /).
+  // We should only replace dashes with slashes if we can be reasonably sure they were delimiters.
+  // A simple but effective heuristic: if it starts with a dash, it's an absolute path.
+  // This prevents mangling folder names that contain internal dashes (e.g., checks-all-integration).
+  if (name.startsWith("-")) {
+    return "/" + name.slice(1).replace(/-/g, "/");
+  }
   return name.replace(/-/g, "/");
+}
+
+/**
+ * Encodes a filesystem path to a Claude-style project folder name.
+ * This is the inverse of decodeFolderName.
+ *
+ * Linux/macOS: `/home/user/project` → `-home-user-project`
+ * Windows: `C:/code/project` → `C--code-project`
+ */
+export function encodeCwd(cwd: string): string {
+  if (/^[A-Za-z]:[\\/]/.test(cwd)) {
+    // Windows: drive letter + colon → drive letter + dash, slashes → dashes
+    return cwd[0] + "-" + cwd.slice(2).replace(/[\\/]/g, "-");
+  }
+  // Linux/macOS: replace all slashes with dashes
+  return cwd.replace(/[\\/]/g, "-");
 }
 
 export function getClaudeProjectsPath(): string {

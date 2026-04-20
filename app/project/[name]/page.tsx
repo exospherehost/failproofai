@@ -1,6 +1,6 @@
 /** Project page — shows metadata and a filterable sessions list for a single project. */
 import { Suspense } from "react";
-import { resolveAnyProjectPath, getCachedSessionFiles } from "@/lib/projects";
+import { resolveAnyProjectPath, getCachedSessionFiles, getProjectFolders } from "@/lib/projects";
 import { logWarn } from "@/lib/logger";
 import { decodeFolderName } from "@/lib/paths";
 import { notFound } from "next/navigation";
@@ -10,6 +10,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import SessionsList from "@/app/components/sessions-list";
+import { IntegrationBadge } from "@/components/integration-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -24,16 +25,30 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   // Next.js already decodes route params once; resolveAnyProjectPath validates and
   // canonicalizes against Claude and Copilot roots, throwing RangeError on invalid input.
   let projectPath: string;
+  let sources: string[] = [];
   try {
-    projectPath = resolveAnyProjectPath(name).path;
+    const resolved = resolveAnyProjectPath(name);
+    projectPath = resolved.path;
+    // We try to find the project in the main list to get its full source list
+    const folders = await getProjectFolders();
+    const folder = folders.find(f => f.name === name);
+    sources = folder?.sources || [resolved.source as string];
   } catch {
     notFound();
   }
   const decodedName = decodeFolderName(name);
 
-  // Check if project exists
-  if (!existsSync(projectPath)) {
-    notFound();
+  // Check if project exists — for virtual integration projects (Cursor/Gemini/Codex/Pi),
+  // the Claude projects directory may not exist but activity-store sessions are still valid.
+  const isOpencode = name.startsWith("ses_");
+  if (!isOpencode && !existsSync(projectPath)) {
+    const { getAllHookActivityEntries } = await import("@/src/hooks/hook-activity-store");
+    const allActivity = getAllHookActivityEntries();
+    const VIRTUAL_INTEGRATIONS = ["cursor", "gemini", "codex", "pi"];
+    const hasVirtualSessions = allActivity.some(
+      (e) => e.cwd === decodedName && VIRTUAL_INTEGRATIONS.includes(e.integration || ""),
+    );
+    if (!hasVirtualSessions) notFound();
   }
 
   // Get project stats for last modified date
@@ -62,8 +77,11 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         </Link>
 
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2 break-words break-all">
+          <h1 className="text-4xl font-bold text-foreground mb-2 break-words break-all flex flex-wrap items-center gap-3">
             {decodedName}
+            {sources.map(s => (
+              <IntegrationBadge key={s} integration={s} className="mt-1" />
+            ))}
           </h1>
           <div className="space-y-1">
             <p className="text-muted-foreground">

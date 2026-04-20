@@ -55,8 +55,9 @@ describe("hooks/integrations", () => {
       expect(claude.scopes).toEqual(["user", "project", "local"]);
     });
 
-    it("detects as fallback", () => {
-      expect(claude.detect({})).toBe(true);
+    it("detects claude-specific events", () => {
+      expect(claude.detect({ hook_event_name: "beforeSubmitPrompt" })).toBe(true);
+      expect(claude.detect({})).toBe(false); // No longer fallback
     });
 
     it("getCanonicalEventName mirrors input", () => {

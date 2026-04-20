@@ -7,11 +7,12 @@
  */
 import { readdir, stat } from "fs/promises";
 import { join, resolve, sep, basename } from "path";
-import { getClaudeProjectsPath, getCopilotSessionStatePath, getOpencodeStoragePath } from "./paths";
+import { getClaudeProjectsPath, getCopilotSessionStatePath, getOpencodeStoragePath, encodeCwd, decodeFolderName } from "./paths";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
 import { logWarn, logError } from "./logger";
 import { formatDate } from "./utils";
+import { IntegrationType } from "@/src/hooks/types";
 
 export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;
@@ -22,7 +23,8 @@ export interface ProjectFolder {
   isDirectory: boolean;
   lastModified: Date;
   lastModifiedFormatted?: string; // Pre-formatted date string to avoid hydration issues
-  source?: "claude" | "copilot" | "opencode"; // Which AI agent owns this project/session
+  source?: IntegrationType | "virtual"; // Primary/Historical source
+  sources: (IntegrationType | "virtual")[]; // All integrations that have work in this project
 }
 
 export interface SessionFile {
@@ -57,15 +59,15 @@ async function safeReaddir(dirPath: string) {
 
 async function readFolderEntries(
   rootPath: string,
-  source: "claude" | "copilot",
-  filterFn?: (name: string) => boolean,
+  source: IntegrationType | "virtual",
+  filter: (name: string) => boolean = () => true,
 ): Promise<ProjectFolder[]> {
   const entries = await safeReaddir(rootPath);
   if (!entries) return [];
 
   const settled = await batchAll(
     entries
-      .filter((e) => e.isDirectory() && (!filterFn || filterFn(e.name)))
+      .filter((e) => e.isDirectory() && filter(e.name))
       .map((entry) => async () => {
         const folderPath = join(rootPath, entry.name);
         const mtime = await getMtime(folderPath, entry.name);
@@ -76,6 +78,7 @@ async function readFolderEntries(
           lastModified: mtime,
           lastModifiedFormatted: formatDate(mtime),
           source,
+          sources: [source],
         } as ProjectFolder;
       }),
     16,
@@ -111,16 +114,97 @@ async function readOpencodeEntries(rootPath: string): Promise<ProjectFolder[]> {
     .map((r) => r.value);
 }
 
+import { INTEGRATION_TYPES } from "@/src/hooks/types";
+const VIRTUAL_INTEGRATIONS = INTEGRATION_TYPES as unknown as string[];
+
+async function getVirtualProjectsFromActivityStore(): Promise<ProjectFolder[]> {
+  try {
+    const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
+    const allActivity = getAllHookActivityEntries();
+
+    const cwdMap = new Map<string, { lastModified: Date; sources: Set<string> }>();
+    for (const entry of allActivity) {
+      if (!entry.cwd || !VIRTUAL_INTEGRATIONS.includes(entry.integration as any)) continue;
+      const encoded = encodeCwd(entry.cwd);
+      const date = new Date(entry.timestamp);
+      const existing = cwdMap.get(encoded);
+      if (existing) {
+        if (date > existing.lastModified) existing.lastModified = date;
+        existing.sources.add(entry.integration!);
+      } else {
+        cwdMap.set(encoded, { lastModified: date, sources: new Set([entry.integration!]) });
+      }
+    }
+
+    const projectsPath = resolve(getClaudeProjectsPath());
+    return Array.from(cwdMap.entries()).map(([name, { lastModified, sources }]) => ({
+      name,
+      path: join(projectsPath, name),
+      isDirectory: true,
+      lastModified,
+      lastModifiedFormatted: formatDate(lastModified),
+      source: Array.from(sources)[0] as IntegrationType,
+      sources: Array.from(sources) as IntegrationType[],
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/** Internal helper to check if an opencode session has already been merged into a workspace project */
+function isOpencodeSessionMerged(sessionId: string, virtualFolders: ProjectFolder[]): boolean {
+  return virtualFolders.some(f => 
+    f.sources.includes("opencode") && 
+    // This is a heuristic: if we have activity for opencode in a CWD, 
+    // we assume the standalone session file for that CWD is redundant.
+    f.name !== sessionId
+  );
+}
+
 export async function getProjectFolders(): Promise<ProjectFolder[]> {
   try {
-    const [claudeFolders, copilotFolders, opencodeFolders] = await Promise.all([
-      readFolderEntries(getClaudeProjectsPath(), "claude"),
-      // Copilot session dirs are UUIDs; skip anything that isn't.
+    const [claudeFolders, copilotFolders, opencodeFolders, virtualFolders] = await Promise.all([
+      readFolderEntries(getClaudeProjectsPath(), "claude-code"),
       readFolderEntries(getCopilotSessionStatePath(), "copilot", (name) => UUID_RE.test(name)),
       readOpencodeEntries(join(getOpencodeStoragePath(), "session_diff")),
+      getVirtualProjectsFromActivityStore(),
     ]);
 
-    const folders = [...claudeFolders, ...copilotFolders, ...opencodeFolders];
+    // Group projects by name (which is the encoded CWD for Claude/Opencode/Virtual)
+    // Copilot folders stay unique by UUID unless we can map them (handled in virtualStore)
+    const projectMap = new Map<string, ProjectFolder>();
+
+    // We process virtual folders (activity store) first so they establish 
+    // the "Live" timestamps for workspaces.
+    const allFolders = [...virtualFolders, ...claudeFolders, ...copilotFolders, ...opencodeFolders];
+
+    for (const folder of allFolders) {
+      // For standalone opencode session files: skip if we've already merged opencode 
+      // activity into a workspace project (unification).
+      if (folder.source === "opencode" && folder.name.startsWith("ses_") && isOpencodeSessionMerged(folder.name, virtualFolders)) {
+        continue;
+      }
+
+      const existing = projectMap.get(folder.name);
+      if (existing) {
+        // Merge sources
+        if (folder.source && !existing.sources.includes(folder.source)) {
+          existing.sources.push(folder.source);
+        }
+        // Update lastModified if newer
+        if (folder.lastModified > existing.lastModified) {
+          existing.lastModified = folder.lastModified;
+          existing.lastModifiedFormatted = folder.lastModifiedFormatted;
+        }
+      } else {
+        projectMap.set(folder.name, {
+          ...folder,
+          sources: folder.source ? [folder.source] : [],
+        });
+      }
+    }
+
+    const folders = Array.from(projectMap.values());
     folders.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
     return folders;
   } catch (error) {
@@ -177,9 +261,9 @@ export function resolveCopilotSessionDir(sessionId: string): string {
  */
 export function resolveAnyProjectPath(
   name: string,
-): { path: string; source: "claude" | "copilot" | "opencode" } {
+): { path: string; source: ProjectFolder["source"] } {
   try {
-    return { path: resolveProjectPath(name), source: "claude" };
+    return { path: resolveProjectPath(name), source: "claude-code" };
   } catch {
     // UUID-shaped names may be Copilot session IDs
     if (UUID_RE.test(name)) {
@@ -188,7 +272,13 @@ export function resolveAnyProjectPath(
     if (name.startsWith("ses_")) {
       return { path: join(getOpencodeStoragePath(), "session_diff", `${name}.json`), source: "opencode" };
     }
-    throw new RangeError(`Project "${name}" not found in Claude, Copilot, or opencode paths`);
+    // If it's none of the above, it might be a virtual project name (encoded CWD)
+    // resolveProjectPath will return a path under Claude root.
+    try {
+      return { path: resolveProjectPath(name), source: "virtual" };
+    } catch {
+      throw new RangeError(`Project "${name}" not found in Claude, Copilot, or opencode paths`);
+    }
   }
 }
 
@@ -214,76 +304,123 @@ export function extractSessionId(filename: string): string | undefined {
   return match ? match[0] : undefined;
 }
 
-export async function getSessionFiles(projectPath: string): Promise<SessionFile[]> {
+async function getActivityStoreSessionFiles(cwd: string): Promise<SessionFile[]> {
   try {
-    const entries = await safeReaddir(projectPath);
-    if (!entries) return [];
+    const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
+    const allActivity = getAllHookActivityEntries();
 
-    // Standard Claude session files: <uuid>.jsonl
-    const jsonlEntries = entries.filter(
-      (entry) => entry.isFile() && entry.name.endsWith(".jsonl") && extractSessionId(entry.name)
-    );
-
-    if (jsonlEntries.length > 0) {
-      const settled = await batchAll(
-        jsonlEntries.map((entry) => async () => {
-          const filePath = join(projectPath, entry.name);
-          const mtime = await getMtime(filePath, entry.name);
-          return {
-            name: entry.name,
-            path: filePath,
-            lastModified: mtime,
-            lastModifiedFormatted: formatDate(mtime),
-            sessionId: extractSessionId(entry.name),
-          } as SessionFile;
-        }),
-        16,
-      );
-      const files = settled
-        .filter((r): r is PromiseFulfilledResult<SessionFile> => r.status === "fulfilled")
-        .map((r) => r.value);
-      files.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
-      return files;
+    const sessionMap = new Map<string, { lastModified: Date; integration: string }>();
+    for (const entry of allActivity) {
+      if (!entry.sessionId || !VIRTUAL_INTEGRATIONS.includes(entry.integration as any)) continue;
+      // Match by cwd — empty cwd entries are skipped
+      if (entry.cwd && entry.cwd !== cwd) continue;
+      const date = new Date(entry.timestamp);
+      const existing = sessionMap.get(entry.sessionId);
+      if (!existing || date > existing.lastModified) {
+        sessionMap.set(entry.sessionId, { lastModified: date, integration: entry.integration! });
+      }
     }
 
-    // Copilot sessions: the directory itself is the session UUID, with events.jsonl inside.
-    const dirName = basename(projectPath);
-    const eventsFile = entries.find((e) => e.isFile() && e.name === "events.jsonl");
-    if (eventsFile && UUID_RE.test(dirName)) {
-      const filePath = join(projectPath, "events.jsonl");
-      const mtime = await getMtime(filePath, "events.jsonl");
+    return Array.from(sessionMap.entries()).map(([sessionId, { lastModified }]) => ({
+      name: sessionId,
+      path: `__fp_virtual__:${sessionId}`,
+      lastModified,
+      lastModifiedFormatted: formatDate(lastModified),
+      sessionId,
+    })).sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+  } catch {
+    return [];
+  }
+}
+
+export async function getSessionFiles(projectPath: string): Promise<SessionFile[]> {
+  try {
+    // 1. opencode: path is the session JSON file itself, not a directory
+    if (basename(projectPath).startsWith("ses_") && projectPath.includes("session_diff")) {
+      const mtime = await getMtime(projectPath, basename(projectPath));
       return [{
-        name: "events.jsonl",
-        path: filePath,
+        name: basename(projectPath),
+        path: projectPath,
         lastModified: mtime,
         lastModifiedFormatted: formatDate(mtime),
-        sessionId: dirName, // parent directory UUID is the session ID
+        sessionId: basename(projectPath).replace(".json", ""),
       }];
     }
 
-    // opencode sessions: the file itself is the session marker.
-    // We already resolveOpencodeSessionDir to the session_diff file.
-    if (projectPath.includes("session_diff") && basename(projectPath).startsWith("ses_")) {
-       const mtime = await getMtime(projectPath, basename(projectPath));
-       return [{
-         name: basename(projectPath),
-         path: projectPath,
-         lastModified: mtime,
-         lastModifiedFormatted: formatDate(mtime),
-         sessionId: basename(projectPath).replace(".json", ""),
-       }];
+    const fileSessions: SessionFile[] = [];
+    const entries = await safeReaddir(projectPath);
+
+    if (entries) {
+      // 2. Standard Claude session files: <uuid>.jsonl
+      const jsonlEntries = entries.filter(
+        (entry) => entry.isFile() && entry.name.endsWith(".jsonl") && extractSessionId(entry.name)
+      );
+
+      if (jsonlEntries.length > 0) {
+        const settled = await batchAll(
+          jsonlEntries.map((entry) => async () => {
+            const filePath = join(projectPath, entry.name);
+            const mtime = await getMtime(filePath, entry.name);
+            return {
+              name: entry.name,
+              path: filePath,
+              lastModified: mtime,
+              lastModifiedFormatted: formatDate(mtime),
+              sessionId: extractSessionId(entry.name),
+            } as SessionFile;
+          }),
+          16,
+        );
+        fileSessions.push(
+          ...settled
+            .filter((r): r is PromiseFulfilledResult<SessionFile> => r.status === "fulfilled")
+            .map((r) => r.value),
+        );
+      }
+
+      // 3. Copilot sessions: the directory itself is the session UUID, with events.jsonl inside.
+      const dirName = basename(projectPath);
+      const eventsFile = entries.find((e) => e.isFile() && e.name === "events.jsonl");
+      if (eventsFile && UUID_RE.test(dirName)) {
+        const filePath = join(projectPath, "events.jsonl");
+        const mtime = await getMtime(filePath, "events.jsonl");
+        fileSessions.push({
+          name: "events.jsonl",
+          path: filePath,
+          lastModified: mtime,
+          lastModifiedFormatted: formatDate(mtime),
+          sessionId: dirName,
+        });
+      }
     }
 
-    return [];
+    // 4. Always fetch virtual integration sessions for this cwd (Cursor/Gemini/Codex/Pi)
+    const cwd = decodeFolderName(basename(projectPath));
+    const virtualSessions = await getActivityStoreSessionFiles(cwd);
+
+    // Merge virtual and real sessions
+    const mergedMap = new Map<string, SessionFile>();
+    
+    for (const s of [...fileSessions, ...virtualSessions]) {
+      if (!s.sessionId) continue;
+      const existing = mergedMap.get(s.sessionId);
+      if (!existing || s.lastModified > existing.lastModified) {
+        mergedMap.set(s.sessionId, s);
+      }
+    }
+
+    const finalSessions = Array.from(mergedMap.values());
+    finalSessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+    return finalSessions;
   } catch (error) {
     logError("Error reading session files:", error);
     return [];
   }
 }
 
-export const getCachedProjectFolders = runtimeCache(getProjectFolders, 30);
+export const getCachedProjectFolders = runtimeCache(getProjectFolders, 5);
 
 export const getCachedSessionFiles = runtimeCache(
   (projectPath: string) => getSessionFiles(projectPath),
-  30
+  5
 );

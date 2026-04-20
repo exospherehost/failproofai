@@ -11,19 +11,25 @@ vi.mock("@/lib/paths", () => ({
   getClaudeProjectsPath: vi.fn(() => "/mock/.claude/projects"),
   getCopilotSessionStatePath: vi.fn(() => "/mock/.copilot/session-state"),
   getOpencodeStoragePath: vi.fn(() => "/mock/.local/share/opencode/storage"),
+  decodeFolderName: vi.fn((name: string) => name.replace(/-/g, "/").replace(/^C\//, "C:/")),
+  encodeCwd: vi.fn((cwd: string) => cwd.replace(/\//g, "-")),
 }));
 
 vi.mock("@/lib/utils", () => ({
   formatDate: vi.fn((d: Date) => d.toISOString()),
 }));
 
-vi.mock("@/lib/runtime-cache", () => ({
-  runtimeCache: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
+vi.mock("../../src/hooks/hook-activity-store", () => ({
+  getAllHookActivityEntries: vi.fn(() => []),
+  persistHookActivity: vi.fn(),
+  trackHookEvent: vi.fn(),
 }));
 
 import { readdir, stat } from "fs/promises";
 import { extractSessionId, getProjectFolders, getSessionFiles } from "@/lib/projects";
+import { getAllHookActivityEntries } from "../../src/hooks/hook-activity-store";
 
+const mockGetAllActivity = vi.mocked(getAllHookActivityEntries);
 const mockReaddir = vi.mocked(readdir);
 const mockStat = vi.mocked(stat);
 
@@ -186,6 +192,7 @@ describe("getSessionFiles", () => {
 
   it("returns empty array for missing directory", async () => {
     mockStat.mockRejectedValueOnce(new Error("ENOENT"));
+    mockGetAllActivity.mockReturnValueOnce([]);
     const result = await getSessionFiles("/nonexistent");
     expect(result).toEqual([]);
   });

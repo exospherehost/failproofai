@@ -93,7 +93,7 @@ describe("hooks/manager", () => {
         expect(hook.type).toBe("command");
         expect(hook.timeout).toBe(60_000);
         expect(hook.command).toBe(
-          `"${MOCK_BINARY_PATH}" --hook ${eventType}`,
+          `"${MOCK_BINARY_PATH}" --hook ${eventType} --integration claude-code`,
         );
       }
     });
@@ -227,7 +227,7 @@ describe("hooks/manager", () => {
 
       expect(written.hooks.PreToolUse).toHaveLength(1);
       expect(written.hooks.PreToolUse[0].hooks[0].command).toBe(
-        `"${MOCK_BINARY_PATH}" --hook PreToolUse`,
+        `"${MOCK_BINARY_PATH}" --hook PreToolUse --integration claude-code`,
       );
     });
 
@@ -290,7 +290,7 @@ describe("hooks/manager", () => {
 
       for (const [eventType, matchers] of Object.entries(written.hooks)) {
         const hook = (matchers as Array<{ hooks: Array<Record<string, unknown>> }>)[0].hooks[0];
-        expect(hook.command).toBe(`npx -y failproofai --hook ${eventType}`);
+        expect(hook.command).toBe(`npx -y failproofai --hook ${eventType} --integration claude-code`);
       }
     });
 
@@ -305,7 +305,7 @@ describe("hooks/manager", () => {
       const written = JSON.parse(content as string);
 
       const hook = written.hooks.PreToolUse[0].hooks[0];
-      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse`);
+      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse --integration claude-code`);
     });
 
     it("local scope uses absolute binary path, not npx", async () => {
@@ -319,7 +319,7 @@ describe("hooks/manager", () => {
       const written = JSON.parse(content as string);
 
       const hook = written.hooks.PreToolUse[0].hooks[0];
-      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse`);
+      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse --integration claude-code`);
     });
 
     it("re-install on project scope migrates absolute-path hooks to npx format", async () => {
@@ -349,7 +349,7 @@ describe("hooks/manager", () => {
       const written = JSON.parse(content as string);
 
       expect(written.hooks.PreToolUse[0].hooks[0].command).toBe(
-        "npx -y failproofai --hook PreToolUse",
+        "npx -y failproofai --hook PreToolUse --integration claude-code",
       );
     });
 
@@ -360,7 +360,7 @@ describe("hooks/manager", () => {
           PreToolUse: [{
             hooks: [{
               type: "command",
-              command: "npx -y failproofai --hook PreToolUse",
+              command: "npx -y failproofai --hook PreToolUse --integration claude-code",
               timeout: 60000,
             }],
           }],

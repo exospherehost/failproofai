@@ -38,6 +38,7 @@ function makeFolders(count: number): ProjectFolder[] {
     isDirectory: true,
     lastModified: new Date(Date.now() - i * 86400000),
     lastModifiedFormatted: `Jun ${15 - i}, 2024`,
+    sources: ["claude-code"],
   }));
 }
 
@@ -59,6 +60,7 @@ describe("ProjectList", () => {
         isDirectory: true,
         lastModified: new Date(),
         lastModifiedFormatted: "Jun 15, 2024",
+        sources: ["claude-code"],
       },
     ];
     render(<ProjectList folders={folders} />);

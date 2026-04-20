@@ -6,7 +6,7 @@
  * activity to disk, and returns the appropriate exit code + stdout response.
  */
 import type { HookEventType, SessionMetadata, IntegrationType } from "./types";
-import { COPILOT_EVENT_MAP, CODEX_HOOK_EVENT_TYPES } from "./types";
+import { COPILOT_EVENT_MAP, CODEX_HOOK_EVENT_TYPES, GEMINI_HOOK_EVENT_TYPES, COPILOT_HOOK_EVENT_TYPES } from "./types";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
 import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
@@ -19,6 +19,8 @@ import { trackHookEvent } from "./hook-telemetry";
 import { getInstanceId } from "../../lib/telemetry-id";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 import { getIntegration, INTEGRATIONS } from "./integrations";
+import { getClaudeProjectsPath, encodeCwd } from "../../lib/paths";
+import type { HookActivityEntry } from "./hook-activity-store";
 
 import { createHash } from "node:crypto";
 
@@ -84,19 +86,22 @@ function tryRecordEvent(
   integration: string | undefined,
   eventType: string,
   sessionId: string | undefined,
-  fingerprint: string
+  fingerprint: string,
+  windowMs: number = DEDUP_BUCKET_MS // Default to standard 2s bucket
 ): boolean {
   ensureDedupDir();
   const now = Date.now();
-  const currentBucket = Math.floor(now / DEDUP_BUCKET_MS);
+  const bucketSize = windowMs;
+  const currentBucket = Math.floor(now / bucketSize);
 
-  // 1. Triple Bucket Lookback (Catch slow delays across scopes/integrations)
-  // Checking current, prev, and two-back ensures a minimum lookback of 2*BUCKET_MS (4s)
-  const prev1 = getDedupeKey(integration, eventType, sessionId, fingerprint, currentBucket - 1);
-  const prev2 = getDedupeKey(integration, eventType, sessionId, fingerprint, currentBucket - 2);
-
-  if (existsSync(join(DEDUP_DIR, `${prev1}.lock`)) || existsSync(join(DEDUP_DIR, `${prev2}.lock`))) {
-    return false;
+  // 1. Double Bucket Lookback (Boundary catch)
+  // Checking current and prev ensures we catch boundary overlaps
+  const bucketsToCheck = [currentBucket, currentBucket - 1];
+  
+  for (const bucket of bucketsToCheck) {
+    const key = getDedupeKey(integration, eventType, sessionId, fingerprint, bucket);
+    const p = join(DEDUP_DIR, `${key}.lock`);
+    if (existsSync(p)) return false;
   }
 
   // 2. Atomic Recording
@@ -104,24 +109,10 @@ function tryRecordEvent(
   const currentPath = join(DEDUP_DIR, `${currentKey}.lock`);
 
   try {
-    writeFileSync(currentPath, String(now), { flag: "wx" });
-
-    // 3. Distributed Cleanup (Remove B-3 and older)
-    if (Math.random() < 0.1) {
-      try {
-        const files = readdirSync(DEDUP_DIR);
-        for (const file of files) {
-          const m = file.match(/-(\d+)\.lock$/);
-          if (m && currentBucket - parseInt(m[1], 10) > 3) {
-            unlinkSync(join(DEDUP_DIR, file));
-          }
-        }
-      } catch { /* ignore sweep errors */ }
-    }
-
+    writeFileSync(currentPath, now.toString(), { flag: "wx" });
     return true;
   } catch (e) {
-    if ((e as any).code === "EEXIST") return false; // Already recorded in this bucket
+    if ((e as any).code === "EEXIST") return false; 
     return true; // Fallback to allowing on other FS errors
   }
 }
@@ -183,6 +174,13 @@ function tryAcquireFiringLock(eventType: string, sessionId: string | undefined, 
 }
 
 export async function handleHookEvent(eventType: string, integrationOverride?: string): Promise<{ exitCode: number; hardStop: boolean }> {
+  // SILENCE GUARD: If a hook claims to be Claude but the event name is unique to Gemini/Copilot,
+  // it means we have a duplicate legacy hook firing from an old installation. 
+  // SILENTLY ABORT to avoid duplicate/incorrect logs in the dashboard.
+  if (integrationOverride === "claude-code") {
+    if (GEMINI_HOOK_EVENT_TYPES.includes(eventType as any)) return { exitCode: 0, hardStop: false };
+    if (COPILOT_HOOK_EVENT_TYPES.includes(eventType as any)) return { exitCode: 0, hardStop: false };
+  }
 
   // 1. Read stdin payload
   const MAX_STDIN_BYTES = 1_048_576; // 1 MB
@@ -225,8 +223,27 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
     }
   }
 
-  // 2. Integration Detection
-  let integrationType: IntegrationType = (integrationOverride as IntegrationType) || (parsed.integration as IntegrationType);
+  // 2. Integration Detection & Normalization
+
+  // PRIMARY SOURCE OF TRUTH: the explicit --integration CLI flag (or payload.integration).
+  // The hook entries we install always include this flag, so it's the most reliable signal.
+  let integrationType: IntegrationType | undefined =
+    (integrationOverride as IntegrationType) || (parsed.integration as IntegrationType);
+
+  // Unique-event-name fallback (only for events truly unique to one integration;
+  // avoid shared names like SessionStart/SessionEnd that multiple integrations emit).
+  if (!integrationType) {
+    const GEMINI_UNIQUE = ["BeforeTool", "AfterTool", "BeforeAgent", "AfterAgent", "BeforeModel", "AfterModel", "BeforeToolSelection", "PreCompress"];
+    if (GEMINI_UNIQUE.includes(eventType)) {
+      integrationType = "gemini";
+    } else if (COPILOT_HOOK_EVENT_TYPES.includes(eventType as any)) {
+      integrationType = "copilot";
+    } else if (CODEX_HOOK_EVENT_TYPES.includes(eventType as any)) {
+      integrationType = "codex";
+    }
+  }
+
+  // Secondary Detection: Payload-based (Stdin)
   if (!integrationType) {
     if (INTEGRATIONS.copilot.detect(parsed)) {
       integrationType = "copilot";
@@ -238,23 +255,69 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
       integrationType = "opencode";
     } else if (INTEGRATIONS.pi.detect(parsed)) {
       integrationType = "pi";
-    } else if (INTEGRATIONS.codex.detect(parsed) || CODEX_HOOK_EVENT_TYPES.includes(parsed.hook_event_name as any)) {
-      integrationType = "codex";
-    } else {
+    }
+
+    if (!integrationType) {
       integrationType = "claude-code";
     }
   }
 
-  const integ = getIntegration(integrationType);
+  // Helper for safe integration retrieval
+  const getInteg = (type: IntegrationType) => {
+    try { return getIntegration(type); } catch { return getIntegration("claude-code"); }
+  };
+
+  const integ = getInteg(integrationType);
   integ.normalizePayload(parsed);
   const canonicalEventName = integ.getCanonicalEventName(parsed, eventType);
 
   // 3. Session Extraction & Fingerprinting
   const fingerprint = getPayloadFingerprint(parsed);
+  
+  // Extract sessionId with broad compatibility (camelCase, snake_case, PascalCase variants)
+  // and Environment Variable Recovery (for empty payloads)
+  const extractedSessionId = 
+    (parsed.session_id as string | undefined) || 
+    (parsed.sessionId as string | undefined) || 
+    (parsed.sessionID as string | undefined) ||
+    (parsed.conversation_id as string | undefined) ||
+    (parsed.conversationID as string | undefined) ||
+    (parsed.chat_id as string | undefined) ||
+    (parsed.chatId as string | undefined) ||
+    (parsed.tab_id as string | undefined) ||
+    (parsed.tabId as string | undefined) ||
+    ((parsed.data as any)?.session_id as string | undefined) ||
+    ((parsed.data as any)?.sessionId as string | undefined) ||
+    ((parsed.data as any)?.sessionID as string | undefined) ||
+    ((parsed.data as any)?.conversationID as string | undefined) ||
+    ((parsed.data as any)?.chatId as string | undefined) ||
+    // Environment Recovery: Catch headless agents
+    process.env.COPILOT_SESSION_ID ||
+    process.env.COPILOT_CMD_ID ||
+    process.env.CURSOR_SESSION_ID ||
+    process.env.CLAUDE_SESSION_ID ||
+    process.env.GEMINI_SESSION_ID;
+
+  let finalCwd = parsed.cwd as string | undefined;
+  // Prioritize PWD (actual terminal location) over process.cwd() (often workspace root)
+  const physicalCwd = process.env.PWD || process.cwd();
+
+  // Hyper-Specific Attribution: 
+  // 1. If we found a more specific CWD in the tool input (via normalizePayload), prioritize it
+  // 2. Otherwise, check if physical CWD is a sub-directory of the agent-reported root
+  if (physicalCwd && finalCwd && physicalCwd !== finalCwd) {
+    const rel = relative(finalCwd, physicalCwd);
+    if (rel && !rel.startsWith("..") && !isAbsolute(rel)) {
+      finalCwd = physicalCwd;
+    }
+  }
+
+  const fallbackSessionId = `session-${integrationType}-${(finalCwd || "default").split("/").filter(Boolean).pop() || "root"}`;
+
   const session: SessionMetadata = {
-    sessionId: (parsed.session_id as string | undefined) || (parsed.sessionId as string | undefined) || `session-${integrationType}-${(parsed.cwd as string | undefined)?.split('/').pop() ?? 'default'}`,
+    sessionId: extractedSessionId || fallbackSessionId,
     transcriptPath: parsed.transcript_path as string | undefined,
-    cwd: parsed.cwd as string | undefined,
+    cwd: finalCwd,
     permissionMode: parsed.permission_mode as string | undefined,
     hookEventName: parsed.hook_event_name as string | undefined,
     integration: integrationType || "claude-code",

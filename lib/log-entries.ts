@@ -1,6 +1,6 @@
 import { readFile } from "fs/promises";
 import { join } from "path";
-import { getClaudeProjectsPath, getCopilotSessionStatePath, getOpencodeLogPath } from "./paths";
+import { getClaudeProjectsPath, getCopilotSessionStatePath, getOpencodeLogPath, decodeFolderName } from "./paths";
 import { resolveProjectPath, resolveCopilotSessionDir, UUID_RE } from "./projects";
 import { resolveSubagentPath } from "./resolve-subagent-path";
 import { runtimeCache } from "./runtime-cache";
@@ -161,6 +161,147 @@ function extractToolResultContent(
   return {};
 }
 
+/** Maps a FailproofAI HookActivityEntry to a LogEntry shape for dashboard display. */
+function mapActivityEntryToLogEntry(e: any): LogEntry {
+  const date = new Date(e.timestamp);
+  const timestamp = date.toISOString();
+  // We use "session" source for virtual integrations so they appear in the main thread
+  const source: LogSource = "session";
+
+  const baseDetails = {
+    _source: source,
+    uuid: (e.sessionId || "") + (e.timestamp || ""),
+    parentUuid: null,
+    timestamp,
+    timestampMs: e.timestamp,
+    timestampFormatted: formatDate(date),
+  };
+
+  const lowEvent = (e.eventType || "").toLowerCase();
+
+  // 1. User Prompts (Claude, Cursor, Gemini, Copilot, Codex, OpenCode, Pi)
+  const isUserEvent = 
+    lowEvent.includes("prompt") || 
+    lowEvent.includes("submit") || 
+    lowEvent.includes("message") || 
+    lowEvent.includes("chat") || 
+    lowEvent.includes("input");
+
+  if (isUserEvent) {
+    return {
+      type: "user",
+      ...baseDetails,
+      message: {
+        role: "user",
+        // Extract prompt from toolInput if it's a string, or check specific prompt fields
+        content: (typeof e.toolInput === 'string' ? e.toolInput : (e.toolInput?.user_prompt || e.toolInput?.prompt || e.toolInput?.input || e.toolInput?.message || e.toolInput?.text)) || e.reason || "User prompt",
+      },
+    } as UserEntry;
+  }
+
+  // 2. Tool Use (Assistant)
+  const isToolEvent = 
+    lowEvent.includes("tool") || 
+    lowEvent.includes("shell") || 
+    lowEvent.includes("mcp") || 
+    lowEvent.includes("readfile") ||
+    lowEvent.includes("execute") ||
+    lowEvent.includes("execution") ||
+    lowEvent.includes("call");
+
+  if (isToolEvent) {
+    const isDeny = e.decision === "deny";
+    const isInstruct = e.decision === "instruct";
+    
+    let resultContent = e.toolOutput as string | undefined;
+    if (isDeny) {
+      resultContent = `MANDATORY ACTION REQUIRED from FailproofAI (policy: ${e.policyName}): ${e.reason}`;
+    } else if (isInstruct) {
+      resultContent = `[FailproofAI Instruction] ${e.reason}`;
+    }
+
+    return {
+      type: "assistant",
+      ...baseDetails,
+      message: {
+        role: "assistant",
+        content: [{
+          type: "tool_use",
+          id: (e.sessionId || "") + "-tool-" + e.timestamp,
+          name: e.toolName || "unknown_tool",
+          input: e.toolInput || {},
+          result: resultContent ? {
+            timestamp,
+            timestampFormatted: formatDate(date),
+            content: resultContent,
+            durationMs: e.durationMs || 0,
+            durationFormatted: formatDuration(e.durationMs || 0),
+          } : undefined
+        }]
+      }
+    } as AssistantEntry;
+  }
+
+  // 3. Lifecycle Events (SessionStart, Stop, etc.)
+  const isLifecycleEvent = 
+    lowEvent.includes("sessionstart") || 
+    lowEvent.includes("sessionend") || 
+    lowEvent.includes("stop");
+
+  if (isLifecycleEvent) {
+    let content = "";
+    if (lowEvent.includes("sessionstart")) {
+      content = `Session started via ${e.integration || 'agent'}`;
+    } else if (lowEvent.includes("sessionend")) {
+      content = `Session ended`;
+    } else if (lowEvent.includes("stop")) {
+      const policyList = Array.isArray(e.policyNames) && e.policyNames.length > 0
+        ? `\n\n**Security Policies Verified:**\n${e.policyNames.map((p: string) => `* ${p}`).join("\n")}`
+        : "";
+      const auditResult = e.reason ? `\n\n**Audit Result:** ${e.reason}` : "";
+      content = `**Security Audit Completed**${auditResult}${policyList}`;
+    }
+
+    return {
+      type: "assistant",
+      ...baseDetails,
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: content }],
+      }
+    } as AssistantEntry;
+  }
+
+  // 4. Conversational Response (afterAgentResponse)
+  if (lowEvent.includes("response")) {
+    return {
+      type: "assistant",
+      ...baseDetails,
+      message: {
+        role: "assistant",
+        content: [{
+          type: "text",
+          text: e.toolOutput || e.reason || "Assistant response",
+        }]
+      }
+    } as AssistantEntry;
+  }
+
+  // 4. Session Lifecycle
+  if (lowEvent.includes("start")) {
+    return { type: "queue-operation", ...baseDetails, label: "Session Started" } as QueueOperationEntry;
+  }
+
+  // Fallback to System/Generic Entry
+  return {
+    type: "system",
+    ...baseDetails,
+    raw: { ...e },
+  } as GenericEntry;
+}
+
+// ── Parsing ──
+
 /**
  * Synchronous parseRawLines for callers that don't pass a source tag.
  * Keeps its own minimal loop (no subagent detection needed).
@@ -190,8 +331,6 @@ interface ParseFileResult {
   rawLines: Record<string, unknown>[];
   subagentIds: string[];
 }
-
-// ── Unified Single-Pass Parser ──
 
 /**
  * Single-pass async parser that produces entries, rawLines, and subagentIds
@@ -226,10 +365,17 @@ async function parseFileContent(fileContent: string, source: LogSource): Promise
     const rawCopy = { ...raw, _source: source };
     rawLines.push(rawCopy);
 
-    const type = raw.type as string | undefined;
-    const timestamp = raw.timestamp as string;
-    if (!timestamp) continue;
+    const eventType = raw.eventType as string | undefined; // Handle FailproofAI HookActivityEntry format
+    if (eventType) {
+      entries.push(mapActivityEntryToLogEntry(raw));
+      continue;
+    }
 
+    const type = raw.type as string | undefined;
+    const timestampRaw = raw.timestamp;
+    if (!timestampRaw) continue;
+
+    const timestamp = typeof timestampRaw === "number" ? new Date(timestampRaw).toISOString() : String(timestampRaw);
     const date = new Date(timestamp);
     const timestampMs = date.getTime();
 
@@ -430,57 +576,31 @@ export async function parseSessionLog(
       const sid = sessionId.startsWith("ses_") ? sessionId : projectName;
       const allActivity = getAllHookActivityEntries();
       const entries = allActivity
-        .filter((e) => (e.sessionId === sid || `ses_${e.sessionId}` === sid || e.sessionId === `ses_${sid}`) && e.integration === "opencode")
-        .map((e) => {
-          const date = new Date(e.timestamp);
-          const timestamp = date.toISOString();
-          
-          // Map security events to assistant/system entries for the dashboard
-          if (e.eventType === "PreToolUse" || e.eventType === "PostToolUse") {
-             return {
-               type: "assistant",
-               _source: "session",
-               uuid: "",
-               parentUuid: null,
-               timestamp,
-               timestampMs: e.timestamp,
-               timestampFormatted: formatDate(date),
-               message: {
-                 role: "assistant",
-                 content: [{
-                   type: "tool_use",
-                   id: e.sessionId || "",
-                   name: e.toolName || "unknown",
-                   input: {},
-                   result: e.decision === "deny" ? {
-                     timestamp,
-                     timestampFormatted: formatDate(date),
-                     content: `Action blocked by policy: ${e.policyName}\nReason: ${e.reason}`,
-                     durationMs: e.durationMs,
-                     durationFormatted: formatDuration(e.durationMs)
-                   } : undefined
-                 }]
-               }
-             } as AssistantEntry;
-          }
-
-          return {
-            type: "system",
-            _source: "session",
-            uuid: "",
-            parentUuid: null,
-            timestamp,
-            timestampMs: e.timestamp,
-            timestampFormatted: formatDate(date),
-            raw: { ...e },
-          } as GenericEntry;
-        });
+        .filter((e) => (e.sessionId === sid || `ses_${e.sessionId}` === sid || e.sessionId === `ses_${sid}`) && (e.integration === "opencode" || !e.integration))
+        .map(mapActivityEntryToLogEntry);
 
       // Sort opencode entries by timestamp ascending
       entries.sort((a, b) => a.timestampMs - b.timestampMs);
       return { entries, rawLines: [], subagentIds: [] };
     } else {
-      throw e; // not a UUID or opencode session — re-throw original error
+      // Try activity-store for Cursor/Gemini/Codex/Pi sessions keyed by (sessionId + cwd)
+      const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
+      const { INTEGRATION_TYPES } = await import("../src/hooks/types");
+      const cwd = decodeFolderName(projectName);
+      const allActivity = getAllHookActivityEntries();
+      const VIRTUAL_INTEGRATIONS = INTEGRATION_TYPES as unknown as string[];
+      const matchingEntries = allActivity.filter(
+        (entry) =>
+          entry.sessionId === sessionId &&
+          VIRTUAL_INTEGRATIONS.includes(entry.integration || "") &&
+          (!entry.cwd || entry.cwd === cwd),
+      );
+      if (matchingEntries.length > 0) {
+        const entries = matchingEntries.map(mapActivityEntryToLogEntry);
+        entries.sort((a, b) => a.timestampMs - b.timestampMs);
+        return { entries, rawLines: [], subagentIds: [] };
+      }
+      throw e; // not a UUID, opencode, or virtual integration session — re-throw
     }
   }
 

@@ -119,6 +119,50 @@ function binaryExists(name: string): boolean {
   }
 }
 
+/**
+ * Shared utility to flatten a "data" property into the top-level payload.
+ * Many AI agent integrations (Copilot, OpenCode, Gemini) wrap their real
+ * metadata in a "data" field.
+ */
+function flattenPayloadData(payload: Record<string, unknown>): void {
+  if (payload.data && typeof payload.data === "object") {
+    const data = payload.data as Record<string, any>;
+    for (const key in data) {
+      if (!(key in payload)) {
+        payload[key] = data[key];
+      }
+    }
+  }
+}
+
+/**
+ * Recursively searches an object for the first occurrence of any provided keys.
+ * Used for "Deep Data Mining" in complex nested payloads (like Gemini).
+ */
+function deepExtract(obj: any, keys: string[]): any {
+  if (!obj || typeof obj !== "object") return null;
+  
+  // 1. Direct match
+  for (const key of keys) {
+    if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+  }
+
+  // 2. Recursive search in arrays or objects
+  if (Array.isArray(obj)) {
+    for (const item of obj) {
+      const found = deepExtract(item, keys);
+      if (found !== null) return found;
+    }
+  } else {
+    for (const k in obj) {
+      const found = deepExtract(obj[k], keys);
+      if (found !== null) return found;
+    }
+  }
+  
+  return null;
+}
+
 // ── Claude Code integration ─────────────────────────────────────────────────
 
 const claudeCode: Integration = {
@@ -152,8 +196,8 @@ const claudeCode: Integration = {
 
   buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown> {
     const command = scope === "project"
-      ? `npx -y failproofai --hook ${eventType}`
-      : `"${binaryPath}" --hook ${eventType}`;
+      ? `npx -y failproofai --hook ${eventType} --integration claude-code`
+      : `"${binaryPath}" --hook ${eventType} --integration claude-code`;
     return {
       type: "command",
       command: `"${process.execPath}" "${binaryPath}" --hook ${eventType} --integration claude-code --stdin`,
@@ -248,7 +292,21 @@ const claudeCode: Integration = {
     return binaryExists("claude");
   },
 
-  detect: () => true, // Fallback
+  detect: (payload) => {
+    const h = (payload.hook_event_name as string) || (payload.hookEventName as string) || "";
+    
+    // Explicit Identity Guard: If this is clearly a Gemini or Copilot event,
+    // do NOT let Claude hijack it even if detect returns true otherwise.
+    if (GEMINI_HOOK_EVENT_TYPES.includes(h as any)) return false;
+    if (COPILOT_HOOK_EVENT_TYPES.includes(h as any)) return false;
+
+    // Only detect as Claude if the event name is a known Claude hook event
+    return [
+      "beforeSubmitPrompt", "afterAgentResponse", "afterAgentThought",
+      "preToolUse", "postToolUse", "postToolUseFailure",
+      "sessionStart", "sessionEnd", "stop"
+    ].includes(h);
+  },
   normalizePayload: () => {}, // Claude uses snake_case natively
   getCanonicalEventName: (_, cliArg) => cliArg,
 };
@@ -382,23 +440,22 @@ const cursor: Integration = {
   },
 
   normalizePayload(payload) {
+    flattenPayloadData(payload);
+
     if (!payload.cwd && Array.isArray(payload.workspace_roots) && payload.workspace_roots.length > 0) {
       payload.cwd = payload.workspace_roots[0] as string;
     }
-    // Map tool input fields — for file events, wrap top-level file_path into tool_input
+    // Map tool input fields — prioritize structured data, then fall back to message text
     if (!payload.tool_input) {
       if (payload.file_path || payload.path) {
         payload.tool_input = { file_path: (payload.file_path ?? payload.path) as string };
       } else {
-        payload.tool_input = payload.toolInput ?? payload.command ?? payload.input ?? payload.tool_args ?? payload.toolArgs;
+        payload.tool_input = payload.toolInput ?? payload.command ?? payload.input ?? payload.tool_args ?? payload.toolArgs ?? 
+                             payload.message ?? payload.prompt ?? payload.text ?? payload.content ??
+                             (payload.data as any)?.params ?? (payload.data as any)?.arguments ?? (payload.data as any)?.message ?? (payload.data as any)?.text;
       }
     }
-    // Map tool output fields
-    if (!payload.tool_output) {
-      payload.tool_output = payload.toolOutput ?? payload.output ?? payload.tool_result ?? payload.toolResult;
-    }
-    // Map tool name — never fall back to hook_event_name: unknown event names like
-    // "beforeShellExecution" would fail isBashTool checks and toolNames policy matching.
+    // Map tool name
     if (!payload.tool_name) {
       const hookEvent = payload.hook_event_name as string | undefined;
       if (hookEvent === "beforeShellExecution" || hookEvent === "afterShellExecution") {
@@ -410,9 +467,24 @@ const cursor: Integration = {
         hookEvent === "afterFileEdit" || hookEvent === "afterTabFileEdit"
       ) {
         payload.tool_name = "edit_file";
+      } else if (hookEvent === "afterChatResponse" || hookEvent === "afterAgentResponse") {
+        payload.tool_name = "assistant_response";
       } else {
-        payload.tool_name = payload.toolName ?? payload.tool_event_name;
+        payload.tool_name = payload.toolName || payload.tool_event_name || (payload.data as any)?.call || (payload.data as any)?.method;
       }
+    }
+    
+    // Map tool output (ensure assistant responses are captured)
+    if (!payload.tool_output) {
+      payload.tool_output = payload.toolOutput ?? payload.output ?? payload.tool_result ?? payload.toolResult ?? 
+                           payload.message ?? payload.text ?? payload.content ??
+                           (payload.data as any)?.message ?? (payload.data as any)?.text ?? (payload.data as any)?.content;
+    }
+
+    // Lift specific CWD if found in tool input (Hyper-Specific Attribution)
+    const input = payload.tool_input as any;
+    if (input?.cwd || input?.working_directory || input?.directory) {
+      payload.cwd = input.cwd || input.working_directory || input.directory;
     }
   },
 
@@ -561,11 +633,31 @@ const gemini: Integration = {
   },
 
   normalizePayload: (payload) => {
-    // Gemini uses hook_event_name, tool_name, tool_args
-    if (!payload.tool_name && payload.toolName) payload.tool_name = payload.toolName;
-    if (!payload.tool_input && payload.tool_args) payload.tool_input = payload.tool_args;
-    if (!payload.tool_input && payload.toolArgs) payload.tool_input = payload.toolArgs;
-    if (!payload.tool_output && payload.toolOutput) payload.tool_output = payload.toolOutput;
+    flattenPayloadData(payload);
+
+    // Deep mining for Gemini: Text and Tool Data can be anywhere
+    const deepText = deepExtract(payload, ["text", "content", "parts", "message", "prompt"]);
+    const deepArgs = deepExtract(payload, ["arguments", "params", "args"]);
+    const deepName = deepExtract(payload, ["call", "method", "name", "toolName"]);
+
+    // Map tool name
+    if (!payload.tool_name) payload.tool_name = payload.toolName || deepName;
+    
+    // Map tool input (prioritize extracted text and args)
+    if (!payload.tool_input) {
+      payload.tool_input = payload.tool_args || payload.toolArgs || deepArgs || deepText;
+    }
+    
+    // Map tool output
+    if (!payload.tool_output) {
+      payload.tool_output = payload.toolOutput || deepExtract(payload, ["response", "result", "output"]);
+    }
+
+    // Lift CWD (Hyper-Specific Attribution)
+    const input = payload.tool_input as any;
+    if (input?.cwd || input?.working_directory || input?.directory) {
+      payload.cwd = input.cwd || input.working_directory || input.directory;
+    }
   },
 
   getCanonicalEventName(payload, cliArg) {
@@ -701,19 +793,9 @@ export function synchronizeCopilotProjectHooks(): void {
   if (!existsSync(globalSettingsPath)) return;
 
   try {
-    const globalSettings = readJsonFile(globalSettingsPath);
-    if (!globalSettings.hooks) globalSettings.hooks = {};
-    const gHooks = globalSettings.hooks as Record<string, any[]>;
-
-    // Remove existing failproofai hooks for deduplication
-    for (const event of Object.keys(gHooks)) {
-      gHooks[event] = gHooks[event].filter((h: any) =>
-        !h.bash?.includes("failproofai") &&
-        !h.bash?.includes("--integration copilot")
-      );
-    }
-
-    // Search for project settings
+    // Search for project settings FIRST — if there's no project file to
+    // merge in, we must not touch existing user-scope hooks (wiping them
+    // would leave the user with no active hooks at all).
     let currentDir = process.cwd();
     let projectSettingsPath: string | null = null;
     const maxDepth = 10;
@@ -727,8 +809,21 @@ export function synchronizeCopilotProjectHooks(): void {
       if (parent === currentDir) break;
       currentDir = parent;
     }
+    if (!projectSettingsPath) return; // nothing to sync — leave user-scope hooks intact
 
-    if (projectSettingsPath) {
+    const globalSettings = readJsonFile(globalSettingsPath);
+    if (!globalSettings.hooks) globalSettings.hooks = {};
+    const gHooks = globalSettings.hooks as Record<string, any[]>;
+
+    // Only strip project-scope entries (npx invocations) so user-scope
+    // entries (local-binary invocations) survive re-syncs.
+    for (const event of Object.keys(gHooks)) {
+      gHooks[event] = gHooks[event].filter((h: any) =>
+        !(typeof h.bash === "string" && h.bash.includes("npx -y failproofai") && h.bash.includes("--integration copilot"))
+      );
+    }
+
+    {
       const pSettings = readJsonFile(projectSettingsPath);
       if (pSettings.hooks) {
         const pHooks = pSettings.hooks as Record<string, any[]>;
@@ -781,12 +876,14 @@ const copilot: Integration = {
   },
 
   buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown> {
-    const pascalEvent = COPILOT_EVENT_MAP[eventType as CopilotHookEventType] ?? eventType;
-    // Project scope uses npx so the hooks file contains no machine-specific paths
-    // and can be safely committed to git.
+    // Pass Copilot's native camelCase event name (e.g. sessionStart, preToolUse)
+    // verbatim. The handler canonicalizes via getCanonicalEventName, and the
+    // camelCase form is the unique signal that distinguishes Copilot from
+    // Claude (PascalCase) even on older handlers that don't recognize the
+    // --integration flag.
     const bash = scope === "project"
-      ? `npx -y failproofai --hook ${pascalEvent} --integration copilot`
-      : `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --integration copilot`;
+      ? `npx -y failproofai --hook ${eventType} --integration copilot`
+      : `"${process.execPath}" "${binaryPath}" --hook ${eventType} --integration copilot`;
     return {
       type: "command",
       bash,
@@ -860,32 +957,44 @@ const copilot: Integration = {
   },
 
   detect(payload) {
-    // Copilot payloads typically use camelCase and are unique
-    // We must be careful not to match Claude Code which uses PascalCase (PreToolUse) or SnakeCase (session_id).
-    const hookName = (payload.hook_event_name as string) || (payload.hookEventName as string) || "";
+    if (payload.integration === "copilot") return true;
+    
+    // Check top level and nested data
+    const data = (payload.data as Record<string, any>) || {};
+    const hookName = (payload.hook_event_name as string) || (payload.hookEventName as string) || 
+                     (data.hook_event_name as string) || (data.hookEventName as string) || "";
+    
     return (
-      "sessionId" in payload ||
-      "toolName" in payload ||
-      "hookEventName" in payload ||
-      // Strictly avoid PascalCase events from Claude
+      "sessionId" in payload || "sessionId" in data ||
+      "toolName" in payload || "toolName" in data ||
+      "hookEventName" in payload || "hookEventName" in data ||
+      // Strictly avoid PascalCase events from Claude if they don't match Copilot expected types
       (COPILOT_HOOK_EVENT_TYPES.includes(hookName as any) && !/^[A-Z]/.test(hookName))
     );
   },
 
   normalizePayload(payload) {
+    flattenPayloadData(payload);
+
     // Copilot uses camelCase; normalize to internal snake_case
-    if (payload.sessionId && !payload.session_id) payload.session_id = payload.sessionId;
-    if (payload.toolName && !payload.tool_name) payload.tool_name = payload.toolName;
-    if (payload.toolInput && !payload.tool_input) payload.tool_input = payload.toolInput;
-    if (payload.toolArgs && !payload.tool_input) {
-      const raw = payload.toolArgs;
-      if (typeof raw === "string") {
-        try { payload.tool_input = JSON.parse(raw); } catch { payload.tool_input = raw; }
-      } else {
-        payload.tool_input = raw;
-      }
+    if (!payload.session_id) payload.session_id = payload.sessionId;
+    if (!payload.tool_name) payload.tool_name = payload.toolName || (payload.data as any)?.toolName || (payload.data as any)?.call || (payload.data as any)?.method;
+    if (!payload.tool_input) {
+      payload.tool_input = payload.toolInput || payload.toolArgs || (payload.data as any)?.toolInput || (payload.data as any)?.params || (payload.data as any)?.arguments ||
+                           payload.message || payload.prompt || payload.text || (payload.data as any)?.message;
+    }
+    if (!payload.tool_output) {
+      payload.tool_output = payload.toolOutput || payload.toolResult || (payload.data as any)?.toolOutput || (payload.data as any)?.result ||
+                           payload.message || payload.text || (payload.data as any)?.message;
     }
     if (payload.hookEventName && !payload.hook_event_name) payload.hook_event_name = payload.hookEventName;
+    if (payload.session_id && !payload.sessionId) payload.sessionId = payload.session_id;
+
+    // Lift CWD (Hyper-Specific Attribution)
+    const input = payload.tool_input as any;
+    if (input?.cwd || input?.working_directory || input?.directory) {
+      payload.cwd = input.cwd || input.working_directory || input.directory;
+    }
   },
 
   getCanonicalEventName(payload, cliArg) {
@@ -1043,8 +1152,17 @@ const codex: Integration = {
     );
   },
 
-  normalizePayload: () => {
-    // Codex hook payloads already use snake_case fields.
+  normalizePayload(payload) {
+    flattenPayloadData(payload);
+    if (!payload.tool_name) payload.tool_name = payload.toolName || payload.method || (payload.data as any)?.call;
+    if (!payload.tool_input) payload.tool_input = payload.toolInput || payload.params || payload.arguments || (payload.data as any)?.parameters || payload.message || payload.prompt || (payload.data as any)?.message;
+    if (!payload.tool_output) payload.tool_output = payload.toolOutput || payload.result || payload.output || payload.message || (payload.data as any)?.message;
+    
+    // Lift CWD (Hyper-Specific Attribution)
+    const input = payload.tool_input as any;
+    if (input?.cwd || input?.working_directory || input?.directory) {
+      payload.cwd = input.cwd || input.working_directory || input.directory;
+    }
   },
 
   getCanonicalEventName(payload, cliArg) {
@@ -1393,11 +1511,20 @@ export default function (pi: ExtensionAPI) {
   },
 
   detect(payload) {
-    return !!(payload.integration === "pi");
+    if (payload.integration === "codex") return true;
+    const data = (payload.data as Record<string, any>) || {};
+    return !!(
+      payload.codex_session_id || data.codex_session_id ||
+      payload.codex_event || data.codex_event
+    );
   },
 
-  normalizePayload: () => {
-    // Pi payloads use standard fields
+  normalizePayload(payload) {
+    flattenPayloadData(payload);
+    
+    if (payload.codex_session_id && !payload.session_id) payload.session_id = payload.codex_session_id;
+    if (payload.codex_session_id && !payload.sessionId) payload.sessionId = payload.codex_session_id;
+    if (payload.codex_event && !payload.hook_event_name) payload.hook_event_name = payload.codex_event;
   },
 
   getCanonicalEventName(payload, cliArg) {

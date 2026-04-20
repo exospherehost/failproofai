@@ -29,6 +29,7 @@ import { useUrlParams } from "@/lib/use-url-params";
 import { pageToParam, paramToPage } from "@/lib/url-filter-serializers";
 import { formatRelativeTime } from "@/lib/format-duration";
 import { Button } from "@/components/ui/button";
+import { IntegrationBadge } from "@/components/integration-badge";
 
 function formatAbsoluteTime(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
@@ -108,23 +109,7 @@ function DecisionBadge({ decision }: { decision: "allow" | "deny" | "instruct" }
   );
 }
 
-function IntegrationBadge({ integration }: { integration?: string }) {
-  const labels: Record<string, string> = {
-    "claude-code": "Claude",
-    "cursor": "Cursor",
-    "gemini": "Gemini",
-    "copilot": "Copilot",
-    "codex": "Codex",
-    "opencode": "OpenCode",
-    "pi": "Pi",
-  };
-  const label = labels[integration || "claude-code"] || integration || "Claude";
-  return (
-    <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium bg-primary/10 text-primary border border-primary/20">
-      {label}
-    </span>
-  );
-}
+// Integration badge removed in favor of shared component
 
 function EventTypeBadge({ eventType }: { eventType: string }) {
   return (
@@ -440,6 +425,8 @@ function ActivityTab({
             <option value="gemini">Gemini</option>
             <option value="copilot">Copilot</option>
             <option value="codex">Codex</option>
+            <option value="opencode">OpenCode</option>
+            <option value="pi">Pi Agent</option>
           </select>
           <div className="relative">
             <input
@@ -569,7 +556,7 @@ function ActivityTab({
                           )}
                         </td>
                          <td className="px-3 py-2">
-                          <IntegrationBadge integration={item.integration} />
+                          <IntegrationBadge integration={item.integration as any} />
                         </td>
                         <td
                           className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap"

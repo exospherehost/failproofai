@@ -28,7 +28,9 @@ export default async function SessionPage({ params }: SessionPageProps) {
   }
   const decodedName = decodeFolderName(name);
   const decodedSessionId = baseSessionId(sessionId);
-  if (!UUID_RE.test(decodedSessionId)) notFound();
+  // Allow UUIDs (Claude/Copilot), ses_ prefixed IDs (OpenCode), and other safe alphanumeric IDs
+  const SAFE_SESSION_RE = /^[a-zA-Z0-9_-]+$/;
+  if (!SAFE_SESSION_RE.test(decodedSessionId)) notFound();
 
   let entries = null;
   let rawLines: Record<string, unknown>[] | null = null;

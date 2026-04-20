@@ -63,8 +63,10 @@ function triggerHardStop(integration: string | undefined): void {
 }
 
 function getAllowStdout(integration: string | undefined, eventType?: string): string {
-  // Use loose matching for tool hooks to cover both PascalCase (Claude) and camelCase (Cursor)
-  const isTool = eventType?.toLowerCase().includes("tool") || eventType?.toLowerCase().includes("shell") || eventType?.toLowerCase().includes("execution");
+  const low = (eventType || "").toLowerCase();
+  // Broadly match tool, shell, or execution lifecycle events that require protocol responses.
+  // This covers BeforeTool, AfterTool (Gemini), preToolUse, postToolUse (Cursor), PreToolUse (Claude), etc.
+  const isTool = low.includes("tool") || low.includes("shell") || low.includes("execution");
 
   if (integration === "gemini" && isTool) {
     return JSON.stringify({ decision: "allow" });
@@ -72,7 +74,7 @@ function getAllowStdout(integration: string | undefined, eventType?: string): st
   if (integration === "cursor" && isTool) {
     return JSON.stringify({ continue: true, permission: "allow" });
   }
-  if (integration === "copilot" && (eventType === "PreToolUse" || eventType === "preToolUse")) {
+  if (integration === "copilot" && low.includes("tool")) {
     return JSON.stringify({ permissionDecision: "allow" });
   }
   return "";
@@ -330,7 +332,7 @@ export async function evaluatePolicies(
 
     return {
       exitCode: 0,
-      stdout: "",
+      stdout: getAllowStdout(session?.integration, eventType),
       stderr: combined,
       policyName: policyNames[0],
       policyNames,

@@ -275,7 +275,10 @@ function collapseDuplicates(entries: HookActivityEntry[]): HookActivityEntry[] {
 
     const twinIdx = out.findIndex((r) =>
       r.sessionId && r.sessionId === entry.sessionId &&
-      r.eventType === entry.eventType &&
+      (
+        (r.hookEventName && entry.hookEventName && r.hookEventName === entry.hookEventName) ||
+        r.eventType === entry.eventType
+      ) &&
       r.decision === entry.decision &&
       (r.toolName ?? null) === (entry.toolName ?? null) &&
       Math.abs(r.timestamp - entry.timestamp) < window
@@ -408,7 +411,9 @@ function isDuplicateInLog(entry: HookActivityEntry, filePath: string): boolean {
         if (!line) continue;
         const prev = JSON.parse(line) as HookActivityEntry;
 
-        if (prev.sessionId === entry.sessionId && prev.eventType === entry.eventType) {
+        if (prev.sessionId === entry.sessionId && 
+            ((prev.hookEventName && entry.hookEventName && prev.hookEventName === entry.hookEventName) || 
+             prev.eventType === entry.eventType)) {
           // Extra safety - only deduplicate if the decision and policy names also match.
           // This ensures that different policy outcomes for the same event (unlikely in normal use
           // but common in tests/re-runs) are preserved.
