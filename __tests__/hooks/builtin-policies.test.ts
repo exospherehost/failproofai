@@ -2169,8 +2169,86 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("gh pr create");
     });
 
-    it("denies when PR is merged and file changes exist", async () => {
+    it("denies when PR is merged and file changes exist after fetch", async () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" } });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("merged");
+    });
+
+    it("allows when PR is merged and branch is up to date after fetch (regular merge)", async () => {
+      let fetched = false;
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("gh --version")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) {
+          return JSON.stringify({ number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" });
+        }
+        return "";
+      });
+      vi.mocked(execFileSync).mockImplementation((_cmd: string, args?: readonly string[]) => {
+        const joined = args?.join(" ") ?? "";
+        if (joined.includes("fetch")) { fetched = true; return ""; }
+        if (joined.includes("log") && joined.includes("..HEAD")) {
+          return fetched ? "" : "abc123 some commit\n";
+        }
+        if (joined.includes("diff") && joined.includes("--stat")) {
+          return fetched ? "" : " src/index.ts | 2 +-\n 1 file changed\n";
+        }
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("was merged");
+      expect(result.reason).toContain("up to date");
+    });
+
+    it("allows when PR is merged and no file diff after fetch (squash merge)", async () => {
+      let fetched = false;
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("gh --version")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) {
+          return JSON.stringify({ number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" });
+        }
+        return "";
+      });
+      vi.mocked(execFileSync).mockImplementation((_cmd: string, args?: readonly string[]) => {
+        const joined = args?.join(" ") ?? "";
+        if (joined.includes("fetch")) { fetched = true; return ""; }
+        if (joined.includes("log") && joined.includes("..HEAD")) {
+          return "abc123 old squash commit\n";
+        }
+        if (joined.includes("diff") && joined.includes("--stat")) {
+          return fetched ? "" : " src/index.ts | 2 +-\n 1 file changed\n";
+        }
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("was merged");
+      expect(result.reason).toContain("no file changes");
+    });
+
+    it("falls through to deny when fetch fails on merged PR", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("gh --version")) return "/usr/bin/gh\n";
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) {
+          return JSON.stringify({ number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" });
+        }
+        return "";
+      });
+      vi.mocked(execFileSync).mockImplementation((_cmd: string, args?: readonly string[]) => {
+        const joined = args?.join(" ") ?? "";
+        if (joined.includes("fetch")) throw new Error("network error");
+        if (joined.includes("log") && joined.includes("..HEAD")) return "abc123 commit\n";
+        if (joined.includes("diff") && joined.includes("--stat")) return " src/index.ts | 2 +-\n";
+        return "";
+      });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("deny");
