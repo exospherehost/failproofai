@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Features
+- Add `prefer-package-manager` builtin policy to enforce allowed package managers (e.g., uv instead of pip)
+
 ## 0.0.6-beta.0 — 2026-04-20
 
 ### Fixes
