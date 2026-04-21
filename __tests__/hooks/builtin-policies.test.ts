@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { execSync, execFileSync } from "node:child_process";
 import { BUILTIN_POLICIES, registerBuiltinPolicies, clearGitBranchCache } from "../../src/hooks/builtin-policies";
 import { getPoliciesForEvent, clearPolicies } from "../../src/hooks/policy-registry";
@@ -11,6 +12,10 @@ vi.mock("node:fs/promises", () => ({
   writeFile: vi.fn(),
   stat: vi.fn().mockResolvedValue({ size: 0 }),
   open: vi.fn(),
+}));
+
+vi.mock("node:fs", () => ({
+  readFileSync: vi.fn().mockReturnValue(""),
 }));
 
 vi.mock("node:child_process", () => ({
@@ -2617,6 +2622,7 @@ describe("hooks/builtin-policies", () => {
     afterEach(() => {
       vi.mocked(execSync).mockReset();
       vi.mocked(execFileSync).mockReset();
+      vi.mocked(readFileSync).mockReset();
       clearGitBranchCache();
     });
 

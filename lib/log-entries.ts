@@ -180,30 +180,31 @@ function mapActivityEntryToLogEntry(e: any): LogEntry {
   const lowEvent = (e.eventType || "").toLowerCase();
 
   // 1. User Prompts (Claude, Cursor, Gemini, Copilot, Codex, OpenCode, Pi)
-  const isUserEvent = 
-    lowEvent.includes("prompt") || 
-    lowEvent.includes("submit") || 
-    lowEvent.includes("message") || 
-    lowEvent.includes("chat") || 
+  const isUserEvent =
+    lowEvent.includes("prompt") ||
+    lowEvent.includes("submit") ||
+    lowEvent.includes("message") ||
+    lowEvent.includes("chat") ||
     lowEvent.includes("input");
 
   if (isUserEvent) {
+    const ti = e.toolInput as Record<string, unknown> | string | undefined;
+    const prompt = (
+      typeof ti === "string" ? ti
+        : (ti?.user_prompt ?? ti?.prompt ?? ti?.input ?? ti?.message ?? ti?.text ?? e.reason ?? "User prompt")
+    ) as string;
     return {
       type: "user",
       ...baseDetails,
-      message: {
-        role: "user",
-        // Extract prompt from toolInput if it's a string, or check specific prompt fields
-        content: (typeof e.toolInput === 'string' ? e.toolInput : (e.toolInput?.user_prompt || e.toolInput?.prompt || e.toolInput?.input || e.toolInput?.message || e.toolInput?.text)) || e.reason || "User prompt",
-      },
+      message: { role: "user", content: String(prompt) },
     } as UserEntry;
   }
 
   // 2. Tool Use (Assistant)
-  const isToolEvent = 
-    lowEvent.includes("tool") || 
-    lowEvent.includes("shell") || 
-    lowEvent.includes("mcp") || 
+  const isToolEvent =
+    lowEvent.includes("tool") ||
+    lowEvent.includes("shell") ||
+    lowEvent.includes("mcp") ||
     lowEvent.includes("readfile") ||
     lowEvent.includes("execute") ||
     lowEvent.includes("execution") ||
@@ -212,13 +213,15 @@ function mapActivityEntryToLogEntry(e: any): LogEntry {
   if (isToolEvent) {
     const isDeny = e.decision === "deny";
     const isInstruct = e.decision === "instruct";
-    
-    let resultContent = e.toolOutput as string | undefined;
+
+    let resultContent = (e.toolOutput as string | undefined);
     if (isDeny) {
       resultContent = `MANDATORY ACTION REQUIRED from FailproofAI (policy: ${e.policyName}): ${e.reason}`;
     } else if (isInstruct) {
       resultContent = `[FailproofAI Instruction] ${e.reason}`;
     }
+
+    const toolInput = (e.toolInput as Record<string, unknown> | undefined) ?? {};
 
     return {
       type: "assistant",
@@ -227,18 +230,18 @@ function mapActivityEntryToLogEntry(e: any): LogEntry {
         role: "assistant",
         content: [{
           type: "tool_use",
-          id: (e.sessionId || "") + "-tool-" + e.timestamp,
+          id: `${e.sessionId || ""}-tool-${e.timestamp}`,
           name: e.toolName || "unknown_tool",
-          input: e.toolInput || {},
+          input: toolInput,
           result: resultContent ? {
             timestamp,
             timestampFormatted: formatDate(date),
             content: resultContent,
             durationMs: e.durationMs || 0,
             durationFormatted: formatDuration(e.durationMs || 0),
-          } : undefined
-        }]
-      }
+          } : undefined,
+        }],
+      },
     } as AssistantEntry;
   }
 

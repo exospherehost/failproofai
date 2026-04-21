@@ -125,6 +125,26 @@ describe("getProjectFolders", () => {
     expect(result).toHaveLength(1);
     expect(result[0].lastModified.getTime()).toBe(0);
   });
+
+  it("includes Copilot UUID session folders as projects", async () => {
+    const sessionId = "11111111-2222-3333-4444-555555555555";
+
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Claude root missing
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any); // Copilot root exists
+    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode root missing
+    mockReaddir.mockResolvedValueOnce([
+      { name: sessionId, isDirectory: () => true, isFile: () => false } as any,
+      { name: "not-a-session", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: new Date("2024-06-20T00:00:00Z") } as any);
+
+    const result = await getProjectFolders();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe(sessionId);
+    expect(result[0].source).toBe("copilot");
+    expect(result[0].sources).toEqual(["copilot"]);
+  });
 });
 
 describe("getSessionFiles", () => {
@@ -195,5 +215,27 @@ describe("getSessionFiles", () => {
     mockGetAllActivity.mockReturnValueOnce([]);
     const result = await getSessionFiles("/nonexistent");
     expect(result).toEqual([]);
+  });
+
+  it("returns Copilot events.jsonl as a session file when the project path is a UUID directory", async () => {
+    const sessionId = "11111111-2222-3333-4444-555555555555";
+    const projectPath = `/mock/.copilot/session-state/${sessionId}`;
+
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "events.jsonl", isFile: () => true, isDirectory: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: new Date("2024-06-21T00:00:00Z") } as any);
+    mockGetAllActivity.mockReturnValueOnce([]);
+
+    const result = await getSessionFiles(projectPath);
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        name: "events.jsonl",
+        sessionId,
+      }),
+    );
   });
 });

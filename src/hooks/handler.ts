@@ -6,7 +6,7 @@
  * activity to disk, and returns the appropriate exit code + stdout response.
  */
 import type { HookEventType, SessionMetadata, IntegrationType } from "./types";
-import { COPILOT_EVENT_MAP, CODEX_HOOK_EVENT_TYPES, GEMINI_HOOK_EVENT_TYPES, COPILOT_HOOK_EVENT_TYPES } from "./types";
+import { COPILOT_EVENT_MAP, CODEX_HOOK_EVENT_TYPES, GEMINI_HOOK_EVENT_TYPES, COPILOT_HOOK_EVENT_TYPES, HOOK_EVENT_TYPES } from "./types";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
 import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
@@ -22,7 +22,7 @@ import { getIntegration, INTEGRATIONS } from "./integrations";
 import { getClaudeProjectsPath, encodeCwd } from "../../lib/paths";
 import type { HookActivityEntry } from "./hook-activity-store";
 
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 const DEDUP_BUCKET_MS = 2000; // 2s time buckets (4-6s total lookback)
 const DEDUP_DIR = join(homedir(), ".failproofai", "cache", "dedup");
@@ -173,13 +173,115 @@ function tryAcquireFiringLock(eventType: string, sessionId: string | undefined, 
   }
 }
 
+interface VirtualLogState {
+  lastUuid: string | null;
+  pendingTools: Record<string, string>;
+}
+
+/**
+ * Writes a proper LogEntry-shaped line to the virtual project log for non-Claude integrations.
+ * Uses a small sidecar (.state.json) to thread UUIDs and tool_use IDs across separate
+ * PreToolUse / PostToolUse hook process invocations, so parseFileContent can enrich
+ * tool_use blocks with their results exactly like a real Claude Code transcript.
+ */
+export function writeVirtualLogEntry(
+  logPath: string,
+  eventType: string,
+  parsed: Record<string, unknown>,
+): void {
+  const sidecarPath = `${logPath}.state.json`;
+
+  let state: VirtualLogState = { lastUuid: null, pendingTools: {} };
+  try {
+    state = JSON.parse(readFileSync(sidecarPath, "utf-8")) as VirtualLogState;
+  } catch { /* fresh session or unreadable — start clean */ }
+
+  const newUuid = randomUUID();
+  const timestamp = new Date().toISOString();
+  let logLine: string | null = null;
+
+  if (eventType === "UserPromptSubmit") {
+    const toolInput = parsed.tool_input as Record<string, unknown> | string | undefined;
+    const prompt = (
+      typeof toolInput === "string" ? toolInput
+        : ((toolInput?.user_prompt ?? toolInput?.prompt ?? parsed.prompt ?? "") as string)
+    ).trim();
+    if (!prompt) return;
+
+    logLine = JSON.stringify({
+      type: "user",
+      uuid: newUuid,
+      parentUuid: state.lastUuid,
+      timestamp,
+      message: { role: "user", content: prompt },
+    });
+    state.lastUuid = newUuid;
+
+  } else if (eventType === "PreToolUse") {
+    const toolName = (parsed.tool_name as string) || "unknown_tool";
+    const toolInput = (parsed.tool_input as Record<string, unknown>) || {};
+    const toolUseId = `toolu_virt_${randomUUID().replace(/-/g, "").slice(0, 20)}`;
+
+    const inputKey = `${toolName}:${JSON.stringify(toolInput).slice(0, 300)}`;
+    state.pendingTools[inputKey] = toolUseId;
+    // Prevent unbounded growth on very long sessions
+    const keys = Object.keys(state.pendingTools);
+    if (keys.length > 50) delete state.pendingTools[keys[0]];
+
+    logLine = JSON.stringify({
+      type: "assistant",
+      uuid: newUuid,
+      parentUuid: state.lastUuid,
+      timestamp,
+      message: {
+        role: "assistant",
+        content: [{ type: "tool_use", id: toolUseId, name: toolName, input: toolInput }],
+      },
+    });
+    state.lastUuid = newUuid;
+
+  } else if (eventType === "PostToolUse") {
+    const toolName = (parsed.tool_name as string) || "unknown_tool";
+    const toolInput = (parsed.tool_input as Record<string, unknown>) || {};
+    const toolOutput = ((parsed.tool_response ?? parsed.output ?? parsed.tool_result ?? "") as string);
+
+    const inputKey = `${toolName}:${JSON.stringify(toolInput).slice(0, 300)}`;
+    const toolUseId = state.pendingTools[inputKey];
+    if (!toolUseId) return; // orphaned PostToolUse — no matching Pre
+    delete state.pendingTools[inputKey];
+
+    logLine = JSON.stringify({
+      type: "user",
+      uuid: newUuid,
+      parentUuid: state.lastUuid,
+      timestamp,
+      message: {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: toolUseId, content: toolOutput }],
+      },
+    });
+    state.lastUuid = newUuid;
+  }
+
+  if (logLine) {
+    appendFileSync(logPath, logLine + "\n");
+    try { writeFileSync(sidecarPath, JSON.stringify(state), "utf-8"); } catch { /* non-fatal */ }
+  }
+}
+
 export async function handleHookEvent(eventType: string, integrationOverride?: string): Promise<{ exitCode: number; hardStop: boolean }> {
-  // SILENCE GUARD: If a hook claims to be Claude but the event name is unique to Gemini/Copilot,
-  // it means we have a duplicate legacy hook firing from an old installation. 
-  // SILENTLY ABORT to avoid duplicate/incorrect logs in the dashboard.
+  // SILENCE GUARD: If a hook is EXPLICITLY labeled as Claude but the event name 
+  // is unique to Gemini/Copilot, it means we have a duplicate legacy hook firing 
+  // from an old installation. SILENTLY ABORT to avoid duplicate/incorrect logs.
+  // Note: We only silence if the flag is explicitly 'claude-code'. If it's 
+  // missing, we let it fall through to the detection logic.
   if (integrationOverride === "claude-code") {
-    if (GEMINI_HOOK_EVENT_TYPES.includes(eventType as any)) return { exitCode: 0, hardStop: false };
-    if (COPILOT_HOOK_EVENT_TYPES.includes(eventType as any)) return { exitCode: 0, hardStop: false };
+    const isGeminiUnique = GEMINI_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
+    const isCopilotUnique = COPILOT_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
+    
+    if (isGeminiUnique || isCopilotUnique) {
+      return { exitCode: 0, hardStop: false };
+    }
   }
 
   // 1. Read stdin payload
@@ -236,7 +338,10 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
     const GEMINI_UNIQUE = ["BeforeTool", "AfterTool", "BeforeAgent", "AfterAgent", "BeforeModel", "AfterModel", "BeforeToolSelection", "PreCompress"];
     if (GEMINI_UNIQUE.includes(eventType)) {
       integrationType = "gemini";
-    } else if (COPILOT_HOOK_EVENT_TYPES.includes(eventType as any)) {
+    } else if (COPILOT_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any)) {
+      // camelCase event names are the unique signature of Copilot/Cursor.
+      // PascalCase SessionStart/SessionEnd are shared by Claude/Gemini.
+      // We check that the event is NOT in the standard Claude/Gemini PascalCase list.
       integrationType = "copilot";
     } else if (CODEX_HOOK_EVENT_TYPES.includes(eventType as any)) {
       integrationType = "codex";
@@ -291,12 +396,13 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
     ((parsed.data as any)?.sessionID as string | undefined) ||
     ((parsed.data as any)?.conversationID as string | undefined) ||
     ((parsed.data as any)?.chatId as string | undefined) ||
-    // Environment Recovery: Catch headless agents
-    process.env.COPILOT_SESSION_ID ||
-    process.env.COPILOT_CMD_ID ||
+    // Environment Recovery: Catch headless agents (Prioritize Copilot for camelCase events)
+    (integrationType === "copilot" ? process.env.COPILOT_SESSION_ID || process.env.COPILOT_CMD_ID : undefined) ||
     process.env.CURSOR_SESSION_ID ||
     process.env.CLAUDE_SESSION_ID ||
-    process.env.GEMINI_SESSION_ID;
+    process.env.GEMINI_SESSION_ID ||
+    process.env.COPILOT_SESSION_ID ||
+    process.env.COPILOT_CMD_ID;
 
   let finalCwd = parsed.cwd as string | undefined;
   // Prioritize PWD (actual terminal location) over process.cwd() (often workspace root)

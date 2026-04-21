@@ -1,11 +1,27 @@
-import { describe, it, expect } from "vitest";
-import { parseLogContent, parseRawLines } from "@/lib/log-entries";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { parseLogContent, parseRawLines, parseSessionLog } from "@/lib/log-entries";
 import type { UserEntry, AssistantEntry, GenericEntry, QueueOperationEntry } from "@/lib/log-entries";
 
 // Helper to create a JSONL line
 function line(obj: Record<string, unknown>): string {
   return JSON.stringify(obj);
 }
+
+let tempRoot = "";
+
+beforeEach(() => {
+  tempRoot = mkdtempSync(join(tmpdir(), "failproofai-log-entries-"));
+});
+
+afterEach(() => {
+  delete process.env.CLAUDE_PROJECTS_PATH;
+  delete process.env.COPILOT_SESSION_STATE_PATH;
+  if (tempRoot) rmSync(tempRoot, { recursive: true, force: true });
+  tempRoot = "";
+});
 
 describe("parseLogContent", () => {
   describe("basic parsing", () => {
@@ -578,6 +594,83 @@ describe("parseLogContent", () => {
       for (const entry of entries) {
         expect(entry._source).toBe("agent-xyz");
       }
+    });
+  });
+
+  describe("Copilot dashboard visibility", () => {
+    it("maps Copilot user prompt activity entries into user-visible log lines", async () => {
+      const content = line({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "UserPromptSubmit",
+        sessionId: "copilot-session-1",
+        integration: "copilot",
+        toolInput: { prompt: "Explain this repo" },
+      });
+
+      const entries = await parseLogContent(content);
+      expect(entries).toHaveLength(1);
+      const entry = entries[0] as UserEntry;
+      expect(entry.type).toBe("user");
+      expect(entry.message.content).toBe("Explain this repo");
+    });
+
+    it("maps Copilot lifecycle activity entries into assistant text for the session view", async () => {
+      const content = line({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "SessionStart",
+        sessionId: "copilot-session-2",
+        integration: "copilot",
+      });
+
+      const entries = await parseLogContent(content);
+      expect(entries).toHaveLength(1);
+      const entry = entries[0] as AssistantEntry;
+      expect(entry.type).toBe("assistant");
+      expect(entry.message.content[0].type).toBe("text");
+      if (entry.message.content[0].type === "text") {
+        expect(entry.message.content[0].text).toContain("copilot");
+      }
+    });
+
+    it("loads Copilot session logs from the session-state UUID folder", async () => {
+      const sessionId = "11111111-2222-3333-4444-555555555555";
+      const claudeRoot = join(tempRoot, ".claude", "projects");
+      const copilotRoot = join(tempRoot, ".copilot", "session-state");
+      const sessionDir = join(copilotRoot, sessionId);
+
+      mkdirSync(sessionDir, { recursive: true });
+      writeFileSync(
+        join(sessionDir, "events.jsonl"),
+        [
+          line({
+            type: "user",
+            uuid: "u1",
+            parentUuid: null,
+            timestamp: "2024-06-15T12:00:00.000Z",
+            message: { role: "user", content: "hello from copilot" },
+          }),
+          line({
+            type: "assistant",
+            uuid: "a1",
+            parentUuid: "u1",
+            timestamp: "2024-06-15T12:00:01.000Z",
+            message: {
+              role: "assistant",
+              content: [{ type: "text", text: "copilot reply" }],
+            },
+          }),
+        ].join("\n"),
+        "utf8",
+      );
+
+      process.env.CLAUDE_PROJECTS_PATH = claudeRoot;
+      process.env.COPILOT_SESSION_STATE_PATH = copilotRoot;
+
+      const result = await parseSessionLog(sessionId, sessionId);
+
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[0].type).toBe("user");
+      expect(result.entries[1].type).toBe("assistant");
     });
   });
 });

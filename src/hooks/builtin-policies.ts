@@ -3,6 +3,7 @@
  */
 import { resolve, join } from "node:path";
 import { readFile, writeFile, mkdir, stat, open } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { execSync, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
@@ -1224,9 +1225,37 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
   }
 }
 
+/** Returns false only when we can confirm the transcript has no tool_use blocks; fails open otherwise. */
+function sessionHadToolUse(ctx: PolicyContext): boolean {
+  const transcriptPath = ctx.session?.transcriptPath;
+  if (!transcriptPath) return true; // can't confirm — assume work was done
+  try {
+    const lines = readFileSync(transcriptPath, "utf8").split("\n");
+    for (const line of lines) {
+      if (!line.trim()) continue;
+      try {
+        const entry = JSON.parse(line) as Record<string, unknown>;
+        const content = (entry.message as Record<string, unknown> | undefined)?.content;
+        if (Array.isArray(content)) {
+          for (const block of content as Record<string, unknown>[]) {
+            if (block.type === "tool_use") return true;
+          }
+        }
+      } catch { /* skip malformed lines */ }
+    }
+  } catch {
+    return true; // unreadable — assume work was done
+  }
+  return false; // transcript readable and confirmed no tool_use
+}
+
 function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
   const cwd = ctx.session?.cwd;
   if (!cwd) return allow("No working directory available, skipping CI check.");
+
+  if (!sessionHadToolUse(ctx)) {
+    return allow("No tool use in this session, skipping CI check.");
+  }
 
   try {
     // Check if gh CLI is available

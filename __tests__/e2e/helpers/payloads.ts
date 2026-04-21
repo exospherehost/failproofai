@@ -173,6 +173,34 @@ export const GeminiPayloads = {
 };
 
 export const CopilotPayloads = {
+  sessionStart(cwd: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      sessionId: SESSION_ID,
+      cwd,
+      hookEventName: "sessionStart",
+      ...overrides,
+    };
+  },
+
+  sessionEnd(cwd: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      sessionId: SESSION_ID,
+      cwd,
+      hookEventName: "sessionEnd",
+      ...overrides,
+    };
+  },
+
+  userPromptSubmitted(prompt: string, cwd: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      sessionId: SESSION_ID,
+      cwd,
+      hookEventName: "userPromptSubmitted",
+      prompt,
+      ...overrides,
+    };
+  },
+
   preToolUse: {
     bash(command: string, cwd: string): Record<string, unknown> {
       return {
@@ -183,13 +211,81 @@ export const CopilotPayloads = {
         toolInput: command,
       };
     },
+
+    bashViaToolArgs(
+      command: string,
+      cwd: string,
+      overrides: Record<string, unknown> = {},
+    ): Record<string, unknown> {
+      return {
+        sessionId: SESSION_ID,
+        cwd,
+        hookEventName: "preToolUse",
+        toolName: "bash",
+        toolArgs: JSON.stringify({ command }),
+        ...overrides,
+      };
+    },
+
+    malformedToolArgs(
+      raw: string,
+      cwd: string,
+      overrides: Record<string, unknown> = {},
+    ): Record<string, unknown> {
+      return {
+        sessionId: SESSION_ID,
+        cwd,
+        hookEventName: "preToolUse",
+        toolName: "bash",
+        toolArgs: raw,
+        ...overrides,
+      };
+    },
   },
-  userPromptSubmitted(prompt: string, cwd: string): Record<string, unknown> {
+
+  postToolUse: {
+    bash(
+      command: string,
+      cwd: string,
+      overrides: Record<string, unknown> = {},
+    ): Record<string, unknown> {
+      return {
+        sessionId: SESSION_ID,
+        cwd,
+        hookEventName: "postToolUse",
+        toolName: "bash",
+        toolInput: { command },
+        toolResult: "ok",
+        ...overrides,
+      };
+    },
+  },
+
+  agentStop(cwd: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
     return {
       sessionId: SESSION_ID,
       cwd,
-      hookEventName: "userPromptSubmitted",
-      prompt,
+      hookEventName: "agentStop",
+      ...overrides,
+    };
+  },
+
+  subagentStop(cwd: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      sessionId: SESSION_ID,
+      cwd,
+      hookEventName: "subagentStop",
+      ...overrides,
+    };
+  },
+
+  errorOccurred(message: string, cwd: string, overrides: Record<string, unknown> = {}): Record<string, unknown> {
+    return {
+      sessionId: SESSION_ID,
+      cwd,
+      hookEventName: "errorOccurred",
+      message,
+      ...overrides,
     };
   },
 };

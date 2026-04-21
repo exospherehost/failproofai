@@ -36,8 +36,10 @@ function getDenyMessage(integration: string | undefined, policyName: string, rea
   return `[FailproofAI Security Stop] Policy: ${policyName} - ${cleanReason}`;
 }
 
-function getDenyStdout(integration: string | undefined, policyName: string, reason: string): string {
+function getDenyStdout(integration: string | undefined, policyName: string, reason: string, eventType?: string): string {
   const msg = getDenyMessage(integration, policyName, reason);
+  const low = (eventType || "").toLowerCase();
+
   if (integration === "gemini") {
     return JSON.stringify({
       decision: "deny",
@@ -53,6 +55,19 @@ function getDenyStdout(integration: string | undefined, policyName: string, reas
       userMessage: msg,
       agentMessage: msg,
     });
+  }
+  if (integration === "copilot") {
+    if (low.includes("pretool") || low.includes("selection")) {
+      return JSON.stringify({
+        permissionDecision: "deny",
+        permissionDecisionReason: msg,
+      });
+    }
+    if (low.includes("posttool")) {
+      return JSON.stringify({ additionalContext: msg });
+    }
+    // agentStop, errorOccurred, etc.
+    return JSON.stringify({ action: "cancel", reason: msg });
   }
   return "";
 }
@@ -74,7 +89,7 @@ function getAllowStdout(integration: string | undefined, eventType?: string): st
   if (integration === "cursor" && isTool) {
     return JSON.stringify({ continue: true, permission: "allow" });
   }
-  if (integration === "copilot" && low.includes("tool")) {
+  if (integration === "copilot" && isTool) {
     return JSON.stringify({ permissionDecision: "allow" });
   }
   return "";
@@ -167,7 +182,7 @@ export async function evaluatePolicies(
       hookLogInfo(`deny by "${policy.name}": ${reason}`);
 
       const stderr = getDenyMessage(session?.integration, policy.name, reason);
-      const stdout = getDenyStdout(session?.integration, policy.name, reason);
+      const stdout = getDenyStdout(session?.integration, policy.name, reason, eventType);
 
       if (eventType === "PreToolUse") {
         const response: any = {

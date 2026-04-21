@@ -135,6 +135,18 @@ function flattenPayloadData(payload: Record<string, unknown>): void {
   }
 }
 
+function parseJsonLikeValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
 /**
  * Recursively searches an object for the first occurrence of any provided keys.
  * Used for "Deep Data Mining" in complex nested payloads (like Gemini).
@@ -909,12 +921,11 @@ const copilot: Integration = {
     for (const eventType of COPILOT_HOOK_EVENT_TYPES) {
       const entry = this.buildHookEntry(binaryPath, eventType, scope);
       if (!hooks[eventType]) hooks[eventType] = [];
-      const idx = hooks[eventType].findIndex((h) => this.isFailproofaiHook(h));
-      if (idx >= 0) {
-        hooks[eventType][idx] = entry;
-      } else {
-        hooks[eventType].push(entry);
-      }
+
+      // DEDUPLICATE: Remove all failproofai hooks for this event type,
+      // then add exactly ONE. This prevents "npx + local" duplicates.
+      hooks[eventType] = hooks[eventType].filter((h) => !this.isFailproofaiHook(h));
+      hooks[eventType].push(entry);
     }
   },
 
@@ -958,6 +969,7 @@ const copilot: Integration = {
 
   detect(payload) {
     if (payload.integration === "copilot") return true;
+    if (process.env.COPILOT_SESSION_ID || process.env.COPILOT_CMD_ID) return true;
     
     // Check top level and nested data
     const data = (payload.data as Record<string, any>) || {};
@@ -976,11 +988,18 @@ const copilot: Integration = {
   normalizePayload(payload) {
     flattenPayloadData(payload);
 
+    const parsedToolInput = parseJsonLikeValue(
+      payload.toolInput ?? (payload.data as any)?.toolInput,
+    );
+    const parsedToolArgs = parseJsonLikeValue(
+      payload.toolArgs ?? (payload.data as any)?.toolArgs,
+    );
+
     // Copilot uses camelCase; normalize to internal snake_case
     if (!payload.session_id) payload.session_id = payload.sessionId;
     if (!payload.tool_name) payload.tool_name = payload.toolName || (payload.data as any)?.toolName || (payload.data as any)?.call || (payload.data as any)?.method;
     if (!payload.tool_input) {
-      payload.tool_input = payload.toolInput || payload.toolArgs || (payload.data as any)?.toolInput || (payload.data as any)?.params || (payload.data as any)?.arguments ||
+      payload.tool_input = parsedToolInput || parsedToolArgs || (payload.data as any)?.params || (payload.data as any)?.arguments ||
                            payload.message || payload.prompt || payload.text || (payload.data as any)?.message;
     }
     if (!payload.tool_output) {

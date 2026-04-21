@@ -56,6 +56,8 @@ export interface HookActivityEntry {
   permissionMode?: string;
   hookEventName?: string;
   integration?: string;
+  toolInput?: Record<string, unknown>;
+  toolOutput?: string;
 }
 
 export interface HookActivityFilters {

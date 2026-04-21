@@ -1,13 +1,15 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readlinkSync, symlinkSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
+import { execSync } from "node:child_process";
 import {
   getIntegration,
   INTEGRATIONS,
   listIntegrationIds,
   appendCopilotSyncToBashrc,
+  ensureCopilotRevisionSymlink,
   removeCopilotSyncFromRcFiles,
   synchronizeCopilotProjectHooks,
 } from "../../src/hooks/integrations";
@@ -24,8 +26,14 @@ vi.mock("node:fs", () => ({
   writeFileSync: vi.fn(),
   existsSync: vi.fn(),
   mkdirSync: vi.fn(),
+  readlinkSync: vi.fn(),
   unlinkSync: vi.fn(),
   rmSync: vi.fn(),
+  symlinkSync: vi.fn(),
+}));
+
+vi.mock("node:child_process", () => ({
+  execSync: vi.fn(),
 }));
 
 describe("hooks/integrations", () => {
@@ -135,6 +143,13 @@ describe("hooks/integrations", () => {
       expect(copilot.detect({ hook_event_name: "preToolUse" })).toBe(true);
     });
 
+    it("detects copilot payloads from nested data without confusing PascalCase Claude events", () => {
+      expect(copilot.detect({ data: { sessionId: "cop-123" } })).toBe(true);
+      expect(copilot.detect({ data: { toolName: "bash" } })).toBe(true);
+      expect(copilot.detect({ data: { hookEventName: "preToolUse" } })).toBe(true);
+      expect(copilot.detect({ hook_event_name: "SessionStart" })).toBe(false);
+    });
+
     it("normalizes camelCase to snake_case", () => {
       const payload: any = { sessionId: "s1", toolName: "t1", toolInput: { a: 1 } };
       copilot.normalizePayload(payload);
@@ -143,11 +158,47 @@ describe("hooks/integrations", () => {
       expect(payload.tool_input).toEqual({ a: 1 });
     });
 
+    it("parses stringified toolArgs JSON into tool_input", () => {
+      const payload: any = {
+        sessionId: "s1",
+        toolName: "bash",
+        toolArgs: "{\"command\":\"sudo ls\",\"cwd\":\"/repo/subdir\"}",
+      };
+      copilot.normalizePayload(payload);
+      expect(payload.tool_input).toEqual({ command: "sudo ls", cwd: "/repo/subdir" });
+      expect(payload.cwd).toBe("/repo/subdir");
+    });
+
+    it("falls back to raw toolArgs string when JSON is malformed", () => {
+      const payload: any = {
+        sessionId: "s1",
+        toolName: "bash",
+        toolArgs: "{not valid json",
+      };
+      copilot.normalizePayload(payload);
+      expect(payload.tool_input).toBe("{not valid json");
+    });
+
+    it("uses the documented Copilot input waterfall", () => {
+      const fromParams: any = { data: { params: { command: "ls" } } };
+      copilot.normalizePayload(fromParams);
+      expect(fromParams.tool_input).toEqual({ command: "ls" });
+
+      const fromMessage: any = { data: { message: "hello from data" } };
+      copilot.normalizePayload(fromMessage);
+      expect(fromMessage.tool_input).toBe("hello from data");
+
+      const fromPrompt: any = { prompt: "plain prompt" };
+      copilot.normalizePayload(fromPrompt);
+      expect(fromPrompt.tool_input).toBe("plain prompt");
+    });
+
     it("maps events to canonical names", () => {
       expect(copilot.getCanonicalEventName({ hook_event_name: "preToolUse" }, "preToolUse")).toBe("PreToolUse");
       expect(copilot.getCanonicalEventName({ hook_event_name: "userPromptSubmitted" }, "userPromptSubmitted")).toBe("UserPromptSubmit");
       expect(copilot.getCanonicalEventName({}, "UserPromptSubmitted")).toBe("UserPromptSubmit");
       expect(copilot.getCanonicalEventName({}, "SessionEnd")).toBe("SessionEnd");
+      expect(copilot.getCanonicalEventName({ hook_event_name: "errorOccurred" }, "errorOccurred")).toBe("Stop");
     });
 
     it("resolves user settings path via COPILOT_HOME or ~/.copilot", () => {
@@ -160,6 +211,40 @@ describe("hooks/integrations", () => {
 
       if (oldHome) process.env.COPILOT_HOME = oldHome;
       else delete process.env.COPILOT_HOME;
+    });
+
+    it("builds hook entries with Copilot native camelCase event names", () => {
+      const projectEntry = copilot.buildHookEntry("/bin/fp", "sessionStart", "project") as any;
+      const userEntry = copilot.buildHookEntry("/bin/fp", "preToolUse", "user") as any;
+
+      expect(projectEntry.bash).toContain("--hook sessionStart --integration copilot");
+      expect(userEntry.bash).toContain(`"${process.execPath}" "/bin/fp" --hook preToolUse --integration copilot`);
+      expect(userEntry.timeoutSec).toBe(60);
+    });
+
+    it("detects installation via gh rather than a standalone copilot binary", () => {
+      vi.mocked(execSync).mockImplementation((cmd) => {
+        expect(String(cmd)).toContain("gh");
+        return "" as any;
+      });
+      expect(copilot.detectInstalled()).toBe(true);
+    });
+
+    it("preserves unrelated user settings when writing hooks", () => {
+      const settings: any = {
+        version: 1,
+        copilotTokens: ["keep-me"],
+        loggedInUsers: [{ login: "octocat" }],
+        hooks: {
+          sessionStart: [{ bash: "echo existing" }],
+        },
+      };
+
+      copilot.writeHookEntries(settings, "/bin/failproofai", "user");
+
+      expect(settings.copilotTokens).toEqual(["keep-me"]);
+      expect(settings.loggedInUsers).toEqual([{ login: "octocat" }]);
+      expect(settings.hooks.sessionStart.some((h: any) => String(h.bash).includes("failproofai"))).toBe(true);
     });
   });
 
@@ -287,6 +372,26 @@ describe("hooks/integrations", () => {
   });
 
   describe("synchronizeCopilotProjectHooks", () => {
+    it("preserves user-scope hooks byte-for-byte when no project file exists", () => {
+      const globalPath = resolve(homedir(), ".copilot", "config.json");
+      const globalContent = JSON.stringify({
+        hooks: {
+          sessionStart: [{ bash: "\"/usr/local/bin/failproofai\" --hook sessionStart --integration copilot" }],
+        },
+        copilotTokens: ["keep-me"],
+      }, null, 2) + "\n";
+
+      vi.mocked(existsSync).mockImplementation((p) => String(p) === globalPath);
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        if (String(p) === globalPath) return globalContent;
+        return "";
+      });
+
+      synchronizeCopilotProjectHooks();
+
+      expect(vi.mocked(writeFileSync)).not.toHaveBeenCalled();
+    });
+
     it("merges project hooks into global config", () => {
       const globalPath = resolve(homedir(), ".copilot", "config.json");
       const projectPath = resolve(process.cwd(), ".github", "hooks", "failproofai.json");
@@ -342,6 +447,69 @@ describe("hooks/integrations", () => {
       const data = JSON.parse(lastWrite![1] as string);
       expect(data.hooks.preToolUse).toHaveLength(1);
       expect(data.hooks.preToolUse[0].bash).toContain("--NEW");
+    });
+
+    it("keeps user-scope local-binary hooks while refreshing project npx hooks", () => {
+      const globalPath = resolve(homedir(), ".copilot", "config.json");
+      const projectPath = resolve(process.cwd(), ".github", "hooks", "failproofai.json");
+
+      vi.mocked(existsSync).mockImplementation((p) => String(p) === globalPath || String(p) === projectPath);
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        const path = String(p);
+        if (path === globalPath) {
+          return JSON.stringify({
+            hooks: {
+              preToolUse: [
+                { bash: "\"/usr/local/bin/failproofai\" --hook preToolUse --integration copilot" },
+                { bash: "npx -y failproofai --hook preToolUse --integration copilot --OLD" },
+              ],
+            },
+          });
+        }
+        if (path === projectPath) {
+          return JSON.stringify({
+            hooks: {
+              preToolUse: [
+                { bash: "npx -y failproofai --hook preToolUse --integration copilot --NEW" },
+              ],
+            },
+          });
+        }
+        return "";
+      });
+
+      synchronizeCopilotProjectHooks();
+
+      const lastWrite = vi.mocked(writeFileSync).mock.calls.find(c => String(c[0]) === globalPath);
+      const data = JSON.parse(lastWrite![1] as string);
+      expect(data.hooks.preToolUse).toEqual([
+        { bash: "\"/usr/local/bin/failproofai\" --hook preToolUse --integration copilot" },
+        { bash: "npx -y failproofai --hook preToolUse --integration copilot --NEW" },
+      ]);
+    });
+  });
+
+  describe("ensureCopilotRevisionSymlink", () => {
+    it("creates the snap revision hook symlink when common hooks exist", () => {
+      const snapBase = resolve(homedir(), "snap", "copilot-cli");
+      const currentLink = resolve(snapBase, "current");
+      const commonHooks = resolve(snapBase, "common", ".config", "github-copilot", "hooks");
+      const revHooks = resolve(snapBase, "1337", ".config", "github-copilot", "hooks");
+      const globalPath = resolve(homedir(), ".copilot", "config.json");
+
+      vi.mocked(existsSync).mockImplementation((p) => {
+        const path = String(p);
+        return path === currentLink || path === commonHooks || path === globalPath;
+      });
+      vi.mocked(readlinkSync).mockReturnValue("1337" as any);
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        if (String(p) === globalPath) return JSON.stringify({ hooks: {} });
+        return "";
+      });
+
+      ensureCopilotRevisionSymlink();
+
+      expect(vi.mocked(symlinkSync)).toHaveBeenCalledWith(commonHooks, revHooks);
     });
   });
 });

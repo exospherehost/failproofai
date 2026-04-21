@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { handleHookEvent, _resetDedupeCache } from "../../src/hooks/handler";
+import { handleHookEvent, writeVirtualLogEntry, _resetDedupeCache } from "../../src/hooks/handler";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -531,6 +531,154 @@ describe("hooks/handler", () => {
     );
   });
 
+  describe("copilot integration handling", () => {
+    it("silently aborts corrupted legacy Claude-labeled Copilot-only events", async () => {
+      mockStdin(JSON.stringify({ sessionId: "cop-legacy-1" }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+
+      const result = await handleHookEvent("sessionStart", "claude-code");
+
+      expect(result).toEqual({ exitCode: 0, hardStop: false });
+      expect(persistHookActivity).not.toHaveBeenCalled();
+      expect(evaluatePolicies).not.toHaveBeenCalled();
+      expect(stdoutSpy).not.toHaveBeenCalled();
+      expect(stderrSpy).not.toHaveBeenCalled();
+    });
+
+    it("detects Copilot from native camelCase events and persists canonical dashboard fields", async () => {
+      mockStdin(JSON.stringify({
+        sessionId: "cop-start-123",
+        cwd: "/repo/copilot-app",
+        hookEventName: "sessionStart",
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+
+      await handleHookEvent("sessionStart");
+
+      expect(evaluatePolicies).toHaveBeenCalledWith(
+        "SessionStart",
+        expect.any(Object),
+        expect.objectContaining({
+          sessionId: "cop-start-123",
+          cwd: "/repo/copilot-app",
+          integration: "copilot",
+        }),
+        expect.any(Object),
+      );
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: "SessionStart",
+          sessionId: "cop-start-123",
+          integration: "copilot",
+          hookEventName: "sessionStart",
+          transcriptPath: path.join(os.homedir(), ".copilot", "session-state", "cop-start-123", "events.jsonl"),
+        }),
+      );
+    });
+
+    it("normalizes nested Copilot toolArgs payloads before policy evaluation", async () => {
+      mockStdin(JSON.stringify({
+        data: {
+          sessionId: "cop-toolargs-1",
+          hookEventName: "preToolUse",
+          toolName: "bash",
+          toolArgs: "{\"command\":\"sudo ls\",\"cwd\":\"/repo/copilot-app/subdir\"}",
+        },
+      }));
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("preToolUse");
+
+      expect(evaluatePolicies).toHaveBeenCalledWith(
+        "PreToolUse",
+        expect.objectContaining({
+          session_id: "cop-toolargs-1",
+          tool_name: "bash",
+          tool_input: { command: "sudo ls", cwd: "/repo/copilot-app/subdir" },
+        }),
+        expect.objectContaining({
+          sessionId: "cop-toolargs-1",
+          cwd: "/repo/copilot-app/subdir",
+          integration: "copilot",
+        }),
+        expect.any(Object),
+      );
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: "PreToolUse",
+          sessionId: "cop-toolargs-1",
+          integration: "copilot",
+          transcriptPath: path.join(os.homedir(), ".copilot", "session-state", "cop-toolargs-1", "events.jsonl"),
+        }),
+      );
+    });
+
+    it("recovers a Copilot session id from env vars when payload is empty", async () => {
+      const oldSession = process.env.COPILOT_SESSION_ID;
+      process.env.COPILOT_SESSION_ID = "cop-env-session";
+      mockStdin();
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      try {
+        await handleHookEvent("sessionStart");
+      } finally {
+        if (oldSession === undefined) delete process.env.COPILOT_SESSION_ID;
+        else process.env.COPILOT_SESSION_ID = oldSession;
+      }
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: "SessionStart",
+          sessionId: "cop-env-session",
+          integration: "copilot",
+          transcriptPath: path.join(os.homedir(), ".copilot", "session-state", "cop-env-session", "events.jsonl"),
+        }),
+      );
+    });
+
+    it("synthesizes a stable Copilot fallback session id when the payload omits one", async () => {
+      mockStdin(JSON.stringify({
+        cwd: "/home/user/work/copilot-app",
+        hookEventName: "sessionStart",
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("sessionStart");
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          sessionId: "session-copilot-copilot-app",
+          integration: "copilot",
+          transcriptPath: path.join(os.homedir(), ".copilot", "session-state", "session-copilot-copilot-app", "events.jsonl"),
+        }),
+      );
+    });
+
+    it("lets an explicit integration flag beat a Copilot-shaped payload", async () => {
+      mockStdin(JSON.stringify({
+        sessionId: "cop-looks-like-copilot",
+        hookEventName: "preToolUse",
+        toolName: "bash",
+        toolInput: { command: "ls" },
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("PreToolUse", "cursor");
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: "PreToolUse",
+          integration: "cursor",
+        }),
+      );
+    });
+  });
+
   it("writes stdout from evaluator result", async () => {
     const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
     vi.mocked(evaluatePolicies).mockResolvedValueOnce({
@@ -668,6 +816,116 @@ describe("hooks/handler", () => {
       
       // Cleanup
       fs.rmSync(testDir, { recursive: true, force: true });
+    });
+  });
+
+  describe("writeVirtualLogEntry", () => {
+    let tempDir: string;
+    let logPath: string;
+
+    beforeEach(() => {
+      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "failproofai-vlog-"));
+      logPath = path.join(tempDir, "session.jsonl");
+    });
+
+    afterEach(() => {
+      fs.rmSync(tempDir, { recursive: true, force: true });
+    });
+
+    it("writes a UserEntry for UserPromptSubmit events", () => {
+      writeVirtualLogEntry(logPath, "UserPromptSubmit", {
+        tool_input: { user_prompt: "What does this code do?" },
+      });
+
+      const lines = fs.readFileSync(logPath, "utf-8").trim().split("\n");
+      const entry = JSON.parse(lines[0]);
+
+      expect(entry.type).toBe("user");
+      expect(entry.message.role).toBe("user");
+      expect(entry.message.content).toBe("What does this code do?");
+      expect(entry.uuid).toBeTruthy();
+      expect(entry.timestamp).toBeTruthy();
+    });
+
+    it("writes an AssistantEntry with tool_use for PreToolUse events", () => {
+      writeVirtualLogEntry(logPath, "PreToolUse", {
+        tool_name: "Bash",
+        tool_input: { command: "echo hello" },
+      });
+
+      const lines = fs.readFileSync(logPath, "utf-8").trim().split("\n");
+      const entry = JSON.parse(lines[0]);
+
+      expect(entry.type).toBe("assistant");
+      const block = entry.message.content[0];
+      expect(block.type).toBe("tool_use");
+      expect(block.name).toBe("Bash");
+      expect(block.input).toEqual({ command: "echo hello" });
+      expect(block.id).toMatch(/^toolu_virt_/);
+    });
+
+    it("links PostToolUse tool_result to the PreToolUse tool_use id", () => {
+      writeVirtualLogEntry(logPath, "PreToolUse", {
+        tool_name: "Bash",
+        tool_input: { command: "echo hello" },
+      });
+      writeVirtualLogEntry(logPath, "PostToolUse", {
+        tool_name: "Bash",
+        tool_input: { command: "echo hello" },
+        tool_response: "hello\n",
+      });
+
+      const lines = fs.readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean);
+      expect(lines).toHaveLength(2);
+
+      const preEntry = JSON.parse(lines[0]);
+      const postEntry = JSON.parse(lines[1]);
+
+      const toolUseId = preEntry.message.content[0].id;
+      expect(toolUseId).toMatch(/^toolu_virt_/);
+
+      expect(postEntry.type).toBe("user");
+      expect(postEntry.message.content[0].type).toBe("tool_result");
+      expect(postEntry.message.content[0].tool_use_id).toBe(toolUseId);
+      expect(postEntry.message.content[0].content).toBe("hello\n");
+    });
+
+    it("threads parentUuid from UserPromptSubmit through PreToolUse", () => {
+      writeVirtualLogEntry(logPath, "UserPromptSubmit", {
+        tool_input: { user_prompt: "Do something" },
+      });
+      writeVirtualLogEntry(logPath, "PreToolUse", {
+        tool_name: "Read",
+        tool_input: { file_path: "/foo.ts" },
+      });
+
+      const lines = fs.readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean);
+      const userEntry = JSON.parse(lines[0]);
+      const assistantEntry = JSON.parse(lines[1]);
+
+      expect(assistantEntry.parentUuid).toBe(userEntry.uuid);
+    });
+
+    it("skips Stop and other non-conversation events", () => {
+      writeVirtualLogEntry(logPath, "Stop", {});
+      writeVirtualLogEntry(logPath, "SessionStart", {});
+
+      expect(fs.existsSync(logPath)).toBe(false);
+    });
+
+    it("skips PostToolUse with no matching PreToolUse", () => {
+      writeVirtualLogEntry(logPath, "PostToolUse", {
+        tool_name: "Bash",
+        tool_input: { command: "echo orphan" },
+        tool_response: "orphan\n",
+      });
+
+      expect(fs.existsSync(logPath)).toBe(false);
+    });
+
+    it("skips UserPromptSubmit with empty prompt", () => {
+      writeVirtualLogEntry(logPath, "UserPromptSubmit", { tool_input: {} });
+      expect(fs.existsSync(logPath)).toBe(false);
     });
   });
 

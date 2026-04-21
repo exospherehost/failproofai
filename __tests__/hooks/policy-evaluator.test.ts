@@ -744,7 +744,8 @@ describe("hooks/policy-evaluator", () => {
 
     it("uses IDE specialized style for copilot integration", async () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "copilot" });
-      expect(result.exitCode).toBe(2);
+      expect(result.exitCode).toBe(0);
+      expect(JSON.parse(result.stdout).permissionDecision).toBe("deny");
       expect(result.stderr).toContain("ACTION BLOCKED BY FAILPROOFAI");
       expect(result.stderr).toContain("Forbidden");
     });
