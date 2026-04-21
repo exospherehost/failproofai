@@ -524,7 +524,7 @@ describe("hooks/integrations", () => {
     });
 
     it("extracts session_id from pi payload", () => {
-      const payload = {
+      const payload: Record<string, unknown> = {
         integration: "pi",
         session_id: "pi-real-session-123",
         tool_name: "bash",

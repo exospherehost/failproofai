@@ -3,6 +3,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { parseLogContent, parseRawLines, parseSessionLog } from "@/lib/log-entries";
+import { _resetForTest as resetHookStoreForTest, persistHookActivity } from "@/src/hooks/hook-activity-store";
 import type { UserEntry, AssistantEntry, GenericEntry, QueueOperationEntry } from "@/lib/log-entries";
 
 // Helper to create a JSONL line
@@ -19,6 +20,7 @@ beforeEach(() => {
 afterEach(() => {
   delete process.env.CLAUDE_PROJECTS_PATH;
   delete process.env.COPILOT_SESSION_STATE_PATH;
+  resetHookStoreForTest();
   if (tempRoot) rmSync(tempRoot, { recursive: true, force: true });
   tempRoot = "";
 });
@@ -669,8 +671,312 @@ describe("parseLogContent", () => {
       const result = await parseSessionLog(sessionId, sessionId);
 
       expect(result.entries).toHaveLength(2);
+      expect(result.sourceMode).toBe("native");
       expect(result.entries[0].type).toBe("user");
       expect(result.entries[1].type).toBe("assistant");
+    });
+
+    it("serializes structured toolOutput from activity entries for dashboard rendering", async () => {
+      const content = line({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "PostToolUse",
+        sessionId: "cursor-session-structured-output",
+        integration: "cursor",
+        toolName: "Read",
+        toolInput: { file_path: "/tmp/a.txt" },
+        toolOutput: { lines: ["a", "b"], count: 2 },
+      });
+
+      const entries = await parseLogContent(content);
+      expect(entries).toHaveLength(1);
+      const entry = entries[0] as AssistantEntry;
+      expect(entry.type).toBe("assistant");
+      expect(entry.message.content[0].type).toBe("tool_use");
+      if (entry.message.content[0].type === "tool_use") {
+        expect(entry.message.content[0].result?.content).toContain("\"count\": 2");
+      }
+    });
+
+    it("falls back to activity-store entries when native transcript is unavailable", async () => {
+      const hookStoreDir = join(tempRoot, ".failproofai", "cache", "hook-activity");
+      resetHookStoreForTest(hookStoreDir);
+      process.env.CLAUDE_PROJECTS_PATH = join(tempRoot, ".claude", "projects");
+      mkdirSync(process.env.CLAUDE_PROJECTS_PATH, { recursive: true });
+
+      persistHookActivity({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "UserPromptSubmit",
+        toolName: null,
+        policyName: null,
+        decision: "allow",
+        reason: null,
+        durationMs: 1,
+        sessionId: "cursor-s1",
+        integration: "cursor",
+        cwd: "/tmp/workspace",
+        toolInput: { prompt: "Hello from fallback" },
+      });
+
+      const result = await parseSessionLog("-tmp-workspace", "cursor-s1");
+      expect(result.sourceMode).toBe("fallback");
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].type).toBe("user");
+    });
+
+    it("prefers transcriptPath native source over mirrored .claude session file for virtual integrations", async () => {
+      const hookStoreDir = join(tempRoot, ".failproofai", "cache", "hook-activity");
+      resetHookStoreForTest(hookStoreDir);
+      const claudeRoot = join(tempRoot, ".claude", "projects");
+      process.env.CLAUDE_PROJECTS_PATH = claudeRoot;
+      const projectName = "-tmp-workspace";
+      const projectDir = join(claudeRoot, projectName);
+      mkdirSync(projectDir, { recursive: true });
+
+      // Mirrored file exists but is incomplete.
+      writeFileSync(
+        join(projectDir, "cursor-s4.jsonl"),
+        line({
+          type: "assistant",
+          uuid: "a-mirror",
+          parentUuid: null,
+          timestamp: "2024-06-15T12:00:00.000Z",
+          message: { role: "assistant", content: [{ type: "text", text: "mirror content" }] },
+        }),
+        "utf8",
+      );
+
+      const nativeTranscriptPath = join(tempRoot, "cursor-native.json");
+      writeFileSync(
+        nativeTranscriptPath,
+        JSON.stringify([
+          { role: "user", timestamp: "2024-06-15T12:00:01.000Z", content: "from native transcript" },
+        ]),
+        "utf8",
+      );
+
+      persistHookActivity({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "SessionStart",
+        toolName: null,
+        policyName: null,
+        decision: "allow",
+        reason: null,
+        durationMs: 1,
+        sessionId: "cursor-s4",
+        integration: "cursor",
+        cwd: "/tmp/workspace",
+        transcriptPath: nativeTranscriptPath,
+      });
+
+      const result = await parseSessionLog(projectName, "cursor-s4");
+      expect(result.sourceMode).toBe("native");
+      expect(result.sourceDetail).toBe(nativeTranscriptPath);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].type).toBe("user");
+    });
+
+    it("falls back to activity-store when transcriptPath exists but native parse fails", async () => {
+      const hookStoreDir = join(tempRoot, ".failproofai", "cache", "hook-activity");
+      resetHookStoreForTest(hookStoreDir);
+      process.env.CLAUDE_PROJECTS_PATH = join(tempRoot, ".claude", "projects");
+      mkdirSync(process.env.CLAUDE_PROJECTS_PATH, { recursive: true });
+
+      const badTranscriptPath = join(tempRoot, "bad-transcript.json");
+      writeFileSync(badTranscriptPath, "{not valid json", "utf8");
+
+      persistHookActivity({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "UserPromptSubmit",
+        toolName: null,
+        policyName: null,
+        decision: "allow",
+        reason: null,
+        durationMs: 1,
+        sessionId: "cursor-s2",
+        integration: "cursor",
+        cwd: "/tmp/workspace",
+        transcriptPath: badTranscriptPath,
+        toolInput: { prompt: "Fallback after parse fail" },
+      });
+
+      const result = await parseSessionLog("-tmp-workspace", "cursor-s2");
+      expect(result.sourceMode).toBe("fallback");
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].type).toBe("user");
+    });
+
+    it("parses native JSON transcript arrays and ignores malformed role/timestamp records", async () => {
+      const hookStoreDir = join(tempRoot, ".failproofai", "cache", "hook-activity");
+      resetHookStoreForTest(hookStoreDir);
+      process.env.CLAUDE_PROJECTS_PATH = join(tempRoot, ".claude", "projects");
+      mkdirSync(process.env.CLAUDE_PROJECTS_PATH, { recursive: true });
+
+      const jsonTranscriptPath = join(tempRoot, "native-transcript.json");
+      writeFileSync(
+        jsonTranscriptPath,
+        JSON.stringify([
+          { role: "user", timestamp: "1718452800000", content: "hello" },
+          { role: "assistant", timestamp: "2024-06-15T12:00:01.000Z", content: { ok: true } },
+          { role: "system", timestamp: "2024-06-15T12:00:02.000Z", content: "ignore me" },
+          { role: "assistant", content: "missing timestamp ignored" },
+        ]),
+        "utf8",
+      );
+
+      persistHookActivity({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "SessionStart",
+        toolName: null,
+        policyName: null,
+        decision: "allow",
+        reason: null,
+        durationMs: 1,
+        sessionId: "cursor-s3",
+        integration: "cursor",
+        cwd: "/tmp/workspace",
+        transcriptPath: jsonTranscriptPath,
+      });
+
+      const result = await parseSessionLog("-tmp-workspace", "cursor-s3");
+      expect(result.sourceMode).toBe("native");
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[0].type).toBe("user");
+      expect(result.entries[1].type).toBe("assistant");
+      if (result.entries[1].type === "assistant") {
+        expect(result.entries[1].message.content[0].type).toBe("text");
+      }
+    });
+
+    it("uses known Cursor transcript location when transcriptPath metadata is missing", async () => {
+      const hookStoreDir = join(tempRoot, ".failproofai", "cache", "hook-activity");
+      resetHookStoreForTest(hookStoreDir);
+      const homeDir = join(tempRoot, "home");
+      process.env.HOME = homeDir;
+      process.env.CLAUDE_PROJECTS_PATH = join(tempRoot, ".claude", "projects");
+
+      const projectName = "-tmp-workspace";
+      const sessionId = "cursor-s5";
+      const cursorTranscriptDir = join(
+        homeDir,
+        ".cursor",
+        "projects",
+        "tmp-workspace",
+        "agent-transcripts",
+        sessionId,
+      );
+      mkdirSync(cursorTranscriptDir, { recursive: true });
+      writeFileSync(
+        join(cursorTranscriptDir, `${sessionId}.jsonl`),
+        line({
+          type: "user",
+          uuid: "u-native",
+          parentUuid: null,
+          timestamp: "2024-06-15T12:00:00.000Z",
+          message: { role: "user", content: "cursor native transcript" },
+        }),
+        "utf8",
+      );
+
+      persistHookActivity({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "SessionStart",
+        toolName: null,
+        policyName: null,
+        decision: "allow",
+        reason: null,
+        durationMs: 1,
+        sessionId,
+        integration: "cursor",
+        cwd: "/tmp/workspace",
+      });
+
+      const result = await parseSessionLog(projectName, sessionId);
+      expect(result.sourceMode).toBe("native");
+      expect(result.sourceDetail).toContain(`/${sessionId}.jsonl`);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].type).toBe("user");
+    });
+
+    it("prefers mirrored JSONL with tool pairing over activity-store fallback for virtual integrations", async () => {
+      const hookStoreDir = join(tempRoot, ".failproofai", "cache", "hook-activity");
+      resetHookStoreForTest(hookStoreDir);
+      process.env.CLAUDE_PROJECTS_PATH = join(tempRoot, ".claude", "projects");
+
+      const projectName = "-tmp-workspace";
+      const sessionId = "cursor-with-tool";
+      const projectDir = join(process.env.CLAUDE_PROJECTS_PATH, projectName);
+      mkdirSync(projectDir, { recursive: true });
+
+      // Write mirrored JSONL with proper tool pre/post pairing (as writeVirtualLogEntry does)
+      const mirroredJsonl = [
+        line({
+          type: "assistant",
+          uuid: "tool-1",
+          parentUuid: null,
+          timestamp: "2024-06-15T12:00:00.000Z",
+          message: {
+            role: "assistant",
+            content: [
+              {
+                type: "tool_use",
+                id: "toolu_virt_123",
+                name: "Read",
+                input: { file_path: "/test.txt" },
+              },
+            ],
+          },
+        }),
+        line({
+          type: "user",
+          uuid: "result-1",
+          parentUuid: null,
+          timestamp: "2024-06-15T12:00:01.000Z",
+          message: {
+            role: "user",
+            content: [
+              {
+                type: "tool_result",
+                tool_use_id: "toolu_virt_123",
+                content: "file contents",
+              },
+            ],
+          },
+        }),
+      ].join("\n");
+
+      writeFileSync(join(projectDir, `${sessionId}.jsonl`), mirroredJsonl, "utf8");
+
+      // Also add a matching activity entry (without transcriptPath to trigger fallback path)
+      persistHookActivity({
+        timestamp: Date.parse("2024-06-15T12:00:00.000Z"),
+        eventType: "PreToolUse",
+        toolName: "Read",
+        toolInput: { file_path: "/test.txt" },
+        policyName: null,
+        decision: "allow",
+        reason: null,
+        durationMs: 10,
+        sessionId,
+        integration: "cursor",
+        cwd: "/tmp/workspace",
+      });
+
+      const result = await parseSessionLog(projectName, sessionId);
+
+      // Should use mirrored JSONL (native source), not activity-store fallback
+      expect(result.sourceMode).toBe("native");
+      expect(result.entries).toHaveLength(1);
+
+      // First entry: assistant with tool_use
+      const toolEntry = result.entries[0];
+      expect(toolEntry.type).toBe("assistant");
+      if (toolEntry.type === "assistant" && toolEntry.message.content[0]?.type === "tool_use") {
+        const toolBlock = toolEntry.message.content[0];
+        expect(toolBlock.name).toBe("Read");
+        // The key assertion: result should be populated (not undefined)
+        expect(toolBlock.result).toBeDefined();
+        expect(toolBlock.result?.content).toContain("file contents");
+      }
     });
   });
 });

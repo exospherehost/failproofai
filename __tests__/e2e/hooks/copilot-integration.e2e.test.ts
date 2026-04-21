@@ -21,7 +21,7 @@ const ACTIVITY_DIR = resolve(HOME_DIR, ".failproofai", "cache", "hook-activity")
 const DEDUP_DIR = resolve(HOME_DIR, ".failproofai", "cache", "dedup");
 const COPILOT_SESSION_ID = "11111111-2222-3333-4444-555555555555";
 
-function cliEnv(extraEnv: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+function cliEnv(extraEnv: Partial<NodeJS.ProcessEnv> = {}): NodeJS.ProcessEnv {
   return {
     ...process.env,
     HOME: HOME_DIR,
@@ -52,7 +52,7 @@ function readActivityEntries(sessionId?: string) {
 function runCopilotHook(
   event: string,
   payload: Record<string, unknown> | string,
-  extraEnv: NodeJS.ProcessEnv = {},
+  extraEnv: Partial<NodeJS.ProcessEnv> = {},
   integration = "copilot",
 ) {
   return spawnSync("bun", [BINARY_PATH, "--hook", event, "--integration", integration], {

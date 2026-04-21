@@ -1980,7 +1980,7 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockReturnValue("M  src/index.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("uncommitted changes");
     });
 
@@ -1988,7 +1988,7 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockReturnValue("?? newfile.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("uncommitted changes");
     });
 
@@ -1996,7 +1996,7 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockReturnValue("A  staged-file.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("uncommitted changes");
     });
 
@@ -2004,7 +2004,7 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockReturnValue("D  removed.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("uncommitted changes");
     });
 
@@ -2012,7 +2012,7 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockReturnValue("R  old.ts -> new.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("uncommitted changes");
     });
 
@@ -2020,7 +2020,7 @@ describe("hooks/builtin-policies", () => {
       vi.mocked(execSync).mockReturnValue("M  src/index.ts\n?? newfile.ts\n A staged.ts\n");
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("uncommitted changes");
     });
 
@@ -2133,7 +2133,7 @@ describe("hooks/builtin-policies", () => {
       mockPushScenario({ unpushedOutput: "abc123 fix\ndef456 update\n" });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("2 unpushed commits");
       expect(result.reason).toContain("git push");
     });
@@ -2142,7 +2142,7 @@ describe("hooks/builtin-policies", () => {
       mockPushScenario({ unpushedOutput: "abc123 fix\n" });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("1 unpushed commit");
       expect(result.reason).not.toContain("commits");
     });
@@ -2151,7 +2151,7 @@ describe("hooks/builtin-policies", () => {
       mockPushScenario({ branch: "new-feature", hasTracking: false });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("push -u");
       expect(result.reason).toContain("new-feature");
     });
@@ -2160,7 +2160,7 @@ describe("hooks/builtin-policies", () => {
       mockPushScenario({ branch: "my-feature", hasTracking: false });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain('"my-feature"');
       expect(result.reason).toContain('"origin"');
     });
@@ -2213,7 +2213,7 @@ describe("hooks/builtin-policies", () => {
       mockPushScenario({ remote: "upstream", branch: "feat", hasTracking: false });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" }, params: { remote: "upstream" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("upstream");
     });
 
@@ -2367,8 +2367,8 @@ describe("hooks/builtin-policies", () => {
       mockPrScenario({ prResult: null });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("no pull request");
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("No pull request");
       expect(result.reason).toContain("gh pr create");
     });
 
@@ -2376,7 +2376,7 @@ describe("hooks/builtin-policies", () => {
       mockPrScenario({ branch: "my-feature", prResult: null });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain('"my-feature"');
     });
 
@@ -2393,7 +2393,7 @@ describe("hooks/builtin-policies", () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "CLOSED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("closed");
       expect(result.reason).toContain("gh pr create");
     });
@@ -2402,7 +2402,7 @@ describe("hooks/builtin-policies", () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("gh pr create");
     });
 
@@ -2480,7 +2480,7 @@ describe("hooks/builtin-policies", () => {
       });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("merged");
     });
 
@@ -2595,8 +2595,8 @@ describe("hooks/builtin-policies", () => {
       mockPrScenario({ baseRefExists: false, prResult: null });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("no pull request");
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("No pull request");
     });
 
     it("uses custom baseBranch param for git log comparison", async () => {

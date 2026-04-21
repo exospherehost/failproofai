@@ -1,5 +1,6 @@
-import { readFile } from "fs/promises";
+import { readFile, readdir } from "fs/promises";
 import { join } from "path";
+import { homedir } from "os";
 import { getClaudeProjectsPath, getCopilotSessionStatePath, getOpencodeLogPath, decodeFolderName } from "./paths";
 import { resolveProjectPath, resolveCopilotSessionDir, UUID_RE } from "./projects";
 import { resolveSubagentPath } from "./resolve-subagent-path";
@@ -158,7 +159,7 @@ function extractToolResultContent(
       images: images.length > 0 ? images : undefined,
     };
   }
-  return {};
+  return { text: stringifyStructured(resultContent) };
 }
 
 /** Maps a FailproofAI HookActivityEntry to a LogEntry shape for dashboard display. */
@@ -192,11 +193,11 @@ function mapActivityEntryToLogEntry(e: any): LogEntry {
     const prompt = (
       typeof ti === "string" ? ti
         : (ti?.user_prompt ?? ti?.prompt ?? ti?.input ?? ti?.message ?? ti?.text ?? e.reason ?? "User prompt")
-    ) as string;
+    );
     return {
       type: "user",
       ...baseDetails,
-      message: { role: "user", content: String(prompt) },
+      message: { role: "user", content: stringifyStructured(prompt) ?? "User prompt" },
     } as UserEntry;
   }
 
@@ -214,14 +215,17 @@ function mapActivityEntryToLogEntry(e: any): LogEntry {
     const isDeny = e.decision === "deny";
     const isInstruct = e.decision === "instruct";
 
-    let resultContent = (e.toolOutput as string | undefined);
+    let resultContent = stringifyStructured(e.toolOutput);
     if (isDeny) {
       resultContent = `MANDATORY ACTION REQUIRED from FailproofAI (policy: ${e.policyName}): ${e.reason}`;
     } else if (isInstruct) {
       resultContent = `[FailproofAI Instruction] ${e.reason}`;
     }
 
-    const toolInput = (e.toolInput as Record<string, unknown> | undefined) ?? {};
+    const rawToolInput = e.toolInput ?? {};
+    const toolInput = (typeof rawToolInput === "object" && rawToolInput !== null)
+      ? rawToolInput as Record<string, unknown>
+      : { value: rawToolInput };
 
     return {
       type: "assistant",
@@ -284,7 +288,7 @@ function mapActivityEntryToLogEntry(e: any): LogEntry {
         role: "assistant",
         content: [{
           type: "text",
-          text: e.toolOutput || e.reason || "Assistant response",
+          text: stringifyStructured(e.toolOutput) ?? e.reason ?? "Assistant response",
         }]
       }
     } as AssistantEntry;
@@ -327,12 +331,41 @@ export interface SessionLogData {
   entries: LogEntry[];
   rawLines: Record<string, unknown>[];
   subagentIds: string[];
+  sourceMode?: "native" | "fallback";
+  sourceDetail?: string;
 }
 
 interface ParseFileResult {
   entries: LogEntry[];
   rawLines: Record<string, unknown>[];
   subagentIds: string[];
+}
+
+function stringifyStructured(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function normalizeTimestamp(value: unknown): Date | null {
+  if (typeof value === "number") {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof value === "string") {
+    const asNum = Number(value);
+    if (!Number.isNaN(asNum) && value.trim() !== "") {
+      const dNum = new Date(asNum);
+      if (!Number.isNaN(dNum.getTime())) return dNum;
+    }
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  return null;
 }
 
 /**
@@ -514,6 +547,144 @@ async function parseFileContent(fileContent: string, source: LogSource): Promise
   return { entries, rawLines, subagentIds: Array.from(subagentIdSet) };
 }
 
+function mapNativeJsonToEntries(
+  json: unknown,
+  source: LogSource = "session",
+): LogEntry[] {
+  const arr = Array.isArray(json) ? json : [json];
+  const entries: LogEntry[] = [];
+  for (const item of arr) {
+    if (!item || typeof item !== "object") continue;
+    const rec = item as Record<string, unknown>;
+    const timestampRaw = rec.timestamp ?? rec.created_at ?? rec.time;
+    const date = normalizeTimestamp(timestampRaw);
+    if (!date) continue;
+    const timestamp = date.toISOString();
+    const base = {
+      _source: source,
+      uuid: (rec.uuid as string) || (rec.id as string) || `${date.getTime()}`,
+      parentUuid: (rec.parentUuid as string | null) ?? null,
+      timestamp,
+      timestampMs: date.getTime(),
+      timestampFormatted: formatTimestamp(date),
+    };
+    const role = String((rec.role as string | undefined) ?? (rec.type as string | undefined) ?? "").toLowerCase();
+    const text = stringifyStructured(rec.content ?? rec.text ?? rec.message ?? rec.prompt ?? rec.response);
+    if (!text) continue;
+    if (role === "user") {
+      entries.push({ type: "user", ...base, message: { role: "user", content: text ?? "User prompt" } });
+      continue;
+    }
+    if (role && role !== "assistant" && role !== "model" && role !== "ai") {
+      continue;
+    }
+    entries.push({
+      type: "assistant",
+      ...base,
+      message: { role: "assistant", content: [{ type: "text", text }] },
+    });
+  }
+  entries.sort((a, b) => a.timestampMs - b.timestampMs);
+  return entries;
+}
+
+async function parseNativeTranscript(
+  transcriptPath: string,
+  source: LogSource = "session",
+): Promise<SessionLogData | null> {
+  try {
+    const content = await readFile(transcriptPath, "utf-8");
+    const trimmed = content.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed) as unknown;
+        const entries = mapNativeJsonToEntries(parsed, source);
+        if (entries.length > 0) {
+          return {
+            entries,
+            rawLines: [],
+            subagentIds: [],
+            sourceMode: "native",
+            sourceDetail: transcriptPath,
+          };
+        }
+      } catch {
+        // Not a pure JSON document; continue with JSONL parser.
+      }
+    }
+    const { entries, rawLines, subagentIds } = await parseFileContent(content, source);
+    if (entries.length === 0) return null;
+    return {
+      entries,
+      rawLines,
+      subagentIds,
+      sourceMode: "native",
+      sourceDetail: transcriptPath,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function encodeCursorWorkspace(cwd: string): string {
+  return cwd.replace(/^\/+/, "").replace(/[\\/]/g, "-");
+}
+
+async function findCodexTranscriptPath(sessionId: string): Promise<string | null> {
+  const root = join(homedir(), ".codex", "sessions");
+  try {
+    const years = await readdir(root, { withFileTypes: true });
+    for (const y of years) {
+      if (!y.isDirectory()) continue;
+      const yPath = join(root, y.name);
+      const months = await readdir(yPath, { withFileTypes: true });
+      for (const m of months) {
+        if (!m.isDirectory()) continue;
+        const mPath = join(yPath, m.name);
+        const days = await readdir(mPath, { withFileTypes: true });
+        for (const d of days) {
+          if (!d.isDirectory()) continue;
+          const dPath = join(mPath, d.name);
+          const files = await readdir(dPath, { withFileTypes: true });
+          const hit = files.find((f) => f.isFile() && f.name.includes(sessionId) && f.name.endsWith(".jsonl"));
+          if (hit) return join(dPath, hit.name);
+        }
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+async function tryKnownNativeTranscriptPaths(projectName: string, sessionId: string): Promise<SessionLogData | null> {
+  if (UUID_RE.test(projectName) || projectName.startsWith("ses_") || sessionId.startsWith("ses_")) {
+    return null;
+  }
+
+  const cwd = decodeFolderName(projectName);
+  const cursorPath = join(
+    homedir(),
+    ".cursor",
+    "projects",
+    encodeCursorWorkspace(cwd),
+    "agent-transcripts",
+    sessionId,
+    `${sessionId}.jsonl`,
+  );
+  const cursorNative = await parseNativeTranscript(cursorPath);
+  if (cursorNative) return cursorNative;
+
+  const codexPath = await findCodexTranscriptPath(sessionId);
+  if (codexPath) {
+    const codexNative = await parseNativeTranscript(codexPath);
+    if (codexNative) return codexNative;
+  }
+
+  return null;
+}
+
 // ── Public wrappers ──
 
 /**
@@ -556,12 +727,181 @@ export async function parseSessionLog(
   projectName: string,
   sessionId: string,
 ): Promise<SessionLogData> {
+  // For Copilot UUID sessions, use activity store (events.jsonl is hook activity format, not native transcript)
+  if (UUID_RE.test(projectName)) {
+    const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
+    const allActivity = getAllHookActivityEntries();
+    const matching = allActivity.filter((entry) => entry.sessionId === projectName && entry.integration === "copilot");
+    if (matching.length > 0) {
+      const entries = matching.map(mapActivityEntryToLogEntry);
+      entries.sort((a, b) => a.timestampMs - b.timestampMs);
+      return { entries, rawLines: [], subagentIds: [], sourceMode: "fallback", sourceDetail: "copilot-activity-store" };
+    }
+  }
+
+  // For virtual integrations, prefer activity-store native transcriptPath/fallback
+  // over mirrored .claude/projects JSONL files, which may be partial.
+  if (projectName.startsWith("ses_") || sessionId.startsWith("ses_")) {
+    const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
+    const sid = sessionId.startsWith("ses_") ? sessionId : projectName;
+    const allActivity = getAllHookActivityEntries();
+    const matching = allActivity
+      .filter((e) => (e.sessionId === sid || `ses_${e.sessionId}` === sid || e.sessionId === `ses_${sid}`) && (e.integration === "opencode" || !e.integration));
+    if (matching.length > 0) {
+      const nativePath = matching
+        .map((e) => e.transcriptPath)
+        .find((p): p is string => typeof p === "string" && p.length > 0);
+      if (nativePath) {
+        const native = await parseNativeTranscript(nativePath);
+        if (native) return native;
+      }
+      // Try mirrored JSONL (has proper pre/post tool pairing via writeVirtualLogEntry sidecar)
+      let mirroredEntries: LogEntry[] = [];
+      let usedMirrored = false;
+      const mirroredPath = join(resolveProjectPath(sid), `${sessionId}.jsonl`);
+      try {
+        const mirroredContent = await readFile(mirroredPath, "utf-8");
+        const parsed = await parseFileContent(mirroredContent, "session");
+        mirroredEntries = parsed.entries;
+        usedMirrored = true;
+      } catch {
+        // mirrored file absent — will use activity store
+      }
+
+      // Always use activity store as source of truth for complete coverage, but prefer tool pairing from mirrored file
+      const activityEntries = matching.map(mapActivityEntryToLogEntry);
+
+      // If mirrored file exists, use it for proper tool pairing, then merge activity entries
+      let allEntries: LogEntry[];
+      if (usedMirrored && mirroredEntries.length > 0) {
+        // Mirrored entries contain allowed tool events (proper tool result pairing from pre/post hooks).
+        // Activity store has ALL events (allow, deny, instruct, lifecycle).
+        // Deduplicate: skip activity entries that are already in mirrored (same tool+timestamp).
+        const mirroredToolKeys = new Set(
+          mirroredEntries
+            .filter((e): e is AssistantEntry => e.type === "assistant")
+            .map(e => {
+              const content = (e as AssistantEntry).message.content[0];
+              return content?.type === "tool_use" ? `${content.name}:${e.timestampMs}` : null;
+            })
+            .filter((key): key is string => key !== null)
+        );
+
+        const nonDuplicateActivityEntries = activityEntries.filter(e => {
+          if (e.type !== "assistant") return true; // always include non-assistant entries
+          const content = e.message.content[0];
+          if (content?.type === "tool_use") {
+            // Skip if this tool event is already in mirrored (successful execution)
+            const key = `${content.name}:${e.timestampMs}`;
+            return !mirroredToolKeys.has(key);
+          }
+          return true; // include non-tool assistant entries (lifecycle, text, etc.)
+        });
+
+        allEntries = [...mirroredEntries, ...nonDuplicateActivityEntries];
+      } else {
+        // No mirrored file or empty — use activity store directly
+        allEntries = activityEntries;
+      }
+
+      allEntries.sort((a, b) => a.timestampMs - b.timestampMs);
+      return {
+        entries: allEntries,
+        rawLines: [],
+        subagentIds: [],
+        sourceMode: usedMirrored ? "native" : "fallback",
+        sourceDetail: usedMirrored ? mirroredPath : "opencode-activity-store",
+      };
+    }
+  } else if (!UUID_RE.test(projectName)) {
+    const knownNative = await tryKnownNativeTranscriptPaths(projectName, sessionId);
+    if (knownNative) return knownNative;
+
+    const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
+    const { INTEGRATION_TYPES } = await import("../src/hooks/types");
+    const cwd = decodeFolderName(projectName);
+    const allActivity = getAllHookActivityEntries();
+    const VIRTUAL_INTEGRATIONS = INTEGRATION_TYPES as unknown as string[];
+    const matchingEntries = allActivity.filter(
+      (entry) =>
+        entry.sessionId === sessionId &&
+        VIRTUAL_INTEGRATIONS.includes(entry.integration || ""),
+    );
+    if (matchingEntries.length > 0) {
+      const nativePath = matchingEntries
+        .map((entry) => entry.transcriptPath)
+        .find((p): p is string => typeof p === "string" && p.length > 0);
+      if (nativePath) {
+        const native = await parseNativeTranscript(nativePath);
+        if (native) return native;
+      }
+      // Try mirrored JSONL (has proper pre/post tool pairing via writeVirtualLogEntry sidecar)
+      let mirroredEntries: LogEntry[] = [];
+      let usedMirrored = false;
+      const mirroredPath = join(resolveProjectPath(projectName), `${sessionId}.jsonl`);
+      try {
+        const mirroredContent = await readFile(mirroredPath, "utf-8");
+        const parsed = await parseFileContent(mirroredContent, "session");
+        mirroredEntries = parsed.entries;
+        usedMirrored = true;
+      } catch {
+        // mirrored file absent — will use activity store
+      }
+
+      // Always use activity store as source of truth for complete coverage, but prefer tool pairing from mirrored file
+      const activityEntries = matchingEntries.map(mapActivityEntryToLogEntry);
+
+      // If mirrored file exists, use it for proper tool pairing, then merge activity entries
+      let allEntries: LogEntry[];
+      if (usedMirrored && mirroredEntries.length > 0) {
+        // Mirrored entries contain allowed tool events (proper tool result pairing from pre/post hooks).
+        // Activity store has ALL events (allow, deny, instruct, lifecycle).
+        // Deduplicate: skip activity entries that are already in mirrored (same tool+timestamp).
+        const mirroredToolKeys = new Set(
+          mirroredEntries
+            .filter((e): e is AssistantEntry => e.type === "assistant")
+            .map(e => {
+              const content = (e as AssistantEntry).message.content[0];
+              return content?.type === "tool_use" ? `${content.name}:${e.timestampMs}` : null;
+            })
+            .filter((key): key is string => key !== null)
+        );
+
+        const nonDuplicateActivityEntries = activityEntries.filter(e => {
+          if (e.type !== "assistant") return true; // always include non-assistant entries
+          const content = e.message.content[0];
+          if (content?.type === "tool_use") {
+            // Skip if this tool event is already in mirrored (successful execution)
+            const key = `${content.name}:${e.timestampMs}`;
+            return !mirroredToolKeys.has(key);
+          }
+          return true; // include non-tool assistant entries (lifecycle, text, etc.)
+        });
+
+        allEntries = [...mirroredEntries, ...nonDuplicateActivityEntries];
+      } else {
+        // No mirrored file or empty — use activity store directly
+        allEntries = activityEntries;
+      }
+
+      allEntries.sort((a, b) => a.timestampMs - b.timestampMs);
+      return {
+        entries: allEntries,
+        rawLines: [],
+        subagentIds: [],
+        sourceMode: usedMirrored ? "native" : "fallback",
+        sourceDetail: usedMirrored ? mirroredPath : "virtual-activity-store",
+      };
+    }
+  }
+
   // Defense-in-depth: validate path even though callers should have already done so.
   const projectDir = resolveProjectPath(projectName);
   const projectsPath = getClaudeProjectsPath();
   const filePath = join(projectDir, `${sessionId}.jsonl`);
 
   let fileContent: string;
+  let sourcePathUsed = filePath;
   try {
     fileContent = await readFile(filePath, "utf-8");
   } catch (e) {
@@ -572,38 +912,9 @@ export async function parseSessionLog(
       const copilotEventsPath = join(copilotDir, "events.jsonl");
       // Let this throw naturally (ENOENT) if the Copilot session doesn't exist either.
       fileContent = await readFile(copilotEventsPath, "utf-8");
-    } else if (projectName.startsWith("ses_") || sessionId.startsWith("ses_")) {
-      // opencode sessions: pull from the structured activity store since we don't 
-      // have a dedicated JSONL log from the agent itself.
-      const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
-      const sid = sessionId.startsWith("ses_") ? sessionId : projectName;
-      const allActivity = getAllHookActivityEntries();
-      const entries = allActivity
-        .filter((e) => (e.sessionId === sid || `ses_${e.sessionId}` === sid || e.sessionId === `ses_${sid}`) && (e.integration === "opencode" || !e.integration))
-        .map(mapActivityEntryToLogEntry);
-
-      // Sort opencode entries by timestamp ascending
-      entries.sort((a, b) => a.timestampMs - b.timestampMs);
-      return { entries, rawLines: [], subagentIds: [] };
+      sourcePathUsed = copilotEventsPath;
     } else {
-      // Try activity-store for Cursor/Gemini/Codex/Pi sessions keyed by (sessionId + cwd)
-      const { getAllHookActivityEntries } = await import("../src/hooks/hook-activity-store");
-      const { INTEGRATION_TYPES } = await import("../src/hooks/types");
-      const cwd = decodeFolderName(projectName);
-      const allActivity = getAllHookActivityEntries();
-      const VIRTUAL_INTEGRATIONS = INTEGRATION_TYPES as unknown as string[];
-      const matchingEntries = allActivity.filter(
-        (entry) =>
-          entry.sessionId === sessionId &&
-          VIRTUAL_INTEGRATIONS.includes(entry.integration || "") &&
-          (!entry.cwd || entry.cwd === cwd),
-      );
-      if (matchingEntries.length > 0) {
-        const entries = matchingEntries.map(mapActivityEntryToLogEntry);
-        entries.sort((a, b) => a.timestampMs - b.timestampMs);
-        return { entries, rawLines: [], subagentIds: [] };
-      }
-      throw e; // not a UUID, opencode, or virtual integration session — re-throw
+      throw e; // not Claude/Copilot file and no virtual activity match
     }
   }
 
@@ -611,7 +922,7 @@ export async function parseSessionLog(
     await parseFileContent(fileContent, "session");
 
   if (subagentIds.length === 0) {
-    return { entries: sessionEntries, rawLines: sessionRawLines, subagentIds: [] };
+    return { entries: sessionEntries, rawLines: sessionRawLines, subagentIds: [], sourceMode: "native", sourceDetail: sourcePathUsed };
   }
 
   // Load subagent files with bounded concurrency to avoid file-descriptor pressure.
@@ -644,7 +955,7 @@ export async function parseSessionLog(
   // Sort combined entries by timestamp
   allEntries.sort((a, b) => a.timestampMs - b.timestampMs);
 
-  return { entries: allEntries, rawLines: allRawLines, subagentIds };
+  return { entries: allEntries, rawLines: allRawLines, subagentIds, sourceMode: "native", sourceDetail: sourcePathUsed };
 }
 
 export const getCachedSessionLog = runtimeCache(

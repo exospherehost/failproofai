@@ -641,6 +641,54 @@ describe("hooks/handler", () => {
       );
     });
 
+    it("uses FAILPROOFAI_COPILOT_TRANSCRIPTS_DIR when configured", async () => {
+      const oldDir = process.env.FAILPROOFAI_COPILOT_TRANSCRIPTS_DIR;
+      process.env.FAILPROOFAI_COPILOT_TRANSCRIPTS_DIR = "/tmp/copilot-transcripts";
+      mockStdin(JSON.stringify({
+        sessionId: "cop-custom-path-1",
+        hookEventName: "sessionStart",
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      try {
+        await handleHookEvent("sessionStart");
+      } finally {
+        if (oldDir === undefined) delete process.env.FAILPROOFAI_COPILOT_TRANSCRIPTS_DIR;
+        else process.env.FAILPROOFAI_COPILOT_TRANSCRIPTS_DIR = oldDir;
+      }
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          integration: "copilot",
+          transcriptPath: "/tmp/copilot-transcripts/cop-custom-path-1/events.jsonl",
+        }),
+      );
+    });
+
+    it("supports COPILOT_SESSION_STATE_DIR as a transcript base fallback", async () => {
+      const oldDir = process.env.COPILOT_SESSION_STATE_DIR;
+      process.env.COPILOT_SESSION_STATE_DIR = "/tmp/copilot-session-state";
+      mockStdin(JSON.stringify({
+        sessionId: "cop-legacy-env-1",
+        hookEventName: "sessionStart",
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      try {
+        await handleHookEvent("sessionStart");
+      } finally {
+        if (oldDir === undefined) delete process.env.COPILOT_SESSION_STATE_DIR;
+        else process.env.COPILOT_SESSION_STATE_DIR = oldDir;
+      }
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          integration: "copilot",
+          transcriptPath: "/tmp/copilot-session-state/cop-legacy-env-1/events.jsonl",
+        }),
+      );
+    });
+
     it("synthesizes a stable Copilot fallback session id when the payload omits one", async () => {
       mockStdin(JSON.stringify({
         cwd: "/home/user/work/copilot-app",
@@ -888,6 +936,22 @@ describe("hooks/handler", () => {
       expect(postEntry.message.content[0].type).toBe("tool_result");
       expect(postEntry.message.content[0].tool_use_id).toBe(toolUseId);
       expect(postEntry.message.content[0].content).toBe("hello\n");
+    });
+
+    it("preserves structured PostToolUse output payloads", () => {
+      writeVirtualLogEntry(logPath, "PreToolUse", {
+        tool_name: "Read",
+        tool_input: { file_path: "/tmp/a.txt" },
+      });
+      writeVirtualLogEntry(logPath, "PostToolUse", {
+        tool_name: "Read",
+        tool_input: { file_path: "/tmp/a.txt" },
+        tool_response: { lines: ["a", "b"], count: 2 },
+      });
+
+      const lines = fs.readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean);
+      const postEntry = JSON.parse(lines[1]);
+      expect(postEntry.message.content[0].content).toEqual({ lines: ["a", "b"], count: 2 });
     });
 
     it("threads parentUuid from UserPromptSubmit through PreToolUse", () => {

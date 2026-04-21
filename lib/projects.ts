@@ -262,18 +262,18 @@ export function resolveCopilotSessionDir(sessionId: string): string {
 export function resolveAnyProjectPath(
   name: string,
 ): { path: string; source: ProjectFolder["source"] } {
+  // UUID-shaped names are always Copilot session IDs (Claude projects use encoded CWDs starting with -).
+  // Route them directly without trying resolveProjectPath, which is pure path arithmetic.
+  if (UUID_RE.test(name)) {
+    return { path: resolveCopilotSessionDir(name), source: "copilot" };
+  }
+  if (name.startsWith("ses_")) {
+    return { path: join(getOpencodeStoragePath(), "session_diff", `${name}.json`), source: "opencode" };
+  }
   try {
     return { path: resolveProjectPath(name), source: "claude-code" };
   } catch {
-    // UUID-shaped names may be Copilot session IDs
-    if (UUID_RE.test(name)) {
-      return { path: resolveCopilotSessionDir(name), source: "copilot" };
-    }
-    if (name.startsWith("ses_")) {
-      return { path: join(getOpencodeStoragePath(), "session_diff", `${name}.json`), source: "opencode" };
-    }
     // If it's none of the above, it might be a virtual project name (encoded CWD)
-    // resolveProjectPath will return a path under Claude root.
     try {
       return { path: resolveProjectPath(name), source: "virtual" };
     } catch {

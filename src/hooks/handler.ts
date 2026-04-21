@@ -27,6 +27,110 @@ import { createHash, randomUUID } from "node:crypto";
 const DEDUP_BUCKET_MS = 2000; // 2s time buckets (4-6s total lookback)
 const DEDUP_DIR = join(homedir(), ".failproofai", "cache", "dedup");
 
+function resolveTranscriptPath(
+  integrationType: IntegrationType | undefined,
+  sessionId: string,
+): string | undefined {
+  if (!integrationType || !sessionId) return undefined;
+
+  // Priority 1: Environment variable overrides (return even if path doesn't exist yet)
+  const envVars: Partial<Record<IntegrationType, string>> = {
+    copilot: process.env.FAILPROOFAI_COPILOT_TRANSCRIPTS_DIR ?? process.env.COPILOT_SESSION_STATE_DIR,
+    cursor: process.env.FAILPROOFAI_CURSOR_TRANSCRIPTS_DIR,
+    codex: process.env.FAILPROOFAI_CODEX_TRANSCRIPTS_DIR,
+    gemini: process.env.FAILPROOFAI_GEMINI_TRANSCRIPTS_DIR,
+    pi: process.env.FAILPROOFAI_PI_TRANSCRIPTS_DIR,
+  };
+
+  const configuredRoot = envVars[integrationType] ?? process.env.FAILPROOFAI_TRANSCRIPTS_DIR;
+  const fileName = integrationType === "copilot" ? "events.jsonl" : "transcript.jsonl";
+
+  // Priority 2: Return configured path if env var is explicitly set
+  if (configuredRoot && configuredRoot.trim().length > 0) {
+    const path = join(configuredRoot, sessionId, fileName);
+    return path; // Return even if doesn't exist; parseNativeTranscript will handle missing files
+  }
+
+  // Priority 3: Auto-discovery with actual storage locations
+  if (integrationType === "cursor") {
+    // Cursor stores transcripts in: ~/.cursor/projects/{project-name}/agent-transcripts/{session-id}/
+    // We search all projects for this session ID
+    try {
+      const projectsDir = join(homedir(), ".cursor", "projects");
+      if (existsSync(projectsDir)) {
+        const projects = readdirSync(projectsDir);
+        for (const project of projects) {
+          const transcriptPath = join(projectsDir, project, "agent-transcripts", sessionId, `${sessionId}.jsonl`);
+          if (existsSync(transcriptPath)) return transcriptPath;
+        }
+      }
+    } catch {
+      // Continue to default path
+    }
+  } else if (integrationType === "pi") {
+    // Pi stores transcripts in: ~/.pi/agent/sessions/{encoded-cwd}/{timestamp}_{session-id}.jsonl
+    // Session ID format: encoded as hex timestamp + uuid, filename has ISO timestamp prefix
+    try {
+      const sessionsDir = join(homedir(), ".pi", "agent", "sessions");
+      if (existsSync(sessionsDir)) {
+        const cwdDirs = readdirSync(sessionsDir);
+        for (const cwdDir of cwdDirs) {
+          const sessionPath = join(sessionsDir, cwdDir);
+          const files = readdirSync(sessionPath);
+          // Find files matching pattern: {timestamp}_{session-id}.jsonl
+          const match = files.find(f => f.includes(sessionId) && f.endsWith(".jsonl"));
+          if (match) return join(sessionPath, match);
+        }
+      }
+    } catch {
+      // Continue to default path
+    }
+  }
+
+  // Standard search paths for other integrations
+  const searchPaths: string[] = [];
+  if (integrationType === "copilot") {
+    searchPaths.push(
+      join(homedir(), ".copilot", "session-state", sessionId, "events.jsonl"),
+      join(homedir(), ".config", "Copilot", "session-state", sessionId, "events.jsonl"),
+      join(homedir(), "AppData", "Roaming", "GitHub Copilot", "session-state", sessionId, "events.jsonl"),
+    );
+  } else if (integrationType === "codex") {
+    searchPaths.push(
+      join(homedir(), ".codex", "sessions", sessionId, "transcript.jsonl"),
+      join(homedir(), ".config", "Codex", "sessions", sessionId, "transcript.jsonl"),
+      join(homedir(), "AppData", "Roaming", "Codex", "sessions", sessionId, "transcript.jsonl"),
+    );
+  } else if (integrationType === "gemini") {
+    searchPaths.push(
+      join(homedir(), ".gemini", "sessions", sessionId, "transcript.jsonl"),
+      join(homedir(), ".config", "Gemini", "sessions", sessionId, "transcript.jsonl"),
+      join(homedir(), "AppData", "Roaming", "Gemini", "sessions", sessionId, "transcript.jsonl"),
+    );
+  }
+
+  // Return first path that exists
+  for (const path of searchPaths) {
+    try {
+      if (existsSync(path)) return path;
+    } catch {
+      // Ignore errors checking existence, continue to next path
+    }
+  }
+
+  // Priority 4: Return default path even if it doesn't exist
+  // (parseNativeTranscript will handle the missing file gracefully)
+  const defaultRoot =
+    integrationType === "copilot" ? join(homedir(), ".copilot", "session-state")
+    : integrationType === "cursor" ? join(homedir(), ".cursor", "workspace")
+    : integrationType === "codex" ? join(homedir(), ".codex", "sessions")
+    : integrationType === "gemini" ? join(homedir(), ".gemini", "sessions")
+    : integrationType === "pi" ? join(homedir(), ".pi", "sessions")
+    : undefined;
+
+  return defaultRoot ? join(defaultRoot, sessionId, fileName) : undefined;
+}
+
 function ensureDedupDir(): void {
   try {
     if (!existsSync(DEDUP_DIR)) {
@@ -243,7 +347,7 @@ export function writeVirtualLogEntry(
   } else if (eventType === "PostToolUse") {
     const toolName = (parsed.tool_name as string) || "unknown_tool";
     const toolInput = (parsed.tool_input as Record<string, unknown>) || {};
-    const toolOutput = ((parsed.tool_response ?? parsed.output ?? parsed.tool_result ?? "") as string);
+    const toolOutput = parsed.tool_response ?? parsed.output ?? parsed.tool_result ?? "";
 
     const inputKey = `${toolName}:${JSON.stringify(toolInput).slice(0, 300)}`;
     const toolUseId = state.pendingTools[inputKey];
@@ -447,10 +551,10 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
 
   const startTime = performance.now();
 
-  // Build transcriptPath for Copilot sessions — Copilot payloads don't include one,
-  // so derive it from the session ID pointing to Copilot's own event log.
-  if (integrationType === "copilot" && session.sessionId && !session.transcriptPath) {
-    session.transcriptPath = join(homedir(), ".copilot", "session-state", session.sessionId, "events.jsonl");
+  // Build transcriptPath for sessions that don't provide one
+  // These integrations store their own session logs; derive the path from session ID
+  if (session.sessionId && !session.transcriptPath) {
+    session.transcriptPath = resolveTranscriptPath(integrationType, session.sessionId);
   }
 
   // Load enabled policies (merge across project/local/global scopes)

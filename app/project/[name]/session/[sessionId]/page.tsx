@@ -18,6 +18,15 @@ interface SessionPageProps {
   }>;
 }
 
+function formatSourceDetailForDisplay(sourceDetail: string): string {
+  if (!sourceDetail) return sourceDetail;
+  const normalized = sourceDetail.replace(/\\/g, "/");
+  if (!normalized.startsWith("/")) return sourceDetail;
+  const parts = normalized.split("/").filter(Boolean);
+  if (parts.length <= 4) return sourceDetail;
+  return `.../${parts.slice(-4).join("/")}`;
+}
+
 export default async function SessionPage({ params }: SessionPageProps) {
   const { name, sessionId } = await params;
   // Validate project/session path against Claude and Copilot roots.
@@ -34,6 +43,8 @@ export default async function SessionPage({ params }: SessionPageProps) {
 
   let entries = null;
   let rawLines: Record<string, unknown>[] | null = null;
+  let sourceMode: "native" | "fallback" | null = null;
+  let sourceDetail: string | null = null;
   let error: string | null = null;
 
   try {
@@ -41,6 +52,8 @@ export default async function SessionPage({ params }: SessionPageProps) {
     const result = await getCachedSessionLog(name, decodedSessionId);
     entries = result.entries;
     rawLines = result.rawLines;
+    sourceMode = result.sourceMode ?? null;
+    sourceDetail = result.sourceDetail ?? null;
   } catch (e) {
     const isNotFound = (e as NodeJS.ErrnoException).code === "ENOENT";
     error = isNotFound ? "Session log file not found." : "Failed to read session log.";
@@ -75,6 +88,13 @@ export default async function SessionPage({ params }: SessionPageProps) {
                 <p className="text-muted-foreground">
                   <span className="font-medium">{rawLines.length}</span> log lines
                 </p>
+                {sourceMode && (
+                  <p className="text-muted-foreground text-sm">
+                    <span className="font-medium">Source:</span>{" "}
+                    {sourceMode === "native" ? "Native transcript" : "Fallback activity log"}
+                    {sourceDetail ? ` (${formatSourceDetailForDisplay(sourceDetail)})` : ""}
+                  </p>
+                )}
                 <a
                   href={`/api/download/${encodeURIComponent(name)}/${encodeURIComponent(decodedSessionId)}`}
                   download

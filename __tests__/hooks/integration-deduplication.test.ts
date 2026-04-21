@@ -212,13 +212,13 @@ describe("Integration: Hook Deduplication", () => {
       // This test ensures handler processes can deduplicate at runtime.
 
       // Create test payloads for the same event
-      const payload1 = {
+      const payload1: Record<string, unknown> = {
         integration: "copilot",
         sessionId: "test-session-1",
         hook_event_name: "userPromptSubmitted",
       };
 
-      const payload2 = {
+      const payload2: Record<string, unknown> = {
         integration: "copilot",
         sessionId: "test-session-1",
         hook_event_name: "userPromptSubmitted",

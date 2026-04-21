@@ -26,7 +26,7 @@ vi.mock("../../src/hooks/hook-activity-store", () => ({
 }));
 
 import { readdir, stat } from "fs/promises";
-import { extractSessionId, getProjectFolders, getSessionFiles } from "@/lib/projects";
+import { extractSessionId, getProjectFolders, getSessionFiles, resolveAnyProjectPath } from "@/lib/projects";
 import { getAllHookActivityEntries } from "../../src/hooks/hook-activity-store";
 
 const mockGetAllActivity = vi.mocked(getAllHookActivityEntries);
@@ -237,5 +237,39 @@ describe("getSessionFiles", () => {
         sessionId,
       }),
     );
+  });
+});
+
+describe("resolveAnyProjectPath", () => {
+  it("routes UUID-shaped names to Copilot, not Claude projects", () => {
+    const uuid = "86a5848b-fa06-45d2-8932-5a228ac59567";
+    const result = resolveAnyProjectPath(uuid);
+
+    expect(result.source).toBe("copilot");
+    expect(result.path).toContain(".copilot/session-state");
+    expect(result.path).toContain(uuid);
+  });
+
+  it("routes ses_-prefixed names to opencode", () => {
+    const sessionId = "ses_abc123";
+    const result = resolveAnyProjectPath(sessionId);
+
+    expect(result.source).toBe("opencode");
+    expect(result.path).toContain("opencode/storage/session_diff");
+    expect(result.path).toContain(sessionId);
+  });
+
+  it("routes encoded CWD names (starting with -) to Claude projects", () => {
+    const projectName = "-home-user-myproject";
+    const result = resolveAnyProjectPath(projectName);
+
+    expect(result.source).toBe("claude-code");
+    expect(result.path).toContain(".claude/projects");
+    expect(result.path).toContain(projectName);
+  });
+
+  it("throws RangeError for invalid project names", () => {
+    expect(() => resolveAnyProjectPath("")).toThrow(RangeError);
+    expect(() => resolveAnyProjectPath("../../etc/passwd")).toThrow(RangeError);
   });
 });

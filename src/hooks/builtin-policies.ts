@@ -1014,8 +1014,8 @@ function requireCommitBeforeStop(ctx: PolicyContext): PolicyResult {
     }).trim();
 
     if (status.length > 0) {
-      return allow(
-        "⚠ Warning: you have uncommitted changes in the working directory.",
+      return deny(
+        "You have uncommitted changes in the working directory. Commit all changes now.",
       );
     }
     return allow("All changes are committed.");
@@ -1091,8 +1091,9 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
     }
 
     if (!hasTracking) {
-      return allow(
-        `⚠ Warning: branch "${branch}" has not been pushed to remote "${remote}". Consider running: git push -u ${remote} ${branch}`,
+      return deny(
+        `Branch "${branch}" has not been pushed to remote "${remote}". ` +
+        `Run now: git push -u ${remote} ${branch}`,
       );
     }
 
@@ -1105,8 +1106,9 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
 
     if (unpushed.length > 0) {
       const commitCount = unpushed.split("\n").length;
-      return allow(
-        `⚠ Warning: you have ${commitCount} unpushed commit${commitCount > 1 ? "s" : ""} on branch "${branch}". Consider running: git push`,
+      return deny(
+        `You have ${commitCount} unpushed commit${commitCount > 1 ? "s" : ""} on branch "${branch}". ` +
+        `Run now: git push`,
       );
     }
 
@@ -1176,8 +1178,9 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       }).trim();
     } catch {
       // gh pr view exits non-zero when no PR exists
-      return allow(
-        `⚠ Warning: no pull request found for branch "${branch}". Consider running: gh pr create`,
+      return deny(
+        `No pull request found for branch "${branch}". ` +
+        `Run now: gh pr create`,
       );
     }
 
@@ -1217,8 +1220,8 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       }
     }
 
-    return allow(
-      `⚠ Warning: Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Consider running: gh pr create`,
+    return deny(
+      `Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Run now: gh pr create`,
     );
   } catch {
     return allow("Could not check PR status, skipping.");
@@ -1617,7 +1620,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
   },
   {
     name: "require-commit-before-stop",
-    description: "Warn (non-blocking) if there are uncommitted changes when Claude stops",
+    description: "Require all changes to be committed before Claude stops",
     fn: requireCommitBeforeStop,
     match: { events: ["Stop"] },
     defaultEnabled: false,
@@ -1625,7 +1628,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
   },
   {
     name: "require-push-before-stop",
-    description: "Warn (non-blocking) if local commits are not pushed to remote when Claude stops",
+    description: "Require all commits to be pushed to remote before Claude stops",
     fn: requirePushBeforeStop,
     match: { events: ["Stop"] },
     defaultEnabled: false,
@@ -1645,7 +1648,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
   },
   {
     name: "require-pr-before-stop",
-    description: "Warn (non-blocking) if no open pull request exists for the current branch when Claude stops",
+    description: "Require an open pull request for the current branch before Claude stops",
     fn: requirePrBeforeStop,
     match: { events: ["Stop"] },
     defaultEnabled: false,
