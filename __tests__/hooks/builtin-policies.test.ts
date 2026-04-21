@@ -2389,11 +2389,11 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("https://github.com/org/repo/pull/42");
     });
 
-    it("warns (non-blocking) when PR is closed", async () => {
+    it("denies when PR is closed", async () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "CLOSED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
+      expect(result.decision).toBe("deny");
       expect(result.reason).toContain("closed");
       expect(result.reason).toContain("gh pr create");
     });
@@ -2402,8 +2402,8 @@ describe("hooks/builtin-policies", () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("merged");
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("gh pr create");
     });
 
     it("allows when PR is merged and branch is up to date after fetch (regular merge)", async () => {
