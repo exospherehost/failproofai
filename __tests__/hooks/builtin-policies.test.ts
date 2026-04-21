@@ -2709,14 +2709,13 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("still running");
     });
 
-    it("denies when CI has a cancelled conclusion (not success/skipped)", async () => {
+    it("allows when CI has a cancelled conclusion (superseded runs are not failures)", async () => {
       mockCiScenario("feat/branch", JSON.stringify([
         { status: "completed", conclusion: "cancelled", name: "deploy" },
       ]));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
-      expect(result.reason).toContain("failing");
+      expect(result.decision).toBe("allow");
     });
 
     it("failing checks take priority over pending checks", async () => {
