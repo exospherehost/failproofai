@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.0.6-beta.2 — 2026-04-21
+
+### Features
+- Add `prefer-package-manager` builtin policy to enforce allowed package managers (e.g., uv instead of pip) (#126)
+
+### Fixes
+- Treat cancelled CI runs as non-failing in `require-ci-green-before-stop` policy (#129)
+
+### Docs
+- Emphasize convention-based policies as org-wide quality standards in getting-started, custom-policies, examples, and README (#126)
+
 ## 0.0.6-beta.1 — 2026-04-20
 
 ### Features

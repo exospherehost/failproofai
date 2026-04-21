@@ -544,7 +544,7 @@ pull requests. If `gh` is not installed or not authenticated, the policy fails o
 ### `require-ci-green-before-stop`
 
 **Event:** Stop  
-**Default:** Denies stopping when CI checks are failing or still running on the current branch. Checks both GitHub Actions workflow runs and third-party bot checks (e.g. CodeRabbit, SonarCloud, Codecov). Treats `skipped` conclusions as success. Returns an informational message when all checks pass.
+**Default:** Denies stopping when CI checks are failing or still running on the current branch. Checks both GitHub Actions workflow runs and third-party bot checks (e.g. CodeRabbit, SonarCloud, Codecov). Treats `skipped` and `cancelled` conclusions as success. Returns an informational message when all checks pass.
 
 No parameters.
 
