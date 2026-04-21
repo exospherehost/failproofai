@@ -1,10 +1,10 @@
 ---
 title: 内置策略
-description: "涵盖常见 Agent 故障模式的 30 条内置策略"
+description: "30 条内置策略，可捕获常见的 Agent 故障模式"
 icon: shield
 ---
 
-failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。每条策略针对特定的钩子事件类型和工具名称触发。九条策略接受参数，让你无需编写代码即可调整其行为。四条工作流策略在 Claude 停止前强制执行 提交 → 推送 → PR → CI 的流水线。
+failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。每条策略会在特定的 Hook 事件类型和工具名称上触发。其中九条策略支持参数配置，让你无需编写代码即可调整其行为。四条工作流策略在 Claude 停止前强制执行 commit → push → PR → CI 流水线。
 
 ---
 
@@ -12,8 +12,8 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 策略按类别分组：
 
-| 类别 | 策略 | 钩子类型 |
-|----------|----------|-----------|
+| 类别 | 策略 | Hook 类型 |
+|------|------|-----------|
 | [危险命令](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
 | [密钥（清理器）](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
 | [环境](#environment) | block-env-files, protect-env-vars | PreToolUse |
@@ -26,13 +26,13 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 - **`block-`** — 阻止 Agent 继续执行。
 - **`warn-`** — 为 Agent 提供额外上下文，使其能够自我纠正。
-- **`sanitize-`** — 在 Agent 看到工具输出之前清除其中的敏感数据。
-- **`require-`** — 在条件满足之前阻止 Stop 事件触发。
+- **`sanitize-`** — 在 Agent 看到工具输出之前，从中清除敏感数据。
+- **`require-`** — 在条件满足之前阻断 Stop 事件。
 
 ---
 
 <Tip>
-每条策略在 `policyParams` 中都支持可选的 `hint` 字段。该提示会附加到 Claude 所看到的 deny 或 instruct 消息中，提供可操作的指导，而无需修改策略代码。适用于内置策略、自定义策略和约定策略。详见 [配置 → hint](/zh/configuration#hint-cross-cutting)。
+每条策略都支持在 `policyParams` 中设置可选的 `hint` 字段。该提示会追加到 Claude 看到的 deny 或 instruct 消息中，提供可操作的指导，无需修改策略代码。适用于内置策略、自定义策略和约定策略。详见 [配置 → hint](/zh/configuration#hint-cross-cutting)。
 </Tip>
 
 ---
@@ -44,15 +44,15 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `block-sudo`
 
 **事件：** PreToolUse (Bash)  
-**默认行为：** 拒绝任何包含 `sudo` 的命令。
+**默认行为：** 拒绝所有包含 `sudo` 关键字的命令。
 
-阻止包含 `sudo` 关键字的调用。模式匹配基于解析后的命令词元（token），而非原始字符串，以防止通过 shell 运算符注入绕过检测。
+拦截包含 `sudo` 关键字的调用。模式匹配基于解析后的命令 token，而非原始字符串，以防止通过 Shell 操作符注入来绕过检测。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | 允许执行的精确命令前缀。每个条目与解析后的 argv 词元进行匹配。 |
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `allowPatterns` | `string[]` | `[]` | 允许通过的精确命令前缀。每个条目与解析后的 argv token 进行匹配。 |
 
 **示例：**
 
@@ -66,10 +66,10 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 }
 ```
 
-使用此配置，`sudo systemctl status nginx` 会被允许，但 `sudo rm /etc/hosts` 会被拒绝。
+使用此配置，`sudo systemctl status nginx` 将被允许，而 `sudo rm /etc/hosts` 将被拒绝。
 
 <Note>
-模式匹配基于解析后的词元，而非原始命令字符串。这可以防止通过追加 shell 运算符绕过（例如 `sudo systemctl status x; rm -rf /` 不会匹配 `sudo systemctl status *`）。
+模式匹配基于解析后的 token，而非原始命令字符串。这可以防止通过附加 Shell 操作符来绕过检测（例如，`sudo systemctl status x; rm -rf /` 不会匹配 `sudo systemctl status *`）。
 </Note>
 
 ---
@@ -81,9 +81,9 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | 允许递归删除的安全路径（例如 `/tmp`）。 |
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `allowPaths` | `string[]` | `[]` | 允许递归删除的安全路径（如 `/tmp`）。 |
 
 **示例：**
 
@@ -111,20 +111,20 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `block-failproofai-commands`
 
 **事件：** PreToolUse (Bash)  
-**默认行为：** 拒绝可能卸载或禁用 failproofai 自身的命令（例如 `npm uninstall failproofai`、`failproofai policies --uninstall`）。
+**默认行为：** 拒绝可能卸载或禁用 failproofai 自身的命令（如 `npm uninstall failproofai`、`failproofai policies --uninstall`）。
 
 无参数。
 
 ---
 
-## 密钥（清理器） {#secrets-sanitizers}
+## 密钥（清理器）{#secrets-sanitizers}
 
-防止 Agent 将凭据泄露到其上下文或输出中。清理器策略在 **PostToolUse** 事件上触发。当 Claude 运行 Bash 命令、读取文件或调用任何工具时，这些策略会在输出返回给 Claude 之前对其进行检查。如果检测到密钥模式，策略会返回 deny 决策，阻止输出被传回。
+防止 Agent 将凭证泄露到其上下文或输出中。清理器策略在 **PostToolUse** 事件上触发。当 Claude 运行 Bash 命令、读取文件或调用任何工具时，这些策略会在输出返回给 Claude 之前对其进行检查。若检测到密钥模式，策略将返回 deny 决策，阻止输出被传回。
 
 ### `sanitize-jwt`
 
 **事件：** PostToolUse（所有工具）  
-**默认行为：** 脱敏 JWT 令牌（三段由 `.` 分隔的 base64url 片段）。
+**默认行为：** 脱敏 JWT token（三段由 `.` 分隔的 base64url 字符串）。
 
 无参数。
 
@@ -133,13 +133,13 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `sanitize-api-keys`
 
 **事件：** PostToolUse（所有工具）  
-**默认行为：** 脱敏常见 API 密钥格式：Anthropic（`sk-ant-`）、OpenAI（`sk-`）、GitHub PAT（`ghp_`）、AWS 访问密钥（`AKIA`）、Stripe 密钥（`sk_live_`、`sk_test_`）以及 Google API 密钥（`AIza`）。
+**默认行为：** 脱敏常见 API Key 格式：Anthropic（`sk-ant-`）、OpenAI（`sk-`）、GitHub PAT（`ghp_`）、AWS Access Key（`AKIA`）、Stripe Key（`sk_live_`、`sk_test_`）以及 Google API Key（`AIza`）。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
-| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | 需要视为密钥的额外正则表达式模式。 |
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | 额外需要视为密钥的正则表达式模式。 |
 
 **示例：**
 
@@ -161,7 +161,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `sanitize-connection-strings`
 
 **事件：** PostToolUse（所有工具）  
-**默认行为：** 脱敏包含嵌入式凭据的数据库连接字符串（例如 `postgresql://user:password@host/db`）。
+**默认行为：** 脱敏包含内嵌凭证的数据库连接字符串（如 `postgresql://user:password@host/db`）。
 
 无参数。
 
@@ -179,7 +179,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `sanitize-bearer-tokens`
 
 **事件：** PostToolUse（所有工具）  
-**默认行为：** 脱敏 `Authorization: Bearer <token>` 请求头中长度不少于 20 个字符的令牌。
+**默认行为：** 脱敏 `Authorization: Bearer <token>` 请求头中长度大于等于 20 个字符的 token。
 
 无参数。
 
@@ -187,14 +187,14 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 ## 环境 {#environment}
 
-防止 Agent 读取或暴露敏感的环境配置。
+保护敏感的环境配置，防止 Agent 读取或暴露这些信息。
 
 ### `block-env-files`
 
 **事件：** PreToolUse (Bash, Read)  
-**默认行为：** 拒绝通过 `cat .env`、以 `.env` 为文件路径的 `Read` 工具调用等方式读取 `.env` 文件。
+**默认行为：** 拒绝通过 `cat .env`、文件路径为 `.env` 的 `Read` 工具调用等方式读取 `.env` 文件。
 
-不会阻止 `.envrc` 或其他与环境相关的文件，仅阻止名称恰好为 `.env` 的文件。
+不拦截 `.envrc` 或其他相关环境文件，仅拦截名称严格为 `.env` 的文件。
 
 无参数。
 
@@ -211,7 +211,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 ## 文件访问 {#file-access}
 
-让 Agent 保持在项目边界内工作，远离敏感文件。
+将 Agent 限制在项目目录内，并使其远离敏感文件。
 
 ### `block-read-outside-cwd`
 
@@ -220,8 +220,8 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
 | `allowPaths` | `string[]` | `[]` | 即使在当前工作目录之外也允许访问的绝对路径前缀。 |
 
 **示例：**
@@ -241,13 +241,13 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `block-secrets-write`
 
 **事件：** PreToolUse (Write, Edit)  
-**默认行为：** 拒绝写入常用于私钥和证书的文件：`id_rsa`、`id_ed25519`、`*.key`、`*.pem`、`*.p12`、`*.pfx`。
+**默认行为：** 拒绝写入常用于存储私钥和证书的文件：`id_rsa`、`id_ed25519`、`*.key`、`*.pem`、`*.p12`、`*.pfx`。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
-| `additionalPatterns` | `string[]` | `[]` | 需要阻止的额外文件名模式（glob 风格）。 |
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `additionalPatterns` | `string[]` | `[]` | 额外需要拦截的文件名模式（glob 风格）。 |
 
 **示例：**
 
@@ -265,7 +265,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 ## Git {#git}
 
-防止意外推送、强制推送以及难以撤销的分支误操作。
+防止意外推送、强制推送以及难以撤销的分支操作失误。
 
 ### `block-push-master`
 
@@ -274,8 +274,8 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | 不允许直接推送的分支名称。 |
 
 **示例：**
@@ -291,7 +291,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ```
 
 <Tip>
-若要允许推送到所有分支（即在不从 `enabledPolicies` 中移除该策略的情况下将其禁用），请将 `protectedBranches` 设置为 `[]`。
+若要允许推送到所有分支（即在不将其从 `enabledPolicies` 中移除的情况下有效禁用此策略），可将 `protectedBranches` 设为 `[]`。
 </Tip>
 
 ---
@@ -303,8 +303,8 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | 不允许直接切换的分支名称。 |
 
 ---
@@ -314,7 +314,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 **事件：** PreToolUse (Bash)  
 **默认行为：** 拒绝 `git push --force` 和 `git push -f`。
 
-无策略专属参数。使用通用 [`hint`](/zh/configuration#hint-cross-cutting) 来建议替代方案：
+无策略特定参数。可使用通用 [`hint`](/zh/configuration#hint-cross-cutting) 建议替代方案：
 
 ```json
 {
@@ -331,7 +331,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `warn-git-amend`
 
 **事件：** PreToolUse (Bash)  
-**默认行为：** 当运行 `git commit --amend` 时，指示 Claude 谨慎操作。不会阻止该命令执行。
+**默认行为：** 在运行 `git commit --amend` 时指示 Claude 谨慎操作。不阻止该命令执行。
 
 无参数。
 
@@ -340,7 +340,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `warn-git-stash-drop`
 
 **事件：** PreToolUse (Bash)  
-**默认行为：** 在运行 `git stash drop` 之前，指示 Claude 进行确认。不会阻止该命令执行。
+**默认行为：** 在运行 `git stash drop` 前指示 Claude 进行确认。不阻止该命令执行。
 
 无参数。
 
@@ -349,7 +349,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `warn-all-files-staged`
 
 **事件：** PreToolUse (Bash)  
-**默认行为：** 当运行 `git add -A` 或 `git add .` 时，指示 Claude 审查所暂存的内容。不会阻止该命令执行。
+**默认行为：** 在运行 `git add -A` 或 `git add .` 时指示 Claude 检查其所暂存的内容。不阻止该命令执行。
 
 无参数。
 
@@ -357,7 +357,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 ## 数据库 {#database}
 
-在破坏性 SQL 操作执行之前将其拦截。
+在破坏性 SQL 操作对数据库执行之前将其拦截。
 
 ### `warn-destructive-sql`
 
@@ -379,7 +379,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 ## 警告 {#warnings}
 
-在执行可能存在风险但非破坏性的操作之前，为 Agent 提供额外上下文。
+在执行潜在有风险但非破坏性的操作前，为 Agent 提供额外上下文。
 
 ### `warn-large-file-write`
 
@@ -388,8 +388,8 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
 | `thresholdKb` | `number` | `1024` | 触发警告的文件大小阈值（单位：KB）。 |
 
 **示例：**
@@ -405,7 +405,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ```
 
 <Note>
-钩子处理器对 stdin 的有效负载强制限制为 1 MB。若要使用较小内容测试此策略，请将 `thresholdKb` 设置为远低于 1024 的值。
+Hook 处理器对 stdin 负载强制执行 1 MB 的大小限制。若要使用较小内容测试此策略，请将 `thresholdKb` 设为远低于 1024 的值。
 </Note>
 
 ---
@@ -422,7 +422,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `warn-background-process`
 
 **事件：** PreToolUse (Bash)  
-**默认行为：** 当通过 `nohup`、`&`、`disown` 或 `screen` 启动后台进程时，指示 Claude 保持谨慎。
+**默认行为：** 在通过 `nohup`、`&`、`disown` 或 `screen` 启动后台进程时，指示 Claude 谨慎操作。
 
 无参数。
 
@@ -431,7 +431,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `warn-global-package-install`
 
 **事件：** PreToolUse (Bash)  
-**默认行为：** 在运行 `npm install -g`、`yarn global add` 或不在虚拟环境中执行 `pip install` 之前，指示 Claude 进行确认。
+**默认行为：** 在运行 `npm install -g`、`yarn global add` 或未在虚拟环境中执行的 `pip install` 之前，指示 Claude 进行确认。
 
 无参数。
 
@@ -439,23 +439,23 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 ## 包管理器 {#package-managers}
 
-强制规定 Agent 可以使用的包管理器。
+限制 Agent 只能使用指定的包管理器。
 
 ### `prefer-package-manager`
 
 **事件：** PreToolUse (Bash)  
-**默认行为：** 默认禁用。启用后，会阻止所有不在 `allowed` 列表中的包管理器命令，并告知 Claude 使用允许的包管理器重写该命令。
+**默认行为：** 默认禁用。启用后，将拦截不在 `allowed` 列表中的任何包管理器命令，并告知 Claude 使用允许的包管理器重写该命令。
 
 可检测的包管理器：pip, pip3, python -m pip, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo。
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-----------|------|---------|-------------|
-| `allowed` | string[] | `[]` | 允许使用的包管理器名称。检测到的管理器若不在此列表中则会被阻止。为空时，该策略不生效。 |
-| `blocked` | string[] | `[]` | 在内置列表之外额外需要阻止的管理器名称（例如 `['pdm', 'pipx']`）。 |
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `allowed` | string[] | `[]` | 允许使用的包管理器名称。检测到的管理器若不在此列表中将被拦截。列表为空时，策略不生效。 |
+| `blocked` | string[] | `[]` | 除内置列表之外需要额外拦截的包管理器名称（如 `['pdm', 'pipx']`）。 |
 
-内置阻止列表涵盖：pip, pip3, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo。使用 `blocked` 追加不在此列表中的管理器。
+内置拦截列表包含：pip, pip3, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo。使用 `blocked` 可追加不在此列表中的包管理器。
 
-**配置示例：**
+**示例配置：**
 
 ```json
 {
@@ -469,18 +469,18 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 }
 ```
 
-使用此配置，`pip install flask` 和 `pdm install flask` 都会被拒绝，并告知 Claude 改用 `uv` 或 `bun`。`uv pip install flask` 等命令会被允许，因为 `uv` 在允许列表中且优先被检查。
+使用此配置，`pip install flask` 和 `pdm install flask` 均会被拒绝，并告知 Claude 改用 `uv` 或 `bun`。而 `uv pip install flask` 则会被允许，因为 `uv` 在允许列表中且优先检查。
 
 ---
 
 ## AI 行为
 
-检测 Agent 卡住或行为异常的情况。
+检测 Agent 陷入循环或行为异常的情况。
 
 ### `warn-repeated-tool-calls`
 
 **事件：** PreToolUse（所有工具）  
-**默认行为：** 当同一工具以完全相同的参数被调用 3 次及以上时，指示 Claude 重新考虑——这通常是 Agent 陷入循环的常见信号。
+**默认行为：** 当同一工具以相同参数被调用 3 次或以上时，指示 Claude 重新考虑——这通常是 Agent 陷入循环的信号。
 
 无参数。
 
@@ -488,14 +488,14 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 ## 工作流 {#workflow}
 
-强制执行规范的会话结束工作流。这些策略在 **Stop** 事件上触发，在每个条件满足之前拒绝 Claude 停止。它们遵循自然的依赖链：提交 → 推送 → PR → CI。如果某条策略返回 deny，则链中后续策略会被跳过（deny 短路）。
+强制执行有纪律的会话结束工作流。这些策略在 **Stop** 事件上触发，在每个条件满足之前拒绝 Claude 停止。它们遵循自然的依赖链：commit → push → PR → CI。若某条策略拒绝，则链中后续策略将被跳过（deny 短路）。
 
-所有工作流策略都是**失败开放**的：如果所需工具不可用（例如未安装 `gh`、没有 git 远程仓库），策略会放行并附带一条说明性消息，解释为何跳过该检查。
+所有工作流策略均为**失败开放（fail-open）**模式：如果所需工具不可用（如 `gh` 未安装、无 git 远程仓库），策略将放行并附带说明性消息，解释跳过检查的原因。
 
 ### `require-commit-before-stop`
 
 **事件：** Stop  
-**默认行为：** 当存在未提交的更改（已修改、已暂存或未追踪的文件）时，拒绝停止。工作目录干净时返回说明性消息。
+**默认行为：** 当存在未提交的更改（已修改、已暂存或未跟踪的文件）时，拒绝停止。当工作目录干净时，返回说明性消息。
 
 无参数。
 
@@ -504,12 +504,12 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `require-push-before-stop`
 
 **事件：** Stop  
-**默认行为：** 当存在未推送的提交，或当前分支没有远程追踪分支时，拒绝停止。如需创建追踪分支，建议使用 `git push -u`。若未配置远程仓库，则失败开放。
+**默认行为：** 当存在未推送的 commit，或当前分支没有远程追踪分支时，拒绝停止。若需要，建议使用 `git push -u` 创建追踪分支。如果未配置远程仓库，则失败开放。
 
 **参数：**
 
-| 参数 | 类型 | 默认值 | 描述 |
-|-------|------|---------|-------------|
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
 | `remote` | `string` | `"origin"` | 推送目标的远程仓库名称。 |
 
 **示例：**
@@ -534,8 +534,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 无参数。
 
 <Note>
-此策略需要安装并完成身份验证的 [GitHub CLI](https://cli.github.com/)（`gh`）。
-运行 `gh auth login` 时，请使用具有 `repo` 权限（用于读取 Pull Request）的个人访问令牌。若 `gh` 未安装或未通过身份验证，该策略会失败开放并向 Claude 报告原因。
+此策略需要安装并已完成身份验证的 [GitHub CLI](https://cli.github.com/)（`gh`）。请使用具有 `repo` 作用域（用于读取 Pull Request）的个人访问 token 运行 `gh auth login`。如果 `gh` 未安装或未完成身份验证，策略将失败开放并向 Claude 报告原因。
 </Note>
 
 ---
@@ -543,13 +542,12 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 ### `require-ci-green-before-stop`
 
 **事件：** Stop  
-**默认行为：** 当当前分支的 CI 检查失败或仍在运行时，拒绝停止。同时检查 GitHub Actions 工作流运行和第三方机器人检查（例如 CodeRabbit、SonarCloud、Codecov）。将 `skipped` 结论视为成功。所有检查通过时返回说明性消息。
+**默认行为：** 当当前分支上的 CI 检查失败或仍在运行时，拒绝停止。同时检查 GitHub Actions 工作流运行状态和第三方 Bot 检查（如 CodeRabbit、SonarCloud、Codecov）。将 `skipped` 和 `cancelled` 结论视为成功。所有检查通过时，返回说明性消息。
 
 无参数。
 
 <Note>
-此策略需要安装并完成身份验证的 [GitHub CLI](https://cli.github.com/)（`gh`）。
-运行 `gh auth login` 时，请使用具有 `repo` 权限（用于读取 Actions 工作流运行和 Checks API）的个人访问令牌。若 `gh` 未安装或未通过身份验证，该策略会失败开放并向 Claude 报告原因。
+此策略需要安装并已完成身份验证的 [GitHub CLI](https://cli.github.com/)（`gh`）。请使用具有 `repo` 作用域（用于读取 Actions 工作流运行状态和 Checks API）的个人访问 token 运行 `gh auth login`。如果 `gh` 未安装或未完成身份验证，策略将失败开放并向 Claude 报告原因。
 </Note>
 
 ---
@@ -558,7 +556,7 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 
 ## 禁用单条策略
 
-从配置文件的 `enabledPolicies` 中移除特定策略，或在控制台的"策略"标签页中将其关闭。
+从配置文件的 `enabledPolicies` 中移除特定策略，或在控制台的策略标签页中将其关闭。
 
 ```json
 {
@@ -569,4 +567,4 @@ failproofai 内置了 30 条策略，用于捕获常见的 Agent 故障模式。
 }
 ```
 
-未列在 `enabledPolicies` 中的策略不会运行，即使在 `policyParams` 中存在对应的条目也不例外。
+未在 `enabledPolicies` 中列出的策略不会运行，即使 `policyParams` 中存在对应的条目也不例外。
