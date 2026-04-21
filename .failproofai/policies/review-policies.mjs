@@ -70,7 +70,7 @@ customPolicies.add({
               isResolved
               comments(first: 1) {
                 nodes {
-                  author { login }
+                  author { login __typename }
                 }
               }
             }
@@ -93,8 +93,9 @@ customPolicies.add({
 
     const unresolvedBotThreads = threads.filter((t) => {
       if (t.isResolved) return false;
-      const author = t.comments?.nodes?.[0]?.author?.login ?? "";
-      return author.includes("[bot]");
+      const node = t.comments?.nodes?.[0];
+      if (!node?.author) return false;
+      return node.author.__typename === "Bot" || node.author.login.includes("[bot]");
     });
 
     if (unresolvedBotThreads.length > 0) {
