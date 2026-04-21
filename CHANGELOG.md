@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixes
+- Treat cancelled CI runs as non-failing in `require-ci-green-before-stop` policy
+
 ## 0.0.6-beta.1 — 2026-04-20
 
 ### Features

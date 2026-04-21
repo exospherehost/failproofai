@@ -1229,7 +1229,11 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     if (allChecks.length === 0) return allow(`No CI runs found for branch "${branch}".`);
 
     const failing = allChecks.filter(
-      (r) => r.status === "completed" && r.conclusion !== "success" && r.conclusion !== "skipped",
+      (r) =>
+        r.status === "completed" &&
+        r.conclusion !== "success" &&
+        r.conclusion !== "skipped" &&
+        r.conclusion !== "cancelled",
     );
     if (failing.length > 0) {
       const names = failing.map((r) => `"${r.name}"`).join(", ");
