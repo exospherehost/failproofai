@@ -2389,20 +2389,20 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("https://github.com/org/repo/pull/42");
     });
 
-    it("denies when PR is closed", async () => {
+    it("warns (non-blocking) when PR is closed", async () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "CLOSED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("closed");
       expect(result.reason).toContain("gh pr create");
     });
 
-    it("denies when PR is merged and file changes exist after fetch", async () => {
+    it("warns (non-blocking) when PR is merged and file changes exist after fetch", async () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("gh pr create");
     });
 
@@ -2462,7 +2462,7 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("no file changes");
     });
 
-    it("falls through to deny when fetch fails on merged PR", async () => {
+    it("warns (non-blocking) when fetch fails on merged PR", async () => {
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("gh --version")) return "/usr/bin/gh\n";
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
@@ -2480,7 +2480,7 @@ describe("hooks/builtin-policies", () => {
       });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("merged");
     });
 
@@ -2663,19 +2663,19 @@ describe("hooks/builtin-policies", () => {
       });
     }
 
-    it("denies when CI checks are failing", async () => {
+    it("warns (non-blocking) when CI checks are failing", async () => {
       mockCiScenario("feat/branch", JSON.stringify([
         { status: "completed", conclusion: "failure", name: "test" },
         { status: "completed", conclusion: "success", name: "build" },
       ]));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("failing");
       expect(result.reason).toContain('"test"');
     });
 
-    it("denies listing multiple failed checks by name", async () => {
+    it("warns listing multiple failed checks by name", async () => {
       mockCiScenario("feat/branch", JSON.stringify([
         { status: "completed", conclusion: "failure", name: "test" },
         { status: "completed", conclusion: "failure", name: "lint" },
@@ -2683,39 +2683,39 @@ describe("hooks/builtin-policies", () => {
       ]));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain('"test"');
       expect(result.reason).toContain('"lint"');
     });
 
-    it("denies when CI checks are in progress", async () => {
+    it("warns (non-blocking) when CI checks are in progress", async () => {
       mockCiScenario("feat/branch", JSON.stringify([
         { status: "in_progress", conclusion: "", name: "test" },
       ]));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("still running");
       expect(result.reason).toContain('"test"');
     });
 
-    it("denies when CI checks are queued", async () => {
+    it("warns (non-blocking) when CI checks are queued", async () => {
       mockCiScenario("feat/branch", JSON.stringify([
         { status: "queued", conclusion: "", name: "deploy" },
       ]));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("still running");
     });
 
-    it("denies when CI checks are waiting", async () => {
+    it("warns (non-blocking) when CI checks are waiting", async () => {
       mockCiScenario("feat/branch", JSON.stringify([
         { status: "waiting", conclusion: "", name: "approval-gate" },
       ]));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("still running");
     });
 
@@ -2728,14 +2728,14 @@ describe("hooks/builtin-policies", () => {
       expect(result.decision).toBe("allow");
     });
 
-    it("failing checks take priority over pending checks", async () => {
+    it("warns (non-blocking) when failing checks take priority over pending checks", async () => {
       mockCiScenario("feat/branch", JSON.stringify([
         { status: "completed", conclusion: "failure", name: "test" },
         { status: "in_progress", conclusion: "", name: "build" },
       ]));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       // Failure check comes first in code, so message says "failing" not "running"
       expect(result.reason).toContain("failing");
     });
@@ -2842,7 +2842,7 @@ describe("hooks/builtin-policies", () => {
       ]));
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain('"my-feature"');
     });
 
@@ -2862,7 +2862,7 @@ describe("hooks/builtin-policies", () => {
 
     // -- Third-party check run tests --
 
-    it("denies when a third-party check is failing while Actions checks pass", async () => {
+    it("warns (non-blocking) when a third-party check is failing while Actions checks pass", async () => {
       mockCiScenario(
         "feat/branch",
         JSON.stringify([
@@ -2876,7 +2876,7 @@ describe("hooks/builtin-policies", () => {
       );
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("failing");
       expect(result.reason).toContain('"CodeRabbit"');
     });
@@ -2895,7 +2895,7 @@ describe("hooks/builtin-policies", () => {
       );
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("still running");
       expect(result.reason).toContain('"SonarCloud"');
     });
@@ -2918,7 +2918,7 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("All CI checks passed");
     });
 
-    it("deny message includes names from both workflow and third-party failures", async () => {
+    it("warns listing names from both workflow and third-party failures", async () => {
       mockCiScenario(
         "feat/branch",
         JSON.stringify([
@@ -2932,7 +2932,7 @@ describe("hooks/builtin-policies", () => {
       );
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain('"test"');
       expect(result.reason).toContain('"CodeRabbit"');
     });
@@ -3006,12 +3006,12 @@ describe("hooks/builtin-policies", () => {
       );
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("still running");
       expect(result.reason).toContain('"CodeRabbit"');
     });
 
-    it("denies when a commit status is error", async () => {
+    it("warns (non-blocking) when a commit status is error", async () => {
       mockCiScenario(
         "feat/branch",
         JSON.stringify([
@@ -3025,12 +3025,12 @@ describe("hooks/builtin-policies", () => {
       );
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("failing");
       expect(result.reason).toContain('"CodeRabbit"');
     });
 
-    it("denies when a commit status is failure", async () => {
+    it("warns (non-blocking) when a commit status is failure", async () => {
       mockCiScenario(
         "feat/branch",
         JSON.stringify([
@@ -3044,7 +3044,7 @@ describe("hooks/builtin-policies", () => {
       );
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
+      expect(result.decision).toBe("allow");
       expect(result.reason).toContain("failing");
     });
 

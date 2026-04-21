@@ -401,6 +401,7 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
     process.env.CURSOR_SESSION_ID ||
     process.env.CLAUDE_SESSION_ID ||
     process.env.GEMINI_SESSION_ID ||
+    process.env.PI_SESSION_ID ||
     process.env.COPILOT_SESSION_ID ||
     process.env.COPILOT_CMD_ID;
 

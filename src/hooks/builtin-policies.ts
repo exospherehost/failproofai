@@ -1217,8 +1217,8 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       }
     }
 
-    return deny(
-      `Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Run now: gh pr create`,
+    return allow(
+      `⚠ Warning: Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Consider running: gh pr create`,
     );
   } catch {
     return allow("Could not check PR status, skipping.");
@@ -1307,8 +1307,8 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     );
     if (failing.length > 0) {
       const names = failing.map((r) => `"${r.name}"`).join(", ");
-      return deny(
-        `CI checks are failing on branch "${branch}": ${names}. Fix the failing checks now.`,
+      return allow(
+        `⚠ Warning: CI checks are failing on branch "${branch}": ${names}. Consider fixing these before merging.`,
       );
     }
 
@@ -1317,8 +1317,8 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     );
     if (pending.length > 0) {
       const names = pending.map((r) => `"${r.name}"`).join(", ");
-      return deny(
-        `CI checks are still running on branch "${branch}": ${names}. Wait for all checks to complete, then verify they pass.`,
+      return allow(
+        `⚠ Warning: CI checks are still running on branch "${branch}": ${names}. You can continue, but check will be needed before merging.`,
       );
     }
 

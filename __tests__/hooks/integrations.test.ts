@@ -512,4 +512,34 @@ describe("hooks/integrations", () => {
       expect(vi.mocked(symlinkSync)).toHaveBeenCalledWith(commonHooks, revHooks);
     });
   });
+
+  describe("pi", () => {
+    const pi = getIntegration("pi");
+
+    it("detects pi payloads by explicit integration field", () => {
+      expect(pi.detect({ integration: "pi" })).toBe(true);
+      expect(pi.detect({ integration: "codex" })).toBe(false);
+      expect(pi.detect({ integration: "cursor" })).toBe(false);
+      expect(pi.detect({})).toBe(false);
+    });
+
+    it("extracts session_id from pi payload", () => {
+      const payload = {
+        integration: "pi",
+        session_id: "pi-real-session-123",
+        tool_name: "bash",
+        tool_input: "ls -la",
+      };
+      pi.normalizePayload(payload);
+      expect(payload.sessionId).toBe("pi-real-session-123");
+    });
+
+    it("does not confuse pi with codex payloads", () => {
+      // Even if somehow a codex payload reaches pi.detect, it should return false
+      expect(pi.detect({
+        integration: "codex",
+        codex_session_id: "codex-123"
+      })).toBe(false);
+    });
+  });
 });

@@ -1426,13 +1426,30 @@ export default function (pi: ExtensionAPI) {
   const reportedSessions = new Set<string>();
 
   const callcli = (event: string, args: any, ctx?: any) => {
-    // Session ID priority: 
+    // Session ID priority:
     // 1. ctx.sessionId or ctx.session.id (SDK scoped)
     // 2. pi.session.id (Global scoped)
     // 3. Fallback to Project Name
     const projectName = process.cwd().split("/").pop() || "failproofai";
-    const sessionId = ctx?.sessionId || ctx?.session?.id || pi.session?.id || pi.session?.sessionId || projectName;
-    
+
+    // DEBUG: Log available session values
+    const debugInfo = {
+      ctx_sessionId: ctx?.sessionId,
+      ctx_session_id: ctx?.session?.id,
+      pi_session_id: pi.session?.id,
+      pi_sessionId: pi.sessionId,
+      projectName,
+    };
+    try { (pi as any).log?.(\`[FailproofAI Debug] Session ID sources: \${JSON.stringify(debugInfo)}\`); } catch {}
+
+    const sessionId =
+      ctx?.sessionId ||
+      ctx?.session?.id ||
+      pi.session?.id ||
+      pi.sessionId ||
+      process.env.PI_SESSION_ID ||
+      \`pi-\${projectName}-\${Date.now()}\`;
+
     const payloadWithCwd = {
       ...args,
       integration: "pi",
@@ -1530,20 +1547,14 @@ export default function (pi: ExtensionAPI) {
   },
 
   detect(payload) {
-    if (payload.integration === "codex") return true;
-    const data = (payload.data as Record<string, any>) || {};
-    return !!(
-      payload.codex_session_id || data.codex_session_id ||
-      payload.codex_event || data.codex_event
-    );
+    // Pi always sets integration field explicitly (line 1438 in the template)
+    return payload.integration === "pi";
   },
 
   normalizePayload(payload) {
     flattenPayloadData(payload);
-    
-    if (payload.codex_session_id && !payload.session_id) payload.session_id = payload.codex_session_id;
-    if (payload.codex_session_id && !payload.sessionId) payload.sessionId = payload.codex_session_id;
-    if (payload.codex_event && !payload.hook_event_name) payload.hook_event_name = payload.codex_event;
+    // Pi already sends snake_case properties; ensure camelCase aliases exist
+    if (payload.session_id && !payload.sessionId) payload.sessionId = payload.session_id;
   },
 
   getCanonicalEventName(payload, cliArg) {
