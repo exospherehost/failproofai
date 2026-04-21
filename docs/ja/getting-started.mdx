@@ -1,10 +1,10 @@
 ---
 title: はじめに
-description: "failproofai をインストールし、ポリシーを有効化して、エージェントを安定稼働させましょう"
+description: "failproofaiをインストールし、ポリシーを有効化して、エージェントを安定して動かしましょう"
 icon: rocket
 ---
 
-## 必要環境
+## 必要要件
 
 - **Node.js** >= 20.9.0
 - **Bun** >= 1.3.0（オプション — ソースからビルドする場合のみ必要）
@@ -31,13 +31,13 @@ bun add -g failproofai
 
 <Steps>
   <Step title="ポリシーを有効化する">
-    ポリシーとは、エージェントのツール呼び出しの前後に実行されるルールです。破壊的なコマンドの実行、シークレットの漏洩、その他の障害パターンを、実害が生じる前に検出します。
+    ポリシーは、エージェントのツール呼び出しの前後に実行されるルールです。破壊的なコマンドやシークレットの漏洩、その他の障害パターンを被害が発生する前に検出します。
 
     ```bash
     failproofai policies --install
     ```
 
-    このコマンドは Claude Code の `settings.json` にフックエントリを書き込みます。単一プロジェクト向けにインストールしたり、特定のポリシーだけを選択することも可能です。
+    これにより、Claude Code の `settings.json` にフックエントリが書き込まれます。単一プロジェクト向けにインストールしたり、特定のポリシーを選択したりすることもできます。
 
     ```bash
     failproofai policies --install --scope project
@@ -49,17 +49,17 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    すべてのポリシー、その有効・無効の状態、および設定済みのパラメータを表示します。
+    すべてのポリシー、その有効・無効の状態、設定済みのパラメータを表示します。
   </Step>
   <Step title="ダッシュボードを起動する">
     ```bash
     failproofai
     ```
 
-    `http://localhost:8020` にローカルダッシュボードを開きます。セッションの閲覧、ツール呼び出しの検査、ポリシーの管理が行えます。
+    `http://localhost:8020` にローカルダッシュボードを開きます。セッションの閲覧、ツール呼び出しの確認、ポリシーの管理が行えます。
   </Step>
   <Step title="エージェントを実行する">
-    通常通り Claude Code を起動してください。エージェントが危険な操作を試みた場合、failproofai が自動的に介入します。エージェントを無人で稼働させておき、何が起きたかをダッシュボードで後から確認できます。
+    通常通り Claude Code を起動してください。エージェントが危険な操作を試みた場合、failproofai が自動的に介入します。無人で実行したまま放置し、ダッシュボードで何が起きたかを後から確認できます。
   </Step>
 </Steps>
 
@@ -75,15 +75,67 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
                                                  writes decision to stdout
 ```
 
-各ポリシーは次の3つのいずれかの判定を返します。
+各ポリシーは以下の3つの決定のいずれかを返します。
 
 - **allow** — エージェントは通常通り処理を続行する
 - **deny** — アクションがブロックされ、エージェントにその理由が通知される
-- **instruct** — エージェントのプロンプトに追加のコンテキストが付加される
+- **instruct** — エージェントのプロンプトに追加のコンテキストが付与される
 
 <Note>
-ポリシーはローカルプロセス上で実行されます。リモートサービスへのデータ送信は一切行われません。
+ポリシーはローカルプロセス内で実行されます。リモートサービスには何も送信されません。
 </Note>
+
+---
+
+## 規約ベースのポリシーでチームポリシーを設定する
+
+チーム全体で品質基準を素早く確立するには、`.failproofai/policies/` の規約を活用するのが最速です。このディレクトリにポリシーファイルを配置するだけで自動的に読み込まれます — フラグも設定変更もインストールコマンドも不要です。
+
+<Steps>
+  <Step title="ポリシーディレクトリを作成する">
+    ```bash
+    mkdir -p .failproofai/policies
+    ```
+  </Step>
+  <Step title="ポリシーファイルを追加する">
+    サンプルのスターターファイルをコピーするか、独自に作成してください。
+
+    ```bash
+    cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
+    ```
+
+    または新しいファイルを作成する場合：
+
+    ```js
+    // .failproofai/policies/team-policies.mjs
+    import { customPolicies, allow, deny, instruct } from "failproofai";
+
+    customPolicies.add({
+      name: "test-before-commit",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        if (/git\s+commit/.test(ctx.toolInput?.command ?? "")) {
+          return instruct("Run tests before committing.");
+        }
+        return allow();
+      },
+    });
+    ```
+  </Step>
+  <Step title="gitにコミットする">
+    ```bash
+    git add .failproofai/policies/
+    git commit -m "Add team quality policies"
+    ```
+
+    failproofai をインストールしているすべてのチームメンバーが、これらのポリシーを自動的に受け取ります。開発者ごとのセットアップは不要です。
+  </Step>
+</Steps>
+
+<Tip>
+`.failproofai/policies/` をリポジトリにコミットすることで、チーム全体が同じ基準を共有できます。チームが新たな障害パターンを発見したらポリシーを追加してプッシュするだけで、全員が次の `git pull` 時に更新を受け取れます。時間をかけてこれらのポリシーを積み重ねることで、継続的に改善される生きた品質基準が生まれます。
+</Tip>
 
 ---
 
@@ -97,7 +149,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 | `~/.failproofai/hook-activity.jsonl` | フック実行履歴 |
 | `~/.failproofai/hook.log` | カスタムフックエラーのデバッグログ |
 | `.failproofai/policies-config.json` | プロジェクト別設定（コミット対象） |
-| `.failproofai/policies-config.local.json` | 個人用オーバーライド（gitignore 対象） |
+| `.failproofai/policies-config.local.json` | 個人用上書き設定（gitignore対象） |
 
 ---
 
@@ -120,11 +172,11 @@ failproofai policies --uninstall
 </Card>
 
 <Card title="組み込みポリシー" icon="shield" href="/ja/built-in-policies">
-  パラメータ付き全 26 ポリシーの一覧
+  パラメータ付きの全26ポリシー
 </Card>
 
 <Card title="カスタムポリシー" icon="code" href="/ja/custom-policies">
-  JavaScript で独自のポリシーを作成する
+  JavaScriptで独自のポリシーを作成する
 </Card>
 
 <Card title="エージェントモニター" icon="chart-line" href="/ja/dashboard">

@@ -1,7 +1,6 @@
 ---
----
-title: התחלה
-description: "התקן את failproofai, הפעל מדיניות, והנח לסוכנים שלך לפעול בהאמינות"
+title: תחילת עבודה
+description: "התקן את failproofai, הפעל מדיניות, והנח לסוכנים שלך לפעול באופן אמין"
 icon: rocket
 ---
 
@@ -32,73 +31,125 @@ bun add -g failproofai
 
 <Steps>
   <Step title="הפעל מדיניות">
-    מדיניות הן כללים שרצים לפני ואחרי כל קריאת כלי של סוכן. הם תופסים פקודות הרסניות, דליפות סודיות וקלקלויות אחרות לפני שהם גורמים נזק.
+    מדיניות הן כללים שרצים לפני ואחרי כל קריאת כלי סוכן. הם תופסים פקודות הרסניות, דליפות סודות, וקלקלות אחרות לפני שהם גורמים נזק.
 
     ```bash
     failproofai policies --install
     ```
 
-    זה כותב ערכי hook ל-`settings.json` של Claude Code. אתה יכול גם להתקין עבור פרויקט יחיד או לבחור מדיניויות ספציפיות:
+    זה כותב ערכי hook ל־`settings.json` של Claude Code. אתה יכול גם להתקין עבור פרויקט בודד או לבחור מדיניויות ספציפיות:
 
     ```bash
     failproofai policies --install --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>
-  <Step title="אימות">
+  <Step title="אמת">
     ```bash
     failproofai policies
     ```
 
-    מציג כל מדיניות, האם היא פעילה, וכל פרמטרים מוגדרים.
+    מציג כל מדיניות, האם היא מופעלת, וכל פרמטר שהוגדר.
   </Step>
   <Step title="הפעל את לוח הבקרה">
     ```bash
     failproofai
     ```
 
-    פותח לוח בקרה מקומי ב-`http://localhost:8020` שבו אתה יכול לעיין בהפעלות, לבדוק קריאות כלים, ולנהל מדיניות.
+    פותח לוח בקרה מקומי ב־`http://localhost:8020` שם אתה יכול לעיין בהפעלות, לבדוק קריאות כלים, ולנהל מדיניויות.
   </Step>
-  <Step title="הריץ את הסוכן שלך">
-    הפעל את Claude Code כרגיל. אם הסוכן מנסה משהו מסוכן, failproofai יתקע אותו באופן אוטומטי. השאר אותו פועל ללא השגחה ובדוק את מה שקרה בלוח הבקרה.
+  <Step title="הרץ את הסוכן שלך">
+    הפעל את Claude Code כרגיל. אם הסוכן מנסה משהו מסוכן, failproofai מיירט זאת באופן אוטומטי. השאר את זה רץ ללא השגחה וסקור מה קרה בלוח הבקרה.
   </Step>
 </Steps>
 
 ---
 
-## איך מדיניות עובדות
+## איך עובדות מדיניויות
 
-כל פעם שסוכן מריץ כלי, Claude Code קורא ל-failproofai כתהליך משנה:
+בכל פעם שסוכן מריץ כלי, Claude Code קורא ל־failproofai כתהליך משנה:
 
 ```text
-Claude Code  →  failproofai --hook PreToolUse  →  קורא JSON מ-stdin
-                                                 מעריך מדיניות
-                                                 כותב החלטה ל-stdout
+Claude Code  →  failproofai --hook PreToolUse  →  קורא JSON מ־stdin
+                                                 מעריך מדיניויות
+                                                 כותב החלטה ל־stdout
 ```
 
 כל מדיניות מחזירה אחת משלוש החלטות:
 
 - **allow** - הסוכן ממשיך כרגיל
-- **deny** - הפעולה חסומה, הסוכן מקבל הסבר
-- **instruct** - הקשר נוסף מתווסף להנחיות של הסוכן
+- **deny** - הפעולה חסומה, הסוכן מודע למה
+- **instruct** - הקשר נוסף מתווסף להנחיה של הסוכן
 
 <Note>
-המדיניות רצות בתהליך המקומי שלך. שום דבר לא נשלח לשירות מרוחק.
+מדיניויות רצות בתהליך המקומי שלך. שום דבר לא נשלח לשירות מרוחק.
 </Note>
+
+---
+
+## הגדר מדיניויות קבוצתיות עם מדיניויות מבוססות כנס
+
+הדרך המהירה ביותר לקבוע תקני איכות בכל הקבוצה שלך היא הכנס `.failproofai/policies/`. שחרר קבצי מדיניות לתיקייה זו והם נטענים באופן אוטומטי — ללא דגלים, ללא שינויי תצורה, ללא פקודות התקנה.
+
+<Steps>
+  <Step title="צור את תיקיית המדיניויות">
+    ```bash
+    mkdir -p .failproofai/policies
+    ```
+  </Step>
+  <Step title="הוסף קבצי מדיניות">
+    העתק את דוגמאות ההתחלה או כתוב שלך:
+
+    ```bash
+    cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
+    ```
+
+    או צור אחד חדש:
+
+    ```js
+    // .failproofai/policies/team-policies.mjs
+    import { customPolicies, allow, deny, instruct } from "failproofai";
+
+    customPolicies.add({
+      name: "test-before-commit",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        if (/git\s+commit/.test(ctx.toolInput?.command ?? "")) {
+          return instruct("Run tests before committing.");
+        }
+        return allow();
+      },
+    });
+    ```
+  </Step>
+  <Step title="בצע commit ל־git">
+    ```bash
+    git add .failproofai/policies/
+    git commit -m "Add team quality policies"
+    ```
+
+    כל חברה בקבוצה שיש לה failproofai מותקן מרימה את המדיניויות הללו באופן אוטומטי. לא נדרשת הגדרה לפי מפתח.
+  </Step>
+</Steps>
+
+<Tip>
+בצע commit ל־`.failproofai/policies/` למאגר שלך כדי שכל הקבוצה תשתף את אותם תקנים. כשהקבוצה שלך מגלה קלקלות חדשות, הוסף מדיניויות ודחף — כולם מקבלים את העדכון ב־`git pull` הבא שלהם. לאורך זמן מדיניויות אלה הופכות לתקן איכות חי שממשיך להשתפר.
+</Tip>
 
 ---
 
 ## אחסון נתונים
 
-כל התצורה והיומנים נשארים במכונה שלך:
+כל התצורה וההתחברות נשארות במכונה שלך:
 
-| נתיב | מה זה שומר |
+| נתיב | מה הוא אחסן |
 |------|----------------|
 | `~/.failproofai/policies-config.json` | תצורת מדיניות גלובלית |
-| `~/.failproofai/hook-activity.jsonl` | היסטוריית הוכן |
-| `~/.failproofai/hook.log` | יומן ניפוי עבור שגיאות hook מותאמות |
-| `.failproofai/policies-config.json` | תצורה לכל-פרויקט (מחויבת) |
-| `.failproofai/policies-config.local.json` | עקיפות אישיות (מתוך gitignored) |
+| `~/.failproofai/hook-activity.jsonl` | היסטוריית ביצוע hook |
+| `~/.failproofai/hook.log` | יומן ניפוי בעיות לשגיאות hook מותאמות |
+| `.failproofai/policies-config.json` | תצורת לפי פרויקט (מחויבת) |
+| `.failproofai/policies-config.local.json` | עקיפות אישיות (gitignored) |
 
 ---
 
@@ -108,28 +159,28 @@ Claude Code  →  failproofai --hook PreToolUse  →  קורא JSON מ-stdin
 failproofai policies --uninstall
 ```
 
-מסיר ערכי hook מ-`~/.claude/settings.json`. קבצי תצורה ב-`~/.failproofai/` נשמרים.
+מסיר ערכי hook מ־`~/.claude/settings.json`. קבצי תצורה ב־`~/.failproofai/` שמורים.
 
 ---
 
-## הצעדים הבאים
+## השלבים הבאים
 
 <CardGroup cols={2}>
 
 <Card title="תצורה" icon="gear" href="/he/configuration">
-  היקפים וצורת קובץ תצורה
+  טווחים וקבוצת תצורה
 </Card>
 
-<Card title="מדיניות מובנות" icon="shield" href="/he/built-in-policies">
-  כל 26 המדיניות עם פרמטרים
+<Card title="מדיניויות מובנות" icon="shield" href="/he/built-in-policies">
+  כל 26 המדיניויות עם פרמטרים
 </Card>
 
-<Card title="מדיניות מותאמות" icon="code" href="/he/custom-policies">
-  כתוב את המדיניות שלך שלך ב-JavaScript
+<Card title="מדיניויות מותאמות" icon="code" href="/he/custom-policies">
+  כתוב את המדיניויות שלך ב־JavaScript
 </Card>
 
-<Card title="צג סוכן" icon="chart-line" href="/he/dashboard">
-  עקוב אחר הפעלות ובדוק פעילות מדיניות
+<Card title="מוניטור סוכן" icon="chart-line" href="/he/dashboard">
+  עקוב אחר הפעלות וסקור פעילות מדיניות
 </Card>
 
 </CardGroup>

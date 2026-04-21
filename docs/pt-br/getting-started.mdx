@@ -1,13 +1,13 @@
 ---
 title: Primeiros passos
-description: "Instale o failproofai, ative as políticas e deixe seus agentes rodando com confiabilidade"
+description: "Instale o failproofai, ative as políticas e deixe seus agentes rodarem de forma confiável"
 icon: rocket
 ---
 
 ## Requisitos
 
 - **Node.js** >= 20.9.0
-- **Bun** >= 1.3.0 (opcional — necessário apenas para compilar a partir do código-fonte)
+- **Bun** >= 1.3.0 (opcional - necessário apenas para compilar a partir do código-fonte)
 
 ---
 
@@ -31,13 +31,13 @@ bun add -g failproofai
 
 <Steps>
   <Step title="Ativar políticas">
-    Políticas são regras executadas antes e depois de cada chamada de ferramenta do agente. Elas interceptam comandos destrutivos, vazamento de segredos e outros modos de falha antes que causem danos.
+    Políticas são regras que executam antes e depois de cada chamada de ferramenta do agente. Elas interceptam comandos destrutivos, vazamento de segredos e outros modos de falha antes que causem danos.
 
     ```bash
     failproofai policies --install
     ```
 
-    Isso grava entradas de hook no `settings.json` do Claude Code. Você também pode instalar para um único projeto ou escolher políticas específicas:
+    Isso insere entradas de hook no `settings.json` do Claude Code. Você também pode instalar para um único projeto ou escolher políticas específicas:
 
     ```bash
     failproofai policies --install --scope project
@@ -59,7 +59,7 @@ bun add -g failproofai
     Abre um painel local em `http://localhost:8020` onde você pode navegar por sessões, inspecionar chamadas de ferramentas e gerenciar políticas.
   </Step>
   <Step title="Executar seu agente">
-    Inicie o Claude Code normalmente. Se o agente tentar algo arriscado, o failproofai o intercepta automaticamente. Deixe-o rodando sem supervisão e revise o que aconteceu no painel.
+    Inicie o Claude Code normalmente. Se o agente tentar algo arriscado, o failproofai intercepta automaticamente. Deixe-o rodando sem supervisão e revise o que aconteceu no painel.
   </Step>
 </Steps>
 
@@ -75,27 +75,79 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
                                                  writes decision to stdout
 ```
 
-Cada política retorna uma das três decisões:
+Cada política retorna uma de três decisões:
 
-- **allow** — o agente continua normalmente
-- **deny** — a ação é bloqueada e o agente recebe uma explicação do motivo
-- **instruct** — contexto adicional é inserido no prompt do agente
+- **allow** - o agente prossegue normalmente
+- **deny** - a ação é bloqueada e o agente é informado do motivo
+- **instruct** - contexto adicional é inserido no prompt do agente
 
 <Note>
-As políticas são executadas no seu processo local. Nenhuma informação é enviada para um serviço remoto.
+As políticas são executadas no seu processo local. Nada é enviado a um serviço remoto.
 </Note>
+
+---
+
+## Configure políticas de equipe com políticas baseadas em convenção
+
+A forma mais rápida de estabelecer padrões de qualidade em toda a sua equipe é a convenção `.failproofai/policies/`. Basta colocar arquivos de política nesse diretório e eles são carregados automaticamente — sem flags, sem alterações de configuração, sem comandos de instalação.
+
+<Steps>
+  <Step title="Criar o diretório de políticas">
+    ```bash
+    mkdir -p .failproofai/policies
+    ```
+  </Step>
+  <Step title="Adicionar arquivos de política">
+    Copie os exemplos iniciais ou escreva os seus próprios:
+
+    ```bash
+    cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
+    ```
+
+    Ou crie um novo:
+
+    ```js
+    // .failproofai/policies/team-policies.mjs
+    import { customPolicies, allow, deny, instruct } from "failproofai";
+
+    customPolicies.add({
+      name: "test-before-commit",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        if (/git\s+commit/.test(ctx.toolInput?.command ?? "")) {
+          return instruct("Run tests before committing.");
+        }
+        return allow();
+      },
+    });
+    ```
+  </Step>
+  <Step title="Enviar para o git">
+    ```bash
+    git add .failproofai/policies/
+    git commit -m "Add team quality policies"
+    ```
+
+    Todo membro da equipe que tiver o failproofai instalado receberá essas políticas automaticamente. Sem necessidade de configuração individual por desenvolvedor.
+  </Step>
+</Steps>
+
+<Tip>
+Faça commit de `.failproofai/policies/` no seu repositório para que toda a equipe compartilhe os mesmos padrões. À medida que sua equipe descobre novos modos de falha, adicione políticas e faça push — todos recebem a atualização no próximo `git pull`. Com o tempo, essas políticas se tornam um padrão de qualidade vivo que continua melhorando.
+</Tip>
 
 ---
 
 ## Armazenamento de dados
 
-Todas as configurações e logs ficam na sua máquina:
+Todas as configurações e logs permanecem na sua máquina:
 
 | Caminho | O que armazena |
 |---------|----------------|
 | `~/.failproofai/policies-config.json` | Configuração global de políticas |
 | `~/.failproofai/hook-activity.jsonl` | Histórico de execução de hooks |
-| `~/.failproofai/hook.log` | Log de depuração para erros em hooks personalizados |
+| `~/.failproofai/hook.log` | Log de depuração para erros de hooks personalizados |
 | `.failproofai/policies-config.json` | Configuração por projeto (versionada) |
 | `.failproofai/policies-config.local.json` | Substituições pessoais (ignoradas pelo git) |
 
