@@ -1,4 +1,5 @@
 ---
+---
 title: البدء السريع
 description: "ثبّت failproofai، فعّل السياسات، واترك وكلاءك يعملون بموثوقية"
 icon: rocket
@@ -30,60 +31,112 @@ bun add -g failproofai
 ## البدء السريع
 
 <Steps>
-  <Step title="تفعيل السياسات">
-    السياسات هي قواعد تعمل قبل وبعد كل استدعاء أداة من الوكيل. فهي تقبض على الأوامر المدمرة، تسرب الأسرار، وأوجه الفشل الأخرى قبل أن تسبب الضرر.
+  <Step title="فعّل السياسات">
+    السياسات هي قواعد تعمل قبل وبعد كل استدعاء أداة للوكيل. تحتفظ بالأوامر التدميرية، تسرب الأسرار، ومشاكل الأعطال الأخرى قبل أن تسبب ضررًا.
 
     ```bash
     failproofai policies --install
     ```
 
-    يكتب هذا مدخلات hook في `settings.json` الخاص بـ Claude Code. يمكنك أيضاً التثبيت لمشروع واحد أو اختيار سياسات محددة:
+    هذا يكتب إدخالات hook في `settings.json` الخاص بـ Claude Code. يمكنك أيضًا التثبيت لمشروع واحد أو اختيار سياسات محددة:
 
     ```bash
     failproofai policies --install --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>
-  <Step title="التحقق">
+  <Step title="تحقق">
     ```bash
     failproofai policies
     ```
 
-    يعرض كل سياسة، ما إذا كانت مفعلة، وأي معاملات مكونة.
+    يعرض كل سياسة، وما إذا كانت مفعلة، وأي معاملات مكونة.
   </Step>
-  <Step title="تشغيل لوحة المعلومات">
+  <Step title="شغّل لوحة المعلومات">
     ```bash
     failproofai
     ```
 
-    يفتح لوحة معلومات محلية على `http://localhost:8020` حيث يمكنك تصفح الجلسات، فحص استدعاءات الأدوات، وإدارة السياسات.
+    يفتح لوحة معلومات محلية في `http://localhost:8020` حيث يمكنك استعراض الجلسات، فحص استدعاءات الأدوات، وإدارة السياسات.
   </Step>
-  <Step title="تشغيل وكيلك">
-    شغّل Claude Code كالمعتاد. إذا حاول الوكيل شيئاً محفوفاً بالمخاطر، فإن failproofai يقاطعه تلقائياً. اتركه يعمل دون مراقبة وراجع ما حدث في لوحة المعلومات.
+  <Step title="شغّل وكيلك">
+    ابدأ Claude Code كالمعتاد. إذا حاول الوكيل فعل شيء محفوف بالمخاطر، يقطعه failproofai تلقائيًا. اتركه يعمل بلا مراقبة واستعرض ما حدث في لوحة المعلومات.
   </Step>
 </Steps>
 
 ---
 
-## كيفية عمل السياسات
+## كيف تعمل السياسات
 
-في كل مرة يشغل فيها الوكيل أداة، يستدعي Claude Code failproofai كعملية فرعية:
+في كل مرة يشغل الوكيل أداة، يستدعي Claude Code failproofai كعملية فرعية:
 
 ```text
-Claude Code  →  failproofai --hook PreToolUse  →  قراءة JSON من stdin
-                                                 تقييم السياسات
-                                                 كتابة القرار إلى stdout
+Claude Code  →  failproofai --hook PreToolUse  →  يقرأ JSON من stdin
+                                                 يقيّم السياسات
+                                                 يكتب القرار إلى stdout
 ```
 
-كل سياسة ترجع أحد ثلاثة قرارات:
+تُرجع كل سياسة أحد ثلاثة قرارات:
 
-- **allow** - يستمر الوكيل بشكل طبيعي
-- **deny** - يتم حظر الإجراء، ويُخبر الوكيل عن السبب
-- **instruct** - يُضاف سياق إضافي إلى فوری الوكيل
+- **allow** - يمضي الوكيل قدمًا بشكل طبيعي
+- **deny** - تُحجب الإجراء، يُخبر الوكيل لماذا
+- **instruct** - يُضاف سياق إضافي إلى موجه الوكيل
 
 <Note>
-تعمل السياسات في عمليتك المحلية. لا يتم إرسال أي شيء إلى خدمة بعيدة.
+السياسات تعمل في عمليتك المحلية. لا يُرسل شيء إلى خدمة بعيدة.
 </Note>
+
+---
+
+## أعد إعداد سياسات الفريق باستخدام السياسات المستندة إلى الاتفاقية
+
+أسرع طريقة لتأسيس معايير الجودة عبر فريقك هي اتفاقية `.failproofai/policies/`. ضع ملفات السياسات في هذا الدليل وسيتم تحميلها تلقائيًا — بلا أعلام، بلا تغييرات في الإعدادات، بلا أوامر تثبيت.
+
+<Steps>
+  <Step title="أنشئ دليل السياسات">
+    ```bash
+    mkdir -p .failproofai/policies
+    ```
+  </Step>
+  <Step title="أضف ملفات السياسات">
+    انسخ الأمثلة الأولية أو اكتب ملفك الخاص:
+
+    ```bash
+    cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
+    ```
+
+    أو أنشئ واحدة جديدة:
+
+    ```js
+    // .failproofai/policies/team-policies.mjs
+    import { customPolicies, allow, deny, instruct } from "failproofai";
+
+    customPolicies.add({
+      name: "test-before-commit",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        if (/git\s+commit/.test(ctx.toolInput?.command ?? "")) {
+          return instruct("Run tests before committing.");
+        }
+        return allow();
+      },
+    });
+    ```
+  </Step>
+  <Step title="أسقط في git">
+    ```bash
+    git add .failproofai/policies/
+    git commit -m "Add team quality policies"
+    ```
+
+    كل عضو في الفريق لديه failproofai مثبت يلتقط هذه السياسات تلقائيًا. لا حاجة إلى إعداد لكل مطور.
+  </Step>
+</Steps>
+
+<Tip>
+أسقط `.failproofai/policies/` في مستودع ملفك بحيث يشاركها الفريق بأكمله بنفس المعايير. مع اكتشاف فريقك لأنماط فشل جديدة، أضف السياسات وادفع — يحصل الجميع على التحديث في `git pull` التالي لهم. بمرور الوقت، تصبح هذه السياسات معيار جودة حي يستمر في التحسن.
+</Tip>
 
 ---
 
@@ -91,13 +144,13 @@ Claude Code  →  failproofai --hook PreToolUse  →  قراءة JSON من stdin
 
 جميع الإعدادات والسجلات تبقى على جهازك:
 
-| المسار | ما يخزنه |
+| المسار | ما يتم تخزينه |
 |------|----------------|
-| `~/.failproofai/policies-config.json` | إعدادات السياسة العامة |
+| `~/.failproofai/policies-config.json` | إعدادات السياسة العام |
 | `~/.failproofai/hook-activity.jsonl` | سجل تنفيذ Hook |
-| `~/.failproofai/hook.log` | سجل تصحيح الأخطاء لأخطاء hook المخصصة |
-| `.failproofai/policies-config.json` | إعدادات لكل مشروع (مرتكبة) |
-| `.failproofai/policies-config.local.json` | التجاوزات الشخصية (مستثناة من git) |
+| `~/.failproofai/hook.log` | سجل التصحيح لأخطاء Hook المخصصة |
+| `.failproofai/policies-config.json` | إعدادات لكل مشروع (مسجل) |
+| `.failproofai/policies-config.local.json` | تجاوزات شخصية (مُتجاهل) |
 
 ---
 
@@ -107,7 +160,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  قراءة JSON من stdin
 failproofai policies --uninstall
 ```
 
-يزيل مدخلات hook من `~/.claude/settings.json`. يتم الاحتفاظ بملفات الإعدادات في `~/.failproofai/`.
+يزيل إدخالات hook من `~/.claude/settings.json`. ملفات الإعدادات في `~/.failproofai/` تُحفظ.
 
 ---
 
@@ -116,19 +169,19 @@ failproofai policies --uninstall
 <CardGroup cols={2}>
 
 <Card title="الإعدادات" icon="gear" href="/ar/configuration">
-  النطاقات وصيغة ملف الإعدادات
+  النطاقات وتنسيق ملف الإعدادات
 </Card>
 
 <Card title="السياسات المدمجة" icon="shield" href="/ar/built-in-policies">
-  جميع 26 سياسة مع المعاملات
+  جميع السياسات الـ 26 مع المعاملات
 </Card>
 
 <Card title="السياسات المخصصة" icon="code" href="/ar/custom-policies">
-  اكتب سياساتك الخاصة بلغة JavaScript
+  اكتب سياساتك الخاصة في JavaScript
 </Card>
 
 <Card title="مراقب الوكيل" icon="chart-line" href="/ar/dashboard">
-  راقب الجلسات واستعرض نشاط السياسة
+  راقب الجلسات واستعرض نشاط السياسات
 </Card>
 
 </CardGroup>

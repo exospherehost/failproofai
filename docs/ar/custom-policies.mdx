@@ -1,11 +1,11 @@
 ---
 ---
 title: السياسات المخصصة
-description: "اكتب سياساتك الخاصة بلغة JavaScript - فرض الاتفاقيات، منع الانجراف، اكتشاف الأعطال، التكامل مع الأنظمة الخارجية"
+description: "اكتب سياساتك الخاصة بلغة JavaScript - فرض الاتفاقيات ومنع الانجراف والكشف عن الأعطال والتكامل مع الأنظمة الخارجية"
 icon: code
 ---
 
-تتيح لك السياسات المخصصة كتابة قواعد لأي سلوك وكيل: فرض اتفاقيات المشروع، منع الانجراف، حماية العمليات المدمرة، كشف الوكلاء العالقين، أو التكامل مع Slack وسير العمل الموافقة والمزيد. تستخدم نفس نظام أحداث الخطاف وقرارات `allow` و `deny` و `instruct` مثل السياسات المدمجة.
+تتيح لك السياسات المخصصة كتابة قواعد لأي سلوك وكيل: فرض اتفاقيات المشروع ومنع الانجراف والتحكم في العمليات المدمرة والكشف عن الوكلاء المعلقة أو التكامل مع Slack وسير العمل الموافقة وغيرها. تستخدم نفس نظام أحداث الخطاف وقرارات `allow` و`deny` و`instruct` مثل السياسات المدمجة.
 
 ---
 
@@ -30,7 +30,7 @@ customPolicies.add({
 });
 ```
 
-قم بتثبيته:
+ثبتها:
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -40,12 +40,12 @@ failproofai policies --install --custom ./my-policies.js
 
 ## طريقتان لتحميل السياسات المخصصة
 
-### الخيار 1: قائم على الاتفاقية (موصى به)
+### الخيار 1: قائم على الاتفاقية (مُوصى به)
 
-ضع ملفات `*policies.{js,mjs,ts}` في `.failproofai/policies/` وسيتم تحميلها تلقائياً — لا توجد علامات أو تغييرات في الإعدادات المطلوبة. يعمل هذا مثل خطافات git: ضع ملفاً، وسيعمل فقط.
+أسقط ملفات `*policies.{js,mjs,ts}` في `.failproofai/policies/` وسيتم تحميلها تلقائياً - لا توجد علامات أو تغييرات إعدادات مطلوبة. يعمل هذا مثل خطافات git: أسقط ملف وسيعمل فحسب.
 
 ```
-# مستوى المشروع — يتم الالتزام به في git، مشترك مع الفريق
+# المستوى المشروع — معهود إلى git ومشترك مع الفريق
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
@@ -54,17 +54,17 @@ failproofai policies --install --custom ./my-policies.js
 ```
 
 **كيف يعمل:**
-- يتم فحص كل من مجلدات المشروع والمستخدم (الاتحاد — وليس السيطرة الأولى)
-- يتم تحميل الملفات أبجدياً داخل كل مجلد. البادئة مع `01-`، `02-` للتحكم في الترتيب
-- يتم تحميل الملفات المطابقة فقط `*policies.{js,mjs,ts}`؛ يتم تجاهل الملفات الأخرى
-- يتم تحميل كل ملف بشكل مستقل (فتح بفشل لكل ملف)
+- يتم مسح كلا دليل المشروع والمستخدم (اتحاد - وليس أول نطاق يفوز)
+- يتم تحميل الملفات أبجدياً داخل كل دليل. استخدم البادئة `01-` و`02-` للتحكم في الترتيب
+- يتم تحميل الملفات المطابقة فقط لـ `*policies.{js,mjs,ts}`؛ تُتجاهل الملفات الأخرى
+- يتم تحميل كل ملف بشكل مستقل (فتح مفشول لكل ملف)
 - يعمل جنباً إلى جنب مع السياسات الصريحة `--custom` والمدمجة
 
 <Tip>
-سياسات الاتفاقية هي أسهل طريقة لمشاركة السياسات عبر الفريق. التزم بـ `.failproofai/policies/` إلى git وسيحصل كل عضو فريق عليها تلقائياً.
+سياسات الاتفاقية هي أسهل طريقة لبناء معيار جودة لمؤسستك. عهد `.failproofai/policies/` إلى git وكل عضو في الفريق سيحصل على نفس القواعد تلقائياً - لا توجد حاجة لإعداد كل مطور. عندما يكتشف فريقك أنماط أعطال جديدة، أضف سياسة واضغط. بمرور الوقت، تصبح هذه معيار جودة حي يستمر في التحسن مع كل مساهمة.
 </Tip>
 
-### الخيار 2: مسار الملف الصريح
+### الخيار 2: مسار ملف صريح
 
 ```bash
 # التثبيت مع ملف سياسات مخصص
@@ -73,19 +73,19 @@ failproofai policies --install --custom ./my-policies.js
 # استبدل مسار ملف السياسات
 failproofai policies --install --custom ./new-policies.js
 
-# إزالة مسار السياسات المخصصة من الإعدادات
+# أزل مسار السياسات المخصصة من الإعدادات
 failproofai policies --uninstall --custom
 ```
 
-يتم تخزين المسار المطلق المحل في `policies-config.json` كـ `customPoliciesPath`. يتم تحميل الملف بشكل جديد في كل حدث خطاف - لا يوجد تخزين مؤقت بين الأحداث.
+يتم تخزين المسار المطلق المحلول في `policies-config.json` كـ `customPoliciesPath`. يتم تحميل الملف بشكل جديد في كل حدث خطاف - لا يوجد تخزين مؤقت بين الأحداث.
 
 ### استخدام كليهما معاً
 
-يمكن أن تتعايش سياسات الاتفاقية وملف `--custom` الصريح. ترتيب التحميل:
+يمكن أن توجد سياسات الاتفاقية وملف `--custom` الصريح معاً. ترتيب التحميل:
 
-1. ملف `customPoliciesPath` الصريح (إذا تم تكوينه)
-2. ملفات الاتفاقية للمشروع (`{cwd}/.failproofai/policies/`، أبجدياً)
-3. ملفات الاتفاقية للمستخدم (`~/.failproofai/policies/`، أبجدياً)
+1. ملف `customPoliciesPath` الصريح (إن تم تكوينه)
+2. ملفات اتفاقية المشروع (`{cwd}/.failproofai/policies/`، أبجدياً)
+3. ملفات اتفاقية المستخدم (`~/.failproofai/policies/`، أبجدياً)
 
 ---
 
@@ -99,45 +99,45 @@ import { customPolicies, allow, deny, instruct } from "failproofai";
 
 ### `customPolicies.add(hook)`
 
-تسجيل سياسة. استدعِ هذا عدة مرات حسب الحاجة لسياسات متعددة في نفس الملف.
+يسجل سياسة. استدعِ هذا عدة مرات حسب الحاجة لسياسات متعددة في نفس الملف.
 
 ```ts
 customPolicies.add({
-  name: string;                         // required - unique identifier
-  description?: string;                 // shown in `failproofai policies` output
-  match?: { events?: HookEventType[] }; // filter by event type; omit to match all
+  name: string;                         // مطلوب - معرّف فريد
+  description?: string;                 // معروض في إخراج `failproofai policies`
+  match?: { events?: HookEventType[] }; // تصفية حسب نوع الحدث؛ احذف للمطابقة مع الكل
   fn: (ctx: PolicyContext) => PolicyResult | Promise<PolicyResult>;
 });
 ```
 
-### مساعدو القرار
+### مساعدات القرار
 
 | الدالة | التأثير | استخدم عندما |
 |----------|--------|----------|
-| `allow()` | السماح بالعملية بصمت | الإجراء آمن، لا توجد رسالة مطلوبة |
-| `deny(message)` | منع العملية | لا يجب أن يقوم الوكيل بهذا الإجراء |
+| `allow()` | السماح بالعملية بصمت | الإجراء آمن، لا توجد حاجة لرسالة |
+| `deny(message)` | حجب العملية | لا يجب على الوكيل اتخاذ هذا الإجراء |
 | `instruct(message)` | إضافة سياق بدون حجب | أعط الوكيل سياق إضافي للبقاء على المسار |
 
-`deny(message)` - تظهر الرسالة لـ Claude مع البادئة `"Blocked by failproofai:"`. يؤدي `deny` واحد إلى اختصار جميع التقييمات الإضافية.
+`deny(message)` - تظهر الرسالة لـ Claude مع البادئة `"Blocked by failproofai:"`. يؤدي رفض واحد إلى قطع جميع التقييمات الإضافية.
 
-`instruct(message)` - يتم إلحاق الرسالة بسياق Claude للاستدعاء الحالي للأداة. يتم تجميع جميع رسائل `instruct` وتسليمها معاً.
+`instruct(message)` - يتم إلحاق الرسالة بسياق Claude لاستدعاء الأداة الحالي. يتم تجميع جميع رسائل `instruct` وتسليمها معاً.
 
 <Tip>
-يمكنك إلحاق إرشادات إضافية بأي رسالة `deny` أو `instruct` بإضافة حقل `hint` في `policyParams` — لا يلزم تغيير الكود. يعمل هذا أيضاً مع السياسات المخصصة (`custom/`) وسياسات اتفاقية المشروع (`.failproofai-project/`) وسياسات اتفاقية المستخدم (`.failproofai-user/`). راجع [التكوين → hint](/ar/configuration#hint-cross-cutting) للتفاصيل.
+يمكنك إضافة إرشادات إضافية إلى أي رسالة `deny` أو `instruct` بإضافة حقل `hint` في `policyParams` - لا حاجة لتغيير الكود. هذا يعمل مع السياسات المخصصة (`custom/`) واتفاقية المشروع (`.failproofai-project/`) واتفاقية المستخدم (`.failproofai-user/`) أيضاً. انظر [Configuration → hint](/ar/configuration#hint-cross-cutting) للتفاصيل.
 </Tip>
 
 ### رسائل السماح المعلوماتية
 
-`allow(message)` يسمح بالعملية **و** يرسل رسالة معلوماتية مرة أخرى إلى Claude. يتم تسليم الرسالة كـ `additionalContext` في استجابة stdout معالج الخطاف — نفس الآلية المستخدمة بواسطة `instruct`، لكن بمعنى مختلف: إنها تحديث الحالة، وليست تحذيراً.
+`allow(message)` يسمح بالعملية **و** يرسل رسالة معلوماتية مرة أخرى إلى Claude. يتم تسليم الرسالة كـ `additionalContext` في استجابة stdout لمعالج الخطاف - نفس الآلية المستخدمة بـ `instruct`، لكن مختلفة دلالياً: إنها تحديث حالة وليس تحذير.
 
 | الدالة | التأثير | استخدم عندما |
 |----------|--------|----------|
-| `allow(message)` | السماح وإرسال السياق إلى Claude | تأكيد اجتياز الفحص، أو شرح سبب تخطي الفحص |
+| `allow(message)` | السماح وإرسال سياق إلى Claude | تأكيد اجتياز الفحص أو شرح السبب في تخطي الفحص |
 
 حالات الاستخدام:
-- **تأكيدات الحالة:** `allow("All CI checks passed.")` — يخبر Claude بأن كل شيء أخضر
-- **شرح الفتح الفاشل:** `allow("GitHub CLI not installed, skipping CI check.")` — يخبر Claude لماذا تم تخطي الفحص حتى يكون لديه سياق كامل
-- **تراكم رسائل متعددة:** إذا أرجعت عدة سياسات `allow(message)`، يتم ربط جميع الرسائل بأسطر جديدة وتسليمها معاً
+- **تأكيدات الحالة:** `allow("All CI checks passed.")` - يخبر Claude أن كل شيء أخضر
+- **شروحات الفتح المفشول:** `allow("GitHub CLI not installed, skipping CI check.")` - يخبر Claude لماذا تم تخطي الفحص بحيث يكون لديه سياق كامل
+- **تراكم رسائل متعددة:** إذا أرجعت عدة سياسات `allow(message)`، يتم ربط جميع الرسائل بفواصل أسطر وتسليمها معاً
 
 ```js
 customPolicies.add({
@@ -147,7 +147,7 @@ customPolicies.add({
     const cwd = ctx.session?.cwd;
     if (!cwd) return allow("No working directory, skipping branch check.");
 
-    // ... check branch status ...
+    // ... تحقق من حالة الفرع ...
     if (allPushed) {
       return allow("Branch is up to date with remote.");
     }
@@ -163,24 +163,24 @@ customPolicies.add({
 | `eventType` | `string` | `"PreToolUse"`، `"PostToolUse"`، `"Notification"`، `"Stop"` |
 | `toolName` | `string \| undefined` | الأداة التي يتم استدعاؤها (مثل `"Bash"`، `"Write"`، `"Read"`) |
 | `toolInput` | `Record<string, unknown> \| undefined` | معاملات إدخال الأداة |
-| `payload` | `Record<string, unknown>` | حمل الحدث الكامل الخام من Claude Code |
+| `payload` | `Record<string, unknown>` | الحمولة الحدث الخام الكاملة من Claude Code |
 | `session` | `SessionMetadata \| undefined` | سياق الجلسة (انظر أدناه) |
 
 ### حقول `SessionMetadata`
 
 | الحقل | النوع | الوصف |
 |-------|------|-------------|
-| `sessionId` | `string` | معرف جلسة Claude Code |
+| `sessionId` | `string` | معرّف جلسة Claude Code |
 | `cwd` | `string` | دليل العمل لجلسة Claude Code |
-| `transcriptPath` | `string` | المسار إلى ملف النسخة المكتوبة JSONL للجلسة |
+| `transcriptPath` | `string` | المسار إلى ملف النسخ JSONL للجلسة |
 
 ### أنواع الأحداث
 
-| الحدث | متى يطلق | محتويات `toolInput` |
-|------|--------------|----------------------|
+| الحدث | متى يتم تشغيله | محتويات `toolInput` |
+|-------|--------------|----------------------|
 | `PreToolUse` | قبل تشغيل Claude لأداة | إدخال الأداة (مثل `{ command: "..." }` لـ Bash) |
-| `PostToolUse` | بعد اكتمال الأداة | إدخال الأداة + `tool_result` (الإخراج) |
-| `Notification` | عندما يرسل Claude إشعاراً | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` - يجب أن تعيد الخطافات دائماً `allow()`، لا يمكنها حجب الإشعارات |
+| `PostToolUse` | بعد اكتمال أداة | إدخال الأداة + `tool_result` (الإخراج) |
+| `Notification` | عندما يرسل Claude إخطار | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` - يجب أن ترجع الخطافات دائماً `allow()`، لا يمكنها حجب الإخطارات |
 | `Stop` | عند انتهاء جلسة Claude | فارغ |
 
 ---
@@ -191,18 +191,18 @@ customPolicies.add({
 
 1. السياسات المدمجة (بترتيب التعريف)
 2. السياسات المخصصة الصريحة من `customPoliciesPath` (بترتيب `.add()`)
-3. سياسات الاتفاقية من مشروع `.failproofai/policies/` (الملفات أبجدياً، ترتيب `.add()` بداخلها)
-4. سياسات الاتفاقية من مستخدم `~/.failproofai/policies/` (الملفات أبجدياً، ترتيب `.add()` بداخلها)
+3. سياسات الاتفاقية من مشروع `.failproofai/policies/` (ملفات أبجدياً، `.add()` بترتيب داخل)
+4. سياسات الاتفاقية من مستخدم `~/.failproofai/policies/` (ملفات أبجدياً، `.add()` بترتيب داخل)
 
 <Note>
-يؤدي أول `deny` إلى اختصار جميع السياسات اللاحقة. يتم تجميع جميع رسائل `instruct` وتسليمها معاً.
+يقطع أول `deny` جميع السياسات اللاحقة. يتم تجميع جميع رسائل `instruct` وتسليمها معاً.
 </Note>
 
 ---
 
-## الواردات المتعدية
+## الاستيرادات المتعدية
 
-يمكن لملفات السياسات المخصصة استيراد الوحدات المحلية باستخدام المسارات النسبية:
+يمكن لملفات السياسات المخصصة استيراد وحدات محلية باستخدام المسارات النسبية:
 
 ```js
 // my-policies.js
@@ -219,46 +219,46 @@ customPolicies.add({
 });
 ```
 
-يتم حل جميع الواردات النسبية التي يمكن الوصول إليها من ملف الإدخال. يتم تنفيذ هذا بإعادة كتابة استيراد `from "failproofai"` إلى مسار dist الفعلي وإنشاء ملفات `.mjs` مؤقتة لضمان توافق ESM.
+يتم حل جميع الاستيرادات النسبية القابلة للوصول من ملف الإدخال. يتم تطبيق هذا بإعادة كتابة استيرادات `from "failproofai"` إلى مسار dist الفعلي وإنشاء ملفات `.mjs` مؤقتة لضمان توافق ESM.
 
 ---
 
 ## تصفية نوع الحدث
 
-استخدم `match.events` لتحديد متى تطلق السياسة:
+استخدم `match.events` لتحديد متى يتم تشغيل السياسة:
 
 ```js
 customPolicies.add({
   name: "require-summary-on-stop",
   match: { events: ["Stop"] },
   fn: async (ctx) => {
-    // Only fires when the session ends
-    // ctx.session.transcriptPath contains the full session log
+    // يتم التشغيل فقط عند انتهاء الجلسة
+    // ctx.session.transcriptPath يحتوي على سجل الجلسة الكامل
     return allow();
   },
 });
 ```
 
-احذف `match` تماماً لتطلق على كل نوع حدث.
+احذف `match` بالكامل للتشغيل على كل نوع حدث.
 
 ---
 
-## معالجة الأخطاء وأوضاع الفشل
+## معالجة الأخطاء وأنماط الفشل
 
-السياسات المخصصة **تفتح الفشل**: لا تحجب الأخطاء أبداً السياسات المدمجة أو تحطم معالج الخطاف.
+السياسات المخصصة **فتح مفشول**: الأخطاء لا تحجب أبداً السياسات المدمجة أو تعطل معالج الخطاف.
 
 | الفشل | السلوك |
 |---------|----------|
-| `customPoliciesPath` لم يتم تعيينه | لا تعمل سياسات مخصصة صريحة؛ تستمر السياسات والمدمجات الاتفاقية بشكل طبيعي |
-| لم يتم العثور على الملف | تحذير مسجل في `~/.failproofai/hook.log`؛ تستمر المدمجات |
-| خطأ الصيغة/الاستيراد (صريح) | خطأ مسجل في `~/.failproofai/hook.log`؛ تم تخطي السياسات المخصصة الصريحة |
-| خطأ الصيغة/الاستيراد (الاتفاقية) | خطأ مسجل؛ هذا الملف مخطي، لكن ملفات الاتفاقية الأخرى تحمل لا تزال |
-| `fn` يرمي في وقت التشغيل | خطأ مسجل؛ يتم التعامل مع الخطاف كـ `allow`؛ تستمر الخطافات الأخرى |
-| `fn` يستغرق أطول من 10 ثوانٍ | انتهاء المهلة الزمنية المسجلة؛ يتم التعامل معها كـ `allow` |
-| مجلد الاتفاقية مفقود | لا تعمل سياسات الاتفاقية؛ لا خطأ |
+| `customPoliciesPath` غير معيّن | لا تعمل السياسات المخصصة الصريحة؛ تستمر سياسات الاتفاقية والمدمجة بشكل طبيعي |
+| الملف غير موجود | تحذير مسجل في `~/.failproofai/hook.log`؛ تستمر المدمجة |
+| خطأ بناء الجملة/الاستيراد (صريح) | خطأ مسجل في `~/.failproofai/hook.log`؛ السياسات المخصصة الصريحة مخطوطة |
+| خطأ بناء الجملة/الاستيراد (اتفاقية) | خطأ مسجل؛ هذا الملف مخطوط، لا تزال ملفات الاتفاقية الأخرى تحمل |
+| `fn` يرمي في وقت التشغيل | خطأ مسجل؛ يتم التعامل مع هذا الخطاف كـ `allow`؛ تستمر الخطافات الأخرى |
+| `fn` يستغرق وقتاً أطول من 10 ثانية | مهلة زمنية مسجلة؛ يتم التعامل معها كـ `allow` |
+| دليل الاتفاقية مفقود | لا تعمل سياسات الاتفاقية؛ بدون خطأ |
 
 <Tip>
-لتصحيح أخطاء السياسات المخصصة، شاهد ملف السجل:
+لتصحيح أخطاء السياسات المخصصة، راقب ملف السجل:
 
 ```bash
 tail -f ~/.failproofai/hook.log
@@ -273,7 +273,7 @@ tail -f ~/.failproofai/hook.log
 // my-policies.js
 import { customPolicies, allow, deny, instruct } from "failproofai";
 
-// Prevent agent from writing to secrets/ directory
+// منع الوكيل من الكتابة إلى دليل secrets/
 customPolicies.add({
   name: "block-secrets-dir",
   description: "Prevent agent from writing to secrets/ directory",
@@ -286,7 +286,7 @@ customPolicies.add({
   },
 });
 
-// Keep the agent on track: verify tests before committing
+// ابق الوكيل على المسار: تحقق من الاختبارات قبل الالتزام
 customPolicies.add({
   name: "remind-test-before-commit",
   description: "Keep the agent on track: verify tests pass before committing",
@@ -301,7 +301,7 @@ customPolicies.add({
   },
 });
 
-// Prevent unplanned dependency changes during freeze
+// منع تغييرات المتعلقات غير المخطط لها أثناء التجميد
 customPolicies.add({
   name: "dependency-freeze",
   description: "Prevent unplanned dependency changes during freeze period",
@@ -324,14 +324,14 @@ export { customPolicies };
 
 ## أمثلة
 
-يحتوي مجلد `examples/` على ملفات السياسات الجاهزة للتشغيل:
+يحتوي دليل `examples/` على ملفات سياسات جاهزة للتشغيل:
 
 | الملف | المحتويات |
 |------|----------|
-| `examples/policies-basic.js` | خمس سياسات للمبتدئين تغطي أنماط أعطال الوكيل الشائعة |
-| `examples/policies-advanced/index.js` | أنماط متقدمة: واردات متعدية، استدعاءات غير متزامنة، كشط الإخراج، خطافات نهاية الجلسة |
-| `examples/convention-policies/security-policies.mjs` | سياسات الأمان القائمة على الاتفاقية (منع كتابات .env، منع إعادة كتابة سجل git) |
-| `examples/convention-policies/workflow-policies.mjs` | سياسات سير العمل القائمة على الاتفاقية (تذكيرات الاختبار، ملفات الكتابة بالتدقيق) |
+| `examples/policies-basic.js` | خمس سياسات البداية التي تغطي أنماط فشل الوكيل الشائعة |
+| `examples/policies-advanced/index.js` | أنماط متقدمة: استيرادات متعدية، استدعاءات غير متزامنة، تنظيف الإخراج، وخطافات نهاية الجلسة |
+| `examples/convention-policies/security-policies.mjs` | سياسات أمان قائمة على الاتفاقية (حجب كتابات .env، منع إعادة كتابة سجل git) |
+| `examples/convention-policies/workflow-policies.mjs` | سياسات سير عمل قائمة على الاتفاقية (تذكيرات الاختبار وملفات الكتابة بالتدقيق) |
 
 ### استخدام أمثلة الملفات الصريحة
 
@@ -342,13 +342,13 @@ failproofai policies --install --custom ./examples/policies-basic.js
 ### استخدام أمثلة قائمة على الاتفاقية
 
 ```bash
-# Copy to project level
+# انسخ إلى مستوى المشروع
 mkdir -p .failproofai/policies
 cp examples/convention-policies/*.mjs .failproofai/policies/
 
-# Or copy to user level
+# أو انسخ إلى مستوى المستخدم
 mkdir -p ~/.failproofai/policies
 cp examples/convention-policies/*.mjs ~/.failproofai/policies/
 ```
 
-لا يلزم أمر التثبيت — يتم التقاط الملفات تلقائياً في حدث الخطاف التالي.
+لا توجد حاجة لأمر التثبيت - يتم التقاط الملفات تلقائياً في حدث الخطاف التالي.

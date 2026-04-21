@@ -23,51 +23,51 @@
 
 **Traduzioni**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-Il modo più semplice per gestire le policy che mantengono i tuoi agenti AI affidabili, focalizzati e in esecuzione autonoma - per **Claude Code** e **Agents SDK**.
+Il modo più semplice per gestire le politiche che mantengono i tuoi agenti AI affidabili, focalizzati e in esecuzione autonoma - per **Claude Code** e **Agents SDK**.
 
-- **30 Policy Integrate** - Rileva i comuni modi di fallimento degli agenti immediatamente. Blocca i comandi distruttivi, previeni le fughe di segreti, mantieni gli agenti entro i confini del progetto, rileva i loop e altro ancora.
-- **Policy Personalizzate** - Scrivi le tue regole di affidabilità in JavaScript. Usa l'API `allow`/`deny`/`instruct` per imporre convenzioni, prevenire derive, controllare operazioni o integrarti con sistemi esterni.
-- **Configurazione Facile** - Personalizza qualsiasi policy senza scrivere codice. Imposta allowlist, rami protetti, soglie per progetto o globalmente. La configurazione con tre ambiti si unisce automaticamente.
-- **Monitoraggio Agenti** - Vedi cosa hanno fatto i tuoi agenti mentre eri assente. Sfoglia le sessioni, ispeziona ogni chiamata di strumento e verifica esattamente dove sono state applicate le policy.
+- **30 Politiche Integrate** - Individua i fallimenti comuni degli agenti direttamente. Blocca i comandi distruttivi, previeni le fughe di segreti, mantieni gli agenti entro i confini del progetto, rileva i loop e molto altro.
+- **Politiche Personalizzate** - Scrivi le tue regole di affidabilità in JavaScript. Usa l'API `allow`/`deny`/`instruct` per applicare convenzioni, prevenire derive, limitare operazioni o integrarti con sistemi esterni.
+- **Configurazione Facile** - Regola qualsiasi politica senza scrivere codice. Imposta allowlist, rami protetti, soglie per progetto o globalmente. La configurazione a tre livelli si unisce automaticamente.
+- **Monitoraggio degli Agenti** - Vedi cosa hanno fatto i tuoi agenti mentre eri via. Sfoglia le sessioni, ispeziona ogni chiamata di tool e rivedi esattamente dove le politiche sono state attivate.
 
-Tutto funziona localmente - nessun dato esce dalla tua macchina.
+Tutto viene eseguito localmente - nessun dato lascia il tuo computer.
 
 ---
 
 ## Requisiti
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0 (opzionale - necessario solo per lo sviluppo / compilazione da sorgente)
+- Bun >= 1.3.0 (facoltativo - necessario solo per lo sviluppo / compilazione da source)
 
 ---
 
-## Installa
+## Installazione
 
 ```bash
 npm install -g failproofai
-# o
+# oppure
 bun add -g failproofai
 ```
 
 ---
 
-## Avvio rapido
+## Guida Rapida
 
-### 1. Abilita le policy globalmente
+### 1. Abilita le politiche globalmente
 
 ```bash
 failproofai policies --install
 ```
 
-Scrive le voci di hook in `~/.claude/settings.json`. Claude Code ora richiamerà failproofai prima e dopo ogni chiamata di strumento.
+Scrive voci di hook in `~/.claude/settings.json`. Claude Code richiamerà failproofai prima e dopo ogni chiamata di tool.
 
-### 2. Avvia il dashboard
+### 2. Avvia la dashboard
 
 ```bash
 failproofai
 ```
 
-Apre `http://localhost:8020` - sfoglia le sessioni, ispeziona i log, gestisci le policy.
+Apre `http://localhost:8020` - sfoglia le sessioni, ispeziona i log, gestisci le politiche.
 
 ### 3. Controlla cosa è attivo
 
@@ -77,27 +77,27 @@ failproofai policies
 
 ---
 
-## Installazione delle policy
+## Installazione delle Politiche
 
 ### Ambiti
 
 | Ambito | Comando | Dove scrive |
-|--------|---------|-------------|
+|--------|---------|-----------|
 | Globale (predefinito) | `failproofai policies --install` | `~/.claude/settings.json` |
 | Progetto | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | Locale | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
-### Installa policy specifiche
+### Installa politiche specifiche
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 ```
 
-### Rimuovi policy
+### Rimuovi politiche
 
 ```bash
 failproofai policies --uninstall
-# o per uno specifico ambito:
+# oppure per uno specifico ambito:
 failproofai policies --uninstall --scope project
 ```
 
@@ -105,7 +105,7 @@ failproofai policies --uninstall --scope project
 
 ## Configurazione
 
-La configurazione delle policy si trova in `~/.failproofai/policies-config.json` (globale) o `.failproofai/policies-config.json` nel tuo progetto (per progetto).
+La configurazione delle politiche si trova in `~/.failproofai/policies-config.json` (globale) o `.failproofai/policies-config.json` nel tuo progetto (per progetto).
 
 ```json
 {
@@ -142,44 +142,44 @@ La configurazione delle policy si trova in `~/.failproofai/policies-config.json`
 
 ---
 
-## Policy integrate
+## Politiche integrate
 
-| Policy | Descrizione | Configurabile |
-|--------|-------------|:---:|
-| `block-sudo` | Previeni che gli agenti eseguano comandi di sistema privilegiati | `allowPatterns` |
-| `block-rm-rf` | Previeni l'eliminazione accidentale ricorsiva di file | `allowPaths` |
-| `block-curl-pipe-sh` | Previeni che gli agenti inviino script non attendibili alla shell tramite pipe | |
-| `block-failproofai-commands` | Previeni l'autodisininstallazione | |
-| `sanitize-jwt` | Ferma i token JWT dal trapelare nel contesto dell'agente | |
-| `sanitize-api-keys` | Ferma le chiavi API dal trapelare nel contesto dell'agente | `additionalPatterns` |
-| `sanitize-connection-strings` | Ferma le credenziali del database dal trapelare nel contesto dell'agente | |
+| Politica | Descrizione | Configurabile |
+|----------|-------------|:---:|
+| `block-sudo` | Previeni agli agenti di eseguire comandi di sistema privilegiati | `allowPatterns` |
+| `block-rm-rf` | Previeni l'eliminazione accidentale di file ricorsiva | `allowPaths` |
+| `block-curl-pipe-sh` | Previeni agli agenti di eseguire script non attendibili tramite shell | |
+| `block-failproofai-commands` | Previeni l'auto-disinstallazione | |
+| `sanitize-jwt` | Interrompi la perdita di token JWT nel contesto dell'agente | |
+| `sanitize-api-keys` | Interrompi la perdita di chiavi API nel contesto dell'agente | `additionalPatterns` |
+| `sanitize-connection-strings` | Interrompi la perdita di credenziali del database nel contesto dell'agente | |
 | `sanitize-private-key-content` | Redigi i blocchi di chiave privata PEM dall'output | |
-| `sanitize-bearer-tokens` | Redigi i token Authorization Bearer dall'output | |
-| `block-env-files` | Mantieni gli agenti lontani dalla lettura dei file .env | |
-| `protect-env-vars` | Previeni che gli agenti stampino le variabili di ambiente | |
+| `sanitize-bearer-tokens` | Redigi i token Bearer di autorizzazione dall'output | |
+| `block-env-files` | Impedisci agli agenti di leggere file .env | |
+| `protect-env-vars` | Previeni agli agenti di stampare variabili d'ambiente | |
 | `block-read-outside-cwd` | Mantieni gli agenti entro i confini del progetto | `allowPaths` |
-| `block-secrets-write` | Previeni le scritture nei file di chiave privata e certificati | `additionalPatterns` |
+| `block-secrets-write` | Previeni le scritture su file di chiave privata e certificati | `additionalPatterns` |
 | `block-push-master` | Previeni i push accidentali a main/master | `protectedBranches` |
-| `block-work-on-main` | Mantieni gli agenti lontani dai rami protetti | `protectedBranches` |
+| `block-work-on-main` | Mantieni gli agenti fuori dai rami protetti | `protectedBranches` |
 | `block-force-push` | Previeni `git push --force` | |
-| `warn-git-amend` | Ricorda agli agenti prima di modificare i commit | |
+| `warn-git-amend` | Ricorda agli agenti prima di correggere i commit | |
 | `warn-git-stash-drop` | Ricorda agli agenti prima di eliminare gli stash | |
-| `warn-all-files-staged` | Rileva `git add -A` accidentale | |
-| `warn-destructive-sql` | Rileva DROP/DELETE SQL prima dell'esecuzione | |
-| `warn-schema-alteration` | Rileva ALTER TABLE prima dell'esecuzione | |
-| `warn-large-file-write` | Rileva scritture di file inaspettatamente grandi | `thresholdKb` |
-| `warn-package-publish` | Rileva `npm publish` accidentale | |
-| `warn-background-process` | Rileva avvii di processi in background non previsti | |
-| `warn-global-package-install` | Rileva installazioni di pacchetti globali non previste | |
-| …e altre | | |
+| `warn-all-files-staged` | Individua l'accidentale `git add -A` | |
+| `warn-destructive-sql` | Individua DROP/DELETE SQL prima dell'esecuzione | |
+| `warn-schema-alteration` | Individua ALTER TABLE prima dell'esecuzione | |
+| `warn-large-file-write` | Individua le scritture di file inaspettatamente grandi | `thresholdKb` |
+| `warn-package-publish` | Individua l'accidentale `npm publish` | |
+| `warn-background-process` | Individua i lanci di processi di background non intenzionali | |
+| `warn-global-package-install` | Individua le installazioni di pacchetti globali non intenzionali | |
+| …e altri | | |
 
-Dettagli completi delle policy e riferimento dei parametri: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
+Dettagli completi delle politiche e riferimento dei parametri: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
 ---
 
-## Policy personalizzate
+## Politiche Personalizzate
 
-Scrivi le tue policy per mantenere gli agenti affidabili e focalizzati:
+Scrivi le tue politiche per mantenere gli agenti affidabili e focalizzati:
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
@@ -203,35 +203,35 @@ Installa con:
 failproofai policies --install --custom ./my-policies.js
 ```
 
-### Funzioni helper per le decisioni
+### Helper di Decisione
 
 | Funzione | Effetto |
 |----------|--------|
-| `allow()` | Consenti l'operazione |
-| `allow(message)` | Consenti e invia contesto informativo a Claude |
+| `allow()` | Autorizza l'operazione |
+| `allow(message)` | Autorizza e invia il contesto informativo a Claude |
 | `deny(message)` | Blocca l'operazione; il messaggio viene mostrato a Claude |
 | `instruct(message)` | Aggiungi contesto al prompt di Claude; non blocca |
 
-### Oggetto di contesto (`ctx`)
+### Oggetto Contesto (`ctx`)
 
 | Campo | Tipo | Descrizione |
 |-------|------|-------------|
 | `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
-| `toolName` | `string` | Strumento richiamato (`"Bash"`, `"Write"`, `"Read"`, …) |
-| `toolInput` | `object` | Parametri di input dello strumento |
-| `payload` | `object` | Payload grezzo completo dell'evento |
+| `toolName` | `string` | Tool being called (`"Bash"`, `"Write"`, `"Read"`, …) |
+| `toolInput` | `object` | Parametri di input del tool |
+| `payload` | `object` | Payload di evento grezzo completo |
 | `session.cwd` | `string` | Directory di lavoro della sessione Claude Code |
 | `session.sessionId` | `string` | Identificatore della sessione |
-| `session.transcriptPath` | `string` | Percorso del file di trascrizione della sessione |
+| `session.transcriptPath` | `string` | Percorso del file transcript della sessione |
 
-I hook personalizzati supportano importazioni locali transitive, async/await e accesso a `process.env`. Gli errori sono fail-open (registrati in `~/.failproofai/hook.log`, le policy integrate continuano). Vedi [docs/custom-hooks.mdx](docs/custom-hooks.mdx) per la guida completa.
+I custom hook supportano importazioni locali transitive, async/await e accesso a `process.env`. Gli errori sono fail-open (registrati in `~/.failproofai/hook.log`, le politiche integrate continuano). Vedi [docs/custom-hooks.mdx](docs/custom-hooks.mdx) per la guida completa.
 
-### Policy basate su convenzione
+### Politiche Basate su Convenzioni
 
-Metti i file `*policies.{js,mjs,ts}` in `.failproofai/policies/` e vengono caricati automaticamente - nessun flag `--custom` o modifiche di configurazione necessarie. Funziona come i git hook: metti un file e basta.
+Inserisci file `*policies.{js,mjs,ts}` in `.failproofai/policies/` e vengono caricati automaticamente - nessun flag o modifica di configurazione necessaria. Esegui il commit della directory su git e ogni membro del team ottiene automaticamente gli stessi standard di qualità.
 
 ```text
-# Livello di progetto — commits in git, condiviso con il team
+# Livello di progetto — eseguito il commit su git, condiviso con il team
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
@@ -239,15 +239,15 @@ Metti i file `*policies.{js,mjs,ts}` in `.failproofai/policies/` e vengono caric
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-Entrambi i livelli si caricano (unione). I file vengono caricati alfabeticamente all'interno di ogni directory. Usa il prefisso `01-`, `02-`, ecc. per controllare l'ordine. Vedi [examples/convention-policies/](examples/convention-policies/) per esempi pronti all'uso.
+Entrambi i livelli vengono caricati (unione). I file vengono caricati alfabeticamente all'interno di ogni directory. Prefissa con `01-`, `02-`, ecc. per controllare l'ordine. Man mano che il tuo team scopre nuovi fallimenti, aggiungi una politica e esegui il push - chiunque ottiene l'aggiornamento al prossimo pull. Vedi [examples/convention-policies/](examples/convention-policies/) per esempi pronti all'uso.
 
 ---
 
 ## Telemetria
 
-Failproof AI raccoglie telemetria di utilizzo anonima tramite PostHog per comprendere l'utilizzo delle funzioni. Nessun contenuto di sessione, nome di file, input di strumenti o informazioni personali viene mai inviato.
+Failproof AI raccoglie telemetria di utilizzo anonima tramite PostHog per comprendere l'utilizzo delle funzioni. Il contenuto della sessione, i nomi dei file, gli input dei tool o le informazioni personali non vengono mai inviati.
 
-Disabilitalo:
+Disabilita:
 
 ```bash
 FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
@@ -260,12 +260,12 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Guida | Descrizione |
 |-------|-------------|
 | [Getting Started](docs/getting-started.mdx) | Installazione e primi passi |
-| [Built-in Policies](docs/built-in-policies.mdx) | Tutte le 30 policy integrate con parametri |
-| [Custom Policies](docs/custom-policies.mdx) | Scrivi le tue policy |
+| [Built-in Policies](docs/built-in-policies.mdx) | Tutte le 30 politiche integrate con parametri |
+| [Custom Policies](docs/custom-policies.mdx) | Scrivi le tue politiche |
 | [Configuration](docs/configuration.mdx) | Formato del file di configurazione e unione degli ambiti |
-| [Dashboard](docs/dashboard.mdx) | Monitora le sessioni e verifica l'attività delle policy |
+| [Dashboard](docs/dashboard.mdx) | Monitora le sessioni e rivedi l'attività delle politiche |
 | [Architecture](docs/architecture.mdx) | Come funziona il sistema di hook |
-| [Testing](docs/testing.mdx) | Eseguire i test e scrivere i nuovi |
+| [Testing](docs/testing.mdx) | Esecuzione di test e scrittura di nuovi |
 
 ### Esegui la documentazione localmente
 
@@ -274,7 +274,7 @@ docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-Apre il sito della documentazione Mintlify su `http://localhost:3000`. Il contenitore osserva i cambiamenti se monti la directory dei documenti:
+Apre il sito della documentazione Mintlify su `http://localhost:3000`. Il container guarda i cambiamenti se monti la directory docs:
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -282,11 +282,11 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
-## Nota per i contributori di failproofai
+## Nota per i contribuenti di failproofai
 
-Il file `.claude/settings.json` di questo repository utilizza `bun ./bin/failproofai.mjs --hook <EventType>` al posto del comando standard `npx -y failproofai`. Questo perché eseguire `npx -y failproofai` all'interno del progetto failproofai stesso crea un conflitto auto-referenziante.
+Il `.claude/settings.json` di questo repo usa `bun ./bin/failproofai.mjs --hook <EventType>` invece del comando standard `npx -y failproofai`. Questo è perché eseguire `npx -y failproofai` all'interno del progetto failproofai stesso crea un conflitto di auto-referenza.
 
-Per tutti gli altri repository, l'approccio consigliato è `npx -y failproofai`, installato tramite:
+Per tutti gli altri repo, l'approccio consigliato è `npx -y failproofai`, installato tramite:
 
 ```bash
 failproofai policies --install --scope project
@@ -304,4 +304,4 @@ Vedi [LICENSE](LICENSE).
 
 ---
 
-Costruito e mantenuto da **ExosphereHost: Reliability Research Lab per i tuoi Agenti**. Aiutiamo aziende e startup a migliorare l'affidabilità dei loro agenti AI attraverso i nostri agenti, software e expertise. Scopri di più su [exosphere.host](https://exosphere.host).
+Costruito e Mantenuto da **ExosphereHost: Reliability Research Lab for Your Agents**. Aiutiamo le aziende e le startup a migliorare l'affidabilità dei loro agenti AI attraverso i nostri stessi agenti, software e competenze. Scopri di più su [exosphere.host](https://exosphere.host).

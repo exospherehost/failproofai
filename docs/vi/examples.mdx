@@ -1,16 +1,17 @@
 ---
+---
 title: Ví dụ
 description: "Cách thiết lập hooks cho Claude Code và Agents SDK"
 icon: book-open
 ---
 
-Các ví dụ sẵn sàng sử dụng cho các tình huống phổ biến. Mỗi ví dụ cho thấy cách cài đặt và những gì bạn có thể mong đợi.
+Các ví dụ sẵn sàng sử dụng cho các tình huống phổ biến. Mỗi ví dụ cho thấy cách cài đặt và những gì mong đợi.
 
 ---
 
 ## Thiết lập hooks cho Claude Code
 
-Failproof AI tích hợp với Claude Code thông qua [hệ thống hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) của nó. Khi bạn chạy `failproofai policies --install`, nó sẽ đăng ký các lệnh hook trong `settings.json` của Claude Code để kích hoạt trên mỗi lệnh gọi công cụ.
+Failproof AI tích hợp với Claude Code thông qua [hệ thống hooks](https://docs.anthropic.com/en/docs/claude-code/hooks). Khi bạn chạy `failproofai policies --install`, nó sẽ đăng ký các lệnh hook trong `settings.json` của Claude Code, được kích hoạt trên mỗi lệnh gọi công cụ.
 
 <Steps>
   <Step title="Cài đặt failproofai">
@@ -23,7 +24,7 @@ Failproof AI tích hợp với Claude Code thông qua [hệ thống hooks](https
     failproofai policies --install
     ```
   </Step>
-  <Step title="Xác minh rằng hooks đã được đăng ký">
+  <Step title="Xác minh hooks đã được đăng ký">
     ```bash
     cat ~/.claude/settings.json | grep failproofai
     ```
@@ -35,7 +36,7 @@ Failproof AI tích hợp với Claude Code thông qua [hệ thống hooks](https
     claude
     ```
 
-    Các chính sách giờ đây chạy tự động trên mỗi lệnh gọi công cụ. Hãy thử yêu cầu Claude chạy `sudo rm -rf /` - nó sẽ bị chặn.
+    Các chính sách hiện chạy tự động trên mỗi lệnh gọi công cụ. Hãy thử yêu cầu Claude chạy `sudo rm -rf /` - nó sẽ bị chặn.
   </Step>
 </Steps>
 
@@ -43,7 +44,7 @@ Failproof AI tích hợp với Claude Code thông qua [hệ thống hooks](https
 
 ## Thiết lập hooks cho Agents SDK
 
-Nếu bạn đang xây dựng bằng [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk), bạn có thể sử dụng hệ thống hook tương tự theo cách lập trình.
+Nếu bạn đang xây dựng với [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk), bạn có thể sử dụng cùng một hệ thống hook theo cách lập trình.
 
 <Steps>
   <Step title="Cài đặt failproofai trong dự án của bạn">
@@ -52,25 +53,25 @@ Nếu bạn đang xây dựng bằng [Agents SDK](https://docs.anthropic.com/en/
     ```
   </Step>
   <Step title="Cấu hình hooks trong agent của bạn">
-    Truyền các lệnh hook khi tạo quy trình agent của bạn. Các hooks kích hoạt giống như trong Claude Code - thông qua JSON stdin/stdout:
+    Truyền các lệnh hook khi tạo quy trình agent của bạn. Các hooks được kích hoạt theo cách tương tự như trong Claude Code - thông qua stdin/stdout JSON:
 
     ```bash
-    failproofai --hook PreToolUse   # được gọi trước mỗi công cụ
-    failproofai --hook PostToolUse  # được gọi sau mỗi công cụ
+    failproofai --hook PreToolUse   # called before each tool
+    failproofai --hook PostToolUse  # called after each tool
     ```
   </Step>
-  <Step title="Viết một chính sách tùy chỉnh cho agent của bạn">
+  <Step title="Viết chính sách tùy chỉnh cho agent của bạn">
     ```javascript
     import { customPolicies, allow, deny } from "failproofai";
 
     customPolicies.add({
       name: "limit-to-project-dir",
-      description: "Giữ agent trong thư mục dự án",
+      description: "Keep the agent inside the project directory",
       match: { events: ["PreToolUse"] },
       fn: async (ctx) => {
         const path = String(ctx.toolInput?.file_path ?? "");
         if (path.startsWith("/") && !path.startsWith(ctx.session?.cwd ?? "")) {
-          return deny("Agent bị hạn chế trong thư mục dự án");
+          return deny("Agent is restricted to the project directory");
         }
         return allow();
       },
@@ -86,51 +87,51 @@ Nếu bạn đang xây dựng bằng [Agents SDK](https://docs.anthropic.com/en/
 
 ---
 
-## Chặn các lệnh có tính chất phá hủy
+## Chặn các lệnh phá hủy
 
-Cấu hình phổ biến nhất - ngăn chặn agents thực hiện các thiệt hại không thể đảo ngược.
+Thiết lập phổ biến nhất - ngăn chặn các agent thực hiện các hành động không thể hoàn tác.
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf block-force-push block-curl-pipe-sh
 ```
 
-Điều này làm gì:
+Điều này thực hiện:
 - `block-sudo` - chặn tất cả các lệnh `sudo`
 - `block-rm-rf` - chặn xóa tệp đệ quy
 - `block-force-push` - chặn `git push --force`
-- `block-curl-pipe-sh` - chặn ống dẫn các tập lệnh từ xa đến shell
+- `block-curl-pipe-sh` - chặn piping các kịch bản từ xa vào shell
 
 ---
 
 ## Ngăn chặn rò rỉ bí mật
 
-Dừng agents nhìn thấy hoặc rò rỉ thông tin xác thực trong kết quả đầu ra công cụ.
+Ngăn các agent nhìn thấy hoặc rò rỉ thông tin xác thực trong kết quả công cụ.
 
 ```bash
 failproofai policies --install sanitize-api-keys sanitize-jwt sanitize-connection-strings sanitize-bearer-tokens
 ```
 
-Những cái này kích hoạt trên `PostToolUse` - sau khi một công cụ chạy, chúng sẽ làm sạch kết quả đầu ra trước khi agent nhìn thấy.
+Những chính sách này được kích hoạt trên `PostToolUse` - sau khi công cụ chạy, chúng sẽ làm sạch kết quả trước khi agent nhìn thấy.
 
 ---
 
-## Nhận cảnh báo Slack khi agents cần chú ý
+## Nhận cảnh báo Slack khi các agent cần chú ý
 
-Sử dụng hook thông báo để chuyển tiếp cảnh báo nhàn rỗi đến Slack.
+Sử dụng hook thông báo để chuyển tiếp các cảnh báo chờ đợi đến Slack.
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
 
 customPolicies.add({
   name: "slack-on-idle",
-  description: "Cảnh báo Slack khi agent đang chờ đầu vào",
+  description: "Alert Slack when the agent is waiting for input",
   match: { events: ["Notification"] },
   fn: async (ctx) => {
     const webhookUrl = process.env.SLACK_WEBHOOK_URL;
     if (!webhookUrl) return allow();
 
-    const message = String(ctx.payload?.message ?? "Agent đang chờ");
-    const project = ctx.session?.cwd ?? "không xác định";
+    const message = String(ctx.payload?.message ?? "Agent is waiting");
+    const project = ctx.session?.cwd ?? "unknown";
 
     try {
       await fetch(webhookUrl, {
@@ -142,7 +143,7 @@ customPolicies.add({
         signal: AbortSignal.timeout(5000),
       });
     } catch {
-      // không bao giờ chặn agent nếu Slack không thể truy cập
+      // never block the agent if Slack is unreachable
     }
 
     return allow();
@@ -158,22 +159,22 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/... failproofai policies --install --c
 
 ---
 
-## Giữ agents trên một nhánh
+## Giữ các agent trên một nhánh
 
-Ngăn chặn agents từ việc chuyển đổi nhánh hoặc đẩy đến các nhánh được bảo vệ.
+Ngăn các agent chuyển đổi nhánh hoặc đẩy đến các nhánh được bảo vệ.
 
 ```javascript
 import { customPolicies, allow, deny } from "failproofai";
 
 customPolicies.add({
   name: "stay-on-branch",
-  description: "Ngăn chặn agent kiểm tra các nhánh khác",
+  description: "Prevent the agent from checking out other branches",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (ctx.toolName !== "Bash") return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
     if (/git\s+checkout\s+(?!-b)/.test(cmd)) {
-      return deny("Giữ trên nhánh hiện tại. Tạo một nhánh mới bằng -b nếu cần.");
+      return deny("Stay on the current branch. Create a new branch with -b if needed.");
     }
     return allow();
   },
@@ -184,20 +185,20 @@ customPolicies.add({
 
 ## Yêu cầu kiểm tra trước khi commit
 
-Nhắc nhở agents chạy các kiểm tra trước khi commit.
+Nhắc nhở các agent chạy các bài kiểm tra trước khi commit.
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
 
 customPolicies.add({
   name: "test-before-commit",
-  description: "Nhắc nhở agent chạy các kiểm tra trước khi commit",
+  description: "Remind the agent to run tests before committing",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (ctx.toolName !== "Bash") return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
     if (/git\s+commit/.test(cmd)) {
-      return instruct("Chạy các kiểm tra trước khi commit. Sử dụng `npm test` hoặc `bun test` trước tiên.");
+      return instruct("Run tests before committing. Use `npm test` or `bun test` first.");
     }
     return allow();
   },
@@ -206,9 +207,9 @@ customPolicies.add({
 
 ---
 
-## Khóa kho lưu trữ sản xuất
+## Khóa chặt kho lưu trữ production
 
-Commit một cấu hình ở cấp độ dự án để mỗi nhà phát triển trong đội của bạn nhận được các chính sách tương tự.
+Commit một cấu hình cấp dự án để mỗi nhà phát triển trong nhóm của bạn nhận được cùng các chính sách.
 
 Tạo `.failproofai/policies-config.json` trong kho lưu trữ của bạn:
 
@@ -238,16 +239,70 @@ git add .failproofai/policies-config.json
 git commit -m "Add failproofai team policies"
 ```
 
-Mỗi thành viên trong đội có failproofai được cài đặt sẽ tự động áp dụng các quy tắc này.
+Mỗi thành viên nhóm đã cài đặt failproofai sẽ tự động áp dụng các quy tắc này.
 
 ---
 
-## Thêm ví dụ
+## Xây dựng tiêu chuẩn chất lượng trên toàn tổ chức với các chính sách quy ước
+
+Thiết lập có ảnh hưởng nhất: commit `.failproofai/policies/` vào kho lưu trữ của bạn với các chính sách được điều chỉnh cho dự án của bạn. Mỗi thành viên nhóm sẽ nhận được chúng tự động — không cần các lệnh cài đặt, không cần thay đổi cấu hình.
+
+<Steps>
+  <Step title="Tạo thư mục và thêm các chính sách">
+    ```bash
+    mkdir -p .failproofai/policies
+    ```
+
+    ```js
+    // .failproofai/policies/team-policies.mjs
+    import { customPolicies, allow, deny, instruct } from "failproofai";
+
+    // Enforce your team's preferred package manager
+    // (or enable the built-in prefer-package-manager policy instead)
+    customPolicies.add({
+      name: "enforce-bun",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        const cmd = String(ctx.toolInput?.command ?? "");
+        if (/\bnpm\b/.test(cmd)) return deny("Use bun instead of npm.");
+        return allow();
+      },
+    });
+
+    // Remind the agent to run tests before committing
+    customPolicies.add({
+      name: "test-before-commit",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        if (/git\s+commit/.test(ctx.toolInput?.command ?? "")) {
+          return instruct("Run tests before committing.");
+        }
+        return allow();
+      },
+    });
+    ```
+  </Step>
+  <Step title="Commit vào git">
+    ```bash
+    git add .failproofai/policies/
+    git commit -m "Add team quality policies"
+    ```
+  </Step>
+  <Step title="Tiếp tục cải thiện">
+    Khi nhóm của bạn gặp phải các chế độ lỗi mới, thêm các chính sách và đẩy. Mọi người sẽ nhận được bản cập nhật trên `git pull` tiếp theo của họ. Những chính sách này trở thành một tiêu chuẩn chất lượng sống động phát triển cùng với nhóm của bạn.
+  </Step>
+</Steps>
+
+---
+
+## Các ví dụ khác
 
 Thư mục [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) trong kho lưu trữ chứa:
 
-| Tệp | Những gì nó cho thấy |
+| Tệp | Nó cho thấy điều gì |
 |------|---------------|
-| `policies-basic.js` | Các chính sách khởi động - chặn ghi sản xuất, force-push, tập lệnh ống dẫn |
-| `policies-notification.js` | Cảnh báo Slack cho thông báo nhàn rỗi và kết thúc phiên |
-| `policies-advanced/index.js` | Nhập cũng từ các tệp khác, hooks không đồng bộ, làm sạch kết quả đầu ra PostToolUse, xử lý sự kiện Stop |
+| `policies-basic.js` | Các chính sách khởi động - chặn ghi production, force-push, kịch bản được piping |
+| `policies-notification.js` | Cảnh báo Slack cho các thông báo chờ đợi và kết thúc phiên |
+| `policies-advanced/index.js` | Các lần nhập chuyển tiếp, hooks không đồng bộ, làm sạch kết quả PostToolUse, xử lý sự kiện Stop |
