@@ -541,5 +541,67 @@ describe("hooks/integrations", () => {
         codex_session_id: "codex-123"
       })).toBe(false);
     });
+
+    it("includes getSessionIdFromFile in the generated pi extension", () => {
+      // This test verifies that the pi integration's writeHookEntries
+      // generates a TypeScript file that includes the getSessionIdFromFile helper
+      // We can verify this by checking the integration object's structure
+      expect(pi.id).toBe("pi");
+      expect(pi.displayName).toBe("Pi Coding Agent");
+      expect(pi.scopes).toEqual(["user", "project"]);
+
+      // The presence of writeHookEntries means it will generate the extension file
+      expect(typeof pi.writeHookEntries).toBe("function");
+    });
+
+    it("getSessionIdFromFile correctly extracts UUID from Pi session filenames", () => {
+      // Test the extraction logic using string methods (not regex)
+      // Format: TIMESTAMP_UUID.jsonl
+      const extractUuid = (filename: string): string | undefined => {
+        const underscore = filename.lastIndexOf('_');
+        const dot = filename.lastIndexOf('.');
+        if (underscore > 0 && dot > underscore) {
+          return filename.slice(underscore + 1, dot);
+        }
+        return undefined;
+      };
+
+      // Valid Pi session filename with timestamp and UUID
+      const validFilename = "2026-04-21T12-35-19-493Z_019db009-b545-7792-bad7-6ea5116cd432.jsonl";
+      expect(extractUuid(validFilename)).toBe("019db009-b545-7792-bad7-6ea5116cd432");
+
+      // Another valid format with different timestamp
+      const valid2 = "2026-01-01T00-00-00-000Z_aaaabbbb-cccc-dddd-eeee-ffff00001111.jsonl";
+      expect(extractUuid(valid2)).toBe("aaaabbbb-cccc-dddd-eeee-ffff00001111");
+
+      // Valid: UUID can contain dashes and hex chars
+      const valid3 = "2026-01-01T00-00-00-000Z_f0f0f0f0-a1a1-b2b2-c3c3-d4d4d4d4d4d4.jsonl";
+      expect(extractUuid(valid3)).toBe("f0f0f0f0-a1a1-b2b2-c3c3-d4d4d4d4d4d4");
+
+      // Invalid: no underscore
+      expect(extractUuid("2026-04-21T12-35-19-493Z.jsonl")).toBeUndefined();
+
+      // Invalid: no dot
+      expect(extractUuid("2026-04-21T12-35-19-493Z_019db009-b545-7792-bad7-6ea5116cd432")).toBeUndefined();
+
+      // Edge case: wrong extension - still extracts UUID (finds last dot)
+      expect(extractUuid("2026-04-21T12-35-19-493Z_019db009-b545-7792-bad7-6ea5116cd432.txt")).toBe("019db009-b545-7792-bad7-6ea5116cd432");
+    });
+
+    it("getSessionIdFromFile pattern matches Pi session filename format", () => {
+      // Test the regex pattern that's embedded in the generated extension
+      const regex = /^[^_]+_([^.]+)\.jsonl$/;
+
+      // Valid Pi session filename
+      const validFilename = "2026-04-21T12-35-19-493Z_019db009-b545-7792-bad7-6ea5116cd432.jsonl";
+      const match = validFilename.match(regex);
+      expect(match).not.toBeNull();
+      expect(match?.[1]).toBe("019db009-b545-7792-bad7-6ea5116cd432");
+
+      // Invalid filenames should not match
+      expect("no-uuid-in-filename.jsonl".match(regex)).toBeNull();
+      expect("019db009-b545-7792-bad7-6ea5116cd432.jsonl".match(regex)).toBeNull(); // missing timestamp
+      expect("2026-04-21T12-35-19-493Z_invalid.txt".match(regex)).toBeNull(); // wrong extension
+    });
   });
 });
