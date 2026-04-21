@@ -138,6 +138,20 @@ const BUN_GLOBAL_RE = /\bbun\s+(?:install|add)\b(?=.*(?:\s-g\b|--global\b))/;
 const CARGO_INSTALL_RE = /\bcargo\s+install\b/;
 const PIP_SYSTEM_RE = /\bpip(?:3)?\s+install\b(?=.*(?:--user\b|--break-system-packages\b))/;
 
+// preferPackageManager — maps manager name → detection patterns
+const PKG_MANAGER_DETECTORS: Record<string, RegExp[]> = {
+  pip: [/\bpip\b/, /\bpip3\b/, /\bpython3?\s+-m\s+pip\b/],
+  npm: [/\bnpm\b/, /\bnpx\b/],
+  yarn: [/\byarn\b/],
+  pnpm: [/\bpnpm\b/, /\bpnpx\b/],
+  bun: [/\bbun\b/, /\bbunx\b/],
+  uv: [/\buv\b/],
+  poetry: [/\bpoetry\b/],
+  pipenv: [/\bpipenv\b/],
+  conda: [/\bconda\b/],
+  cargo: [/\bcargo\b/],
+};
+
 // warnBackgroundProcess
 const NOHUP_RE = /\bnohup\s+\S/;
 const SCREEN_DETACH_RE = /\bscreen\s+-[A-Za-z]*d[A-Za-z]*\b/;
@@ -857,6 +871,73 @@ function warnGlobalPackageInstall(ctx: PolicyContext): PolicyResult {
   return allow();
 }
 
+// Split a compound shell command into independent segments.
+const SEGMENT_SPLIT_RE = /\s*(?:&&|\|\||\||;)\s*/;
+
+function preferPackageManager(ctx: PolicyContext): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (!cmd) return allow();
+
+  const allowed = (ctx.params?.allowed ?? []) as string[];
+  if (allowed.length === 0) return allow();
+
+  const allowedSet = new Set(allowed.map((a) => a.toLowerCase()));
+  const blocked = (ctx.params?.blocked ?? []) as string[];
+  const allowedList = allowed.join(", ");
+
+  // Evaluate each shell segment independently so that
+  // "uv --version && pip install flask" correctly denies the pip segment.
+  const segments = cmd.split(SEGMENT_SPLIT_RE);
+
+  for (const segment of segments) {
+    const trimmed = segment.trim();
+    if (!trimmed) continue;
+
+    // Check if this segment uses an allowed manager — if so, skip it.
+    let segmentAllowed = false;
+    for (const manager of allowedSet) {
+      const patterns = PKG_MANAGER_DETECTORS[manager];
+      if (!patterns) continue;
+      for (const pattern of patterns) {
+        if (pattern.test(trimmed)) { segmentAllowed = true; break; }
+      }
+      if (segmentAllowed) break;
+    }
+    if (segmentAllowed) continue;
+
+    // Check if this segment uses a non-allowed builtin manager.
+    for (const [manager, patterns] of Object.entries(PKG_MANAGER_DETECTORS)) {
+      if (allowedSet.has(manager)) continue;
+      for (const pattern of patterns) {
+        if (pattern.test(trimmed)) {
+          return deny(
+            `"${manager}" is not an allowed package manager. ` +
+              `Allowed package managers for this project: ${allowedList}. ` +
+              `Rewrite this command using an allowed package manager.`,
+          );
+        }
+      }
+    }
+
+    // Check user-specified blocked managers.
+    for (const name of blocked) {
+      const lower = name.toLowerCase();
+      if (allowedSet.has(lower)) continue;
+      const re = new RegExp(`\\b${lower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`);
+      if (re.test(trimmed)) {
+        return deny(
+          `"${lower}" is not an allowed package manager. ` +
+            `Allowed package managers for this project: ${allowedList}. ` +
+            `Rewrite this command using an allowed package manager.`,
+        );
+      }
+    }
+  }
+
+  return allow();
+}
+
 function warnBackgroundProcess(ctx: PolicyContext): PolicyResult {
   if (ctx.toolName !== "Bash") return allow();
   const cmd = getCommand(ctx);
@@ -1408,6 +1489,26 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     match: { events: ["PreToolUse"], toolNames: ["Bash"] },
     defaultEnabled: false,
     category: "Packages & System",
+  },
+  {
+    name: "prefer-package-manager",
+    description: "Blocks non-preferred package managers and tells Claude to use an allowed one (e.g., uv instead of pip)",
+    fn: preferPackageManager,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Packages & System",
+    params: {
+      allowed: {
+        type: "string[]",
+        description: "Allowed package manager names (e.g. ['uv', 'bun']). Any detected manager not in this list is blocked.",
+        default: [],
+      },
+      blocked: {
+        type: "string[]",
+        description: "Additional manager names to block beyond the built-in list (e.g. ['pdm', 'pipx']).",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
   },
   {
     name: "warn-large-file-write",

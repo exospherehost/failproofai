@@ -240,6 +240,40 @@ describe("block-read-outside-cwd allowPaths", () => {
   });
 });
 
+// ── prefer-package-manager — allowed ────────────────────────────────────────
+
+describe("prefer-package-manager allowed", () => {
+  it("denies pip when only uv is allowed", () => {
+    const env = createFixtureEnv();
+    env.writeConfig({
+      enabledPolicies: ["prefer-package-manager"],
+      policyParams: { "prefer-package-manager": { allowed: ["uv"] } },
+    });
+    const result = runHook("PreToolUse", Payloads.preToolUse.bash("pip install flask", env.cwd), { homeDir: env.home });
+    assertPreToolUseDeny(result);
+  });
+
+  it("allows when command uses an allowed manager", () => {
+    const env = createFixtureEnv();
+    env.writeConfig({
+      enabledPolicies: ["prefer-package-manager"],
+      policyParams: { "prefer-package-manager": { allowed: ["uv"] } },
+    });
+    const result = runHook("PreToolUse", Payloads.preToolUse.bash("uv add flask", env.cwd), { homeDir: env.home });
+    assertAllow(result);
+  });
+
+  it("allows when allowed list is empty (no-op)", () => {
+    const env = createFixtureEnv();
+    env.writeConfig({
+      enabledPolicies: ["prefer-package-manager"],
+      policyParams: { "prefer-package-manager": { allowed: [] } },
+    });
+    const result = runHook("PreToolUse", Payloads.preToolUse.bash("pip install flask", env.cwd), { homeDir: env.home });
+    assertAllow(result);
+  });
+});
+
 // ── hint — cross-cutting policyParams field ─────────────────────────────────
 
 describe("policyParams hint", () => {

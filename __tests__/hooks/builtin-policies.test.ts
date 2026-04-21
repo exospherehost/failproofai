@@ -34,8 +34,8 @@ describe("hooks/builtin-policies", () => {
   });
 
   describe("BUILTIN_POLICIES", () => {
-    it("has 30 built-in policies", () => {
-      expect(BUILTIN_POLICIES).toHaveLength(30);
+    it("has 31 built-in policies", () => {
+      expect(BUILTIN_POLICIES).toHaveLength(31);
     });
 
     it("has 11 default-enabled policies", () => {
@@ -1324,6 +1324,226 @@ describe("hooks/builtin-policies", () => {
     it("allows non-Bash tool", async () => {
       const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/some/file" } });
       expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+  });
+
+  describe("prefer-package-manager", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "prefer-package-manager")!;
+
+    it("denies pip install when uv is preferred", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pip install flask" },
+        params: { allowed: ["uv"] },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("uv");
+      expect(result.reason).toContain("pip");
+    });
+
+    it("denies pip3 install", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pip3 install requests" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("denies python -m pip", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "python -m pip install django" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("denies python3 -m pip", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "python3 -m pip install django" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("denies pip freeze (read-only blocked too)", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pip freeze" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("denies npm install when bun is preferred", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "npm install express" },
+        params: { allowed: ["bun"] },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("bun");
+    });
+
+    it("denies npx when bun is preferred", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "npx create-react-app my-app" },
+        params: { allowed: ["bun"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows uv pip install when uv is allowed", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "uv pip install flask" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows uv add when uv is allowed", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "uv add flask" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows bun install when bun is allowed", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "bun install express" },
+        params: { allowed: ["bun"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows when allowed list is empty (no-op)", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pip install flask" },
+        params: { allowed: [] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows commands with no package manager", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "ls -la" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows non-Bash tool", async () => {
+      const ctx = makeCtx({
+        toolName: "Read",
+        toolInput: { file_path: "/some/file" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("supports multiple allowed managers", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "poetry add flask" },
+        params: { allowed: ["uv", "poetry"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("deny message includes allowed managers", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pip install flask" },
+        params: { allowed: ["uv", "poetry"] },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("uv, poetry");
+    });
+
+    it("denies user-specified blocked manager", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pdm install flask" },
+        params: { allowed: ["uv"], blocked: ["pdm"] },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("pdm");
+    });
+
+    it("denies user-specified blocked manager (pipx)", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pipx run black ." },
+        params: { allowed: ["uv"], blocked: ["pipx"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows user-specified blocked manager if also in allowed", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "pdm install flask" },
+        params: { allowed: ["uv", "pdm"], blocked: ["pdm"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows command not matching any blocked entry", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "git status" },
+        params: { allowed: ["uv"], blocked: ["pdm"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("denies pip in compound command even when uv appears in another segment", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "uv --version && pip install flask" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows both segments when both use allowed managers", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "uv add flask && bun install express" },
+        params: { allowed: ["uv", "bun"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("denies blocked manager in piped command", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "cat requirements.txt | pip install -r -" },
+        params: { allowed: ["uv"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("denies blocked manager after semicolon", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "echo installing; npm install express" },
+        params: { allowed: ["bun"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
     });
   });
 

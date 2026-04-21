@@ -242,6 +242,60 @@ Every team member who has failproofai installed will automatically pick up these
 
 ---
 
+## Build an org-wide quality standard with convention policies
+
+The most impactful setup: commit `.failproofai/policies/` to your repo with policies tailored to your project. Every team member gets them automatically — no install commands, no config changes.
+
+<Steps>
+  <Step title="Create the directory and add policies">
+    ```bash
+    mkdir -p .failproofai/policies
+    ```
+
+    ```js
+    // .failproofai/policies/team-policies.mjs
+    import { customPolicies, allow, deny, instruct } from "failproofai";
+
+    // Enforce your team's preferred package manager
+    // (or enable the built-in prefer-package-manager policy instead)
+    customPolicies.add({
+      name: "enforce-bun",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        const cmd = String(ctx.toolInput?.command ?? "");
+        if (/\bnpm\b/.test(cmd)) return deny("Use bun instead of npm.");
+        return allow();
+      },
+    });
+
+    // Remind the agent to run tests before committing
+    customPolicies.add({
+      name: "test-before-commit",
+      match: { events: ["PreToolUse"] },
+      fn: async (ctx) => {
+        if (ctx.toolName !== "Bash") return allow();
+        if (/git\s+commit/.test(ctx.toolInput?.command ?? "")) {
+          return instruct("Run tests before committing.");
+        }
+        return allow();
+      },
+    });
+    ```
+  </Step>
+  <Step title="Commit to git">
+    ```bash
+    git add .failproofai/policies/
+    git commit -m "Add team quality policies"
+    ```
+  </Step>
+  <Step title="Keep improving">
+    As your team hits new failure modes, add policies and push. Everyone gets the update on their next `git pull`. These policies become a living quality standard that grows with your team.
+  </Step>
+</Steps>
+
+---
+
 ## More examples
 
 The [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) directory in the repo contains:
