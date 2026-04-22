@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Features
+- Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
+
 ## 0.0.6-beta.2 — 2026-04-21
 
 ### Features
