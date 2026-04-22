@@ -867,6 +867,27 @@ describe("hooks/handler", () => {
     });
   });
 
+  describe("integration payload data in activityEntry", () => {
+    it("includes toolInput and toolOutput in activityEntry from parsed payload", async () => {
+      mockStdin(JSON.stringify({
+        tool_name: "Bash",
+        tool_input: { command: "ls -la" },
+        tool_output: "file1.txt\nfile2.txt",
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("PreToolUse");
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: "PreToolUse",
+          toolInput: { command: "ls -la" },
+          toolOutput: "file1.txt\nfile2.txt",
+        }),
+      );
+    });
+  });
+
   describe("writeVirtualLogEntry", () => {
     let tempDir: string;
     let logPath: string;
@@ -990,6 +1011,26 @@ describe("hooks/handler", () => {
     it("skips UserPromptSubmit with empty prompt", () => {
       writeVirtualLogEntry(logPath, "UserPromptSubmit", { tool_input: {} });
       expect(fs.existsSync(logPath)).toBe(false);
+    });
+
+    it("uses tool_output field for PostToolUse result content", () => {
+      writeVirtualLogEntry(logPath, "PreToolUse", {
+        tool_name: "Bash",
+        tool_input: { command: "echo hello" },
+      });
+      writeVirtualLogEntry(logPath, "PostToolUse", {
+        tool_name: "Bash",
+        tool_input: { command: "echo hello" },
+        tool_output: "hello world",
+      });
+
+      const lines = fs.readFileSync(logPath, "utf-8").trim().split("\n").filter(Boolean);
+      expect(lines).toHaveLength(2);
+
+      const postEntry = JSON.parse(lines[1]);
+      expect(postEntry.type).toBe("user");
+      expect(postEntry.message.content[0].type).toBe("tool_result");
+      expect(postEntry.message.content[0].content).toBe("hello world");
     });
   });
 

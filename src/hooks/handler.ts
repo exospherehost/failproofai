@@ -23,6 +23,9 @@ import { getClaudeProjectsPath, encodeCwd } from "../../lib/paths";
 import type { HookActivityEntry } from "./hook-activity-store";
 
 import { createHash, randomUUID } from "node:crypto";
+import { join, relative, isAbsolute } from "path";
+import { homedir } from "os";
+import { existsSync, readdirSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from "fs";
 
 const DEDUP_BUCKET_MS = 2000; // 2s time buckets (4-6s total lookback)
 const DEDUP_DIR = join(homedir(), ".failproofai", "cache", "dedup");
@@ -347,7 +350,7 @@ export function writeVirtualLogEntry(
   } else if (eventType === "PostToolUse") {
     const toolName = (parsed.tool_name as string) || "unknown_tool";
     const toolInput = (parsed.tool_input as Record<string, unknown>) || {};
-    const toolOutput = parsed.tool_response ?? parsed.output ?? parsed.tool_result ?? "";
+    const toolOutput = parsed.tool_output ?? parsed.tool_response ?? parsed.output ?? parsed.tool_result ?? "";
 
     const inputKey = `${toolName}:${JSON.stringify(toolInput).slice(0, 300)}`;
     const toolUseId = state.pendingTools[inputKey];
@@ -641,7 +644,7 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
   // Persist activity to disk (visible in /policies activity tab)
   const activityEntry = {
     timestamp: Date.now(),
-    eventType,
+    eventType: canonicalEventName,
     toolName: (parsed.tool_name as string) ?? null,
     policyName: result.policyName,
     policyNames: result.policyNames,
@@ -653,11 +656,27 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
     cwd: session.cwd,
     permissionMode: session.permissionMode,
     hookEventName: session.hookEventName,
+    integration: integrationType,
+    toolInput: parsed.tool_input,
+    toolOutput: parsed.tool_output,
   };
   try {
     persistHookActivity(activityEntry);
   } catch {
     hookLogWarn("activity persistence failed");
+  }
+
+  // Write mirrored JSONL for non-Claude integrations (enables rich tool_use/tool_result pairing in dashboard)
+  if (integrationType !== "claude-code" && session.cwd && session.sessionId) {
+    try {
+      const encodedCwd = encodeCwd(session.cwd);
+      const mirrorDir = join(getClaudeProjectsPath(), encodedCwd);
+      const mirrorPath = join(mirrorDir, `${session.sessionId}.jsonl`);
+      mkdirSync(mirrorDir, { recursive: true });
+      writeVirtualLogEntry(mirrorPath, canonicalEventName, parsed);
+    } catch {
+      // Non-fatal — virtual log is best-effort
+    }
   }
 
   // Enqueue for server relay — fire-and-forget, never blocks hook.
@@ -666,7 +685,7 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
   // hashes cwd, redacts known secret patterns in `reason`).
   try {
     const { appendToServerQueue } = await import("../relay/queue");
-    appendToServerQueue(activityEntry);
+    appendToServerQueue(activityEntry as any);
   } catch {
     // Server queue is best-effort; fail-open
   }

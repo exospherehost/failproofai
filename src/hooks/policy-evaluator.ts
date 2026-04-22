@@ -118,6 +118,7 @@ export async function evaluatePolicies(
   config?: HooksConfig,
 ): Promise<EvaluationResult> {
   const toolName = payload.tool_name as string | undefined;
+  const displayTool = toolName ?? "action";
   const toolInput = payload.tool_input as Record<string, unknown> | undefined;
 
   const policies = getPoliciesForEvent(eventType, toolName);
@@ -183,118 +184,11 @@ export async function evaluatePolicies(
 
       const stderr = getDenyMessage(session?.integration, policy.name, reason);
       const stdout = getDenyStdout(session?.integration, policy.name, reason, eventType);
-
-      if (eventType === "PreToolUse") {
-        const response: any = {
-          hookSpecificOutput: {
-            hookEventName: eventType,
-            permissionDecision: "deny",
-            permissionDecisionReason: `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`,
-          },
-        };
-        if (session?.integration === "cursor") {
-          response.continue = false;
-          response.permission = "deny";
-          response.userMessage = response.hookSpecificOutput.permissionDecisionReason;
-          response.agentMessage = `Action blocked by security policy: ${reason}`;
-        } else if (session?.integration === "copilot") {
-          return {
-            exitCode: 0,
-            stdout: JSON.stringify({
-              permissionDecision: "deny",
-              permissionDecisionReason: response.hookSpecificOutput.permissionDecisionReason,
-            }),
-            stderr: "",
-            policyName: policy.name,
-            reason,
-            decision: "deny",
-          };
-        } else if (session?.integration === "gemini") {
-          return {
-            exitCode: 0,
-            stdout: JSON.stringify({
-              decision: "deny",
-              reason: response.hookSpecificOutput.permissionDecisionReason,
-              systemMessage: `Failproof AI Security Block: ${reason}`,
-            }),
-            stderr: "",
-            policyName: policy.name,
-            reason,
-            decision: "deny",
-          };
-        } else if (session?.integration === "opencode") {
-          return {
-            exitCode: 2,
-            stdout: "",
-            stderr: `FailproofAI blocked ${displayTool}: ${reason}`,
-            policyName: policy.name,
-            reason,
-            decision: "deny",
-          };
-        } else if (session?.integration === "pi") {
-          return {
-            exitCode: 1,
-            stdout: "",
-            stderr: reason,
-            policyName: policy.name,
-            reason,
-            decision: "deny",
-          };
-        }
-        return {
-          exitCode: 0,
-          stdout: JSON.stringify(response),
-          stderr: "",
-          policyName: policy.name,
-          reason,
-          decision: "deny",
-        };
-      }
-
-      if (eventType === "PostToolUse") {
-        const msg = `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`;
-        if (session?.integration === "copilot") {
-          // Copilot PostToolUse can't block the action (it already happened); provide context.
-          return {
-            exitCode: 0,
-            stdout: JSON.stringify({ additionalContext: msg }),
-            stderr: "",
-            policyName: policy.name,
-            reason,
-            decision: "deny",
-          };
-        }
-        const response: any = {
-          hookSpecificOutput: {
-            hookEventName: eventType,
-            additionalContext: msg,
-          },
-        };
-        if (session?.integration === "cursor") {
-          response.agentMessage = response.hookSpecificOutput.additionalContext;
-        }
-        return {
-          exitCode: 0,
-          stdout: JSON.stringify(response),
-          stderr: "",
-          policyName: policy.name,
-          reason,
-          decision: "deny",
-        };
-      }
-
-      if (eventType === "Stop") {
-        return {
-          exitCode: 2,
-          stdout: "",
-          stderr: `MANDATORY ACTION REQUIRED from failproofai (policy: ${policy.name}): ${reason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`,
-          policyName: policy.name,
-          reason,
-          decision: "deny",
-        };
-      }
-
-      // Other event types: exit 2
+      // JSON-protocol integrations use exitCode 0 (they read stdout); everything else uses 2.
+      const exitCode = stdout ? 0 : 2;
+      // Cursor kills on PostToolUse/Stop; Gemini kills only on Stop.
+      const hardStop = (session?.integration === "cursor" && (eventType === "Stop" || eventType === "PostToolUse"))
+        || (session?.integration === "gemini" && eventType === "Stop");
       return {
         exitCode,
         stdout,
@@ -329,10 +223,10 @@ export async function evaluatePolicies(
 
     if (eventType === "Stop") {
       // Stop hook: exitCode 2 blocks Claude from stopping.
-      // Reason goes to stderr so Claude Code receives it as context.
-      const policyAttribution = policyNames.length === 1
-        ? `policy: ${policyNames[0]}`
-        : `policies: ${policyNames.join(", ")}`;
+      const exitCode = 2;
+      const stdout = "";
+      const stderr = getDenyMessage(session?.integration, policyNames[0], combined);
+      const hardStop = session?.integration === "cursor" || session?.integration === "gemini";
       return {
         exitCode,
         stdout,

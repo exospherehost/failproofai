@@ -8,6 +8,7 @@ import { homedir, platform, arch, release, hostname } from "node:os";
 import {
   type HookScope,
   type IntegrationType,
+  type ClaudeSettings,
 } from "./types";
 import { promptPolicySelection } from "./install-prompt";
 import {
@@ -202,53 +203,10 @@ export async function installHooks(
   console.log(`\nEnabled ${selectedPolicies.length} policy(ies): ${selectedPolicies.join(", ")}`);
 
   const settingsPath = integ.getSettingsPath(scope as any, cwd);
-  const settings = integ.readSettings(settingsPath);
+  const settings = integ.readSettings(settingsPath) as ClaudeSettings;
   integ.writeHookEntries(settings, binaryPath, scope);
   integ.writeSettings(settingsPath, settings);
   integ.postInstall?.();
-
-  if (!settings.hooks) {
-    settings.hooks = {};
-  }
-
-  for (const eventType of HOOK_EVENT_TYPES) {
-    const command = scope === "project"
-      ? `npx -y failproofai --hook ${eventType}`
-      : `"${binaryPath}" --hook ${eventType}`;
-    const hookEntry: ClaudeHookEntry = {
-      type: "command",
-      command,
-      timeout: 60_000,
-      [FAILPROOFAI_HOOK_MARKER]: true,
-    };
-
-    if (!settings.hooks[eventType]) {
-      settings.hooks[eventType] = [];
-    }
-
-    const matchers: ClaudeHookMatcher[] = settings.hooks[eventType];
-
-    // Find existing failproofai matcher
-    let found = false;
-    for (const matcher of matchers) {
-      if (!matcher.hooks) continue;
-      const failproofaiIdx = matcher.hooks.findIndex((h: ClaudeHookEntry | Record<string, unknown>) =>
-        isFailproofaiHook(h as Record<string, unknown>)
-      );
-      if (failproofaiIdx >= 0) {
-        matcher.hooks[failproofaiIdx] = hookEntry;
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) {
-      // Append a new matcher with the failproofai hook
-      matchers.push({ hooks: [hookEntry] });
-    }
-  }
-
-  writeSettings(settingsPath, settings);
 
   // Telemetry: track successful hook installation (with diff vs previous config)
   try {

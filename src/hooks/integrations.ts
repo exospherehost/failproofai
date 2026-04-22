@@ -212,7 +212,7 @@ const claudeCode: Integration = {
       : `"${binaryPath}" --hook ${eventType} --integration claude-code`;
     return {
       type: "command",
-      command: `"${process.execPath}" "${binaryPath}" --hook ${eventType} --integration claude-code --stdin`,
+      command,
       timeout: 60_000,
       [FAILPROOFAI_HOOK_MARKER]: true,
     };
