@@ -169,13 +169,13 @@ export async function handleHookEvent(eventType: string): Promise<number> {
     hookLogWarn("activity persistence failed");
   }
 
-  // Enqueue for server relay — fire-and-forget, never blocks hook
+  // Enqueue for server relay — fire-and-forget, never blocks hook.
+  // queue.ts is a no-op if the user is not logged in (no auth.json), and
+  // sanitizes the entry before persisting (drops toolInput/transcriptPath,
+  // hashes cwd, redacts known secret patterns in `reason`).
   try {
     const { appendToServerQueue } = await import("../relay/queue");
-    appendToServerQueue({
-      ...activityEntry,
-      toolInput: parsed.tool_input as Record<string, unknown> | undefined,
-    });
+    appendToServerQueue(activityEntry);
   } catch {
     // Server queue is best-effort; fail-open
   }

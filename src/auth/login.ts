@@ -3,6 +3,7 @@ import { platform } from "node:os";
 import { writeTokens, type AuthTokens } from "./token-store";
 
 const DEFAULT_SERVER_URL = process.env.FAILPROOFAI_SERVER_URL ?? "https://api.befailproof.ai";
+const HTTP_TIMEOUT_MS = 10_000;
 
 interface DeviceCodeResponse {
   device_code: string;
@@ -20,23 +21,29 @@ interface TokenResponse {
 }
 
 function openBrowser(url: string): void {
-  const cmd =
-    platform() === "darwin" ? "open" :
-    platform() === "win32" ? "cmd" :
-    "xdg-open";
-  const args = platform() === "win32" ? ["/c", "start", url] : [url];
+  const os = platform();
   try {
-    spawn(cmd, args, { detached: true, stdio: "ignore" }).unref();
+    if (os === "darwin") {
+      spawn("open", [url], { detached: true, stdio: "ignore" }).unref();
+    } else if (os === "win32") {
+      // On cmd's `start`, the first quoted token is treated as a window
+      // title. Pass an empty title so URLs containing "&" or spaces are
+      // interpreted as the target, not the title.
+      spawn("cmd", ["/c", "start", "", url], { detached: true, stdio: "ignore" }).unref();
+    } else {
+      spawn("xdg-open", [url], { detached: true, stdio: "ignore" }).unref();
+    }
   } catch {
-    // Fallback: just print the URL
+    // Fallback: the URL is already printed above.
   }
 }
 
-async function postJson<T>(url: string, body: unknown): Promise<T> {
+async function postJson<T>(url: string, body: unknown, timeoutMs = HTTP_TIMEOUT_MS): Promise<T> {
   const resp = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   if (!resp.ok) {
     throw new Error(`${url} → ${resp.status} ${resp.statusText}`);

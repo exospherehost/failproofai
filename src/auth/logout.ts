@@ -1,6 +1,8 @@
 import { readTokens, clearTokens } from "./token-store";
 import { stopRelay } from "../relay/pid";
 
+const LOGOUT_TIMEOUT_MS = 3_000;
+
 export async function logout(): Promise<void> {
   const tokens = readTokens();
   if (!tokens) {
@@ -8,14 +10,17 @@ export async function logout(): Promise<void> {
     return;
   }
 
+  // Best-effort server revoke with a short timeout — the local logout
+  // must not block on a slow network.
   try {
     await fetch(`${tokens.server_url}/api/v1/auth/logout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: tokens.refresh_token }),
+      signal: AbortSignal.timeout(LOGOUT_TIMEOUT_MS),
     });
   } catch {
-    // Best-effort server revoke
+    // Network or timeout — proceed to local clear anyway
   }
 
   try {

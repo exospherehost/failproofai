@@ -349,11 +349,17 @@ EXAMPLES
     }
 
     if (subcmd === "start") {
-      const { ensureRelayRunning } = await import("../src/relay/daemon");
+      const { ensureRelayRunning, waitForRelayAlive } = await import("../src/relay/daemon");
       ensureRelayRunning();
+      // Spawn is async — give the child a moment to write its PID file
+      const alive = await waitForRelayAlive();
       const s = relayStatus();
-      console.log(s.running ? `Relay daemon started (pid ${s.pid})` : "Failed to start daemon");
-      process.exit(s.running ? 0 : 1);
+      if (alive && s.running) {
+        console.log(`Relay daemon started (pid ${s.pid})`);
+        process.exit(0);
+      }
+      console.log("Failed to start daemon");
+      process.exit(1);
     }
 
     throw new CliError(

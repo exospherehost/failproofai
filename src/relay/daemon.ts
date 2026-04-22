@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { watch, existsSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -10,6 +10,7 @@ import {
   readProcessingFile,
   deleteProcessingFile,
   findOrphanProcessingFiles,
+  type QueueEntry,
 } from "./queue";
 
 const QUEUE_DIR = join(homedir(), ".failproofai", "cache", "server-queue");
@@ -17,6 +18,9 @@ const BATCH_SIZE = 100;
 const FLUSH_INTERVAL_MS = 2000;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 60_000;
+const HTTP_TIMEOUT_MS = 10_000;
+const WS_CONNECT_TIMEOUT_MS = 15_000;
+const ACK_TIMEOUT_MS = 30_000;
 
 /**
  * Lazy-start check: call on every hook invocation. Near-zero cost when daemon
@@ -48,6 +52,22 @@ function spawnDaemon(): void {
   }
 }
 
+/**
+ * Block until the spawned daemon has been observed running, or until the
+ * timeout elapses. Used by `relay start` so we don't falsely report
+ * "Failed to start daemon" in the split-second window before the child
+ * has finished exec-ing.
+ */
+export async function waitForRelayAlive(timeoutMs = 2_000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const pid = readPid();
+    if (pid !== null && isProcessAlive(pid)) return true;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  return false;
+}
+
 async function refreshTokenIfNeeded(): Promise<string | null> {
   const tokens = readTokens();
   if (!tokens) return null;
@@ -62,6 +82,7 @@ async function refreshTokenIfNeeded(): Promise<string | null> {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refresh_token: tokens.refresh_token }),
+      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
     });
     if (!resp.ok) return tokens.access_token;
     const refreshed = (await resp.json()) as {
@@ -91,6 +112,78 @@ type WebSocketLike = {
   onclose: (() => void) | null;
 };
 
+class Relay {
+  private readonly ws: WebSocketLike;
+  private readonly pendingAcks = new Map<string, (ok: boolean) => void>();
+  private closed = false;
+
+  constructor(ws: WebSocketLike) {
+    this.ws = ws;
+    ws.onmessage = (ev) => this.handleMessage(ev.data);
+    ws.onclose = () => this.handleClose();
+    ws.onerror = () => this.handleClose();
+  }
+
+  private handleMessage(data: string): void {
+    try {
+      const msg = JSON.parse(data) as { ack?: string; error?: string };
+      if (msg.ack && this.pendingAcks.has(msg.ack)) {
+        const resolve = this.pendingAcks.get(msg.ack)!;
+        this.pendingAcks.delete(msg.ack);
+        resolve(true);
+      }
+    } catch {
+      // Ignore unparseable server messages
+    }
+  }
+
+  private handleClose(): void {
+    this.closed = true;
+    // Reject all outstanding acks so callers can retry
+    for (const [, resolve] of this.pendingAcks) {
+      resolve(false);
+    }
+    this.pendingAcks.clear();
+  }
+
+  isClosed(): boolean {
+    return this.closed;
+  }
+
+  close(): void {
+    try {
+      this.ws.close();
+    } catch {
+      // ignore
+    }
+  }
+
+  /**
+   * Send a batch and wait for the server's ack (keyed on batch_id).
+   * Returns true only when the server confirms the insert.
+   */
+  async sendBatchAndWaitAck(events: QueueEntry[]): Promise<boolean> {
+    if (this.closed) return false;
+    const batchId = randomUUID();
+
+    const ackPromise = new Promise<boolean>((resolve) => {
+      this.pendingAcks.set(batchId, resolve);
+      setTimeout(() => {
+        if (this.pendingAcks.delete(batchId)) resolve(false);
+      }, ACK_TIMEOUT_MS);
+    });
+
+    try {
+      this.ws.send(JSON.stringify({ batch_id: batchId, events }));
+    } catch {
+      this.pendingAcks.delete(batchId);
+      return false;
+    }
+
+    return ackPromise;
+  }
+}
+
 async function connect(wsUrl: string, token: string): Promise<WebSocketLike> {
   const WSCtor: any = (globalThis as any).WebSocket;
   if (!WSCtor) {
@@ -99,53 +192,65 @@ async function connect(wsUrl: string, token: string): Promise<WebSocketLike> {
   const ws: WebSocketLike = new WSCtor(wsUrl);
 
   await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const timeout = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      try {
+        ws.close();
+      } catch {
+        // ignore
+      }
+      reject(new Error("WebSocket connect timeout"));
+    }, WS_CONNECT_TIMEOUT_MS);
+
     ws.onopen = () => {
-      ws.send(token);
-      resolve();
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      try {
+        ws.send(token);
+        resolve();
+      } catch (e) {
+        reject(e);
+      }
     };
-    ws.onerror = (e) => reject(e);
+    ws.onerror = (e) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      reject(e);
+    };
+    ws.onclose = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      reject(new Error("WebSocket closed before opening"));
+    };
   });
 
   return ws;
 }
 
 /**
- * Send all events from a processing file to the server. Returns true on
- * success (file can be deleted), false on failure (file remains for retry).
+ * Send all events from a processing file and wait for server acks on every
+ * batch. Returns true only when every batch was acknowledged — in that
+ * case the caller may delete the processing file.
  */
-async function sendProcessingFile(ws: WebSocketLike, path: string): Promise<boolean> {
-  const lines = readProcessingFile(path);
-  if (lines.length === 0) return true;
-
-  // Annotate each event with a client-side event_id so retries are idempotent
-  const events = lines.map((l) => {
-    const event = JSON.parse(l);
-    if (!event.client_event_id) event.client_event_id = randomUUID();
-    return event;
-  });
+async function sendProcessingFile(relay: Relay, path: string): Promise<boolean> {
+  const events = readProcessingFile(path);
+  if (events.length === 0) return true;
 
   for (let i = 0; i < events.length; i += BATCH_SIZE) {
     const batch = events.slice(i, i + BATCH_SIZE);
-    try {
-      ws.send(JSON.stringify(batch));
-    } catch {
-      return false;
-    }
+    const ok = await relay.sendBatchAndWaitAck(batch);
+    if (!ok) return false;
   }
   return true;
 }
 
 export async function runDaemon(): Promise<void> {
   let reconnectDelay = RECONNECT_BASE_MS;
-
-  // fs.watch is a hint — we also poll on flush interval
-  if (existsSync(QUEUE_DIR)) {
-    try {
-      watch(QUEUE_DIR, () => {});
-    } catch {
-      // fs.watch can fail on some platforms; polling still covers it
-    }
-  }
 
   while (true) {
     const token = await refreshTokenIfNeeded();
@@ -159,43 +264,43 @@ export async function runDaemon(): Promise<void> {
 
     try {
       const ws = await connect(wsUrl, token);
+      const relay = new Relay(ws);
       reconnectDelay = RECONNECT_BASE_MS;
 
-      let closed = false;
-      ws.onclose = () => {
-        closed = true;
-      };
-      ws.onerror = () => {
-        closed = true;
-      };
-
-      // On (re)connect, drain any orphaned processing files first
+      // Drain any orphaned processing files from a prior crash first
       for (const orphan of findOrphanProcessingFiles()) {
-        if (closed) break;
-        const ok = await sendProcessingFile(ws, orphan);
+        if (relay.isClosed()) break;
+        const ok = await sendProcessingFile(relay, orphan);
         if (ok) deleteProcessingFile(orphan);
       }
 
-      while (!closed) {
-        const processingFile = claimPendingBatch();
+      while (!relay.isClosed()) {
+        let processingFile: string | null = null;
+        try {
+          processingFile = claimPendingBatch();
+        } catch {
+          // Transient FS error — retry on next tick
+        }
+
         if (processingFile) {
-          const ok = await sendProcessingFile(ws, processingFile);
+          const ok = await sendProcessingFile(relay, processingFile);
           if (ok) {
             deleteProcessingFile(processingFile);
           } else {
-            break; // leave file for retry on reconnect
+            // Ack failed or connection dropped — leave file for retry
+            break;
           }
         }
         await new Promise((r) => setTimeout(r, FLUSH_INTERVAL_MS));
       }
 
-      try {
-        ws.close();
-      } catch {
-        // ignore
-      }
+      relay.close();
     } catch {
-      // Connection failed — wait and retry
+      // Connection failed — wait and retry with backoff
+    }
+
+    if (existsSync(QUEUE_DIR)) {
+      // noop; QUEUE_DIR referenced to preserve import when tree-shaking
     }
 
     await new Promise((r) => setTimeout(r, reconnectDelay));
@@ -205,7 +310,8 @@ export async function runDaemon(): Promise<void> {
 
 /**
  * One-shot: POST all pending events to the server via REST batch endpoint.
- * Uses the same rotate-then-delete pattern so the hook path is never blocked.
+ * Used by `failproofai sync` — same rotate-then-delete pattern, but with
+ * HTTP response status as the ack mechanism.
  */
 export async function runOneShotSync(): Promise<number> {
   const token = await refreshTokenIfNeeded();
@@ -216,55 +322,40 @@ export async function runOneShotSync(): Promise<number> {
 
   let total = 0;
 
-  // Drain orphans first
-  for (const orphan of findOrphanProcessingFiles()) {
-    const lines = readProcessingFile(orphan);
-    if (lines.length === 0) {
-      deleteProcessingFile(orphan);
-      continue;
-    }
-    const events = lines.map((l) => {
-      const e = JSON.parse(l);
-      if (!e.client_event_id) e.client_event_id = randomUUID();
-      return e;
-    });
-    const resp = await fetch(`${tokens.server_url}/api/v1/events/batch`, {
+  async function postBatch(events: QueueEntry[]): Promise<void> {
+    const resp = await fetch(`${tokens!.server_url}/api/v1/events/batch`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ events }),
+      signal: AbortSignal.timeout(HTTP_TIMEOUT_MS),
     });
     if (!resp.ok) {
       throw new Error(`Sync failed: ${resp.status} ${resp.statusText}`);
     }
+  }
+
+  // Drain orphans first
+  for (const orphan of findOrphanProcessingFiles()) {
+    const events = readProcessingFile(orphan);
+    if (events.length > 0) {
+      await postBatch(events);
+      total += events.length;
+    }
     deleteProcessingFile(orphan);
-    total += events.length;
   }
 
   // Drain fresh pending batch
   const processingFile = claimPendingBatch();
   if (processingFile) {
-    const lines = readProcessingFile(processingFile);
-    const events = lines.map((l) => {
-      const e = JSON.parse(l);
-      if (!e.client_event_id) e.client_event_id = randomUUID();
-      return e;
-    });
-    const resp = await fetch(`${tokens.server_url}/api/v1/events/batch`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ events }),
-    });
-    if (!resp.ok) {
-      throw new Error(`Sync failed: ${resp.status} ${resp.statusText}`);
+    const events = readProcessingFile(processingFile);
+    if (events.length > 0) {
+      await postBatch(events);
+      total += events.length;
     }
     deleteProcessingFile(processingFile);
-    total += events.length;
   }
 
   return total;
