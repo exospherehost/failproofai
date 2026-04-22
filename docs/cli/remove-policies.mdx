@@ -22,6 +22,20 @@ Aliases: `failproofai p -u`
 | `--cli <id...>` | Target AI agent CLIs (e.g. `claude-code`, `cursor`, `gemini`, `copilot`, `codex`) |
 | `--custom` / `-c` | Clear the `customPoliciesPath` from config |
 
+## Scope support by CLI
+
+Not every CLI supports every scope. Use this matrix when choosing `--scope`.
+
+| CLI (`--cli`) | `user` | `project` | `local` | `all` |
+|---|---|---|---|---|
+| `claude-code` | Yes | Yes | Yes | Yes |
+| `cursor` | Yes | Yes | No | Yes |
+| `gemini` | Yes | Yes | No | Yes |
+| `copilot` | Yes | Yes | No | Yes |
+| `codex` | Yes | Yes | No | Yes |
+| `opencode` | Yes | Yes | No | Yes |
+| `pi` | Yes | Yes | No | Yes |
+
 ## Behavior
 
 - **No policy names** - removes all failproofai hook entries from the settings file

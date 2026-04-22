@@ -21,6 +21,20 @@ Aliases: `failproofai p -i`
 | `--cli <id...>` | Target AI agent CLIs (e.g. `claude-code`, `cursor`, `gemini`, `copilot`, `codex`) |
 | `--custom <path>` / `-c` | Path to a JS file containing custom hook policies |
 
+## Scope support by CLI
+
+Not every CLI supports every scope. Use this matrix when choosing `--scope`.
+
+| CLI (`--cli`) | `user` | `project` | `local` |
+|---|---|---|---|
+| `claude-code` | Yes | Yes | Yes |
+| `cursor` | Yes | Yes | No |
+| `gemini` | Yes | Yes | No |
+| `copilot` | Yes | Yes | No |
+| `codex` | Yes | Yes | No |
+| `opencode` | Yes | Yes | No |
+| `pi` | Yes | Yes | No |
+
 ## Behavior
 
 - **No policy names** - opens an interactive prompt to select policies
