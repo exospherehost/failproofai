@@ -216,13 +216,13 @@ Keep agents working inside project boundaries and away from sensitive files.
 ### `block-read-outside-cwd`
 
 **Event:** PreToolUse (Read, Bash)  
-**Default:** Denies reading files outside the current working directory (the project root).
+**Default:** Denies reading files outside the project root. The boundary is `CLAUDE_PROJECT_DIR` (set once per session by Claude Code), with a fallback to the session's current working directory when that variable is unset. Using the project root rather than the live `cwd` means the boundary stays stable even after Claude `cd`s into a subdirectory.
 
 **Parameters:**
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `allowPaths` | `string[]` | `[]` | Absolute path prefixes that are permitted even if outside cwd. |
+| `allowPaths` | `string[]` | `[]` | Absolute path prefixes that are permitted even if outside the project root. |
 
 **Example:**
 
