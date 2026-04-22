@@ -287,7 +287,7 @@ export async function installHooks(
       console.log();
       console.log(`\x1B[33mWarning: Failproof AI hooks are also installed at ${scopeList} for ${integ.displayName}.\x1B[0m`);
       console.log(`Having hooks in multiple scopes may cause duplicate policy evaluation.`);
-      console.log(`Use \`failproofai policies --uninstall --scope ${duplicates[0]} --integration ${integId}\` to remove the other installation.`);
+      console.log(`Use \`failproofai policies --uninstall --scope ${duplicates[0]} --cli ${integId}\` to remove the other installation.`);
     }
   }
 }
@@ -296,13 +296,14 @@ export async function removeHooks(
   policyNames?: string[],
   scope: HookScope | "repo" | "all" = "user",
   cwd?: string,
-  opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean; integration?: IntegrationType },
-  integration: IntegrationType = "claude-code",
+  opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean; integration?: IntegrationType | IntegrationType[] },
+  integration: IntegrationType | IntegrationType[] = "claude-code",
 ): Promise<void> {
-  const integ = getIntegration(opts?.integration ?? integration);
-  const configScope: HookScope = scope === "all" ? "user" : (scope as HookScope);
+  const integrations = opts?.integration ?? integration;
+  const arr = Array.isArray(integrations) ? integrations : [integrations];
 
   // Clear custom hooks path if requested
+  const configScope: HookScope = scope === "all" ? "user" : (scope as HookScope);
   if (opts?.removeCustomHooks) {
     const config = readScopedHooksConfig(configScope, cwd);
     delete config.customPoliciesPath;
@@ -310,38 +311,91 @@ export async function removeHooks(
     console.log("Custom hooks path cleared.");
   }
 
-  // Remove specific policies from config (keep hooks installed)
-  if (policyNames && policyNames.length > 0 && !(policyNames.length === 1 && policyNames[0] === "all")) {
-    validatePolicyNames(policyNames);
-    const config = readScopedHooksConfig(configScope, cwd);
-    const removeSet = new Set(policyNames);
-    const remaining = config.enabledPolicies.filter((p) => !removeSet.has(p));
-    const notEnabled = policyNames.filter((p) => !config.enabledPolicies.includes(p));
-    if (notEnabled.length > 0) {
-      console.log(`Warning: policy(ies) not currently enabled: ${notEnabled.join(", ")}`);
+  for (const integId of arr) {
+    const integ = getIntegration(integId);
+
+    // Remove specific policies from config (keep hooks installed)
+    if (policyNames && policyNames.length > 0 && !(policyNames.length === 1 && policyNames[0] === "all")) {
+      validatePolicyNames(policyNames);
+      const config = readScopedHooksConfig(configScope, cwd);
+      const removeSet = new Set(policyNames);
+      const remaining = config.enabledPolicies.filter((p) => !removeSet.has(p));
+      const notEnabled = policyNames.filter((p) => !config.enabledPolicies.includes(p));
+      if (notEnabled.length > 0) {
+        console.log(`Warning: policy(ies) not currently enabled: ${notEnabled.join(", ")}`);
+      }
+      const { policyParams: existingParams, ...baseConfig } = config;
+      const filteredParams = existingParams
+        ? Object.fromEntries(Object.entries(existingParams).filter(([k]) => !removeSet.has(k)))
+        : null;
+      const updatedConfig: HooksConfig = {
+        ...baseConfig,
+        enabledPolicies: remaining,
+        ...(filteredParams && Object.keys(filteredParams).length > 0 ? { policyParams: filteredParams } : {}),
+      };
+      writeScopedHooksConfig(updatedConfig, configScope, cwd);
+
+      // Telemetry
+      try {
+        const distinctId = getInstanceId();
+        const actuallyRemoved = policyNames.filter((p) => config.enabledPolicies.includes(p));
+        await trackHookEvent(distinctId, "hooks_removed", {
+          scope,
+          integration: integ.id,
+          removal_mode: opts?.betaOnly ? "beta_policies" : "policies",
+          beta_only: opts?.betaOnly ?? false,
+          policies_removed: actuallyRemoved,
+          removed_count: actuallyRemoved.length,
+          ...(opts?.source ? { source: opts.source } : {}),
+          platform: platform(),
+          arch: arch(),
+          os_release: release(),
+          hostname_hash: hashToId(hostname()),
+        });
+      } catch { /* best effort */ }
+
+      console.log(`Disabled ${policyNames.length - notEnabled.length} policy(ies) for ${integ.displayName}.`);
+      console.log(`Remaining: ${remaining.length > 0 ? remaining.join(", ") : "(none)"}`);
+      continue;
     }
-    const { policyParams: existingParams, ...baseConfig } = config;
-    const filteredParams = existingParams
-      ? Object.fromEntries(Object.entries(existingParams).filter(([k]) => !removeSet.has(k)))
-      : null;
-    const updatedConfig: HooksConfig = {
-      ...baseConfig,
-      enabledPolicies: remaining,
-      ...(filteredParams && Object.keys(filteredParams).length > 0 ? { policyParams: filteredParams } : {}),
-    };
-    writeScopedHooksConfig(updatedConfig, configScope, cwd);
+
+    // Capture enabled policies before clearing (used for accurate telemetry below)
+    const configBeforeRemoval = readScopedHooksConfig(configScope, cwd);
+
+    if (scope !== "all") {
+      assertSupportedScope(integ, scope);
+    }
+
+    // Remove all failproofai hooks from the selected integration's settings
+    const scopesToRemove = scope === "all" ? [...integ.scopes] : [scope];
+    let totalRemoved = 0;
+
+    for (const s of scopesToRemove) {
+      const settingsPath = integ.getSettingsPath(s as any, cwd);
+      if (!existsSync(settingsPath)) continue;
+
+      const removed = integ.removeHooksFromFile(settingsPath);
+      totalRemoved += removed;
+
+      if (scope !== "all") {
+        console.log(`Removed ${removed} failproofai hook(s) from ${integ.displayName} settings.`);
+        console.log(`Settings: ${settingsPath}`);
+      }
+    }
+
+    if (scope === "all") {
+      console.log(`Removed ${totalRemoved} failproofai hook(s) from all scopes for ${integ.displayName}.`);
+    }
 
     // Telemetry
     try {
       const distinctId = getInstanceId();
-      const actuallyRemoved = policyNames.filter((p) => config.enabledPolicies.includes(p));
       await trackHookEvent(distinctId, "hooks_removed", {
         scope,
         integration: integ.id,
-        removal_mode: opts?.betaOnly ? "beta_policies" : "policies",
-        beta_only: opts?.betaOnly ?? false,
-        policies_removed: actuallyRemoved,
-        removed_count: actuallyRemoved.length,
+        removal_mode: "hooks",
+        policies_removed: configBeforeRemoval.enabledPolicies,
+        removed_count: totalRemoved,
         ...(opts?.source ? { source: opts.source } : {}),
         platform: platform(),
         arch: arch(),
@@ -350,67 +404,18 @@ export async function removeHooks(
       });
     } catch { /* best effort */ }
 
-    console.log(`Disabled ${policyNames.length - notEnabled.length} policy(ies).`);
-    console.log(`Remaining: ${remaining.length > 0 ? remaining.join(", ") : "(none)"}`);
-    return;
-  }
-
-  // Capture enabled policies before clearing (used for accurate telemetry below)
-  const configBeforeRemoval = readScopedHooksConfig(configScope, cwd);
-
-  if (scope !== "all") {
-    assertSupportedScope(integ, scope);
-  }
-
-  // Remove all failproofai hooks from the selected integration's settings
-  const scopesToRemove = scope === "all" ? [...integ.scopes] : [scope];
-  let totalRemoved = 0;
-
-  for (const s of scopesToRemove) {
-    const settingsPath = integ.getSettingsPath(s as any, cwd);
-    if (!existsSync(settingsPath)) continue;
-
-    const removed = integ.removeHooksFromFile(settingsPath);
-    totalRemoved += removed;
-
-    if (scope !== "all") {
-      console.log(`Removed ${removed} failproofai hook(s) from settings.`);
-      console.log(`Settings: ${settingsPath}`);
-    }
-  }
-
-  if (scope === "all") {
-    console.log(`Removed ${totalRemoved} failproofai hook(s) from all scopes.`);
-  }
-
-  // Telemetry
-  try {
-    const distinctId = getInstanceId();
-    await trackHookEvent(distinctId, "hooks_removed", {
-      scope,
-      integration: integ.id,
-      removal_mode: "hooks",
-      policies_removed: configBeforeRemoval.enabledPolicies,
-      removed_count: totalRemoved,
-      ...(opts?.source ? { source: opts.source } : {}),
-      platform: platform(),
-      arch: arch(),
-      os_release: release(),
-      hostname_hash: hashToId(hostname()),
-    });
-  } catch { /* best effort */ }
-
-  // Clear policy config when removing from all scopes, or when no hooks remain in any scope
-  if (scope === "all") {
-    for (const s of integ.scopes) {
-      if (s === "repo") continue;
-      const existing = readScopedHooksConfig(s as HookScope, cwd);
-      if (existing.enabledPolicies.length > 0) {
-        writeScopedHooksConfig({ ...existing, enabledPolicies: [] }, s as HookScope, cwd);
+    // Clear policy config when removing from all scopes, or when no hooks remain in any scope
+    if (scope === "all") {
+      for (const s of integ.scopes) {
+        if (s === "repo") continue;
+        const existing = readScopedHooksConfig(s as HookScope, cwd);
+        if (existing.enabledPolicies.length > 0) {
+          writeScopedHooksConfig({ ...existing, enabledPolicies: [] }, s as HookScope, cwd);
+        }
       }
+    } else if (!integ.scopes.some((s) => integ.hooksInstalledInSettings(s as any, cwd))) {
+      writeScopedHooksConfig({ ...configBeforeRemoval, enabledPolicies: [] }, configScope, cwd);
     }
-  } else if (!integ.scopes.some((s) => integ.hooksInstalledInSettings(s as any, cwd))) {
-    writeScopedHooksConfig({ ...configBeforeRemoval, enabledPolicies: [] }, configScope, cwd);
   }
 }
 
@@ -513,7 +518,7 @@ export async function listHooks(
   // Config path hint
   const primaryScope = installedScopes.length > 0 ? installedScopes[0] : "user";
   const configPath = getConfigPathForScope(primaryScope as HookScope, cwd);
-  console.log(`\n  Settings: ${integ.getSettingsPath(primaryScope as any, cwd)}`);
+  console.log(`  Settings: ${integ.getSettingsPath(primaryScope as any, cwd)}`);
   console.log(`  Config:   ${configPath}\n`);
 
   // Warn about unknown policyParams keys
@@ -572,4 +577,23 @@ export async function listHooks(
     }
     console.log();
   }
+
+  // CLI Installation Summary
+  console.log(`CLIs`);
+  const { INTEGRATION_TYPES } = await import("./types");
+  for (const integId of INTEGRATION_TYPES) {
+    const i = getIntegration(integId);
+    const unique = deduplicateScopes(i, i.scopes, cwd);
+    const hooksInstalled = unique.some((s) => i.hooksInstalledInSettings(s as any, cwd));
+    const binaryInstalled = i.detectInstalled();
+    
+    let status = "";
+    if (hooksInstalled) status = "\x1B[32mhooks active\x1B[0m";
+    else if (binaryInstalled) status = "\x1B[33mbinary found, hooks not active\x1B[0m";
+    else status = "not found";
+
+    const mark = hooksInstalled ? `\x1B[32m\u2713\x1B[0m` : (binaryInstalled ? `\x1B[33m?\x1B[0m` : `\x1B[31m\u2717\x1B[0m`);
+    console.log(`  ${mark} ${i.displayName.padEnd(15)} (${status})`);
+  }
+  console.log();
 }

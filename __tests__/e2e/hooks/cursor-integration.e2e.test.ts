@@ -28,7 +28,7 @@ describe("E2E: Cursor Integration", () => {
 
   it("denies sudo command via Cursor preToolUse hook", () => {
     // 1. Install block-sudo for Cursor project scope
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration cursor --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli cursor --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });
@@ -59,7 +59,7 @@ describe("E2E: Cursor Integration", () => {
 
   it("normalizes workspace_roots to cwd", () => {
     // 1. Install block-sudo
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration cursor --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli cursor --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });
@@ -81,7 +81,7 @@ describe("E2E: Cursor Integration", () => {
   });
 
   it("allows benign commands", () => {
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration cursor --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli cursor --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });
@@ -100,7 +100,7 @@ describe("E2E: Cursor Integration", () => {
   });
 
   it("blocks sudo via beforeShellExecution event (tool_name normalization)", () => {
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration cursor --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli cursor --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });
@@ -130,7 +130,7 @@ describe("E2E: Cursor Integration", () => {
   });
 
   it("blocks env file read via beforeReadFile event (file_path normalization)", () => {
-    execSync(`bun ${BINARY_PATH} policies --install block-env-files --integration cursor --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-env-files --cli cursor --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });
@@ -160,14 +160,14 @@ describe("E2E: Cursor Integration", () => {
 
   it("uninstalls cursor hooks correctly", () => {
     // Install
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration cursor --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli cursor --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });
     expect(JSON.parse(readFileSync(CURSOR_HOOKS_PATH, "utf8")).hooks.beforeShellExecution).toBeDefined();
 
     // Uninstall
-    execSync(`bun ${BINARY_PATH} policies --uninstall --integration cursor --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --uninstall --cli cursor --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });

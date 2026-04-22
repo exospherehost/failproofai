@@ -96,7 +96,7 @@ describe("hooks/manager", () => {
         expect(hook.type).toBe("command");
         expect(hook.timeout).toBe(60_000);
         expect(hook.command).toBe(
-          `"${MOCK_BINARY_PATH}" --hook ${eventType} --integration claude-code`,
+          `"${MOCK_BINARY_PATH}" --hook ${eventType} --cli claude-code`,
         );
       }
     });
@@ -230,7 +230,7 @@ describe("hooks/manager", () => {
 
       expect(written.hooks.PreToolUse).toHaveLength(1);
       expect(written.hooks.PreToolUse[0].hooks[0].command).toBe(
-        `"${MOCK_BINARY_PATH}" --hook PreToolUse --integration claude-code`,
+        `"${MOCK_BINARY_PATH}" --hook PreToolUse --cli claude-code`,
       );
     });
 
@@ -293,7 +293,7 @@ describe("hooks/manager", () => {
 
       for (const [eventType, matchers] of Object.entries(written.hooks)) {
         const hook = (matchers as Array<{ hooks: Array<Record<string, unknown>> }>)[0].hooks[0];
-        expect(hook.command).toBe(`npx -y failproofai --hook ${eventType} --integration claude-code`);
+        expect(hook.command).toBe(`npx -y failproofai --hook ${eventType} --cli claude-code`);
       }
     });
 
@@ -308,7 +308,7 @@ describe("hooks/manager", () => {
       const written = JSON.parse(content as string);
 
       const hook = written.hooks.PreToolUse[0].hooks[0];
-      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse --integration claude-code`);
+      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse --cli claude-code`);
     });
 
     it("local scope uses absolute binary path, not npx", async () => {
@@ -322,7 +322,7 @@ describe("hooks/manager", () => {
       const written = JSON.parse(content as string);
 
       const hook = written.hooks.PreToolUse[0].hooks[0];
-      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse --integration claude-code`);
+      expect(hook.command).toBe(`"${MOCK_BINARY_PATH}" --hook PreToolUse --cli claude-code`);
     });
 
     it("re-install on project scope migrates absolute-path hooks to npx format", async () => {
@@ -352,7 +352,7 @@ describe("hooks/manager", () => {
       const written = JSON.parse(content as string);
 
       expect(written.hooks.PreToolUse[0].hooks[0].command).toBe(
-        "npx -y failproofai --hook PreToolUse --integration claude-code",
+        "npx -y failproofai --hook PreToolUse --cli claude-code",
       );
     });
 
@@ -363,7 +363,7 @@ describe("hooks/manager", () => {
           PreToolUse: [{
             hooks: [{
               type: "command",
-              command: "npx -y failproofai --hook PreToolUse --integration claude-code",
+              command: "npx -y failproofai --hook PreToolUse --cli claude-code",
               timeout: 60000,
             }],
           }],
@@ -536,9 +536,9 @@ describe("hooks/manager", () => {
       const combinedContentBytes = writeCalls.map(c => c[1] as string).join(" ");
       
       // We expect the failproofai hook command string injected into these settings 
-      // to correctly contain the specific `--integration <ID>` flag for every CLI.
+      // to correctly contain the specific `--cli <ID>` flag for every CLI.
       for (const integ of INTEGRATION_TYPES) {
-        expect(combinedContentBytes).toContain(`--integration ${integ}`);
+        expect(combinedContentBytes).toContain(`--cli ${integ}`);
       }
     });
 
@@ -565,7 +565,7 @@ describe("hooks/manager", () => {
       
       // Verify every CLI got its respective configuration applied
       for (const integ of INTEGRATION_TYPES) {
-        expect(combinedContentBytes).toContain(`--integration ${integ}`);
+        expect(combinedContentBytes).toContain(`--cli ${integ}`);
       }
     });
   });

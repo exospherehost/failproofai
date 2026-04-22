@@ -208,8 +208,8 @@ const claudeCode: Integration = {
 
   buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown> {
     const command = scope === "project"
-      ? `npx -y failproofai --hook ${eventType} --integration claude-code`
-      : `"${binaryPath}" --hook ${eventType} --integration claude-code`;
+      ? `npx -y failproofai --hook ${eventType} --cli claude-code`
+      : `"${binaryPath}" --hook ${eventType} --cli claude-code`;
     return {
       type: "command",
       command,
@@ -360,7 +360,7 @@ const cursor: Integration = {
     // eventType is the camelCase Cursor event name — map to PascalCase for --hook flag
     const pascalEvent = CURSOR_EVENT_MAP[eventType as CursorHookEventType] ?? eventType;
     return {
-      command: `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --integration cursor --stdin`,
+      command: `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --cli cursor --stdin`,
       timeout: 60,
     };
   },
@@ -545,8 +545,8 @@ const gemini: Integration = {
 
   buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown> {
     const bash = scope === "project"
-      ? `npx -y failproofai --hook ${eventType} --integration gemini --stdin`
-      : `"${process.execPath}" "${binaryPath}" --hook ${eventType} --integration gemini --stdin`;
+      ? `npx -y failproofai --hook ${eventType} --cli gemini --stdin`
+      : `"${process.execPath}" "${binaryPath}" --hook ${eventType} --cli gemini --stdin`;
     return {
       type: "command",
       command: bash,
@@ -831,7 +831,7 @@ export function synchronizeCopilotProjectHooks(): void {
     // entries (local-binary invocations) survive re-syncs.
     for (const event of Object.keys(gHooks)) {
       gHooks[event] = gHooks[event].filter((h: any) =>
-        !(typeof h.bash === "string" && h.bash.includes("npx -y failproofai") && h.bash.includes("--integration copilot"))
+        !(typeof h.bash === "string" && h.bash.includes("npx -y failproofai") && h.bash.includes("--cli copilot"))
       );
     }
 
@@ -892,10 +892,10 @@ const copilot: Integration = {
     // verbatim. The handler canonicalizes via getCanonicalEventName, and the
     // camelCase form is the unique signal that distinguishes Copilot from
     // Claude (PascalCase) even on older handlers that don't recognize the
-    // --integration flag.
+    // --cli flag.
     const bash = scope === "project"
-      ? `npx -y failproofai --hook ${eventType} --integration copilot`
-      : `"${process.execPath}" "${binaryPath}" --hook ${eventType} --integration copilot`;
+      ? `npx -y failproofai --hook ${eventType} --cli copilot`
+      : `"${process.execPath}" "${binaryPath}" --hook ${eventType} --cli copilot`;
     return {
       type: "command",
       bash,
@@ -1077,8 +1077,8 @@ const codex: Integration = {
   buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown> {
     const pascalEvent = CODEX_EVENT_MAP[eventType as CodexHookEventType] ?? eventType;
     const command = scope === "project"
-      ? `npx -y failproofai --hook ${pascalEvent} --integration codex`
-      : `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --integration codex`;
+      ? `npx -y failproofai --hook ${pascalEvent} --cli codex`
+      : `"${process.execPath}" "${binaryPath}" --hook ${pascalEvent} --cli codex`;
     return {
       type: "command",
       command,
@@ -1259,7 +1259,7 @@ export const FailproofAIPlugin = (ctx: any) => {
       session_id: args.session_id || currentSessionId,
     };
 
-    const cmd = '${cliInvocation} --hook ' + event + ' --integration opencode --stdin';
+    const cmd = '${cliInvocation} --hook ' + event + ' --cli opencode --stdin';
 
     const res = spawnSync(cmd, {
       input: JSON.stringify(payloadWithCwd),
@@ -1486,7 +1486,7 @@ export default function (pi: ExtensionAPI) {
       session_id: sessionId,
     };
 
-    const cmd = '${cliInvocation} --hook ' + event + ' --integration pi --stdin';
+    const cmd = '${cliInvocation} --hook ' + event + ' --cli pi --stdin';
 
     const res = spawnSync(cmd, {
       input: JSON.stringify(payloadWithCwd),

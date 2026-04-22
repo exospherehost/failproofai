@@ -55,7 +55,7 @@ function runCopilotHook(
   extraEnv: Partial<NodeJS.ProcessEnv> = {},
   integration = "copilot",
 ) {
-  return spawnSync("bun", [BINARY_PATH, "--hook", event, "--integration", integration], {
+  return spawnSync("bun", [BINARY_PATH, "--hook", event, "--cli", integration], {
     input: typeof payload === "string" ? payload : JSON.stringify(payload),
     cwd: PROJECT_DIR,
     env: cliEnv(extraEnv),
@@ -82,7 +82,7 @@ describe("E2E: Copilot Integration", () => {
   });
 
   it("installs project hooks with Copilot native camelCase event names", () => {
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration copilot --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli copilot --scope project`, {
       cwd: PROJECT_DIR,
       env: cliEnv(),
     });
@@ -90,9 +90,9 @@ describe("E2E: Copilot Integration", () => {
     const hooks = JSON.parse(readFileSync(COPILOT_PROJECT_HOOKS_PATH, "utf8"));
 
     expect(hooks.version).toBe(1);
-    expect(hooks.hooks.sessionStart[0].bash).toContain("--hook sessionStart --integration copilot");
-    expect(hooks.hooks.preToolUse[0].bash).toContain("--hook preToolUse --integration copilot");
-    expect(hooks.hooks.userPromptSubmitted[0].bash).toContain("--hook userPromptSubmitted --integration copilot");
+    expect(hooks.hooks.sessionStart[0].bash).toContain("--hook sessionStart --cli copilot");
+    expect(hooks.hooks.preToolUse[0].bash).toContain("--hook preToolUse --cli copilot");
+    expect(hooks.hooks.userPromptSubmitted[0].bash).toContain("--hook userPromptSubmitted --cli copilot");
     expect(hooks.hooks.SessionStart).toBeUndefined();
     expect(hooks.hooks.PreToolUse).toBeUndefined();
   });
@@ -111,7 +111,7 @@ describe("E2E: Copilot Integration", () => {
       "utf8",
     );
 
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration copilot --scope user`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli copilot --scope user`, {
       cwd: PROJECT_DIR,
       env: cliEnv(),
     });
@@ -122,8 +122,8 @@ describe("E2E: Copilot Integration", () => {
     expect(config.copilotTokens).toEqual(["keep-me"]);
     expect(config.loggedInUsers).toEqual([{ login: "octocat" }]);
     expect(config.hooks.customEvent).toEqual([{ bash: "echo untouched" }]);
-    expect(config.hooks.sessionStart[0].bash).toContain("--hook sessionStart --integration copilot");
-    expect(config.hooks.preToolUse[0].bash).toContain("--hook preToolUse --integration copilot");
+    expect(config.hooks.sessionStart[0].bash).toContain("--hook sessionStart --cli copilot");
+    expect(config.hooks.preToolUse[0].bash).toContain("--hook preToolUse --cli copilot");
     expect(bashrc).toContain("env failproofai copilot-sync 2>/dev/null");
   });
 
@@ -140,11 +140,11 @@ describe("E2E: Copilot Integration", () => {
       "utf8",
     );
 
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration copilot --scope user`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli copilot --scope user`, {
       cwd: PROJECT_DIR,
       env: cliEnv(),
     });
-    execSync(`bun ${BINARY_PATH} policies --uninstall --integration copilot --scope user`, {
+    execSync(`bun ${BINARY_PATH} policies --uninstall --cli copilot --scope user`, {
       cwd: PROJECT_DIR,
       env: cliEnv(),
     });
@@ -158,7 +158,7 @@ describe("E2E: Copilot Integration", () => {
   });
 
   it("denies sudo from stringified toolArgs and persists a complete Copilot activity entry", () => {
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration copilot --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli copilot --scope project`, {
       cwd: PROJECT_DIR,
       env: cliEnv(),
     });

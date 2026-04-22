@@ -9,6 +9,12 @@ failproofai policies
 
 Shows all policies with their status, configured parameters, and custom policies.
 
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--cli <id>` | View policy status for a specific CLI (default: `claude-code`) |
+
 ## Sample output
 
 ```text
@@ -23,9 +29,15 @@ Failproof AI Hook Policies (user)
   ✓       sanitize-api-keys             Redact API keys from output
             additionalPatterns: [{ regex: "MY_TOKEN_...", label: "..." }]
 
-  ── Custom Policies (/home/alice/myproject/my-policies.js) ──────────────
-  ✓       require-jira-ticket           Block commits without ticket
-  ✓       approval-gate                 Approval gate for destructive ops
+  Settings: /home/alice/.claude/settings.json
+  Config:   /home/alice/.failproofai/policies-config.json
+
+  CLIs
+  ✓ Claude Code     (installed)
+  ✓ Cursor          (installed)
+  ✗ Gemini          (not installed)
+  ✗ Copilot         (not installed)
+  ✗ Codex           (not installed)
 ```
 
 Unknown keys in `policyParams` are flagged here so you can catch typos early.

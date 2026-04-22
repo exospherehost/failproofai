@@ -11,6 +11,12 @@ This is the command registered in Claude Code's `settings.json` by `failproofai 
 
 Reads a JSON payload from stdin, evaluates all enabled policies, and exits with a code indicating the decision:
 
+## Options
+
+| Flag | Description |
+|------|-------------|
+| `--cli <id>` | Explicitly set the CLI identity (e.g. `cursor`, `gemini`). Overrides payload detection. |
+
 | Exit code | Decision | Effect |
 |-----------|----------|--------|
 | `0` | `allow` | Permit the action |

@@ -43,6 +43,12 @@ bun add -g failproofai
     failproofai policies --install --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
+
+    You can also install hooks for other CLIs (Cursor, Gemini, Copilot, etc.) using the `--cli` flag, which supports multiple values:
+
+    ```bash
+    failproofai policies --install --cli cursor gemini
+    ```
   </Step>
   <Step title="Verify">
     ```bash

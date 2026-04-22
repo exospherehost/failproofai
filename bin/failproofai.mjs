@@ -12,7 +12,8 @@
 import { realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { version } from "../package.json";
+import pkg from "../package.json" with { type: "json" };
+const { version } = pkg;
 
 // Resolve the real package root early (following any npm bin symlinks) so that
 // scripts/launch.ts can locate .next/standalone/server.js correctly regardless
@@ -50,6 +51,22 @@ if (args[0] === "copilot-sync") {
   process.exit(0);
 }
 
+/**
+ * Parses multiple values for a flag.
+ * e.g. --cli claude-code cursor gemini --scope project
+ * returns ["claude-code", "cursor", "gemini"]
+ */
+function parseMultiFlag(args, flag) {
+  const idx = args.indexOf(flag);
+  if (idx === -1) return [];
+  const values = [];
+  for (let i = idx + 1; i < args.length; i++) {
+    if (args[i].startsWith("-")) break;
+    values.push(args[i]);
+  }
+  return values;
+}
+
 // --hook <event> — called by Claude Code hooks; fast path, outside runCli()
 // because it has its own exit code contract with Claude Code.
 const hookIdx = args.indexOf("--hook");
@@ -69,10 +86,10 @@ if (hookIdx >= 0) {
   process.env[hookKey] = "true";
 
   try {
-    const integrationIdx = args.indexOf("--integration");
-    const integrationOverride = integrationIdx >= 0 ? args[integrationIdx + 1] : undefined;
+    const cliValues = parseMultiFlag(args, "--cli");
+    const cliOverride = cliValues.length > 0 ? cliValues[0] : undefined;
     const { handleHookEvent } = await import("../src/hooks/handler");
-    const { exitCode, hardStop } = await handleHookEvent(args[hookIdx + 1], integrationOverride);
+    const { exitCode, hardStop } = await handleHookEvent(args[hookIdx + 1], cliOverride);
 
     if (hardStop && process.env.FAILPROOFAI_SKIP_KILL !== "true") {
       // Allow a small delay for stdout to flush before the process group is killed.
@@ -136,7 +153,7 @@ COMMANDS
     --beta                         Remove only beta policies
     --custom, -c                   Clear the customPoliciesPath from config
 
-  --integration claude-code|cursor|gemini|copilot|codex  Target platform (default: claude-code)
+  --cli claude-code|cursor|gemini|copilot|codex  Target platform (default: claude-code)
 
   policies --help, -h            Show this help for the policies command
 
@@ -162,8 +179,8 @@ EXAMPLES
   failproofai policies -i -c ./my-policies.js
   failproofai policies --uninstall block-sudo
   failproofai policies --uninstall --custom
-  failproofai policies --install --integration cursor
-  failproofai policies --integration cursor
+  failproofai policies --install --cli cursor
+  failproofai policies --cli cursor
 
 LINKS
   ⭐ Star us:      https://github.com/exospherehost/failproofai
@@ -190,20 +207,24 @@ LINKS
     const isUninstall = subArgs.includes("--uninstall")  || subArgs.includes("-u");
     const isHelp      = subArgs.includes("--help")       || subArgs.includes("-h");
 
-    // Parse --integration flag (shared across install/uninstall/list)
-    const integrationIdx = subArgs.indexOf("--integration");
-    let integrationArg = integrationIdx >= 0 ? subArgs[integrationIdx + 1] : undefined;
+    // Parse --cli flag (shared across install/uninstall/list)
+    const cliValues = parseMultiFlag(subArgs, "--cli");
+    let integrationArg = cliValues.length > 0 ? cliValues : undefined;
     if (!integrationArg && !isInstall) {
-      integrationArg = "claude-code";
+      integrationArg = ["claude-code"];
     }
 
     const { INTEGRATION_TYPES } = await import("../src/hooks/types");
 
-    if (integrationIdx >= 0 && (!integrationArg || integrationArg.startsWith("-"))) {
-      throw new CliError(`Missing value for --integration. Valid values: ${INTEGRATION_TYPES.join(", ")}`);
+    if (subArgs.includes("--cli") && (!integrationArg || integrationArg.length === 0)) {
+      throw new CliError(`Missing value for --cli. Valid values: ${INTEGRATION_TYPES.join(", ")}`);
     }
-    if (integrationIdx >= 0 && !INTEGRATION_TYPES.includes(integrationArg)) {
-      throw new CliError(`Invalid integration: ${integrationArg}. Valid values: ${INTEGRATION_TYPES.join(", ")}`);
+    if (integrationArg) {
+      for (const val of integrationArg) {
+        if (!INTEGRATION_TYPES.includes(val)) {
+          throw new CliError(`Invalid cli: ${val}. Valid values: ${INTEGRATION_TYPES.join(", ")}`);
+        }
+      }
     }
 
     if (isHelp) {
@@ -216,7 +237,7 @@ USAGE
   failproofai policies --uninstall, -u       Disable policies or remove hooks
 
 OPTIONS (shared)
-  --integration claude-code|cursor|gemini|copilot|codex  Target platform (default: claude-code)
+  --cli claude-code|cursor|gemini|copilot|codex  Target platform (default: claude-code)
 
 OPTIONS (install)
   [names...]                     Specific policy names to enable (omit for interactive)
@@ -244,9 +265,9 @@ EXAMPLES
   failproofai policies --uninstall --custom
 
   # Cursor integration
-  failproofai policies --install --integration cursor
-  failproofai policies --uninstall --integration cursor --scope project
-  failproofai policies --integration cursor
+  failproofai policies --install --cli cursor
+  failproofai policies --uninstall --cli cursor --scope project
+  failproofai policies --cli cursor
 `.trimStart());
       process.exit(0);
     }
@@ -255,9 +276,11 @@ EXAMPLES
       const { installHooks } = await import("../src/hooks/manager");
       
       let validScopes = ["user", "project", "local"];
-      if (integrationArg) {
+      if (integrationArg && integrationArg.length > 0) {
         const { getIntegration } = await import("../src/hooks/integrations");
-        validScopes = [...getIntegration(integrationArg).scopes];
+        // For multiple integrations, use the intersection of scopes or just the first one?
+        // Usually they all support user/project. Let's use the first one for validation.
+        validScopes = [...getIntegration(integrationArg[0]).scopes];
       }
 
       const scopeIdx = subArgs.indexOf("--scope");
@@ -280,13 +303,20 @@ EXAMPLES
       const includeBeta = subArgs.includes("--beta");
 
       // Collect positional policy names — args that don't start with - and aren't
-      // values consumed by --scope, --custom/-c, or --integration (tracked by index,
+      // values consumed by --scope, --custom/-c, or --cli (tracked by index,
       // not value, so a policy named "user" isn't incorrectly dropped).
       const consumedIdxs = new Set();
       if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
       if (customIdx >= 0) consumedIdxs.add(customIdx + 1);
-      if (integrationIdx >= 0) consumedIdxs.add(integrationIdx + 1);
-      const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c", "--integration"]);
+      
+      const cliIdx = subArgs.indexOf("--cli");
+      if (cliIdx >= 0) {
+        for (let i = cliIdx + 1; i < subArgs.length && !subArgs[i].startsWith("-"); i++) {
+          consumedIdxs.add(i);
+        }
+      }
+
+      const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c", "--cli"]);
       const unknownInstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
       if (unknownInstallFlag) {
         throw new CliError(`Unknown flag: ${unknownInstallFlag}\nRun \`failproofai policies --help\` for usage.`);
@@ -320,7 +350,8 @@ EXAMPLES
     if (isUninstall) {
       const { removeHooks } = await import("../src/hooks/manager");
       const { getIntegration } = await import("../src/hooks/integrations");
-      const integ = getIntegration(integrationArg);
+      // Use the first integration for scope validation
+      const integ = getIntegration(integrationArg[0]);
       const validScopes = [...integ.scopes, "all"];
 
       const scopeIdx = subArgs.indexOf("--scope");
@@ -337,8 +368,15 @@ EXAMPLES
 
       const consumedIdxs = new Set();
       if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
-      if (integrationIdx >= 0) consumedIdxs.add(integrationIdx + 1);
-      const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c", "--integration"]);
+      
+      const cliIdx = subArgs.indexOf("--cli");
+      if (cliIdx >= 0) {
+        for (let i = cliIdx + 1; i < subArgs.length && !subArgs[i].startsWith("-"); i++) {
+          consumedIdxs.add(i);
+        }
+      }
+
+      const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c", "--cli"]);
       const unknownUninstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
       if (unknownUninstallFlag) {
         throw new CliError(`Unknown flag: ${unknownUninstallFlag}\nRun \`failproofai policies --help\` for usage.`);
@@ -360,7 +398,7 @@ EXAMPLES
     // Default: list policies
     // Accept --list as a no-op alias (common intuition), reject all other unknown flags
     // and unexpected positional args (e.g. "hi").
-    const knownListFlags = new Set(["--install", "-i", "--uninstall", "-u", "--help", "-h", "--list", "--integration", "--scope"]);
+    const knownListFlags = new Set(["--install", "-i", "--uninstall", "-u", "--help", "-h", "--list", "--cli", "--scope"]);
     const unknownListArg = subArgs.find((a) => a.startsWith("-") && !knownListFlags.has(a));
     if (unknownListArg) {
       throw new CliError(
@@ -369,7 +407,13 @@ EXAMPLES
       );
     }
     const listConsumedIdxs = new Set();
-    if (integrationIdx >= 0) listConsumedIdxs.add(integrationIdx + 1);
+    const cliIdx = subArgs.indexOf("--cli");
+    if (cliIdx >= 0) {
+      for (let i = cliIdx + 1; i < subArgs.length && !subArgs[i].startsWith("-"); i++) {
+        listConsumedIdxs.add(i);
+      }
+    }
+
     const positionalArgs = subArgs.filter((a, idx) => !a.startsWith("-") && !listConsumedIdxs.has(idx));
     if (positionalArgs.length > 0) {
       throw new CliError(
@@ -379,7 +423,8 @@ EXAMPLES
     }
 
     const { listHooks } = await import("../src/hooks/manager");
-    await listHooks(undefined, integrationArg);
+    // For list, we just use the first integration requested, or default
+    await listHooks(undefined, integrationArg[0]);
     process.exit(0);
   }
 

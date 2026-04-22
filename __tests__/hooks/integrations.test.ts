@@ -217,8 +217,8 @@ describe("hooks/integrations", () => {
       const projectEntry = copilot.buildHookEntry("/bin/fp", "sessionStart", "project") as any;
       const userEntry = copilot.buildHookEntry("/bin/fp", "preToolUse", "user") as any;
 
-      expect(projectEntry.bash).toContain("--hook sessionStart --integration copilot");
-      expect(userEntry.bash).toContain(`"${process.execPath}" "/bin/fp" --hook preToolUse --integration copilot`);
+      expect(projectEntry.bash).toContain("--hook sessionStart --cli copilot");
+      expect(userEntry.bash).toContain(`"${process.execPath}" "/bin/fp" --hook preToolUse --cli copilot`);
       expect(userEntry.timeoutSec).toBe(60);
     });
 
@@ -376,7 +376,7 @@ describe("hooks/integrations", () => {
       const globalPath = resolve(homedir(), ".copilot", "config.json");
       const globalContent = JSON.stringify({
         hooks: {
-          sessionStart: [{ bash: "\"/usr/local/bin/failproofai\" --hook sessionStart --integration copilot" }],
+          sessionStart: [{ bash: "\"/usr/local/bin/failproofai\" --hook sessionStart --cli copilot" }],
         },
         copilotTokens: ["keep-me"],
       }, null, 2) + "\n";
@@ -427,14 +427,14 @@ describe("hooks/integrations", () => {
         if (path === globalPath) {
           return JSON.stringify({
             hooks: {
-              preToolUse: [{ bash: "npx -y failproofai --hook PreToolUse --integration copilot" }]
+              preToolUse: [{ bash: "npx -y failproofai --hook PreToolUse --cli copilot" }]
             }
           });
         }
         if (path === projectPath) {
           return JSON.stringify({
             hooks: {
-              preToolUse: [{ bash: "npx -y failproofai --hook PreToolUse --integration copilot --NEW" }]
+              preToolUse: [{ bash: "npx -y failproofai --hook PreToolUse --cli copilot --NEW" }]
             }
           });
         }
@@ -460,8 +460,8 @@ describe("hooks/integrations", () => {
           return JSON.stringify({
             hooks: {
               preToolUse: [
-                { bash: "\"/usr/local/bin/failproofai\" --hook preToolUse --integration copilot" },
-                { bash: "npx -y failproofai --hook preToolUse --integration copilot --OLD" },
+                { bash: "\"/usr/local/bin/failproofai\" --hook preToolUse --cli copilot" },
+                { bash: "npx -y failproofai --hook preToolUse --cli copilot --OLD" },
               ],
             },
           });
@@ -470,7 +470,7 @@ describe("hooks/integrations", () => {
           return JSON.stringify({
             hooks: {
               preToolUse: [
-                { bash: "npx -y failproofai --hook preToolUse --integration copilot --NEW" },
+                { bash: "npx -y failproofai --hook preToolUse --cli copilot --NEW" },
               ],
             },
           });
@@ -483,8 +483,8 @@ describe("hooks/integrations", () => {
       const lastWrite = vi.mocked(writeFileSync).mock.calls.find(c => String(c[0]) === globalPath);
       const data = JSON.parse(lastWrite![1] as string);
       expect(data.hooks.preToolUse).toEqual([
-        { bash: "\"/usr/local/bin/failproofai\" --hook preToolUse --integration copilot" },
-        { bash: "npx -y failproofai --hook preToolUse --integration copilot --NEW" },
+        { bash: "\"/usr/local/bin/failproofai\" --hook preToolUse --cli copilot" },
+        { bash: "npx -y failproofai --hook preToolUse --cli copilot --NEW" },
       ]);
     });
   });

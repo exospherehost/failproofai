@@ -376,13 +376,13 @@ export function writeVirtualLogEntry(
   }
 }
 
-export async function handleHookEvent(eventType: string, integrationOverride?: string): Promise<{ exitCode: number; hardStop: boolean }> {
+export async function handleHookEvent(eventType: string, cliOverride?: string): Promise<{ exitCode: number; hardStop: boolean }> {
   // SILENCE GUARD: If a hook is EXPLICITLY labeled as Claude but the event name 
   // is unique to Gemini/Copilot, it means we have a duplicate legacy hook firing 
   // from an old installation. SILENTLY ABORT to avoid duplicate/incorrect logs.
   // Note: We only silence if the flag is explicitly 'claude-code'. If it's 
   // missing, we let it fall through to the detection logic.
-  if (integrationOverride === "claude-code") {
+  if (cliOverride === "claude-code") {
     const isGeminiUnique = GEMINI_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
     const isCopilotUnique = COPILOT_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
     
@@ -434,10 +434,10 @@ export async function handleHookEvent(eventType: string, integrationOverride?: s
 
   // 2. Integration Detection & Normalization
 
-  // PRIMARY SOURCE OF TRUTH: the explicit --integration CLI flag (or payload.integration).
+  // PRIMARY SOURCE OF TRUTH: the explicit --cli CLI flag (or payload.integration).
   // The hook entries we install always include this flag, so it's the most reliable signal.
   let integrationType: IntegrationType | undefined =
-    (integrationOverride as IntegrationType) || (parsed.integration as IntegrationType);
+    (cliOverride as IntegrationType) || (parsed.integration as IntegrationType);
 
   // Unique-event-name fallback (only for events truly unique to one integration;
   // avoid shared names like SessionStart/SessionEnd that multiple integrations emit).

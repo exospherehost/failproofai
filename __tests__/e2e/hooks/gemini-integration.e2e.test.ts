@@ -28,7 +28,7 @@ describe("E2E: Gemini Integration", () => {
 
   it("denies sudo via Gemini BeforeTool hook with deny decision", () => {
     // 1. Install block-sudo
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration gemini --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli gemini --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });
@@ -36,8 +36,8 @@ describe("E2E: Gemini Integration", () => {
     // 2. Trigger the hook
     const payload = GeminiPayloads.beforeTool.bash("sudo rm -rf /", PROJECT_DIR);
     
-    // We pass --integration gemini to ensure it doesn't fallback to claude-code
-    const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--integration", "gemini"], {
+    // We pass --cli gemini to ensure it doesn't fallback to claude-code
+    const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--cli", "gemini"], {
       input: JSON.stringify(payload),
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_LOG_LEVEL: "info", FAILPROOFAI_SKIP_KILL: "true" },
@@ -57,13 +57,13 @@ describe("E2E: Gemini Integration", () => {
   });
 
   it("allows benign commands with empty output", () => {
-    execSync(`bun ${BINARY_PATH} policies --install block-sudo --integration gemini --scope project`, {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli gemini --scope project`, {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
     });
 
     const payload = GeminiPayloads.beforeTool.bash("ls", PROJECT_DIR);
-    const output = execSync(`bun ${BINARY_PATH} --hook BeforeTool --integration gemini`, {
+    const output = execSync(`bun ${BINARY_PATH} --hook BeforeTool --cli gemini`, {
       input: JSON.stringify(payload),
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true" }
