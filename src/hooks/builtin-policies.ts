@@ -171,7 +171,7 @@ function getCurrentBranch(cwd: string): string | null {
     if (branch === undefined) {
       branch = execSync("git rev-parse --abbrev-ref HEAD", {
         cwd,
-        encoding: "utf8",
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
         timeout: 3000,
       }).trim();
       gitBranchCache.set(cwd, branch);
@@ -186,7 +186,7 @@ function getHeadSha(cwd: string): string | null {
   try {
     const sha = execSync("git rev-parse HEAD", {
       cwd,
-      encoding: "utf8",
+      encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
       timeout: 3000,
     }).trim();
     return sha || null;
@@ -214,7 +214,7 @@ function getThirdPartyCheckRuns(cwd: string, sha: string): CiCheck[] {
       ],
       {
         cwd,
-        encoding: "utf8",
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
         timeout: 15000,
       },
     ).trim();
@@ -239,7 +239,7 @@ function getCommitStatuses(cwd: string, sha: string): CiCheck[] {
       ],
       {
         cwd,
-        encoding: "utf8",
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
         timeout: 15000,
       },
     ).trim();
@@ -964,7 +964,7 @@ function requireCommitBeforeStop(ctx: PolicyContext): PolicyResult {
   try {
     const status = execSync("git status --porcelain", {
       cwd,
-      encoding: "utf8",
+      encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
       timeout: 5000,
     }).trim();
 
@@ -986,7 +986,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
   try {
     const remotes = execSync("git remote", {
       cwd,
-      encoding: "utf8",
+      encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
       timeout: 3000,
     }).trim();
 
@@ -1009,7 +1009,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
       const ahead = execFileSync(
         "git",
         ["log", `${remote}/${baseBranch}..HEAD`, "--oneline"],
-        { cwd, encoding: "utf8", timeout: 5000 },
+        { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
       ).trim();
 
       if (!ahead) {
@@ -1022,7 +1022,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
       const diff = execFileSync(
         "git",
         ["diff", "--stat", `${remote}/${baseBranch}`, "HEAD"],
-        { cwd, encoding: "utf8", timeout: 5000 },
+        { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
       ).trim();
 
       if (!diff) {
@@ -1037,7 +1037,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
     try {
       execFileSync("git", ["rev-parse", "--verify", `${remote}/${branch}`], {
         cwd,
-        encoding: "utf8",
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
         timeout: 3000,
       });
       hasTracking = true;
@@ -1055,7 +1055,7 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
     // Check for unpushed commits
     const unpushed = execFileSync("git", ["log", `${remote}/${branch}..HEAD`, "--oneline"], {
       cwd,
-      encoding: "utf8",
+      encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
       timeout: 5000,
     }).trim();
 
@@ -1080,7 +1080,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
   try {
     // Check if gh CLI is available
     try {
-      execSync("gh --version", { cwd, encoding: "utf8", timeout: 3000 });
+      execSync("gh --version", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 3000 });
     } catch {
       return allow("GitHub CLI (gh) not installed, skipping PR check.");
     }
@@ -1100,7 +1100,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       const ahead = execFileSync(
         "git",
         ["log", `origin/${baseBranch}..HEAD`, "--oneline"],
-        { cwd, encoding: "utf8", timeout: 5000 },
+        { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
       ).trim();
 
       if (!ahead) {
@@ -1113,7 +1113,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       const diff = execFileSync(
         "git",
         ["diff", "--stat", `origin/${baseBranch}`, "HEAD"],
-        { cwd, encoding: "utf8", timeout: 5000 },
+        { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
       ).trim();
 
       if (!diff) {
@@ -1128,7 +1128,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
     try {
       prJson = execSync("gh pr view --json number,url,state", {
         cwd,
-        encoding: "utf8",
+        encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
         timeout: 15000,
       }).trim();
     } catch {
@@ -1151,13 +1151,13 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       try {
         execFileSync("git", ["fetch", "origin", `+refs/heads/${baseBranch}:refs/remotes/origin/${baseBranch}`], {
           cwd,
-          encoding: "utf8",
+          encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
           timeout: 10000,
         });
         const freshAhead = execFileSync(
           "git",
           ["log", `origin/${baseBranch}..HEAD`, "--oneline"],
-          { cwd, encoding: "utf8", timeout: 5000 },
+          { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
         ).trim();
         if (!freshAhead) {
           return allow(`PR #${pr.number} was merged; branch is up to date with ${baseBranch}.`);
@@ -1165,7 +1165,7 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
         const freshDiff = execFileSync(
           "git",
           ["diff", "--stat", `origin/${baseBranch}`, "HEAD"],
-          { cwd, encoding: "utf8", timeout: 5000 },
+          { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
         ).trim();
         if (!freshDiff) {
           return allow(`PR #${pr.number} was merged; no file changes vs ${baseBranch}.`);
@@ -1190,7 +1190,7 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
   try {
     // Check if gh CLI is available
     try {
-      execSync("gh --version", { cwd, encoding: "utf8", timeout: 3000 });
+      execSync("gh --version", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 3000 });
     } catch {
       return allow("GitHub CLI (gh) not installed, skipping CI check.");
     }
@@ -1204,7 +1204,7 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
       const runsJson = execFileSync(
         "gh",
         ["run", "list", "--branch", branch, "--limit", "5", "--json", "status,conclusion,name"],
-        { cwd, encoding: "utf8", timeout: 15000 },
+        { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 15000 },
       ).trim();
 
       if (runsJson && runsJson !== "[]") {
