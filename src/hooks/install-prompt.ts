@@ -355,3 +355,121 @@ export async function promptPolicySelection(
     process.stdin.on("keypress", keypressHandler);
   });
 }
+
+export async function promptIntegrationSelection(): Promise<string[]> {
+  const { INTEGRATION_TYPES } = await import("./types");
+  const { getIntegration } = await import("./integrations");
+
+  if (!process.stdin.isTTY) {
+    return ["claude-code"];
+  }
+
+  const items = INTEGRATION_TYPES.map(id => {
+    const integ = getIntegration(id as any);
+    const installed = integ.detectInstalled();
+    return {
+      id,
+      name: integ.displayName,
+      installed: installed,
+      selected: installed // Default to checking the installed ones!
+    };
+  });
+
+  // Sort: Installed first
+  items.sort((a, b) => (a.installed === b.installed ? 0 : a.installed ? -1 : 1));
+
+  let cursor = 0;
+  let lastLineCount = 0;
+  let cursorHidden = false;
+
+  function hideCursor(): void {
+    if (!cursorHidden) {
+      process.stdout.write("\x1B[?25l");
+      cursorHidden = true;
+    }
+  }
+
+  function showCursor(): void {
+    if (cursorHidden) {
+      process.stdout.write("\x1B[?25h");
+      cursorHidden = false;
+    }
+  }
+
+  function render(): void {
+    hideCursor();
+    const lines: string[] = [];
+    lines.push("");
+    lines.push("  \x1B[1mSelect Target CLI Integrations\x1B[0m");
+    lines.push("  \x1B[2mWhere do you want to install Failproof AI hooks?\x1B[0m");
+    lines.push("");
+
+    items.forEach((item, idx) => {
+      const isActive = idx === cursor;
+      const pointer = isActive ? "\x1B[36m\u276f\x1B[0m" : " ";
+      const check = item.selected ? "\x1B[32m[\u2713]\x1B[0m" : "[ ]";
+      const namePart = isActive ? `\x1B[1;36m${item.name}\x1B[0m` : item.name;
+      const statusPart = item.installed ? "\x1B[32m(Installed)\x1B[0m" : "\x1B[2m(Not detected)\x1B[0m";
+      const padLen = Math.max(1, 20 - item.name.length);
+      lines.push(`  ${pointer} ${check} ${namePart}${" ".repeat(padLen)}${statusPart}`);
+    });
+
+    lines.push("");
+    lines.push("  [\u2191\u2193] Move  [Space] Toggle  [Ctrl+A] All  [Enter] Save  [^C] Quit");
+
+    if (lastLineCount > 0) {
+      process.stdout.write(`\x1B[${lastLineCount}A\x1B[J`);
+    }
+    process.stdout.write(lines.join("\n") + "\n");
+    lastLineCount = lines.length;
+  }
+
+  return new Promise<string[]>((resolve) => {
+    render();
+
+    process.stdin.setRawMode(true);
+    process.stdin.resume();
+    // Use a single data→keypress pipeline
+    const readline = require("node:readline");
+    readline.emitKeypressEvents(process.stdin);
+
+    function keypressHandler(_str: string | undefined, key: readline.Key): void {
+      if (!key) return;
+
+      if (key.ctrl && key.name === "c") {
+        cleanup();
+        process.exit(0);
+      }
+
+      if (key.name === "up") {
+        cursor = cursor > 0 ? cursor - 1 : items.length - 1;
+        render();
+      } else if (key.name === "down") {
+        cursor = cursor < items.length - 1 ? cursor + 1 : 0;
+        render();
+      } else if (key.name === "space") {
+        items[cursor].selected = !items[cursor].selected;
+        render();
+      } else if (key.ctrl && key.name === "a") {
+        const allSelected = items.every((i) => i.selected);
+        items.forEach(i => i.selected = !allSelected);
+        render();
+      } else if (key.name === "return") {
+        const selectedIds = items.filter(i => i.selected).map(i => i.id);
+        if (selectedIds.length === 0) return; // Prevent empty selection
+        cleanup();
+        process.stdout.write("\n");
+        resolve(selectedIds);
+      }
+    }
+
+    function cleanup(): void {
+      showCursor();
+      process.stdin.removeListener("keypress", keypressHandler);
+      process.stdin.setRawMode(false);
+      process.stdin.pause();
+    }
+
+    process.stdin.on("keypress", keypressHandler);
+  });
+}

@@ -135,12 +135,19 @@ export async function installHooks(
   source?: string,
   customPoliciesPath?: string,
   removeCustomHooks = false,
-  integration: IntegrationType = "claude-code",
+  integration?: string | string[],
 ): Promise<void> {
-  const integ = getIntegration(integration);
-  assertSupportedScope(integ, scope);
 
   const binaryPath = resolveFailproofaiBinary();
+
+  if (integration) {
+    const arr = typeof integration === "string" ? [integration] : integration;
+    for (const integId of arr) {
+      const integ = getIntegration(integId as IntegrationType);
+      assertSupportedScope(integ, scope);
+    }
+  }
+
 
   // Capture existing config before overwriting (used for telemetry diff)
   const previousConfig = readScopedHooksConfig(scope as HookScope, cwd);
@@ -202,62 +209,86 @@ export async function installHooks(
   writeScopedHooksConfig(configToWrite, scope as HookScope, cwd);
   console.log(`\nEnabled ${selectedPolicies.length} policy(ies): ${selectedPolicies.join(", ")}`);
 
-  const settingsPath = integ.getSettingsPath(scope as any, cwd);
-  const settings = integ.readSettings(settingsPath) as ClaudeSettings;
-  integ.writeHookEntries(settings, binaryPath, scope);
-  integ.writeSettings(settingsPath, settings);
-  integ.postInstall?.();
-
-  // Telemetry: track successful hook installation (with diff vs previous config)
-  try {
-    const newSet = new Set(selectedPolicies);
-    const policiesAdded = selectedPolicies.filter((p) => !previousEnabled.has(p));
-    const policiesRemoved = [...previousEnabled].filter((p) => !newSet.has(p));
-    const distinctId = getInstanceId();
-    await trackHookEvent(distinctId, "hooks_installed", {
-      scope,
-      integration,
-      policies: selectedPolicies,
-      policy_count: selectedPolicies.length,
-      policies_added: policiesAdded,
-      policies_removed: policiesRemoved,
-      ...(source ? { source } : {}),
-      platform: platform(),
-      arch: arch(),
-      os_release: release(),
-      hostname_hash: hashToId(hostname()),
-      has_custom_hooks_path: !!(configToWrite.customPoliciesPath),
-      has_policy_params: !!(configToWrite.policyParams && Object.keys(configToWrite.policyParams).length > 0),
-      param_policy_names: configToWrite.policyParams ? Object.keys(configToWrite.policyParams) : [],
-      command_format: scope === "project" ? "npx" : "absolute",
-    });
-  } catch { /* best effort */ }
-
-  console.log(`Failproof AI hooks installed for all ${integ.eventTypes.length} event types (scope: ${scope}).`);
-  console.log(`Settings: ${settingsPath}`);
-  // claude-code and copilot project-scope hooks use npx — no machine-specific paths.
-  // Other integrations embed absolute binary paths even in project scope.
-  const isPortableProjectInstall = scope === "project" &&
-    (integration === "claude-code" || integration === "copilot");
-  if (scope === "project" && integration === "claude-code") {
-    console.log(`Command:  npx -y failproofai`);
-  }
-  if (isPortableProjectInstall) {
-    console.log(`\nThis file can be committed to git — no machine-specific paths.`);
+  let selectedIntegrations: string[];
+  if (!integration) {
+    const { promptIntegrationSelection } = await import("./install-prompt");
+    selectedIntegrations = await promptIntegrationSelection();
+    if (selectedIntegrations.length === 0) {
+      console.log("\nNo integrations selected. Policies saved without hooks.");
+      return;
+    }
+  } else if (typeof integration === "string") {
+    selectedIntegrations = [integration];
   } else {
-    console.log(`Binary:   ${binaryPath}`);
+    selectedIntegrations = integration;
   }
 
-  // Warn about duplicate-scope installations
-  const otherScopes = deduplicateScopes(integ, integ.scopes, cwd).filter((s) => s !== scope);
-  const duplicates = otherScopes.filter((s) => integ.hooksInstalledInSettings(s as any, cwd));
-  if (duplicates.length > 0) {
-    const scopeList = duplicates.map((s) => `${s} (${scopeLabel(integ, s, cwd)})`).join(", ");
-    console.log();
-    console.log(`\x1B[33mWarning: Failproof AI hooks are also installed at ${scopeList}.\x1B[0m`);
-    console.log(`Having hooks in multiple scopes may cause duplicate policy evaluation.`);
-    console.log(`Use \`failproofai policies --uninstall --scope ${duplicates[0]}\` to remove the other installation,`);
-    console.log(`or \`failproofai policies\` to see all scopes.`);
+  for (const integId of selectedIntegrations) {
+    const integ = getIntegration(integId as IntegrationType);
+    
+    try {
+      assertSupportedScope(integ, scope);
+    } catch (err) {
+      console.error(`\x1B[33mWarning: ${integ.displayName} does not support scope '${scope}'. Skipping.\x1B[0m`);
+      continue;
+    }
+
+    const settingsPath = integ.getSettingsPath(scope as any, cwd);
+    const settings = integ.readSettings(settingsPath) as ClaudeSettings;
+    integ.writeHookEntries(settings, binaryPath, scope);
+    integ.writeSettings(settingsPath, settings);
+    integ.postInstall?.();
+
+    // Telemetry: track successful hook installation (with diff vs previous config)
+    try {
+      const newSet = new Set(selectedPolicies);
+      const policiesAdded = selectedPolicies.filter((p) => !previousEnabled.has(p));
+      const policiesRemoved = [...previousEnabled].filter((p) => !newSet.has(p));
+      const distinctId = getInstanceId();
+      await trackHookEvent(distinctId, "hooks_installed", {
+        scope,
+        integration: integId,
+        policies: selectedPolicies,
+        policy_count: selectedPolicies.length,
+        policies_added: policiesAdded,
+        policies_removed: policiesRemoved,
+        ...(source ? { source } : {}),
+        platform: platform(),
+        arch: arch(),
+        os_release: release(),
+        hostname_hash: hashToId(hostname()),
+        has_custom_hooks_path: !!(configToWrite.customPoliciesPath),
+        has_policy_params: !!(configToWrite.policyParams && Object.keys(configToWrite.policyParams).length > 0),
+        param_policy_names: configToWrite.policyParams ? Object.keys(configToWrite.policyParams) : [],
+        command_format: scope === "project" ? "npx" : "absolute",
+      });
+    } catch { /* best effort */ }
+
+    console.log(`\nFailproof AI hooks installed for all ${integ.eventTypes.length} event types (${integ.displayName}, scope: ${scope}).`);
+    console.log(`Settings: ${settingsPath}`);
+    // claude-code and copilot project-scope hooks use npx — no machine-specific paths.
+    // Other integrations embed absolute binary paths even in project scope.
+    const isPortableProjectInstall = scope === "project" &&
+      (integId === "claude-code" || integId === "copilot");
+    if (scope === "project" && integId === "claude-code") {
+      console.log(`Command:  npx -y failproofai`);
+    }
+    if (isPortableProjectInstall) {
+      console.log(`This file can be committed to git — no machine-specific paths.`);
+    } else {
+      console.log(`Binary:   ${binaryPath}`);
+    }
+
+    // Warn about duplicate-scope installations
+    const otherScopes = deduplicateScopes(integ, integ.scopes, cwd).filter((s) => s !== scope);
+    const duplicates = otherScopes.filter((s) => integ.hooksInstalledInSettings(s as any, cwd));
+    if (duplicates.length > 0) {
+      const scopeList = duplicates.map((s) => `${s} (${scopeLabel(integ, s, cwd)})`).join(", ");
+      console.log();
+      console.log(`\x1B[33mWarning: Failproof AI hooks are also installed at ${scopeList} for ${integ.displayName}.\x1B[0m`);
+      console.log(`Having hooks in multiple scopes may cause duplicate policy evaluation.`);
+      console.log(`Use \`failproofai policies --uninstall --scope ${duplicates[0]} --integration ${integId}\` to remove the other installation.`);
+    }
   }
 }
 

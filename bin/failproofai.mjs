@@ -192,12 +192,16 @@ LINKS
 
     // Parse --integration flag (shared across install/uninstall/list)
     const integrationIdx = subArgs.indexOf("--integration");
-    const integrationArg = integrationIdx >= 0 ? subArgs[integrationIdx + 1] : "claude-code";
+    let integrationArg = integrationIdx >= 0 ? subArgs[integrationIdx + 1] : undefined;
+    if (!integrationArg && !isInstall) {
+      integrationArg = "claude-code";
+    }
+
+    const { INTEGRATION_TYPES } = await import("../src/hooks/types");
+
     if (integrationIdx >= 0 && (!integrationArg || integrationArg.startsWith("-"))) {
-      const { INTEGRATION_TYPES } = await import("../src/hooks/types");
       throw new CliError(`Missing value for --integration. Valid values: ${INTEGRATION_TYPES.join(", ")}`);
     }
-    const { INTEGRATION_TYPES } = await import("../src/hooks/types");
     if (integrationIdx >= 0 && !INTEGRATION_TYPES.includes(integrationArg)) {
       throw new CliError(`Invalid integration: ${integrationArg}. Valid values: ${INTEGRATION_TYPES.join(", ")}`);
     }
@@ -249,9 +253,12 @@ EXAMPLES
 
     if (isInstall) {
       const { installHooks } = await import("../src/hooks/manager");
-      const { getIntegration } = await import("../src/hooks/integrations");
-      const integ = getIntegration(integrationArg);
-      const validScopes = [...integ.scopes];
+      
+      let validScopes = ["user", "project", "local"];
+      if (integrationArg) {
+        const { getIntegration } = await import("../src/hooks/integrations");
+        validScopes = [...getIntegration(integrationArg).scopes];
+      }
 
       const scopeIdx = subArgs.indexOf("--scope");
       const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
@@ -259,7 +266,7 @@ EXAMPLES
         throw new CliError(`Missing value for --scope. Valid values: ${validScopes.join(", ")}`);
       }
       if (scopeIdx >= 0 && !validScopes.includes(scope)) {
-        throw new CliError(`Invalid scope: ${scope}. Valid values for ${integ.displayName}: ${validScopes.join(", ")}`);
+        throw new CliError(`Invalid scope: ${scope}. Valid values: ${validScopes.join(", ")}`);
       }
 
       const customIdx = subArgs.includes("--custom") ? subArgs.indexOf("--custom")

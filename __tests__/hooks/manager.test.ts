@@ -25,6 +25,9 @@ vi.mock("../../src/hooks/install-prompt", () => ({
   promptPolicySelection: vi.fn(() =>
     Promise.resolve(["block-sudo", "block-env-files", "sanitize-jwt"]),
   ),
+  promptIntegrationSelection: vi.fn(() =>
+    Promise.resolve(["claude-code"]),
+  ),
 }));
 
 vi.mock("../../src/hooks/hooks-config", () => ({
@@ -516,6 +519,54 @@ describe("hooks/manager", () => {
 
       const [[written]] = vi.mocked(writeScopedHooksConfig).mock.calls;
       expect((written as unknown as Record<string, unknown>).customPoliciesPath).toBeUndefined();
+    });
+    it("installs hooks for ALL available integrations when provided an array of all INTEGRATION_TYPES", async () => {
+      const { INTEGRATION_TYPES } = await import("../../src/hooks/types");
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+
+      const { installHooks } = await import("../../src/hooks/manager");
+
+      // Pass all available integrations explicitly
+      await installHooks(["block-sudo"], "user", undefined, false, undefined, undefined, false, [...INTEGRATION_TYPES]);
+
+      const writeCalls = vi.mocked(writeFileSync).mock.calls;
+      expect(writeCalls.length).toBeGreaterThanOrEqual(INTEGRATION_TYPES.length);
+      
+      const combinedContentBytes = writeCalls.map(c => c[1] as string).join(" ");
+      
+      // We expect the failproofai hook command string injected into these settings 
+      // to correctly contain the specific `--integration <ID>` flag for every CLI.
+      for (const integ of INTEGRATION_TYPES) {
+        expect(combinedContentBytes).toContain(`--integration ${integ}`);
+      }
+    });
+
+    it("prompts for integrations and installs hooks for ALL available CLIs when selected in interactive mode", async () => {
+      const { INTEGRATION_TYPES } = await import("../../src/hooks/types");
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+
+      // Update mock specially for this test to select ALL CLIs
+      const { promptIntegrationSelection } = await import("../../src/hooks/install-prompt");
+      vi.mocked(promptIntegrationSelection).mockResolvedValueOnce([...INTEGRATION_TYPES]);
+
+      const { installHooks } = await import("../../src/hooks/manager");
+
+      // undefined integrationArg triggers interactive prompt
+      await installHooks(["block-sudo"], "user", undefined, false, undefined, undefined, false, undefined);
+
+      expect(promptIntegrationSelection).toHaveBeenCalled();
+
+      const writeCalls = vi.mocked(writeFileSync).mock.calls;
+      expect(writeCalls.length).toBeGreaterThanOrEqual(INTEGRATION_TYPES.length);
+      
+      const combinedContentBytes = writeCalls.map(c => c[1] as string).join(" ");
+      
+      // Verify every CLI got its respective configuration applied
+      for (const integ of INTEGRATION_TYPES) {
+        expect(combinedContentBytes).toContain(`--integration ${integ}`);
+      }
     });
   });
 
