@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import type { PolicyContext } from "../../src/hooks/policy-types";
 
 // Import the builtin policies array to get the policy function
@@ -18,6 +18,19 @@ function makeCtx(overrides: Partial<PolicyContext>): PolicyContext {
 }
 
 describe("block-read-outside-cwd policy", () => {
+  // Ensure CLAUDE_PROJECT_DIR does not leak in from the outer env (the test
+  // runner may itself be launched under Claude Code). The env-var precedence
+  // block below sets it explicitly where relevant.
+  const originalProjectDir = process.env.CLAUDE_PROJECT_DIR;
+  beforeEach(() => {
+    delete process.env.CLAUDE_PROJECT_DIR;
+  });
+  afterEach(() => {
+    if (originalProjectDir === undefined) delete process.env.CLAUDE_PROJECT_DIR;
+    else process.env.CLAUDE_PROJECT_DIR = originalProjectDir;
+  });
+
+
   it("exists in BUILTIN_POLICIES", () => {
     expect(policy).toBeDefined();
     expect(policy.defaultEnabled).toBe(false);
@@ -481,5 +494,65 @@ describe("block-read-outside-cwd policy", () => {
     });
     const result = await policy.fn(ctx);
     expect(result.decision).toBe("deny");
+  });
+
+  // -- $CLAUDE_PROJECT_DIR precedence tests --
+  // Claude Code's hook JSON `cwd` follows live shell CWD (it drifts on `cd`),
+  // but $CLAUDE_PROJECT_DIR is the stable project root. The policy should
+  // prefer the env var so reads at the project root aren't wrongly blocked
+  // after Claude cd's into a subdirectory.
+
+  it("uses $CLAUDE_PROJECT_DIR to allow a sibling-dir read after Claude cd'd into a subdir", async () => {
+    process.env.CLAUDE_PROJECT_DIR = "/home/user/project";
+    const ctx = makeCtx({
+      toolInput: { file_path: "/home/user/project/README.md" },
+      session: { cwd: "/home/user/project/server" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("allow");
+  });
+
+  it("denies reads outside $CLAUDE_PROJECT_DIR even when session.cwd is deeper inside it", async () => {
+    process.env.CLAUDE_PROJECT_DIR = "/home/user/project";
+    const ctx = makeCtx({
+      toolInput: { file_path: "/etc/passwd" },
+      session: { cwd: "/home/user/project/server" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("deny");
+    expect(result.reason).toContain("/etc/passwd");
+  });
+
+  it("$CLAUDE_PROJECT_DIR takes precedence when both env var and session.cwd are set", async () => {
+    // Boundary = env var /home/user/project. session.cwd points elsewhere but
+    // should be ignored. The target is inside the env-var boundary → allow.
+    process.env.CLAUDE_PROJECT_DIR = "/home/user/project";
+    const ctx = makeCtx({
+      toolInput: { file_path: "/home/user/project/src/index.ts" },
+      session: { cwd: "/somewhere/else" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("allow");
+  });
+
+  it("falls back to session.cwd when $CLAUDE_PROJECT_DIR is unset", async () => {
+    // beforeEach already deletes the env var, so this just documents the fallback.
+    const ctx = makeCtx({
+      toolInput: { file_path: "/home/user/project/src/index.ts" },
+      session: { cwd: "/home/user/project" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("allow");
+  });
+
+  it("applies Bash read-path checks against $CLAUDE_PROJECT_DIR rather than session.cwd", async () => {
+    process.env.CLAUDE_PROJECT_DIR = "/home/user/project";
+    const ctx = makeCtx({
+      toolName: "Bash",
+      toolInput: { command: "cat /home/user/project/CHANGELOG.md" },
+      session: { cwd: "/home/user/project/deeply/nested" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("allow");
   });
 });

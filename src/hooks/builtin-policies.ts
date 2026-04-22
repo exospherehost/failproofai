@@ -676,7 +676,9 @@ function extractAbsolutePaths(command: string): string[] {
 }
 
 function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
-  const cwd = ctx.session?.cwd;
+  // Prefer $CLAUDE_PROJECT_DIR (stable project root) over ctx.session.cwd,
+  // which tracks the live shell CWD and drifts when Claude `cd`s into a subdir.
+  const cwd = process.env.CLAUDE_PROJECT_DIR || ctx.session?.cwd;
   if (!cwd) return allow(); // Can't enforce without cwd
 
   const allowPaths = ((ctx.params?.allowPaths ?? []) as string[]);
