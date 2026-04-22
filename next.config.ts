@@ -11,6 +11,12 @@ const allowedDevOrigins = process.env.FAILPROOFAI_ALLOWED_DEV_ORIGINS
 const nextConfig: NextConfig = {
   ...(allowedDevOrigins ? { allowedDevOrigins } : {}),
   output: "standalone",
+  outputFileTracingExcludes: {
+    "*": [
+      "node_modules/@img/**",
+      "node_modules/sharp/**",
+    ],
+  },
   productionBrowserSourceMaps: false,
   turbopack: {
     root: __dirname,
