@@ -148,24 +148,44 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   }
 
   // Persist activity to disk (visible in /policies activity tab)
+  const activityEntry = {
+    timestamp: Date.now(),
+    eventType,
+    toolName: (parsed.tool_name as string) ?? null,
+    policyName: result.policyName,
+    policyNames: result.policyNames,
+    decision: result.decision,
+    reason: result.reason,
+    durationMs,
+    sessionId: session.sessionId,
+    transcriptPath: session.transcriptPath,
+    cwd: session.cwd,
+    permissionMode: session.permissionMode,
+    hookEventName: session.hookEventName,
+  };
   try {
-    persistHookActivity({
-      timestamp: Date.now(),
-      eventType,
-      toolName: (parsed.tool_name as string) ?? null,
-      policyName: result.policyName,
-      policyNames: result.policyNames,
-      decision: result.decision,
-      reason: result.reason,
-      durationMs,
-      sessionId: session.sessionId,
-      transcriptPath: session.transcriptPath,
-      cwd: session.cwd,
-      permissionMode: session.permissionMode,
-      hookEventName: session.hookEventName,
-    });
+    persistHookActivity(activityEntry);
   } catch {
     hookLogWarn("activity persistence failed");
+  }
+
+  // Enqueue for server relay — fire-and-forget, never blocks hook.
+  // queue.ts is a no-op if the user is not logged in (no auth.json), and
+  // sanitizes the entry before persisting (drops toolInput/transcriptPath,
+  // hashes cwd, redacts known secret patterns in `reason`).
+  try {
+    const { appendToServerQueue } = await import("../relay/queue");
+    appendToServerQueue(activityEntry);
+  } catch {
+    // Server queue is best-effort; fail-open
+  }
+
+  // Lazy-start relay daemon if user is logged in — ~1ms when already running
+  try {
+    const { ensureRelayRunning } = await import("../relay/daemon");
+    ensureRelayRunning();
+  } catch {
+    // Relay is best-effort; hook must succeed regardless
   }
 
   // Fire PostHog telemetry for decisions that affect Claude's behavior

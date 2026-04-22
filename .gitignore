@@ -64,3 +64,6 @@ package-lock.json
 packages/*/bin/
 packages/*/assets/
 .gstack/
+
+# closed-source platform (cloned separately)
+/platform

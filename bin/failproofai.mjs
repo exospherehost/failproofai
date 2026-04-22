@@ -57,6 +57,20 @@ if (hookIdx >= 0) {
   }
 }
 
+// --relay-daemon — internal: long-running background process started by
+// ensureRelayRunning(). Streams queued events to the server via WebSocket.
+if (args.includes("--relay-daemon")) {
+  try {
+    const { runDaemon } = await import("../src/relay/daemon");
+    await runDaemon();
+    process.exit(0);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`Relay daemon error: ${msg}`);
+    process.exit(1);
+  }
+}
+
 /**
  * Centralised error handler for all CLI subcommands.
  * CliError  → clean message, no stack trace, exit exitCode (1 or 2)
@@ -64,7 +78,7 @@ if (hookIdx >= 0) {
  */
 async function runCli() {
   // --help / -h  (only when not inside a subcommand that handles its own --help)
-  const SUBCOMMANDS = ["policies"];
+  const SUBCOMMANDS = ["policies", "login", "logout", "whoami", "relay", "sync"];
   if ((args.includes("--help") || args.includes("-h")) && !SUBCOMMANDS.includes(args[0])) {
     const extraArgs = args.filter((a) => a !== "--help" && a !== "-h");
     if (extraArgs.length > 0) {
@@ -93,6 +107,12 @@ COMMANDS
     --custom, -c                   Clear the customPoliciesPath from config
 
   policies --help, -h            Show this help for the policies command
+
+  login                          Authenticate with the failproofai cloud (Google OAuth)
+  logout                         Clear local auth tokens and stop relay daemon
+  whoami                         Print current logged-in user
+  relay start|stop|status        Manage the event relay daemon
+  sync                           One-shot flush of pending events to the server
 
   --version, -v                  Print version and exit
   --help, -h                     Show this help message
@@ -288,6 +308,73 @@ EXAMPLES
     process.exit(0);
   }
 
+  // login — authenticate with failproofai server via Google OAuth
+  if (args[0] === "login") {
+    const { login } = await import("../src/auth/login");
+    await login();
+    process.exit(0);
+  }
+
+  // logout — clear local tokens and stop relay daemon
+  if (args[0] === "logout") {
+    const { logout } = await import("../src/auth/logout");
+    await logout();
+    process.exit(0);
+  }
+
+  // whoami — print current user and auth status
+  if (args[0] === "whoami") {
+    const { whoami } = await import("../src/auth/logout");
+    whoami();
+    process.exit(0);
+  }
+
+  // relay start|stop|status — manage the event relay daemon
+  if (args[0] === "relay") {
+    const subcmd = args[1];
+    const { relayStatus, stopRelay } = await import("../src/relay/pid");
+
+    if (subcmd === "status") {
+      const s = relayStatus();
+      if (s.running) console.log(`Relay daemon running (pid ${s.pid})`);
+      else if (s.pid !== null) console.log(`Stale PID file (${s.pid}); daemon not running`);
+      else console.log("Relay daemon not running");
+      process.exit(0);
+    }
+
+    if (subcmd === "stop") {
+      const stopped = stopRelay();
+      console.log(stopped ? "Relay daemon stopped" : "Relay daemon was not running");
+      process.exit(0);
+    }
+
+    if (subcmd === "start") {
+      const { ensureRelayRunning, waitForRelayAlive } = await import("../src/relay/daemon");
+      ensureRelayRunning();
+      // Spawn is async — give the child a moment to write its PID file
+      const alive = await waitForRelayAlive();
+      const s = relayStatus();
+      if (alive && s.running) {
+        console.log(`Relay daemon started (pid ${s.pid})`);
+        process.exit(0);
+      }
+      console.log("Failed to start daemon");
+      process.exit(1);
+    }
+
+    throw new CliError(
+      `Usage: failproofai relay <start|stop|status>`
+    );
+  }
+
+  // sync — one-shot flush of pending events to server (fallback for no daemon)
+  if (args[0] === "sync") {
+    const { runOneShotSync } = await import("../src/relay/daemon");
+    const count = await runOneShotSync();
+    console.log(`Synced ${count} event${count === 1 ? "" : "s"} to server`);
+    process.exit(0);
+  }
+
   // Unknown flag guard — must appear after all known-flag branches
   const knownFlags = ["--version", "-v", "--help", "-h", "--hook"];
   const unknownFlag = args.find(a => a.startsWith("-") && !knownFlags.includes(a));
@@ -306,7 +393,7 @@ EXAMPLES
       return dp[m][n];
     }
 
-    const primary = ["--version", "--help", "--hook", "policies"];
+    const primary = ["--version", "--help", "--hook", "policies", "login", "logout", "whoami", "relay", "sync"];
     const closest = primary.reduce((best, flag) => {
       const dist = levenshtein(unknownFlag, flag);
       return dist < best.dist ? { flag, dist } : best;
@@ -319,8 +406,8 @@ EXAMPLES
     );
   }
 
-  // Unknown subcommand guard (non-flag args that aren't "policies")
-  const unknownSubcommand = args.find(a => !a.startsWith("-") && a !== "policies");
+  // Unknown subcommand guard (non-flag args that aren't a known subcommand)
+  const unknownSubcommand = args.find(a => !a.startsWith("-") && !SUBCOMMANDS.includes(a));
   if (unknownSubcommand) {
     throw new CliError(
       `Unknown command: ${unknownSubcommand}\n` +
