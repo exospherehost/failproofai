@@ -25,15 +25,59 @@ Aliases: `failproofai p -i`
 
 Not every CLI supports every scope. Use this matrix when choosing `--scope`.
 
-| CLI (`--cli`) | `user` | `project` | `local` |
-|---|---|---|---|
-| `claude-code` | Yes | Yes | Yes |
-| `cursor` | Yes | Yes | No |
-| `gemini` | Yes | Yes | No |
-| `copilot` | Yes | Yes | No |
-| `codex` | Yes | Yes | No |
-| `opencode` | Yes | Yes | No |
-| `pi` | Yes | Yes | No |
+| CLI (`--cli`) | `user` | `project` | `local` | Gemini `system overrides` | Gemini `system defaults` | Codex `system` | Codex `managed` | Copilot `workspace (project)` | Copilot `auth layer` | OpenCode `remote (org)` | OpenCode `global (user)` | OpenCode `custom path` | OpenCode `project` | Pi `global user settings` | Pi `workspace settings` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `claude-code` | Yes (`user`) | Yes (`project`) | Yes (`local`) | - | - | - | - | - | - | - | - | - | - | - | - |
+| `cursor` | Yes (`User (Global)`) | Yes (`Workspace`) | No | - | - | - | - | - | - | - | - | - | - | - | - |
+| `gemini` | Yes (`User Settings`) | Yes (`Workspace Settings`) | No | No (`System Overrides`) | No (`System Defaults`) | - | - | - | - | - | - | - | - | - | - |
+| `copilot` | Yes (`User (Global)`) | Yes (`project hooks file`) | No | - | - | - | - | No (`Workspace (Project)`) | No (`Auth Layer`) | - | - | - | - | - | - |
+| `codex` | Yes (`User`) | Yes (`Project`) | No | - | - | No (`/etc/codex/config.toml`) | No (`/etc/codex/requirements.toml`) | - | - | - | - | - | - | - | - |
+| `opencode` | Yes (`user`) | Yes (`project`) | No | - | - | - | - | - | - | No (`Remote (Org)`) | No (`Global (User)`) | No (`Custom Path`) | No (`Project`) | - | - |
+| `pi` | Yes (`user`) | Yes (`project`) | No | - | - | - | - | - | - | - | - | - | - | No (`Global User Settings`) | No (`Workspace Settings`) |
+
+For `gemini`, failproofai currently installs hooks only at:
+- `user` -> `~/.gemini/settings.json`
+- `project` -> `./.gemini/settings.json`
+
+Gemini's system-level config layers (for example `/etc/gemini-cli/settings.json` and
+`/etc/gemini-cli/system-defaults.json`) are not managed by failproofai.
+
+For `codex`, failproofai currently installs hooks only at:
+- `user` -> `~/.codex/hooks.json`
+- `project` -> `./.codex/hooks.json`
+
+Codex technical config layers (for example `~/.codex/config.toml`,
+`/etc/codex/config.toml`, and `/etc/codex/requirements.toml`) are not managed by
+failproofai hooks install.
+
+For `cursor`, failproofai currently installs hooks only at:
+- `user` -> `~/.cursor/hooks.json`
+- `project` -> `./.cursor/hooks.json`
+
+Cursor editor settings layers (for example `~/.config/Cursor/User/settings.json` and
+`./.vscode/settings.json`) are not managed by failproofai hooks install.
+
+For `copilot`, failproofai currently installs hooks at:
+- `user` -> `~/.copilot/config.json`
+- `project` -> `./.github/hooks/failproofai.json`
+
+Copilot technical/auth layers (for example `./.copilot/mcp-config.json` and
+`~/.config/gh/hosts.yml`) are not managed by failproofai hooks install.
+
+For `opencode`, failproofai currently installs hooks at:
+- `user` -> `~/.config/opencode/plugins/failproofai.ts`
+- `project` -> `./.opencode/plugins/failproofai.ts`
+
+OpenCode technical config layers (for example `.well-known/opencode`,
+`~/.config/opencode/opencode.json`, `$OPENCODE_CONFIG`, and `./opencode.json`) are not
+managed by failproofai hooks install.
+
+For `pi`, failproofai currently installs hooks at:
+- `user` -> `~/.pi/agent/extensions/failproofai.ts`
+- `project` -> `./.pi/extensions/failproofai.ts`
+
+Pi technical config layers (for example `~/.pi/agent/settings.json` and
+`./.pi/settings.json`) are not managed by failproofai hooks install.
 
 ## Behavior
 
