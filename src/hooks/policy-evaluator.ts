@@ -36,15 +36,39 @@ function getDenyMessage(integration: string | undefined, policyName: string, rea
   return `[FailproofAI Security Stop] Policy: ${policyName} - ${cleanReason}`;
 }
 
-function getDenyStdout(integration: string | undefined, policyName: string, reason: string, eventType?: string): string {
+function getAgentReason(integration: string | undefined, policyName: string, reason: string): string {
+  const cleanReason = reason.charAt(0).toUpperCase() + reason.slice(1);
+  if (integration === "gemini") {
+    return `[FailproofAI policy: ${policyName}] ${cleanReason} — Complete the required action, then retry.`;
+  }
+  return getDenyMessage(integration, policyName, reason);
+}
+
+function getDenyStdout(
+  integration: string | undefined,
+  policyName: string,
+  reason: string,
+  eventType?: string,
+  originalEventName?: string,
+): string {
   const msg = getDenyMessage(integration, policyName, reason);
   const low = (eventType || "").toLowerCase();
 
   if (integration === "gemini") {
+    // BeforeToolSelection: spec explicitly says decision/continue/systemMessage are unsupported.
+    // Return empty so exitCode falls through to 2 and stderr carries the block reason.
+    if (originalEventName === "BeforeToolSelection") {
+      return "";
+    }
+
+    // AfterAgent (→ Stop): continue: false triggers a retry loop with reason as new prompt.
+    // All other events: omit continue: false so the agent turn continues and can explain the block.
+    const isAfterAgent = originalEventName === "AfterAgent" || eventType === "Stop";
+
     return JSON.stringify({
       decision: "deny",
-      continue: false,
-      reason: msg,
+      ...(isAfterAgent ? { continue: false } : {}),
+      reason: getAgentReason(integration, policyName, reason),
       systemMessage: msg,
     });
   }
@@ -183,7 +207,7 @@ export async function evaluatePolicies(
       hookLogInfo(`deny by "${policy.name}": ${reason}`);
 
       const stderr = getDenyMessage(session?.integration, policy.name, reason);
-      const stdout = getDenyStdout(session?.integration, policy.name, reason, eventType);
+      const stdout = getDenyStdout(session?.integration, policy.name, reason, eventType, session?.hookEventName);
       // JSON-protocol integrations use exitCode 0 (they read stdout); everything else uses 2.
       const exitCode = stdout ? 0 : 2;
       // Cursor kills on PostToolUse/Stop; Gemini kills only on Stop.

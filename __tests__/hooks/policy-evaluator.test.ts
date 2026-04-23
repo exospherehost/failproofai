@@ -691,17 +691,79 @@ describe("hooks/policy-evaluator", () => {
     });
 
     it("uses high-authority style and flags hard stop for gemini integration", async () => {
-      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "gemini" });
-      
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "gemini", hookEventName: "BeforeTool" });
+
       // Gemini expects Exit 0 for clean JSON denial parsing
       expect(result.exitCode).toBe(0);
       expect(result.stderr).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
       expect(result.hardStop).toBe(false); // Turn-level stop is non-destructive
 
-      // Verify Real Deny JSON for Gemini
+      // Verify Real Deny JSON for Gemini (BeforeTool: turn continues, no continue: false)
       const parsed = JSON.parse(result.stdout);
       expect(parsed.decision).toBe("deny");
-      expect(parsed.continue).toBe(false);
+      expect(parsed.continue).toBeUndefined(); // continue: false removed — agent explains block to user
+      expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
+      expect(parsed.reason).toContain("[FailproofAI policy: blocker]"); // concise agent-facing reason
+      expect(parsed.reason).not.toContain("MANDATORY ACTION REQUIRED"); // reason ≠ systemMessage
+    });
+
+    it("Gemini AfterAgent (Stop) includes continue: false; BeforeTool does not", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      const { registerPolicy, clearPolicies } = await import("../../src/hooks/policy-registry");
+
+      clearPolicies();
+      registerPolicy("gate", "desc", () => ({ decision: "deny", reason: "not ready" }), {
+        events: ["Stop", "PreToolUse"],
+      });
+
+      // AfterAgent → Stop: continue: false IS expected (spec: triggers retry with reason as new prompt)
+      const stopResult = await evaluatePolicies("Stop", {}, { integration: "gemini", hookEventName: "AfterAgent" });
+      expect(stopResult.exitCode).toBe(0);
+      const stopJson = JSON.parse(stopResult.stdout);
+      expect(stopJson.continue).toBe(false);
+      expect(stopJson.decision).toBe("deny");
+
+      // BeforeTool → PreToolUse: continue: false must NOT be present (turn continues, agent explains)
+      const toolResult = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "gemini", hookEventName: "BeforeTool" });
+      expect(toolResult.exitCode).toBe(0);
+      const toolJson = JSON.parse(toolResult.stdout);
+      expect(toolJson.continue).toBeUndefined();
+      expect(toolJson.decision).toBe("deny");
+    });
+
+    it("Gemini BeforeToolSelection falls back to exit code 2 (spec: no decision field)", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      const { registerPolicy, clearPolicies } = await import("../../src/hooks/policy-registry");
+
+      clearPolicies();
+      registerPolicy("gate", "desc", () => ({ decision: "deny", reason: "blocked" }), {
+        events: ["PreToolUse"],
+      });
+
+      const result = await evaluatePolicies(
+        "PreToolUse",
+        { tool_name: "Bash" },
+        { integration: "gemini", hookEventName: "BeforeToolSelection" },
+      );
+      expect(result.exitCode).toBe(2); // stdout empty → exit code 2
+      expect(result.stdout).toBe("");  // no JSON: spec says decision field is unsupported
+      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
+    });
+
+    it("Gemini deny reason (agent-facing) is concise and distinct from systemMessage (terminal-facing)", async () => {
+      const result = await evaluatePolicies(
+        "PreToolUse",
+        { tool_name: "Bash" },
+        { integration: "gemini", hookEventName: "BeforeTool" },
+      );
+      const parsed = JSON.parse(result.stdout);
+
+      expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
+      expect(parsed.systemMessage).toContain("You MUST complete the above action NOW");
+
+      expect(parsed.reason).toContain("[FailproofAI policy: blocker]");
+      expect(parsed.reason).not.toContain("You MUST complete the above action NOW");
+      expect(parsed.reason).not.toBe(parsed.systemMessage);
     });
 
     it("uses IDE specialized style and flags hard stop for cursor integration", async () => {
