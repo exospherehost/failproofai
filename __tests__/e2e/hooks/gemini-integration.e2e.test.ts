@@ -51,7 +51,9 @@ describe("E2E: Gemini Integration", () => {
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim());
     expect(parsed.decision).toBe("deny");
-    expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED");
+    expect(parsed.systemMessage).toBeUndefined();
+    expect(parsed.reason).toContain("FailproofAI is blocking this action (policy:");
+    expect(parsed.reason).not.toContain("Complete the required action");
     expect(stderr).toContain("MANDATORY ACTION REQUIRED");
     expect(stderr).toContain("sudo");
   });
@@ -70,5 +72,35 @@ describe("E2E: Gemini Integration", () => {
     }).toString();
     
     expect(JSON.parse(output.trim())).toEqual({ decision: "allow" });
+  });
+
+  it("blocks env on Gemini Shell tool name via BeforeTool", () => {
+    execSync(`bun ${BINARY_PATH} policies --install protect-env-vars --cli gemini --scope project`, {
+      cwd: PROJECT_DIR,
+      env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
+    });
+
+    const payload = {
+      session_id: "test-session-e2e-001",
+      cwd: PROJECT_DIR,
+      hook_event_name: "BeforeTool",
+      tool_name: "Shell",
+      tool_input: "env",
+    };
+
+    const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--cli", "gemini"], {
+      input: JSON.stringify(payload),
+      cwd: PROJECT_DIR,
+      env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true" },
+      encoding: "utf8"
+    });
+
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.decision).toBe("deny");
+    expect(parsed.systemMessage).toBeUndefined();
+    expect(parsed.reason).toContain("FailproofAI is blocking this action (policy: protect-env-vars)");
+    expect(stderr).toContain("MANDATORY ACTION REQUIRED");
+    expect(stderr).toContain("environment variables");
   });
 });

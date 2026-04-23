@@ -895,8 +895,8 @@ describe("hooks/manager", () => {
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       const output = calls.join("\n");
 
-      // Should show "not installed" title
-      expect(output).toContain("not installed");
+      // Should still render the policy table
+      expect(output).toContain("Status");
       // Policy names as comma-separated text
       expect(output).toContain("sanitize-jwt");
       expect(output).toContain("block-sudo");
@@ -921,7 +921,7 @@ describe("hooks/manager", () => {
 
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       const output = calls.join("\n");
-      expect(output).toContain("Policies — not installed");
+      expect(output).toContain("Status");
       expect(output).toContain("policies --install");
     });
 

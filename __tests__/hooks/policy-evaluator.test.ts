@@ -702,9 +702,11 @@ describe("hooks/policy-evaluator", () => {
       const parsed = JSON.parse(result.stdout);
       expect(parsed.decision).toBe("deny");
       expect(parsed.continue).toBeUndefined(); // continue: false removed — agent explains block to user
-      expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
-      expect(parsed.reason).toContain("[FailproofAI policy: blocker]"); // concise agent-facing reason
+      expect(parsed.systemMessage).toBeUndefined(); // BeforeTool is pre-execution: no systemMessage
+      expect(parsed.reason).toContain("FailproofAI is blocking this action (policy: blocker)"); // concise agent-facing reason
       expect(parsed.reason).not.toContain("MANDATORY ACTION REQUIRED"); // reason ≠ systemMessage
+      expect(parsed.reason).not.toContain("Complete the required action");
+      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
     });
 
     it("Gemini AfterAgent (Stop) includes continue: false; BeforeTool does not", async () => {
@@ -750,20 +752,33 @@ describe("hooks/policy-evaluator", () => {
       expect(result.stderr).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
     });
 
-    it("Gemini deny reason (agent-facing) is concise and distinct from systemMessage (terminal-facing)", async () => {
-      const result = await evaluatePolicies(
+    it("Gemini BeforeTool omits systemMessage, while AfterTool includes it with retry guidance", async () => {
+      clearPolicies();
+      registerPolicy("blocker", "desc", () => ({ decision: "deny", reason: "forbidden" }), {
+        events: ["PreToolUse", "PostToolUse"],
+      });
+
+      const before = await evaluatePolicies(
         "PreToolUse",
         { tool_name: "Bash" },
         { integration: "gemini", hookEventName: "BeforeTool" },
       );
-      const parsed = JSON.parse(result.stdout);
+      const beforeParsed = JSON.parse(before.stdout);
+      expect(beforeParsed.systemMessage).toBeUndefined();
+      expect(beforeParsed.reason).toContain("FailproofAI is blocking this action (policy: blocker)");
+      expect(beforeParsed.reason).not.toContain("Complete the required action");
 
-      expect(parsed.systemMessage).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
-      expect(parsed.systemMessage).toContain("You MUST complete the above action NOW");
+      const after = await evaluatePolicies(
+        "PostToolUse",
+        { tool_name: "Bash" },
+        { integration: "gemini", hookEventName: "AfterTool" },
+      );
+      const afterParsed = JSON.parse(after.stdout);
 
-      expect(parsed.reason).toContain("[FailproofAI policy: blocker]");
-      expect(parsed.reason).not.toContain("You MUST complete the above action NOW");
-      expect(parsed.reason).not.toBe(parsed.systemMessage);
+      expect(afterParsed.systemMessage).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
+      expect(afterParsed.reason).toContain("FailproofAI is blocking this action (policy: blocker)");
+      expect(afterParsed.reason).toContain("Complete the required action");
+      expect(afterParsed.reason).not.toBe(afterParsed.systemMessage);
     });
 
     it("uses IDE specialized style and flags hard stop for cursor integration", async () => {

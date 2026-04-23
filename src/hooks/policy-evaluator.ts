@@ -36,10 +36,18 @@ function getDenyMessage(integration: string | undefined, policyName: string, rea
   return `[FailproofAI Security Stop] Policy: ${policyName} - ${cleanReason}`;
 }
 
-function getAgentReason(integration: string | undefined, policyName: string, reason: string): string {
+function getAgentReason(
+  integration: string | undefined,
+  policyName: string,
+  reason: string,
+  isPreExecution = false,
+): string {
   const cleanReason = reason.charAt(0).toUpperCase() + reason.slice(1);
   if (integration === "gemini") {
-    return `[FailproofAI policy: ${policyName}] ${cleanReason} — Complete the required action, then retry.`;
+    if (isPreExecution) {
+      return `FailproofAI is blocking this action (policy: ${policyName}): ${cleanReason}`;
+    }
+    return `FailproofAI is blocking this action (policy: ${policyName}): ${cleanReason} — Complete the required action, then retry.`;
   }
   return getDenyMessage(integration, policyName, reason);
 }
@@ -64,13 +72,23 @@ function getDenyStdout(
     // AfterAgent (→ Stop): continue: false triggers a retry loop with reason as new prompt.
     // All other events: omit continue: false so the agent turn continues and can explain the block.
     const isAfterAgent = originalEventName === "AfterAgent" || eventType === "Stop";
+    // Pre-execution events: tool/model/agent action has not run yet.
+    const isPreExecution = !isAfterAgent
+      && (!originalEventName
+        || originalEventName === "BeforeTool"
+        || originalEventName === "BeforeModel"
+        || originalEventName === "BeforeAgent");
 
-    return JSON.stringify({
+    const response: Record<string, unknown> = {
       decision: "deny",
       ...(isAfterAgent ? { continue: false } : {}),
-      reason: getAgentReason(integration, policyName, reason),
-      systemMessage: msg,
-    });
+      reason: getAgentReason(integration, policyName, reason, isPreExecution),
+    };
+    // Gemini spec only allows systemMessage for post-execution events.
+    if (!isPreExecution) {
+      response.systemMessage = msg;
+    }
+    return JSON.stringify(response);
   }
   if (integration === "cursor") {
     return JSON.stringify({

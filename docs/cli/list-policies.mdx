@@ -32,12 +32,14 @@ Failproof AI Hook Policies (user)
   Settings: /home/alice/.claude/settings.json
   Config:   /home/alice/.failproofai/policies-config.json
 
-  CLIs
-  ✓ Claude Code     (installed)
-  ✓ Cursor          (installed)
-  ✗ Gemini          (not installed)
-  ✗ Copilot         (not installed)
-  ✗ Codex           (not installed)
+  Detected AI CLIs
+  ✓ Claude Code     (hooks active)
+  ? Cursor          (CLI detected; hooks inactive)
+  ✗ Gemini          (CLI not detected)
+  ✗ Copilot         (CLI not detected)
+  ✗ Codex           (CLI not detected)
+
+  Legend: ✓ hooks active, ? CLI detected but hooks inactive, ✗ CLI not detected
 ```
 
 Unknown keys in `policyParams` are flagged here so you can catch typos early.

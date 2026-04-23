@@ -448,7 +448,6 @@ export async function listHooks(
   const statusCol = installedScopes.length > 1 ? installedScopes.length * 9 : 8;
 
   if (installedScopes.length === 0) {
-    console.log(`\nFailproof AI Policies \u2014 not installed (${integ.displayName})\n`);
     console.log(`  ${"Status".padEnd(8)}${"Name".padEnd(nameColWidth)}Description`);
     console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
 
@@ -466,7 +465,7 @@ export async function listHooks(
         printParamsSummary(p.name, "          ");
       }
     }
-    console.log("\n  Run `failproofai policies --install` to get started.");
+    console.log(`\n  Run \`failproofai policies --install --cli ${integration}\` to activate hooks for ${integ.displayName}.`);
   } else if (installedScopes.length === 1) {
     const scope = installedScopes[0];
     console.log(`\nFailproof AI Hook Policies (${scope})\n`);
@@ -579,7 +578,7 @@ export async function listHooks(
   }
 
   // CLI Installation Summary
-  console.log(`CLIs`);
+  console.log(`Detected AI CLIs`);
   const { INTEGRATION_TYPES } = await import("./types");
   for (const integId of INTEGRATION_TYPES) {
     const i = getIntegration(integId);
@@ -589,11 +588,12 @@ export async function listHooks(
     
     let status = "";
     if (hooksInstalled) status = "\x1B[32mhooks active\x1B[0m";
-    else if (binaryInstalled) status = "\x1B[33mbinary found, hooks not active\x1B[0m";
-    else status = "not found";
+    else if (binaryInstalled) status = "\x1B[33mCLI detected; hooks inactive\x1B[0m";
+    else status = "\x1B[2mCLI not detected\x1B[0m";
 
     const mark = hooksInstalled ? `\x1B[32m\u2713\x1B[0m` : (binaryInstalled ? `\x1B[33m?\x1B[0m` : `\x1B[31m\u2717\x1B[0m`);
     console.log(`  ${mark} ${i.displayName.padEnd(15)} (${status})`);
   }
+  console.log(`\n  Legend: \x1B[32m\u2713\x1B[0m hooks active, \x1B[33m?\x1B[0m CLI detected but hooks inactive, \x1B[31m\u2717\x1B[0m CLI not detected`);
   console.log();
 }
