@@ -36,20 +36,9 @@ function getDenyMessage(integration: string | undefined, policyName: string, rea
   return `[FailproofAI Security Stop] Policy: ${policyName} - ${cleanReason}`;
 }
 
-function getAgentReason(
-  integration: string | undefined,
-  policyName: string,
-  reason: string,
-  isPreExecution = false,
-): string {
+function getGeminiProhibitedMessage(policyName: string, reason: string): string {
   const cleanReason = reason.charAt(0).toUpperCase() + reason.slice(1);
-  if (integration === "gemini") {
-    if (isPreExecution) {
-      return `FailproofAI is blocking this action (policy: ${policyName}): ${cleanReason}`;
-    }
-    return `FailproofAI is blocking this action (policy: ${policyName}): ${cleanReason} — Complete the required action, then retry.`;
-  }
-  return getDenyMessage(integration, policyName, reason);
+  return `Action prohibited by FailproofAI (policy: ${policyName}): ${cleanReason}`;
 }
 
 function getDenyStdout(
@@ -63,31 +52,25 @@ function getDenyStdout(
   const low = (eventType || "").toLowerCase();
 
   if (integration === "gemini") {
-    // BeforeToolSelection: spec explicitly says decision/continue/systemMessage are unsupported.
-    // Return empty so exitCode falls through to 2 and stderr carries the block reason.
+    // BeforeToolSelection is intended for tool filtering, not structured deny messages.
+    // Return empty so direct invocations still fall back to the emergency-brake exit code.
     if (originalEventName === "BeforeToolSelection") {
       return "";
     }
 
-    // AfterAgent (→ Stop): continue: false triggers a retry loop with reason as new prompt.
-    // All other events: omit continue: false so the agent turn continues and can explain the block.
     const isAfterAgent = originalEventName === "AfterAgent" || eventType === "Stop";
-    // Pre-execution events: tool/model/agent action has not run yet.
     const isPreExecution = !isAfterAgent
       && (!originalEventName
         || originalEventName === "BeforeTool"
         || originalEventName === "BeforeModel"
         || originalEventName === "BeforeAgent");
-
+    const agentMessage = isPreExecution ? getGeminiProhibitedMessage(policyName, reason) : msg;
     const response: Record<string, unknown> = {
       decision: "deny",
       ...(isAfterAgent ? { continue: false } : {}),
-      reason: getAgentReason(integration, policyName, reason, isPreExecution),
+      reason: agentMessage,
+      systemMessage: agentMessage,
     };
-    // Gemini spec only allows systemMessage for post-execution events.
-    if (!isPreExecution) {
-      response.systemMessage = msg;
-    }
     return JSON.stringify(response);
   }
   if (integration === "cursor") {
@@ -205,8 +188,9 @@ export async function evaluatePolicies(
       }
       ctx = { ...baseCtx, params: resolvedParams };
     } else {
-      // Custom hooks and policies without schema get empty params
-      ctx = { ...baseCtx, params: {} };
+      // Custom policies: no schema, but pass any user-configured policyParams directly
+      // so custom hook authors can read ctx.params without needing a schema definition.
+      ctx = { ...baseCtx, params: config?.policyParams?.[policy.name] ?? {} };
     }
 
     let result: Awaited<ReturnType<typeof policy.fn>>;

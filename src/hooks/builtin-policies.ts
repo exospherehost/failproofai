@@ -45,24 +45,91 @@ const SHELL_TOOL_NAMES = [
   "sh",
 ];
 
+function parseJsonLikeValue(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const trimmed = value.trim();
+  if (!trimmed) return value;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}
+
 function getCommand(ctx: PolicyContext): string {
-  if (typeof ctx.toolInput === "string") return ctx.toolInput;
-  return (
-    (ctx.toolInput?.command as string) ??
-    (ctx.toolInput?.cmd as string) ??
-    (ctx.toolInput?.input as string) ??
-    (ctx.toolInput?.content as string) ?? // WriteFile/ReadFile content
-    ""
+  const input = parseJsonLikeValue(ctx.toolInput);
+  if (typeof input === "string") return input;
+  if (!input || typeof input !== "object") return "";
+  const record = input as Record<string, unknown>;
+
+  const directCommand = (
+    (record.command as string) ??
+    (record.cmd as string)
   );
+  if (typeof directCommand === "string" && directCommand.trim().length > 0) return directCommand;
+
+  // Pass 1: prefer explicit command/cmd keys anywhere in the payload tree.
+  const commandFirst = findNestedStringByKeys(record, ["command", "cmd"]);
+  if (commandFirst) return commandFirst;
+
+  const directGeneric = (
+    (record.input as string) ??
+    (record.content as string)
+  );
+  if (typeof directGeneric === "string" && directGeneric.trim().length > 0) return directGeneric;
+
+  // Pass 2: fallback to generic text-bearing keys.
+  const generic = findNestedStringByKeys(record, ["input", "content", "text", "arguments", "args"]);
+  if (generic) return generic;
+
+  return "";
+}
+
+function findNestedStringByKeys(root: Record<string, unknown>, keys: string[]): string {
+  const stack: unknown[] = [root];
+  const seen = new Set<unknown>();
+  const MAX_VISITS = 128;
+  let visits = 0;
+
+  while (stack.length > 0 && visits < MAX_VISITS) {
+    const node = stack.pop();
+    visits += 1;
+    if (!node || typeof node !== "object" || seen.has(node)) continue;
+    seen.add(node);
+
+    const rec = node as Record<string, unknown>;
+    for (const key of keys) {
+      const value = parseJsonLikeValue(rec[key]);
+      if (typeof value === "string" && value.trim().length > 0) {
+        return value;
+      }
+      if (value && typeof value === "object") {
+        stack.push(value);
+      }
+    }
+
+    for (const rawValue of Object.values(rec)) {
+      const value = parseJsonLikeValue(rawValue);
+      if (value && typeof value === "object") {
+        stack.push(value);
+      }
+    }
+  }
+
+  return "";
 }
 
 function getFilePath(ctx: PolicyContext): string {
+  const input = parseJsonLikeValue(ctx.toolInput);
+  if (!input || typeof input !== "object") return "";
+  const record = input as Record<string, unknown>;
   return (
-    (ctx.toolInput?.file_path as string) ??
-    (ctx.toolInput?.filePath as string) ??
-    (ctx.toolInput?.path as string) ??
-    (ctx.toolInput?.relative_path as string) ??
-    (ctx.toolInput?.filename as string) ??
+    (record.file_path as string) ??
+    (record.filePath as string) ??
+    (record.path as string) ??
+    (record.relative_path as string) ??
+    (record.filename as string) ??
     ""
   );
 }
@@ -144,6 +211,7 @@ const RUNAS_RE = /(?:^|;|&&|\|\|)\s*runas\s/i;
 
 // blockCurlPipeSh
 const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh|dash|ksh|csh|tcsh|fish|ash)\b/;
+const REMOTE_SCRIPT_DOWNLOAD_RE = /(?:^|;|&&|\|\|)\s*(?:curl|wget)\b[^\n]*https?:\/\/[^\s"'`]+\.sh(?:[?#][^\s"'`]*)?(?:\s|$)/i;
 const PS_WEB_PIPE_RE = /(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s*(?:Invoke-Expression|iex)/i;
 
 // blockForcePush
@@ -318,7 +386,8 @@ function matchesAllowedPattern(cmd: string, pattern: string): boolean {
 
 function sanitizeJwt(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub JWT patterns from tool output
-  const output = JSON.stringify(ctx.payload);
+  const output = getToolOutputText(ctx);
+  if (looksLikeFailproofStopMessage(output)) return allow();
   if (JWT_RE.test(output)) {
     return {
       decision: "deny",
@@ -331,7 +400,8 @@ function sanitizeJwt(ctx: PolicyContext): PolicyResult {
 
 function sanitizeApiKeys(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub common API key patterns from tool output
-  const output = JSON.stringify(ctx.payload);
+  const output = getToolOutputText(ctx);
+  if (looksLikeFailproofStopMessage(output)) return allow();
   for (const [pattern, label] of API_KEY_PATTERNS) {
     if (pattern.test(output)) {
       return {
@@ -363,7 +433,8 @@ function sanitizeApiKeys(ctx: PolicyContext): PolicyResult {
 
 function sanitizeConnectionStrings(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub database connection strings with embedded credentials
-  const output = JSON.stringify(ctx.payload);
+  const output = getToolOutputText(ctx);
+  if (looksLikeFailproofStopMessage(output)) return allow();
   if (CONNECTION_STRING_RE.test(output)) {
     return {
       decision: "deny",
@@ -376,7 +447,8 @@ function sanitizeConnectionStrings(ctx: PolicyContext): PolicyResult {
 
 function sanitizePrivateKeyContent(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub PEM private key blocks from tool output
-  const output = JSON.stringify(ctx.payload);
+  const output = getToolOutputText(ctx);
+  if (looksLikeFailproofStopMessage(output)) return allow();
   if (PRIVATE_KEY_RE.test(output)) {
     return {
       decision: "deny",
@@ -389,7 +461,8 @@ function sanitizePrivateKeyContent(ctx: PolicyContext): PolicyResult {
 
 function sanitizeBearerTokens(ctx: PolicyContext): PolicyResult {
   // PostToolUse: scrub Authorization: Bearer tokens from tool output
-  const output = JSON.stringify(ctx.payload);
+  const output = getToolOutputText(ctx);
+  if (looksLikeFailproofStopMessage(output)) return allow();
   if (BEARER_TOKEN_RE.test(output)) {
     return {
       decision: "deny",
@@ -398,6 +471,37 @@ function sanitizeBearerTokens(ctx: PolicyContext): PolicyResult {
     };
   }
   return allow();
+}
+
+function getToolOutputText(ctx: PolicyContext): string {
+  const payload = (ctx.payload ?? {}) as Record<string, unknown>;
+  const candidate =
+    payload.tool_output ??
+    payload.toolOutput ??
+    payload.output ??
+    payload.result ??
+    payload.response ??
+    payload.message;
+
+  if (candidate === undefined || candidate === null) {
+    return safeStringify(payload);
+  }
+
+  if (typeof candidate === "string") return candidate;
+  return safeStringify(candidate);
+}
+
+function looksLikeFailproofStopMessage(text: string): boolean {
+  return text.includes("MANDATORY ACTION REQUIRED from FailproofAI (policy:")
+    || text.includes("[FailproofAI Security Stop] Policy:");
+}
+
+function safeStringify(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 function warnDestructiveSql(ctx: PolicyContext): PolicyResult {
@@ -496,8 +600,10 @@ function blockEnvFiles(ctx: PolicyContext): PolicyResult {
 
 function blockSudo(ctx: PolicyContext): PolicyResult {
   if (!isBashTool(ctx.toolName)) return allow();
-  const cmd = getCommand(ctx).trimStart();
-  if (SUDO_RE.test(cmd) || cmd.startsWith("sudo ")) {
+  const cmd = getCommand(ctx).trim();
+  const tokens = parseArgvTokens(cmd);
+  const hasSudoToken = tokens.some((t) => t.toLowerCase() === "sudo");
+  if (hasSudoToken || SUDO_RE.test(cmd) || cmd.startsWith("sudo ")) {
     // Check allowPatterns — match against parsed tokens, not raw string
     const allowPatterns = ((ctx.params?.allowPatterns ?? []) as string[]);
     if (allowPatterns.some((p) => matchesAllowedPattern(cmd, p))) return allow();
@@ -519,6 +625,11 @@ function blockCurlPipeSh(ctx: PolicyContext): PolicyResult {
   const cmd = getCommand(ctx);
   if (CURL_PIPE_SH_RE.test(cmd)) {
     return deny("Piping remote downloads directly to a shell is prohibited to prevent remote code execution.");
+  }
+  // Block explicit save-and-run: wget/curl with an explicit -o/-O output flag downloading a .sh URL.
+  // Shell redirections (curl ... > file.sh) are intentionally allowed since those are typically for review.
+  if (REMOTE_SCRIPT_DOWNLOAD_RE.test(cmd) && /-[Oo]\b/.test(cmd)) {
+    return deny("Downloading remote shell scripts directly is prohibited. Save the file and review it before execution.");
   }
   // PowerShell: iwr | iex, irm | iex, Invoke-WebRequest | Invoke-Expression
   if (PS_WEB_PIPE_RE.test(cmd)) {

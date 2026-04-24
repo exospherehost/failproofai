@@ -690,7 +690,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.stderr).toBe("[FailproofAI] blocker: Forbidden");
     });
 
-    it("uses high-authority style and flags hard stop for gemini integration", async () => {
+    it("returns prohibited action messaging for Gemini BeforeTool", async () => {
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, { integration: "gemini", hookEventName: "BeforeTool" });
 
       // Gemini expects Exit 0 for clean JSON denial parsing
@@ -698,15 +698,20 @@ describe("hooks/policy-evaluator", () => {
       expect(result.stderr).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
       expect(result.hardStop).toBe(false); // Turn-level stop is non-destructive
 
-      // Verify Real Deny JSON for Gemini (BeforeTool: turn continues, no continue: false)
+      // Verify the structured deny mirrors the same message on stdout and stderr.
       const parsed = JSON.parse(result.stdout);
       expect(parsed.decision).toBe("deny");
       expect(parsed.continue).toBeUndefined(); // continue: false removed — agent explains block to user
-      expect(parsed.systemMessage).toBeUndefined(); // BeforeTool is pre-execution: no systemMessage
-      expect(parsed.reason).toContain("FailproofAI is blocking this action (policy: blocker)"); // concise agent-facing reason
+      expect(parsed.systemMessage).toContain("Action prohibited by FailproofAI");
+      expect(parsed.reason).toBe(parsed.systemMessage);
+      expect(parsed.reason).toContain("policy: blocker");
+      expect(parsed.reason).toContain("Forbidden");
+      expect(result.stderr).not.toBe(parsed.systemMessage);
+      /*
       expect(parsed.reason).not.toContain("MANDATORY ACTION REQUIRED"); // reason ≠ systemMessage
-      expect(parsed.reason).not.toContain("Complete the required action");
-      expect(result.stderr).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
+      expect(parsed.reason).toContain("Forbidden");
+      expect(result.stderr).toBe(parsed.systemMessage);
+      */
     });
 
     it("Gemini AfterAgent (Stop) includes continue: false; BeforeTool does not", async () => {
@@ -752,7 +757,7 @@ describe("hooks/policy-evaluator", () => {
       expect(result.stderr).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
     });
 
-    it("Gemini BeforeTool omits systemMessage, while AfterTool includes it with retry guidance", async () => {
+    it("Gemini BeforeTool and AfterTool use different deny messaging by phase", async () => {
       clearPolicies();
       registerPolicy("blocker", "desc", () => ({ decision: "deny", reason: "forbidden" }), {
         events: ["PreToolUse", "PostToolUse"],
@@ -764,9 +769,9 @@ describe("hooks/policy-evaluator", () => {
         { integration: "gemini", hookEventName: "BeforeTool" },
       );
       const beforeParsed = JSON.parse(before.stdout);
-      expect(beforeParsed.systemMessage).toBeUndefined();
-      expect(beforeParsed.reason).toContain("FailproofAI is blocking this action (policy: blocker)");
-      expect(beforeParsed.reason).not.toContain("Complete the required action");
+      expect(beforeParsed.systemMessage).toContain("Action prohibited by FailproofAI");
+      expect(beforeParsed.reason).toBe(beforeParsed.systemMessage);
+      expect(beforeParsed.continue).toBeUndefined();
 
       const after = await evaluatePolicies(
         "PostToolUse",
@@ -776,9 +781,9 @@ describe("hooks/policy-evaluator", () => {
       const afterParsed = JSON.parse(after.stdout);
 
       expect(afterParsed.systemMessage).toContain("MANDATORY ACTION REQUIRED from FailproofAI");
-      expect(afterParsed.reason).toContain("FailproofAI is blocking this action (policy: blocker)");
-      expect(afterParsed.reason).toContain("Complete the required action");
-      expect(afterParsed.reason).not.toBe(afterParsed.systemMessage);
+      expect(afterParsed.reason).toBe(afterParsed.systemMessage);
+      expect(afterParsed.continue).toBeUndefined();
+      expect(afterParsed.reason).toContain("Forbidden");
     });
 
     it("uses IDE specialized style and flags hard stop for cursor integration", async () => {

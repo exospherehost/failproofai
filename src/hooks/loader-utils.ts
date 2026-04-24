@@ -12,8 +12,9 @@
  * The ESM shim includes hooks API exports.
  */
 import { readFile, writeFile, unlink, access } from "fs/promises";
-import { resolve, dirname, relative } from "path";
+import { resolve, dirname, relative, extname } from "path";
 import { pathToFileURL } from "url";
+import { spawnSync } from "child_process";
 
 export const TMP_SUFFIX = ".__failproofai_tmp__.mjs";
 
@@ -119,6 +120,8 @@ export async function rewriteFileTree(
     visited.add(filePath);
 
     let code = await readFile(filePath, "utf-8");
+    // Transpile TypeScript to ESM JS before rewriting imports
+    code = await maybeTranspileTypeScript(code, filePath);
 
     // Rewrite 'failproofai' or legacy 'claudeye' imports to the ESM shim (or direct CJS for require)
     if (esmShimUrl) {
@@ -174,5 +177,32 @@ export async function rewriteFileTree(
 export async function cleanupTmpFiles(tmpFiles: string[]): Promise<void> {
   for (const tmp of tmpFiles) {
     try { await unlink(tmp); } catch { /* ignore cleanup errors */ }
+  }
+}
+
+/**
+ * If the source file is TypeScript, transpile it to ESM JavaScript using bun.
+ * Returns the original code unchanged for non-.ts files.
+ * Throws if bun is not available and a .ts file is encountered.
+ */
+export async function maybeTranspileTypeScript(code: string, sourcePath: string): Promise<string> {
+  if (extname(sourcePath).toLowerCase() !== ".ts") return code;
+
+  // Write the TS source to a temp file so bun can read it
+  const tmpSrc = sourcePath + ".__failproofai_ts_src__.ts";
+  const tmpOut = sourcePath + ".__failproofai_ts_out__.mjs";
+  try {
+    await writeFile(tmpSrc, code, "utf-8");
+    const result = spawnSync("bun", ["build", tmpSrc, "--target=node", "--format=esm", "--no-bundle", `--outfile=${tmpOut}`], {
+      encoding: "utf-8",
+      timeout: 15_000,
+    });
+    if (result.status !== 0 || result.error) {
+      throw new Error(`TypeScript transpilation failed for ${sourcePath}: ${result.stderr || result.error?.message}`);
+    }
+    return await readFile(tmpOut, "utf-8");
+  } finally {
+    try { await unlink(tmpSrc); } catch { /* ignore */ }
+    try { await unlink(tmpOut); } catch { /* ignore */ }
   }
 }

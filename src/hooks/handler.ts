@@ -166,15 +166,13 @@ function getDedupeKey(
   fingerprint: string,
   bucket: number
 ): string {
-  // Session ID is the strongest identity for a user action.
-  // We use event-type aware signatures:
-  // - Tool events (Pre/Post) need the fingerprint to allow multiple distinct calls in a session.
-  // - Flow events (Start, Stop, Prompt) are singletons per session per 4s window.
-  // This collapses IDE UI-meta-messages (e.g. 'Waiting for input') into the actual user action.
+  // Integration is always the first component so events from different CLIs never collide
+  // even when they share the same session ID, event type, and fingerprint.
+  const integ = integration ?? "unknown";
   const isTool = eventType.includes("Tool");
-  const identityTag = sessionId ?? integration ?? "unknown";
+  const sessionTag = sessionId ?? "no-session";
 
-  const signatureParts = [eventType, identityTag];
+  const signatureParts = [integ, eventType, sessionTag];
   if (isTool) {
     signatureParts.push(fingerprint);
   }
@@ -239,8 +237,10 @@ export function _resetDedupeCache(): void {
  * Early-exit lock (Instant Catch)
  * Checks for a recent firing of the same event+session and takes the lock.
  * Returns true if this process is the winner and should proceed.
+ * Integration is included in the key so Cursor and Gemini can fire the same
+ * tool concurrently without one suppressing the other.
  */
-function tryAcquireFiringLock(eventType: string, sessionId: string | undefined, fingerprint?: string): boolean {
+function tryAcquireFiringLock(integration: string | undefined, eventType: string, sessionId: string | undefined, fingerprint?: string): boolean {
   if (!sessionId) return true; // Can't safely deduplicate without session
 
   const lockDir = join(DEDUP_DIR, "firing-locks");
@@ -248,29 +248,22 @@ function tryAcquireFiringLock(eventType: string, sessionId: string | undefined, 
     try { mkdirSync(lockDir, { recursive: true }); } catch { /* ignore */ }
   }
 
-  // Identity is based on event type + session ID.
-  // For tool events, we also include the fingerprint of the command/input.
   const isTool = eventType?.toLowerCase().includes("tool");
-  const signatureParts = [eventType, sessionId];
+  const integ = integration ?? "unknown";
+  const signatureParts = [integ, eventType, sessionId];
   if (isTool && fingerprint) {
     signatureParts.push(fingerprint);
   }
 
-  // Use a 5-second bucket to ensure the lock only applies to near-simultaneous firings (twins).
-  // This prevents stale locks from previous runs/tests from blocking fresh operations.
   const bucket = Math.floor(Date.now() / 5000);
   const signature = signatureParts.join("|") + `|${bucket}`;
   const identity = createHash("sha256").update(signature).digest("hex");
   const lockPath = join(lockDir, `${identity}.lock`);
 
-  // Check if lock exists (bucket ensured it's recent)
   if (existsSync(lockPath)) {
-    return false; // Twin already ran in this 5s window
+    return false;
   }
 
-  // Acquire lock: atomic exclusive-create. `wx` fails with EEXIST if a twin
-  // process got here first — that's how we make this a real lock instead of a
-  // racy overwrite.
   try {
     writeFileSync(lockPath, String(process.pid), { flag: "wx" });
     return true;
@@ -377,15 +370,11 @@ export function writeVirtualLogEntry(
 }
 
 export async function handleHookEvent(eventType: string, cliOverride?: string): Promise<{ exitCode: number; hardStop: boolean }> {
-  // SILENCE GUARD: If a hook is EXPLICITLY labeled as Claude but the event name 
-  // is unique to Gemini/Copilot, it means we have a duplicate legacy hook firing 
-  // from an old installation. SILENTLY ABORT to avoid duplicate/incorrect logs.
-  // Note: We only silence if the flag is explicitly 'claude-code'. If it's 
-  // missing, we let it fall through to the detection logic.
+  // SILENCE GUARD (Stage 1): If the --cli flag explicitly says claude-code but the
+  // raw event name is unique to Gemini/Copilot, this is a misconfigured hook — exit silently.
   if (cliOverride === "claude-code") {
     const isGeminiUnique = GEMINI_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
     const isCopilotUnique = COPILOT_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
-    
     if (isGeminiUnique || isCopilotUnique) {
       return { exitCode: 0, hardStop: false };
     }
@@ -429,6 +418,16 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
       parsed = JSON.parse(payload) as Record<string, unknown>;
     } catch {
       hookLogWarn(`payload parse failed for ${eventType} (${payload.length} bytes)`);
+    }
+  }
+
+  // SILENCE GUARD (Stage 2b): payload.integration says claude-code but raw event is
+  // Gemini/Copilot-unique — misconfigured hook, exit silently.
+  if (!cliOverride && parsed.integration === "claude-code") {
+    const isGeminiUnique = GEMINI_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
+    const isCopilotUnique = COPILOT_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
+    if (isGeminiUnique || isCopilotUnique) {
+      return { exitCode: 0, hardStop: false };
     }
   }
 
@@ -483,6 +482,12 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
   integ.normalizePayload(parsed);
   const canonicalEventName = integ.getCanonicalEventName(parsed, eventType);
 
+  // Gemini BeforeToolSelection is advisory-only per spec (no deny/continue/systemMessage).
+  // Treat it as no-op to avoid hook-failed warnings and enforce blocking at BeforeTool.
+  if (integrationType === "gemini" && eventType === "BeforeToolSelection") {
+    return { exitCode: 0, hardStop: false };
+  }
+
   // 3. Session Extraction & Fingerprinting
   const fingerprint = getPayloadFingerprint(parsed);
   
@@ -503,14 +508,13 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
     ((parsed.data as any)?.sessionID as string | undefined) ||
     ((parsed.data as any)?.conversationID as string | undefined) ||
     ((parsed.data as any)?.chatId as string | undefined) ||
-    // Environment Recovery: Catch headless agents (Prioritize Copilot for camelCase events)
+    // Environment Recovery: only use the env var that matches this integration so that
+    // e.g. COPILOT_SESSION_ID is not accidentally picked up by Cursor events.
     (integrationType === "copilot" ? process.env.COPILOT_SESSION_ID || process.env.COPILOT_CMD_ID : undefined) ||
-    process.env.CURSOR_SESSION_ID ||
-    process.env.CLAUDE_SESSION_ID ||
-    process.env.GEMINI_SESSION_ID ||
-    process.env.PI_SESSION_ID ||
-    process.env.COPILOT_SESSION_ID ||
-    process.env.COPILOT_CMD_ID;
+    (integrationType === "cursor" ? process.env.CURSOR_SESSION_ID : undefined) ||
+    (integrationType === "claude-code" ? process.env.CLAUDE_SESSION_ID : undefined) ||
+    (integrationType === "gemini" ? process.env.GEMINI_SESSION_ID : undefined) ||
+    (integrationType === "pi" ? process.env.PI_SESSION_ID : undefined);
 
   let finalCwd = parsed.cwd as string | undefined;
   // Prioritize PWD (actual terminal location) over process.cwd() (often workspace root)
@@ -538,7 +542,7 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
   };
 
   // Instant Catch - Exit if we already saw this firing in another scope
-  if (!tryAcquireFiringLock(canonicalEventName, session.sessionId, fingerprint)) {
+  if (!tryAcquireFiringLock(integrationType, canonicalEventName, session.sessionId, fingerprint)) {
     hookLogInfo(`event=${eventType} skipped (instant-catch twin)`);
     
     // For IDE integrations, we exit silently (0) to let the "twin" 

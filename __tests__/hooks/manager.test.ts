@@ -568,6 +568,69 @@ describe("hooks/manager", () => {
         expect(combinedContentBytes).toContain(`--cli ${integ}`);
       }
     });
+
+    it("warns when Stop-event policy installed for opencode (no Stop event support)", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const { installHooks } = await import("../../src/hooks/manager");
+      await installHooks(
+        ["require-commit-before-stop"],
+        "user",
+        undefined,
+        false,
+        undefined,
+        undefined,
+        false,
+        ["opencode"],
+      );
+
+      const warnCalls = vi.mocked(console.warn).mock.calls.map((c) => String(c[0]));
+      expect(warnCalls.some((msg) => msg.includes("Stop") && msg.includes("require-commit-before-stop"))).toBe(true);
+    });
+
+    it("does not warn about Stop events when installing for claude-code (Stop is supported)", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const { installHooks } = await import("../../src/hooks/manager");
+      await installHooks(
+        ["require-commit-before-stop"],
+        "user",
+        undefined,
+        false,
+        undefined,
+        undefined,
+        false,
+        ["claude-code"],
+      );
+
+      const warnCalls = vi.mocked(console.warn).mock.calls.map((c) => String(c[0]));
+      expect(warnCalls.some((msg) => msg.includes("does not support a Stop event"))).toBe(false);
+    });
+
+    it("does not warn about Stop events when installing for pi (no Stop event) with non-stop policy", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      const { installHooks } = await import("../../src/hooks/manager");
+      await installHooks(
+        ["block-sudo"],
+        "user",
+        undefined,
+        false,
+        undefined,
+        undefined,
+        false,
+        ["pi"],
+      );
+
+      const warnCalls = vi.mocked(console.warn).mock.calls.map((c) => String(c[0]));
+      expect(warnCalls.some((msg) => msg.includes("does not support a Stop event"))).toBe(false);
+    });
   });
 
   describe("removeHooks", () => {
@@ -997,11 +1060,8 @@ describe("hooks/manager", () => {
 
       // Multi-scope layout present (integration display name in title)
       expect(output).toContain("Claude Code");
-      // Scope columns should appear
-      const headerLine = calls.find(
-        (c: unknown) => typeof c === "string" && c.includes("User") && c.includes("Project"),
-      );
-      expect(headerLine).toBeDefined();
+      // No scope columns; scopes shown as a simple summary line
+      expect(output).toContain("Hooks active in scopes: user, project");
     });
 
     it("multi-scope shows only installed scope columns", async () => {
@@ -1033,12 +1093,9 @@ describe("hooks/manager", () => {
       await listHooks();
 
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
-      const headerLine = calls.find(
-        (c: unknown) => typeof c === "string" && c.includes("User") && c.includes("Project"),
-      );
-      expect(headerLine).toBeDefined();
-      // Local column should NOT appear
-      expect(headerLine).not.toContain("Local");
+      const output = calls.join("\n");
+      expect(output).toContain("Hooks active in scopes: user, project");
+      expect(output).not.toContain("local");
     });
 
     it("listHooks with cwd reads from that directory", async () => {

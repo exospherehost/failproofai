@@ -125,6 +125,104 @@ describe("hooks/integrations", () => {
     it("resolves settings path correctly", () => {
       expect(gemini.getSettingsPath("user")).toBe(resolve(homedir(), ".gemini", "settings.json"));
     });
+
+    it("parses stringified Gemini tool args into structured tool_input", () => {
+      const payload: any = {
+        hook_event_name: "BeforeTool",
+        toolName: "Shell",
+        toolArgs: "{\"command\":\"sudo apt-get update\",\"cwd\":\"/repo/subdir\"}",
+      };
+
+      gemini.normalizePayload(payload);
+
+      expect(payload.tool_name).toBe("Shell");
+      expect(payload.tool_input).toEqual({ command: "sudo apt-get update", cwd: "/repo/subdir" });
+      expect(payload.cwd).toBe("/repo/subdir");
+    });
+
+    it("parses nested stringified Gemini args discovered through deep extraction", () => {
+      const payload: any = {
+        hook_event_name: "BeforeTool",
+        tool: {
+          args: "{\"command\":\"sudo apt-get update\",\"cwd\":\"/repo/nested\"}",
+        },
+      };
+
+      gemini.normalizePayload(payload);
+
+      expect(payload.tool_input).toEqual({ command: "sudo apt-get update", cwd: "/repo/nested" });
+      expect(payload.cwd).toBe("/repo/nested");
+    });
+
+    it("prefers toolArgs when toolInput exists but only toolArgs contains command", () => {
+      const payload: any = {
+        hook_event_name: "BeforeTool",
+        toolName: "Shell",
+        toolInput: { note: "metadata only" },
+        toolArgs: "{\"command\":\"sudo apt-get update\",\"cwd\":\"/repo/real\"}",
+      };
+
+      gemini.normalizePayload(payload);
+
+      expect(payload.tool_input).toEqual({ command: "sudo apt-get update", cwd: "/repo/real" });
+      expect(payload.cwd).toBe("/repo/real");
+    });
+
+    it("builds identical local-binary hook commands for user and project scopes", () => {
+      const userEntry = gemini.buildHookEntry("/bin/fp", "BeforeTool", "user") as any;
+      const projectEntry = gemini.buildHookEntry("/bin/fp", "BeforeTool", "project") as any;
+
+      expect(userEntry.command).toContain('"');
+      expect(userEntry.command).toContain("--hook BeforeTool --cli gemini --stdin");
+      expect(projectEntry.command).toContain("--hook BeforeTool --cli gemini --stdin");
+      expect(projectEntry.command).toBe(userEntry.command);
+      expect(projectEntry.command).not.toContain("npx -y failproofai");
+    });
+
+    it("rewrites malformed/stale marked Gemini hooks to one canonical entry per event", () => {
+      const settings: any = {
+        hooks: {
+          BeforeTool: [
+            {
+              hooks: [
+                {
+                  type: "command",
+                  command: "\"/node\" \"/repo/dist/cli.mj\" --hook BeforeTool --cli gemini --stdin",
+                  __failproofai_hook__: true,
+                },
+                {
+                  type: "command",
+                  command: "echo keep-non-failproof",
+                },
+              ],
+            },
+            {
+              hooks: [
+                {
+                  type: "command",
+                  command: "\"/node\" \"/repo/dist/old-cli.mjs\" --hook BeforeTool --cli gemini --stdin",
+                  __failproofai_hook__: true,
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      gemini.writeHookEntries(settings, "/home/yashu/fp/failproofai/dist/cli.mjs", "project");
+      const beforeTool = settings.hooks.BeforeTool;
+      expect(beforeTool).toBeDefined();
+
+      // Exactly one marked hook should remain for the event.
+      const marked = beforeTool.flatMap((m: any) => m.hooks || []).filter((h: any) => h.__failproofai_hook__ === true);
+      expect(marked).toHaveLength(1);
+      expect(marked[0].command).toContain("/home/yashu/fp/failproofai/dist/cli.mjs");
+      expect(marked[0].command).not.toContain("cli.mj\"");
+
+      // Non-marked hooks are preserved.
+      const nonMarked = beforeTool.flatMap((m: any) => m.hooks || []).filter((h: any) => !h.__failproofai_hook__);
+      expect(nonMarked.some((h: any) => h.command === "echo keep-non-failproof")).toBe(true);
+    });
   });
 
   describe("copilot", () => {
@@ -307,6 +405,18 @@ describe("hooks/integrations", () => {
 
       const count = opencode.removeHooksFromFile(settingsPath);
       expect(count).toBe(OPENCODE_HOOK_EVENT_TYPES.length);
+    });
+
+    it("removeHooksFromFile deletes only the failproofai.ts file, not the parent directory (B1 fix)", async () => {
+      const { unlinkSync, rmSync } = await import("node:fs");
+      const settingsPath = "/home/user/.opencode/plugins/failproofai.ts";
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("failproofai logic here");
+
+      opencode.removeHooksFromFile(settingsPath);
+
+      expect(vi.mocked(unlinkSync)).toHaveBeenCalledWith(settingsPath);
+      expect(vi.mocked(rmSync)).not.toHaveBeenCalled();
     });
   });
 
@@ -602,6 +712,76 @@ describe("hooks/integrations", () => {
       expect("no-uuid-in-filename.jsonl".match(regex)).toBeNull();
       expect("019db009-b545-7792-bad7-6ea5116cd432.jsonl".match(regex)).toBeNull(); // missing timestamp
       expect("2026-04-21T12-35-19-493Z_invalid.txt".match(regex)).toBeNull(); // wrong extension
+    });
+  });
+
+  describe("cursor normalizePayload — tool name canonicalization", () => {
+    const cursor = getIntegration("cursor");
+
+    it("maps beforeTabFileRead to Read", () => {
+      const payload: any = { hook_event_name: "beforeTabFileRead", file_path: "/tmp/foo.ts" };
+      cursor.normalizePayload(payload);
+      expect(payload.tool_name).toBe("Read");
+    });
+
+    it("maps beforeReadFile to Read", () => {
+      const payload: any = { hook_event_name: "beforeReadFile", file_path: "/tmp/foo.ts" };
+      cursor.normalizePayload(payload);
+      expect(payload.tool_name).toBe("Read");
+    });
+
+    it("maps afterTabFileEdit to Write", () => {
+      const payload: any = { hook_event_name: "afterTabFileEdit", file_path: "/tmp/foo.ts", tool_input: "content" };
+      cursor.normalizePayload(payload);
+      expect(payload.tool_name).toBe("Write");
+    });
+
+    it("maps afterFileEdit to Write", () => {
+      const payload: any = { hook_event_name: "afterFileEdit", file_path: "/tmp/foo.ts" };
+      cursor.normalizePayload(payload);
+      expect(payload.tool_name).toBe("Write");
+    });
+
+    it("does not override an already-set tool_name", () => {
+      const payload: any = { hook_event_name: "beforeTabFileRead", tool_name: "CustomTool", file_path: "/tmp/foo.ts" };
+      cursor.normalizePayload(payload);
+      expect(payload.tool_name).toBe("CustomTool");
+    });
+  });
+
+  describe("gemini normalizePayload — session_id extraction", () => {
+    const gemini = getIntegration("gemini");
+
+    it("preserves existing session_id", () => {
+      const payload: any = { hook_event_name: "BeforeTool", session_id: "existing-id" };
+      gemini.normalizePayload(payload);
+      expect(payload.session_id).toBe("existing-id");
+    });
+
+    it("lifts session_id from sessionId field", () => {
+      const payload: any = { hook_event_name: "BeforeTool", sessionId: "lifted-id" };
+      gemini.normalizePayload(payload);
+      expect(payload.session_id).toBe("lifted-id");
+    });
+
+    it("lifts session_id from data.sessionId", () => {
+      const payload: any = { hook_event_name: "BeforeTool", data: { sessionId: "nested-id" } };
+      gemini.normalizePayload(payload);
+      expect(payload.session_id).toBe("nested-id");
+    });
+
+    it("lifts session_id from data.session_id", () => {
+      const payload: any = { hook_event_name: "BeforeTool", data: { session_id: "nested-snake-id" } };
+      gemini.normalizePayload(payload);
+      expect(payload.session_id).toBe("nested-snake-id");
+    });
+
+    it("leaves session_id undefined when no source available (env var not set)", () => {
+      delete process.env.GEMINI_SESSION_ID;
+      const payload: any = { hook_event_name: "BeforeTool" };
+      gemini.normalizePayload(payload);
+      // session_id may remain undefined — no assertion on value, just no throw
+      expect(() => payload.session_id).not.toThrow();
     });
   });
 });

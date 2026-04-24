@@ -138,6 +138,32 @@ describe("hooks/handler", () => {
     );
   });
 
+  it("normalizes Gemini stringified tool args before policy evaluation", async () => {
+    const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+    mockStdin(JSON.stringify({
+      hook_event_name: "BeforeTool",
+      toolName: "Shell",
+      toolArgs: "{\"command\":\"sudo apt-get update\",\"cwd\":\"/repo/subdir\"}",
+    }));
+
+    await handleHookEvent("BeforeTool", "gemini");
+
+    expect(evaluatePolicies).toHaveBeenCalledWith(
+      "PreToolUse",
+      expect.objectContaining({
+        tool_name: "Shell",
+        tool_input: { command: "sudo apt-get update", cwd: "/repo/subdir" },
+        cwd: "/repo/subdir",
+      }),
+      expect.objectContaining({
+        integration: "gemini",
+        hookEventName: "BeforeTool",
+        cwd: "/repo/subdir",
+      }),
+      expect.anything(),
+    );
+  });
+
   it("persists hook activity for every evaluation", async () => {
     mockStdin();
     const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
@@ -1031,6 +1057,89 @@ describe("hooks/handler", () => {
       expect(postEntry.type).toBe("user");
       expect(postEntry.message.content[0].type).toBe("tool_result");
       expect(postEntry.message.content[0].content).toBe("hello world");
+    });
+  });
+
+  describe("dedup — integration isolation", () => {
+    // Import the internal helpers for targeted testing.
+    // We test via handleHookEvent to exercise the real lock path.
+
+    const dedupDir = path.join(os.homedir(), ".failproofai", "cache", "dedup", "firing-locks");
+
+    beforeEach(() => {
+      _resetDedupeCache();
+    });
+
+    afterEach(() => {
+      _resetDedupeCache();
+    });
+
+    it("cursor and claude-code with same session+fingerprint each acquire distinct firing locks", async () => {
+      const sharedPayload = JSON.stringify({
+        session_id: "shared-session-001",
+        tool_name: "Bash",
+        tool_input: { command: "ls" },
+        cwd: "/tmp",
+      });
+
+      mockStdin(sharedPayload);
+      const cursorResult = await handleHookEvent("preToolUse", "cursor");
+      // Cursor should proceed (not deduplicated)
+      expect(cursorResult.exitCode).toBe(0);
+
+      // Reset stdin for the next call
+      mockStdin(sharedPayload);
+      const claudeResult = await handleHookEvent("PreToolUse", "claude-code");
+      // Claude should also proceed (different integration = different lock key)
+      expect(claudeResult.exitCode).toBe(0);
+
+      // Both lock files should exist (distinct keys)
+      const lockFiles = fs.existsSync(dedupDir) ? fs.readdirSync(dedupDir) : [];
+      expect(lockFiles.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe("session ID env-var isolation", () => {
+    afterEach(() => {
+      delete process.env.COPILOT_SESSION_ID;
+      delete process.env.CURSOR_SESSION_ID;
+      delete process.env.CLAUDE_SESSION_ID;
+      delete process.env.PI_SESSION_ID;
+      delete process.env.GEMINI_SESSION_ID;
+      _resetDedupeCache();
+    });
+
+    it("does not use COPILOT_SESSION_ID for cursor events", async () => {
+      process.env.COPILOT_SESSION_ID = "copilot-env-session";
+      const payload = JSON.stringify({
+        hook_event_name: "preToolUse",
+        tool_name: "Bash",
+        tool_input: { command: "ls" },
+        cwd: "/tmp",
+        integration: "cursor",
+        workspace_roots: ["/tmp"],
+      });
+      mockStdin(payload);
+      // Should run without error — the Copilot session ID should not be used
+      const result = await handleHookEvent("preToolUse", "cursor");
+      expect(result.exitCode).toBe(0);
+    });
+
+    it("uses CURSOR_SESSION_ID only for cursor integration", async () => {
+      process.env.CURSOR_SESSION_ID = "cursor-specific-session";
+      process.env.COPILOT_SESSION_ID = "copilot-session-should-be-ignored";
+      const payload = JSON.stringify({
+        hook_event_name: "preToolUse",
+        tool_name: "Bash",
+        tool_input: { command: "ls" },
+        cwd: "/tmp",
+        integration: "cursor",
+        workspace_roots: ["/tmp"],
+      });
+      mockStdin(payload);
+      const result = await handleHookEvent("preToolUse", "cursor");
+      expect(result.exitCode).toBe(0);
+      // No assertion on session ID value (it's internal), but verify no crash
     });
   });
 

@@ -6,6 +6,17 @@
 - Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
 
 ### Fixes
+- Fix cross-CLI dedup collision: integration type is now always the first component of both the firing-lock hash and the dedup key, so Cursor and Claude Code firing the same event concurrently no longer drop each other's entries
+- Fix session ID env-var bleed: fallbacks (`CURSOR_SESSION_ID`, `COPILOT_SESSION_ID`, etc.) are now scoped to the matching integration only
+- Fix Silence Guard to also fire after payload parse, preventing Gemini/Copilot-unique events from being processed as claude-code events when `--cli` is not passed
+- Fix Cursor `normalizePayload` to map `beforeTabFileEdit`/`afterFileEdit` → `tool_name: "Write"` and `beforeTabFileRead`/`beforeReadFile` → `tool_name: "Read"`, so `block-secrets-write` and `warn-large-file-write` now fire for Cursor file operations
+- Fix Gemini `normalizePayload` to extract `session_id` from known payload fields and `GEMINI_SESSION_ID` env var so `warn-repeated-tool-calls` tracks the correct session
+- Fix OpenCode `removeHooksFromFile` to delete only `failproofai.ts`, not the entire `.opencode/plugins/` parent directory
+- Fix TypeScript custom hook files: `.ts` sources are now transpiled via `bun build` before ESM rewriting, so TS policies load without syntax errors
+- Fix custom policy `policyParams` silently dropped: raw params are now forwarded to custom policies that have no schema definition
+- Add Stop-event compatibility warning when a workflow policy (`require-commit-before-stop`, etc.) is installed for OpenCode or Pi (which have no Stop event)
+- Fix `block-curl-pipe-sh` false positive: `curl url.sh > file.sh` (shell redirect) is now correctly allowed; only `curl -o`/`wget -O` with explicit output flags are blocked
+- Add E2E tests for four previously untested CLIs: claude-code, codex, opencode, and pi
 - Fix Gemini hook blocking to match the official Gemini CLI spec: remove `continue: false` from tool-level deny responses (agent now explains the block instead of dying silently), use exit code 2 for `BeforeToolSelection` (spec: `decision` field unsupported), and separate `reason` (concise, agent-facing) from `systemMessage` (verbose, terminal-facing)
 - Stop stderr leakage from workflow policies (`require-push-before-stop`, `require-pr-before-stop`, `require-ci-green-before-stop`, etc.): git probes that are expected to sometimes fail no longer leak "fatal: Needed a single revision" or similar messages to the user's terminal (#132)
 - `block-read-outside-cwd` now uses `CLAUDE_PROJECT_DIR` (the stable project root) instead of the live hook `cwd`, which drifts when Claude `cd`s into a subdirectory. Reads at the project root are no longer wrongly denied after a `cd`. Falls back to `ctx.session.cwd` when that variable is unset (#134)

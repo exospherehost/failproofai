@@ -147,6 +147,31 @@ function parseJsonLikeValue(value: unknown): unknown {
   }
 }
 
+function hasCommandLikeField(value: unknown): boolean {
+  const parsed = parseJsonLikeValue(value);
+  if (!parsed || typeof parsed !== "object") return false;
+  const stack: unknown[] = [parsed];
+  const seen = new Set<unknown>();
+
+  while (stack.length > 0) {
+    const node = stack.pop();
+    if (!node || typeof node !== "object" || seen.has(node)) continue;
+    seen.add(node);
+    const rec = node as Record<string, unknown>;
+    const commandValue = parseJsonLikeValue(rec.command ?? rec.cmd);
+    if (typeof commandValue === "string" && commandValue.trim().length > 0) {
+      return true;
+    }
+    for (const child of Object.values(rec)) {
+      const parsedChild = parseJsonLikeValue(child);
+      if (parsedChild && typeof parsedChild === "object") {
+        stack.push(parsedChild);
+      }
+    }
+  }
+  return false;
+}
+
 /**
  * Recursively searches an object for the first occurrence of any provided keys.
  * Used for "Deep Data Mining" in complex nested payloads (like Gemini).
@@ -156,7 +181,7 @@ function deepExtract(obj: any, keys: string[]): any {
   
   // 1. Direct match
   for (const key of keys) {
-    if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+    if (obj[key] !== undefined && obj[key] !== null) return parseJsonLikeValue(obj[key]);
   }
 
   // 2. Recursive search in arrays or objects
@@ -474,11 +499,10 @@ const cursor: Integration = {
         payload.tool_name = "run_terminal_command";
       } else if (hookEvent === "beforeMCPExecution" || hookEvent === "afterMCPExecution") {
         payload.tool_name = "mcp_tool";
-      } else if (
-        hookEvent === "beforeReadFile" || hookEvent === "beforeTabFileRead" ||
-        hookEvent === "afterFileEdit" || hookEvent === "afterTabFileEdit"
-      ) {
-        payload.tool_name = "edit_file";
+      } else if (hookEvent === "beforeReadFile" || hookEvent === "beforeTabFileRead") {
+        payload.tool_name = "Read";
+      } else if (hookEvent === "afterFileEdit" || hookEvent === "afterTabFileEdit") {
+        payload.tool_name = "Write";
       } else if (hookEvent === "afterChatResponse" || hookEvent === "afterAgentResponse") {
         payload.tool_name = "assistant_response";
       } else {
@@ -544,9 +568,7 @@ const gemini: Integration = {
   },
 
   buildHookEntry(binaryPath: string, eventType: string, scope?: string): Record<string, unknown> {
-    const bash = scope === "project"
-      ? `npx -y failproofai --hook ${eventType} --cli gemini --stdin`
-      : `"${process.execPath}" "${binaryPath}" --hook ${eventType} --cli gemini --stdin`;
+    const bash = `"${process.execPath}" "${binaryPath}" --hook ${eventType} --cli gemini --stdin`;
     return {
       type: "command",
       command: bash,
@@ -565,20 +587,17 @@ const gemini: Integration = {
       const hookEntry = this.buildHookEntry(binaryPath, eventType, scope);
       if (!s.hooks[eventType]) s.hooks[eventType] = [];
       const matchers: ClaudeHookMatcher[] = s.hooks[eventType];
-
-      let found = false;
-      for (const matcher of matchers) {
+      // Self-heal stale/broken Gemini hook entries by removing all marked
+      // FailproofAI hooks for this event and writing exactly one canonical entry.
+      for (let i = matchers.length - 1; i >= 0; i--) {
+        const matcher = matchers[i];
         if (!matcher.hooks) continue;
-        const idx = matcher.hooks.findIndex((h) => this.isFailproofaiHook(h as Record<string, unknown>));
-        if (idx >= 0) {
-          matcher.hooks[idx] = hookEntry as any;
-          found = true;
-          break;
+        matcher.hooks = matcher.hooks.filter((h) => !this.isFailproofaiHook(h as Record<string, unknown>));
+        if (matcher.hooks.length === 0) {
+          matchers.splice(i, 1);
         }
       }
-      if (!found) {
-        matchers.push({ hooks: [hookEntry as any] });
-      }
+      matchers.push({ hooks: [hookEntry as any] });
     }
   },
 
@@ -647,22 +666,41 @@ const gemini: Integration = {
   normalizePayload: (payload) => {
     flattenPayloadData(payload);
 
+    // Extract session_id from Gemini-specific fields so policies that use session tracking
+    // (e.g. warn-repeated-tool-calls) operate on the correct per-session tracker file.
+    if (!payload.session_id) {
+      payload.session_id =
+        (payload.sessionId as string | undefined) ||
+        ((payload.data as any)?.sessionId as string | undefined) ||
+        ((payload.data as any)?.session_id as string | undefined) ||
+        process.env.GEMINI_SESSION_ID;
+    }
+
     // Deep mining for Gemini: Text and Tool Data can be anywhere
-    const deepText = deepExtract(payload, ["text", "content", "parts", "message", "prompt"]);
-    const deepArgs = deepExtract(payload, ["arguments", "params", "args"]);
+    const deepText = parseJsonLikeValue(deepExtract(payload, ["text", "content", "parts", "message", "prompt"]));
+    const deepArgs = parseJsonLikeValue(deepExtract(payload, ["arguments", "params", "args"]));
     const deepName = deepExtract(payload, ["call", "method", "name", "toolName"]);
+    const parsedToolInput = parseJsonLikeValue(payload.tool_input ?? payload.toolInput);
+    const parsedToolArgs = parseJsonLikeValue(payload.tool_args ?? payload.toolArgs);
 
     // Map tool name
     if (!payload.tool_name) payload.tool_name = payload.toolName || deepName;
     
-    // Map tool input (prioritize extracted text and args)
-    if (!payload.tool_input) {
-      payload.tool_input = payload.tool_args || payload.toolArgs || deepArgs || deepText;
+    // Map tool input with command-aware precedence.
+    // Some Gemini payloads include both toolInput (metadata) and toolArgs (actual command).
+    const candidates = [parsedToolInput, parsedToolArgs, deepArgs, deepText];
+    const commandCandidate = candidates.find((c) => hasCommandLikeField(c));
+    if (commandCandidate !== undefined) {
+      payload.tool_input = commandCandidate;
+    } else if (!payload.tool_input) {
+      payload.tool_input = parsedToolInput || parsedToolArgs || deepArgs || deepText;
+    } else {
+      payload.tool_input = parsedToolInput;
     }
     
     // Map tool output
     if (!payload.tool_output) {
-      payload.tool_output = payload.toolOutput || deepExtract(payload, ["response", "result", "output"]);
+      payload.tool_output = parseJsonLikeValue(payload.toolOutput || deepExtract(payload, ["response", "result", "output"]));
     }
 
     // Lift CWD (Hyper-Specific Attribution)
@@ -1321,13 +1359,6 @@ export default FailproofAIPlugin;
         const content = readFileSync(settingsPath, "utf8");
         if (content.includes("failproofai")) {
           unlinkSync(settingsPath);
-          // If the directory is empty after removal, clean it up too
-          const dir = dirname(settingsPath);
-          try {
-            if (dir.includes(".opencode/plugins")) {
-              rmSync(dir, { recursive: true, force: true });
-            }
-          } catch {}
           return OPENCODE_HOOK_EVENT_TYPES.length;
         }
       } catch {}

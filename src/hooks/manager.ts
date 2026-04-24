@@ -24,6 +24,7 @@ import { trackHookEvent } from "./hook-telemetry";
 import { getInstanceId, hashToId } from "../../lib/telemetry-id";
 import { CliError } from "../cli-error";
 import { getIntegration, type Integration } from "./integrations";
+import { hookLogWarn } from "./hook-logger";
 
 const VALID_POLICY_NAMES = new Set(BUILTIN_POLICIES.map((p) => p.name));
 
@@ -223,9 +224,26 @@ export async function installHooks(
     selectedIntegrations = integration;
   }
 
+  // Policies that require the Stop event — some CLIs don't support it.
+  const STOP_EVENT_POLICIES = [
+    "require-commit-before-stop",
+    "require-push-before-stop",
+    "require-pr-before-stop",
+    "require-ci-green-before-stop",
+  ];
+
   for (const integId of selectedIntegrations) {
     const integ = getIntegration(integId as IntegrationType);
-    
+
+    // Warn when Stop-event policies are installed for CLIs that don't support Stop.
+    const missingStop = selectedPolicies.filter(
+      (p) => STOP_EVENT_POLICIES.includes(p) && !integ.eventTypes.includes("stop" as any) && !integ.eventTypes.includes("Stop" as any) && !integ.eventTypes.some((e) => e.toLowerCase().includes("stop") || e === "AfterAgent"),
+    );
+    if (missingStop.length > 0) {
+      hookLogWarn(`${integ.displayName} does not support a Stop event — the following policies will never fire: ${missingStop.join(", ")}`);
+      console.warn(`\x1B[33mWarning: ${integ.displayName} does not support a Stop event. These policies will never fire: ${missingStop.join(", ")}\x1B[0m`);
+    }
+
     try {
       assertSupportedScope(integ, scope);
     } catch (err) {
@@ -486,32 +504,24 @@ export async function listHooks(
       }
     }
   } else {
-    const COL = 9;
-    const formatScopeName = (s: string) => `${s[0].toUpperCase()}${s.slice(1)}`;
     console.log(`\nFailproof AI Hook Policies (${integ.displayName})\n`);
+    console.log(`  ${"Status".padEnd(8)}${"Name".padEnd(nameColWidth)}Description`);
+    console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
 
-    let header = "  ";
-    for (const s of installedScopes) header += formatScopeName(s).padEnd(COL);
-    header += "Name".padEnd(nameColWidth) + "Description";
-    console.log(header);
-    console.log(`  ${"\u2500".repeat(installedScopes.length * COL)}${"\u2500".repeat(nameColWidth)}${"\u2500".repeat(38)}`);
-
-    const printRow = (p: { name: string; description: string }) => {
-      let row = "  ";
-      const enabled = enabledSet.has(p.name);
-      for (const _s of installedScopes) {
-        row += enabled ? `\x1B[32m\u2713 ON\x1B[0m`.padEnd(COL + 9) : `  OFF`.padEnd(COL);
-      }
-      row += p.name.padEnd(nameColWidth) + p.description;
-      console.log(row);
-      printParamsSummary(p.name, " ".repeat(2 + installedScopes.length * COL));
-    };
-
-    for (const p of regularPolicies) printRow(p);
+    for (const p of regularPolicies) {
+      const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
+      console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}`);
+      printParamsSummary(p.name, "          ");
+    }
     if (betaPolicies.length > 0) {
       console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
-      for (const p of betaPolicies) printRow(p);
+      for (const p of betaPolicies) {
+        const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
+        console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}`);
+        printParamsSummary(p.name, "          ");
+      }
     }
+    console.log(`\n  Hooks active in scopes: ${installedScopes.join(", ")}`);
   }
 
   // Config path hint
