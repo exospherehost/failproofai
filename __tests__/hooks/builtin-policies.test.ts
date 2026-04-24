@@ -2040,7 +2040,7 @@ describe("hooks/builtin-policies", () => {
 
       const pushPolicy = withParams.find((p) => p.name === "require-push-before-stop")!;
       expect(pushPolicy.params!.remote).toBeDefined();
-      expect(pushPolicy.params!.remote.default).toBe("origin");
+      expect(pushPolicy.params!.remote.default).toBe("");
       expect(pushPolicy.params!.baseBranch).toBeDefined();
       expect(pushPolicy.params!.baseBranch.default).toBe("main");
 

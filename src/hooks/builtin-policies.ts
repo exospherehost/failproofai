@@ -1779,8 +1779,8 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     params: {
       remote: {
         type: "string",
-        description: "Remote name to push to (default: origin)",
-        default: "origin",
+        description: "Remote name to push to (auto-detected from branch tracking config, falls back to origin)",
+        default: "",
       },
       baseBranch: {
         type: "string",

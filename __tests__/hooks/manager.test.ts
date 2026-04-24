@@ -1014,8 +1014,8 @@ describe("hooks/manager", () => {
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       const output = calls.join("\n");
 
-      // Scope name in title, not in columns
-      expect(output).toContain("(user)");
+      // Header present, no CLI-specific name
+      expect(output).toContain("Failproof AI Hook Policies");
       // Checkmark for enabled policy
       expect(output).toContain("\u2713");
       // Should NOT contain scope column headers
@@ -1126,7 +1126,7 @@ describe("hooks/manager", () => {
       const calls = vi.mocked(console.log).mock.calls.map((c) => c[0]);
       const output = calls.join("\n");
       // Should detect hooks in the project scope via the custom directory
-      expect(output).toContain("(project)");
+      expect(output).toContain("Failproof AI Hook Policies");
     });
 
     it("does not show multi-scope warning when cwd is home directory", async () => {
@@ -1160,7 +1160,7 @@ describe("hooks/manager", () => {
       const output = calls.join("\n");
 
       // Should show single-scope layout, not multi-scope warning
-      expect(output).toContain("(user)");
+      expect(output).toContain("Failproof AI Hook Policies");
       expect(output).not.toContain("multiple scopes");
     });
 

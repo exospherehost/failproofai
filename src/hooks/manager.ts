@@ -485,8 +485,7 @@ export async function listHooks(
     }
     console.log(`\n  Run \`failproofai policies --install --cli ${integration}\` to activate hooks for ${integ.displayName}.`);
   } else if (installedScopes.length === 1) {
-    const scope = installedScopes[0];
-    console.log(`\nFailproof AI Hook Policies (${scope})\n`);
+    console.log(`\nFailproof AI Hook Policies\n`);
     console.log(`  ${"Status".padEnd(8)}${"Name".padEnd(nameColWidth)}Description`);
     console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
 
@@ -504,7 +503,7 @@ export async function listHooks(
       }
     }
   } else {
-    console.log(`\nFailproof AI Hook Policies (${integ.displayName})\n`);
+    console.log(`\nFailproof AI Hook Policies\n`);
     console.log(`  ${"Status".padEnd(8)}${"Name".padEnd(nameColWidth)}Description`);
     console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
 
