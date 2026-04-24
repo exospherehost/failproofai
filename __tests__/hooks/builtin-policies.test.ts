@@ -525,6 +525,16 @@ describe("hooks/builtin-policies", () => {
       });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
+
+    it("match.toolNames includes run_shell_command and sh (Gemini bypass fix)", () => {
+      expect(policy.match.toolNames).toContain("run_shell_command");
+      expect(policy.match.toolNames).toContain("sh");
+    });
+
+    it("blocks sudo via run_shell_command tool name (real Gemini CLI format)", async () => {
+      const ctx = makeCtx({ toolName: "run_shell_command", toolInput: { command: "sudo apt-get install vim" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
   });
 
   describe("block-curl-pipe-sh", () => {

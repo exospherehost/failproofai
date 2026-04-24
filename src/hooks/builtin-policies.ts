@@ -1159,10 +1159,19 @@ function requirePushBeforeStop(ctx: PolicyContext): PolicyResult {
 
     if (!remotes) return allow("No git remote configured, skipping push check.");
 
-    const remote = (ctx.params?.remote as string) ?? "origin";
-
     const branch = getCurrentBranch(cwd);
     if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping push check.");
+
+    // Resolve remote: explicit param > branch tracking remote > "origin"
+    let remote = (ctx.params?.remote as string) ?? "";
+    if (!remote) {
+      try {
+        remote = execFileSync("git", ["config", `branch.${branch}.remote`], {
+          cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 3000,
+        }).trim();
+      } catch { /* no tracking remote configured */ }
+    }
+    if (!remote) remote = "origin";
 
     const baseBranch = (ctx.params?.baseBranch as string) ?? "main";
 
@@ -1523,7 +1532,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-read-outside-cwd",
     description: "Block file reads outside the session working directory",
     fn: blockReadOutsideCwd,
-    match: { events: ["PreToolUse"], toolNames: ["Read", "Glob", "Grep", "Bash", "run_terminal_command", "Terminal", "Shell", "bash", "ReadFile"] },
+    match: { events: ["PreToolUse"], toolNames: ["Read", "Glob", "Grep", "ReadFile", ...SHELL_TOOL_NAMES] },
     defaultEnabled: false,
     category: "Environment",
     params: {
@@ -1538,7 +1547,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     name: "block-sudo",
     description: "Block sudo commands",
     fn: blockSudo,
-    match: { events: ["PreToolUse"], toolNames: ["Bash", "run_terminal_command", "Terminal", "Shell", "bash", "bash_login_shell"] },
+    match: { events: ["PreToolUse"], toolNames: SHELL_TOOL_NAMES },
     defaultEnabled: true,
     category: "Dangerous Commands",
     params: {

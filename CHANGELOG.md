@@ -6,6 +6,7 @@
 - Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
 
 ### Fixes
+- Fix `block-sudo` and `block-read-outside-cwd` bypassed on Gemini when tool name is `run_shell_command` or `sh` — both policies now use `SHELL_TOOL_NAMES` so all shell tool variants are covered
 - Fix cross-CLI dedup collision: integration type is now always the first component of both the firing-lock hash and the dedup key, so Cursor and Claude Code firing the same event concurrently no longer drop each other's entries
 - Fix session ID env-var bleed: fallbacks (`CURSOR_SESSION_ID`, `COPILOT_SESSION_ID`, etc.) are now scoped to the matching integration only
 - Fix Silence Guard to also fire after payload parse, preventing Gemini/Copilot-unique events from being processed as claude-code events when `--cli` is not passed
