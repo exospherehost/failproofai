@@ -1080,8 +1080,28 @@ describe("hooks/builtin-policies", () => {
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
 
-    it("allows non-Bash tools", async () => {
+    it("allows non-Bash tools (no file_path)", async () => {
       const ctx = makeCtx({ toolName: "Read", toolInput: { command: "failproofai --remove-policies" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("blocks Read of policies-config.json via file_path", async () => {
+      const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/project/.failproofai/policies-config.json" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks ReadFile of policies-config.local.json via file_path", async () => {
+      const ctx = makeCtx({ toolName: "ReadFile", toolInput: { file_path: "/project/.failproofai/policies-config.local.json" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks cat .failproofai/policies-config.json via Bash", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "cat .failproofai/policies-config.json" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows Read of unrelated files", async () => {
+      const ctx = makeCtx({ toolName: "Read", toolInput: { file_path: "/project/src/index.ts" } });
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
   });

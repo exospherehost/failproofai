@@ -228,6 +228,7 @@ const GIT_COMMIT_MERGE_RE = /git\s+(?:commit|merge|rebase|cherry-pick)\b/;
 // blockFailproofaiCommands
 const FAILPROOFAI_CLI_RE = /(?:^|;|&&|\|\||\|)\s*failproofai(?:\s|$)/;
 const FAILPROOFAI_UNINSTALL_RE = /(?:npm\s+(?:uninstall|remove|un|r)\s.*failproofai|bun\s+remove\s.*failproofai|yarn\s+global\s+remove\s+failproofai|pnpm\s+(?:remove|uninstall|un)\s.*failproofai)/;
+const FAILPROOFAI_CONFIG_RE = /\.failproofai[/\\]policies-config(?:\.local)?\.json/i;
 
 // warnGitAmend
 const GIT_AMEND_RE = /\bgit\s+commit\b.*--amend\b/;
@@ -905,8 +906,19 @@ function blockWorkOnMain(ctx: PolicyContext): PolicyResult {
 }
 
 function blockFailproofaiCommands(ctx: PolicyContext): PolicyResult {
+  // Block file-tool reads of the policy config — prevents agents from scouting active policies
+  const filePath = getFilePath(ctx);
+  if (filePath && FAILPROOFAI_CONFIG_RE.test(filePath)) {
+    return deny("Reading FailproofAI security configuration is prohibited by active policy.");
+  }
+
   if (!isBashTool(ctx.toolName)) return allow();
   const cmd = getCommand(ctx);
+
+  // Block shell commands referencing the policy config file
+  if (FAILPROOFAI_CONFIG_RE.test(cmd)) {
+    return deny("Reading FailproofAI security configuration is prohibited by active policy.");
+  }
 
   // Block direct failproofai CLI invocations
   if (FAILPROOFAI_CLI_RE.test(cmd)) {
@@ -1583,9 +1595,9 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
   },
   {
     name: "block-failproofai-commands",
-    description: "Block failproofai CLI commands and uninstallation",
+    description: "Block failproofai CLI commands, uninstallation, and reading the policy config",
     fn: blockFailproofaiCommands,
-    match: { events: ["PreToolUse"], toolNames: SHELL_TOOL_NAMES },
+    match: { events: ["PreToolUse"] },
     defaultEnabled: true,
     category: "Dangerous Commands",
   },
