@@ -51,9 +51,9 @@ describe("E2E: Gemini Integration", () => {
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim());
     expect(parsed.decision).toBe("deny");
-    expect(parsed.systemMessage).toBeUndefined();
-    expect(parsed.reason).toContain("FailproofAI is blocking this action (policy:");
-    expect(parsed.reason).not.toContain("Complete the required action");
+    expect(parsed.systemMessage).toContain("Action prohibited by FailproofAI");
+    expect(parsed.reason).toBe(parsed.systemMessage);
+    expect(parsed.reason).toContain("policy: block-sudo");
     expect(stderr).toContain("MANDATORY ACTION REQUIRED");
     expect(stderr).toContain("sudo");
   });
@@ -70,8 +70,39 @@ describe("E2E: Gemini Integration", () => {
       cwd: PROJECT_DIR,
       env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true" }
     }).toString();
-    
+
     expect(JSON.parse(output.trim())).toEqual({ decision: "allow" });
+  });
+
+  it("denies sudo from stringified Gemini toolArgs payloads", () => {
+    execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli gemini --scope project`, {
+      cwd: PROJECT_DIR,
+      env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd() }
+    });
+
+    const payload = {
+      session_id: "test-session-gemini-json-001",
+      cwd: PROJECT_DIR,
+      hook_event_name: "BeforeTool",
+      toolName: "Shell",
+      toolArgs: "{\"command\":\"sudo apt-get update\",\"cwd\":\"" + PROJECT_DIR.replace(/\\/g, "\\\\") + "\"}",
+    };
+
+    const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--cli", "gemini"], {
+      input: JSON.stringify(payload),
+      cwd: PROJECT_DIR,
+      env: { ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true" },
+      encoding: "utf8"
+    });
+
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.decision).toBe("deny");
+    expect(parsed.systemMessage).toContain("Action prohibited by FailproofAI");
+    expect(parsed.reason).toBe(parsed.systemMessage);
+    expect(parsed.reason).toContain("policy: block-sudo");
+    expect(stderr).toContain("MANDATORY ACTION REQUIRED");
+    expect(stderr).toContain("sudo");
   });
 
   it("blocks env on Gemini Shell tool name via BeforeTool", () => {
@@ -98,8 +129,9 @@ describe("E2E: Gemini Integration", () => {
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim());
     expect(parsed.decision).toBe("deny");
-    expect(parsed.systemMessage).toBeUndefined();
-    expect(parsed.reason).toContain("FailproofAI is blocking this action (policy: protect-env-vars)");
+    expect(parsed.systemMessage).toContain("Action prohibited by FailproofAI");
+    expect(parsed.reason).toBe(parsed.systemMessage);
+    expect(parsed.reason).toContain("policy: protect-env-vars");
     expect(stderr).toContain("MANDATORY ACTION REQUIRED");
     expect(stderr).toContain("environment variables");
   });

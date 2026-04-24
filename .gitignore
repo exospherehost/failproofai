@@ -46,6 +46,9 @@ next-env.d.ts
 # cursor
 .cursor
 
+# codex
+.codex
+
 # custom hooks loader temp files
 *.__failproofai_tmp__.*
 
