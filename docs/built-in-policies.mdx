@@ -22,7 +22,7 @@ Policies are grouped into categories:
 | [Database](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [Warnings](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
 | [Package managers](#package-managers) | prefer-package-manager | PreToolUse |
-| [Workflow](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-ci-green-before-stop | Stop |
+| [Workflow](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-no-conflicts-before-stop, require-ci-green-before-stop | Stop |
 
 - **`block-`** — stop the agent from proceeding.
 - **`warn-`** — give the agent additional context so it can self-correct.
@@ -537,6 +537,30 @@ No parameters.
 This policy requires [GitHub CLI](https://cli.github.com/) (`gh`) to be installed and authenticated.
 Run `gh auth login` with a personal access token that has `repo` scope for read access to
 pull requests. If `gh` is not installed or not authenticated, the policy fails open and reports the reason to Claude.
+</Note>
+
+---
+
+### `require-no-conflicts-before-stop`
+
+**Event:** Stop  
+**Default:** Denies stopping when the current branch cannot cleanly merge into the base branch. Runs two independent probes:
+
+1. **Local** — `git merge-tree --write-tree --name-only origin/<baseBranch> HEAD`. On conflict, the deny message names the conflicted files so Claude knows exactly what to resolve.
+2. **GitHub** — `gh pr view --json mergeable`. Catches conflicts that a stale local `origin/<baseBranch>` would miss (e.g. someone landed a conflicting PR on `main` since the last fetch). A `CONFLICTING` result denies. An `UNKNOWN` result (GitHub still computing) also denies and instructs Claude to wait ~10 seconds and re-check before attempting to stop again — this prevents false negatives while GitHub recomputes.
+
+Fails open when `origin/<baseBranch>` is missing locally, when no commits are ahead of base, when `gh` is not installed, or when no PR exists for the branch.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `baseBranch` | `string` | `"main"` | Base branch to check for conflicts against. |
+
+<Note>
+GitHub CLI (`gh`) is optional but recommended for this policy — it provides the second
+detection layer that catches conflicts a stale local `origin/<baseBranch>` would miss.
+Without `gh`, only the local `git merge-tree` check runs.
 </Note>
 
 ---

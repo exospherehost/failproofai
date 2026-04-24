@@ -1185,6 +1185,108 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
   }
 }
 
+function requireNoConflictsBeforeStop(ctx: PolicyContext): PolicyResult {
+  const cwd = ctx.session?.cwd;
+  if (!cwd) return allow("No working directory available, skipping conflict check.");
+
+  const branch = getCurrentBranch(cwd);
+  if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping conflict check.");
+
+  const baseBranch = (ctx.params?.baseBranch as string) ?? "main";
+  if (branch === baseBranch) {
+    return allow(`On base branch "${baseBranch}", skipping conflict check.`);
+  }
+
+  // -- Layer 1: local git merge-tree --
+  let localSkipped = false;
+  try {
+    execFileSync("git", ["rev-parse", "--verify", `origin/${baseBranch}`], {
+      cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 3000,
+    });
+
+    const ahead = execFileSync(
+      "git", ["log", `origin/${baseBranch}..HEAD`, "--oneline"],
+      { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
+    ).trim();
+
+    if (!ahead) {
+      // Nothing ahead of base — Layer 1 doesn't apply, fall through to Layer 2.
+      localSkipped = true;
+    } else {
+      execFileSync(
+        "git",
+        ["merge-tree", "--write-tree", "--name-only", `origin/${baseBranch}`, "HEAD"],
+        { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 10000 },
+      );
+      // exit 0 → clean merge, fall through to Layer 2
+    }
+  } catch (err) {
+    const e = err as { status?: number; stdout?: string | Buffer };
+    if (e.status === 1) {
+      // git merge-tree exit 1 = conflicts. stdout: <tree>\n<file>\n<file>\n\n<messages>
+      const out = (typeof e.stdout === "string" ? e.stdout : e.stdout?.toString("utf8") ?? "").trim();
+      const lines = out.split("\n");
+      const files: string[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (line === "") break;
+        files.push(line);
+      }
+      const fileList = files.length ? files.join(", ") : "one or more files";
+      return deny(
+        `Branch "${branch}" has merge conflicts with ${baseBranch} in: ${fileList}. ` +
+        `Rebase or merge origin/${baseBranch} now and resolve the conflicts.`,
+      );
+    }
+    localSkipped = true;
+  }
+
+  // -- Layer 2: GitHub PR mergeability --
+  try {
+    execSync("gh --version", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 3000 });
+  } catch {
+    return allow(
+      localSkipped
+        ? "Local conflict check skipped and gh CLI not installed, skipping conflict check."
+        : `Branch "${branch}" merges cleanly with ${baseBranch} locally (gh CLI not installed, PR mergeability not verified).`,
+    );
+  }
+
+  let prJson: string;
+  try {
+    prJson = execSync("gh pr view --json mergeable,number,url", {
+      cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 15000,
+    }).trim();
+  } catch {
+    return allow(
+      localSkipped
+        ? "No pull request found for branch, skipping conflict check."
+        : `Branch "${branch}" merges cleanly with ${baseBranch} locally (no PR to verify against).`,
+    );
+  }
+
+  let pr: { mergeable: string; number: number; url: string };
+  try {
+    pr = JSON.parse(prJson);
+  } catch {
+    return allow("Could not parse gh pr view output, skipping PR mergeability check.");
+  }
+
+  if (pr.mergeable === "CONFLICTING") {
+    return deny(
+      `PR #${pr.number} has merge conflicts per GitHub (${pr.url}). ` +
+      `Rebase or merge origin/${baseBranch} now and resolve the conflicts.`,
+    );
+  }
+  if (pr.mergeable === "UNKNOWN") {
+    return deny(
+      `GitHub is still computing mergeability for PR #${pr.number} (${pr.url}). ` +
+      `Wait ~10 seconds, then re-check with \`gh pr view --json mergeable\` before attempting to stop again.`,
+    );
+  }
+  return allow(`PR #${pr.number} merges cleanly per GitHub.`);
+}
+
 function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
   const cwd = ctx.session?.cwd;
   if (!cwd) return allow("No working directory available, skipping CI check.");
@@ -1586,6 +1688,21 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
       baseBranch: {
         type: "string",
         description: "Base branch to compare against (default: main)",
+        default: "main",
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "require-no-conflicts-before-stop",
+    description: "Require the current branch to merge cleanly with the base branch before Claude stops",
+    fn: requireNoConflictsBeforeStop,
+    match: { events: ["Stop"] },
+    defaultEnabled: false,
+    category: "Workflow",
+    params: {
+      baseBranch: {
+        type: "string",
+        description: "Base branch to check for conflicts against (default: main)",
         default: "main",
       },
     } satisfies PolicyParamsSchema,
