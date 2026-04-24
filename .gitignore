@@ -70,3 +70,6 @@ packages/*/assets/
 
 # closed-source platform (cloned separately)
 /platform
+
+# scratch / planning files
+HOOKS_MINDMAP.md
