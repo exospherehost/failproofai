@@ -70,30 +70,30 @@
     "access": "public"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.18",
-    "@tanstack/react-virtual": "^3.13.18",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@tanstack/react-virtual": "^3.13.24",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^25.5.2",
-    "@types/react": "^19.2.13",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "clsx": "^2.1.1",
-    "eslint": "^10.2.0",
-    "eslint-config-next": "^16.2.2",
-    "happy-dom": "^20.7.0",
-    "lucide-react": "^1.0.1",
-    "next": "^16.2.2",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "tailwind-merge": "^3.4.0",
-    "tailwindcss": "^4.1.18",
-    "typescript": "^6.0.2",
-    "@anthropic-ai/sdk": "^0.90.0",
-    "vitest": "^4.0.18"
+    "eslint": "^10.2.1",
+    "eslint-config-next": "^16.2.4",
+    "happy-dom": "^20.9.0",
+    "lucide-react": "^1.11.0",
+    "next": "^16.2.4",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^6.0.3",
+    "@anthropic-ai/sdk": "^0.91.1",
+    "vitest": "^4.1.5"
   },
   "dependencies": {
-    "posthog-node": "^5.28.11"
+    "posthog-node": "^5.30.4"
   }
 }
