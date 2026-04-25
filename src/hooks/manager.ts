@@ -17,7 +17,7 @@ import {
   writeScopedHooksConfig,
   getConfigPathForScope,
 } from "./hooks-config";
-import type { HooksConfig } from "./policy-types";
+import type { HooksConfig, CliPoliciesOverride } from "./policy-types";
 import { BUILTIN_POLICIES } from "./builtin-policies";
 import { loadCustomHooks, discoverPolicyFiles } from "./custom-hooks-loader";
 import { trackHookEvent } from "./hook-telemetry";
@@ -245,7 +245,10 @@ export async function installHooks(
 
     // Warn when Stop-event policies are installed for CLIs that don't support Stop.
     const missingStop = selectedPolicies.filter(
-      (p) => STOP_EVENT_POLICIES.includes(p) && !integ.eventTypes.includes("stop" as any) && !integ.eventTypes.includes("Stop" as any) && !integ.eventTypes.some((e) => e.toLowerCase().includes("stop") || e === "AfterAgent"),
+      (p) => STOP_EVENT_POLICIES.includes(p) && 
+             !integ.eventTypes.includes("stop" as any) && 
+             !integ.eventTypes.includes("Stop" as any) && 
+             !integ.eventTypes.some((e) => e.toLowerCase().includes("stop") || e === "AfterAgent" || e === "session.idle"),
     );
     if (missingStop.length > 0) {
       hookLogWarn(`${integ.displayName} does not support a Stop event — the following policies will never fire: ${missingStop.join(", ")}`);
@@ -291,6 +294,9 @@ export async function installHooks(
     } catch { /* best effort */ }
 
     console.log(`\nFailproof AI hooks installed for all ${integ.eventTypes.length} event types (${integ.displayName}, scope: ${scope}).`);
+    if (selectedIntegrations.length === 1) {
+      console.log(`Note: Policies are enabled globally (apply to all CLIs). Hooks wired to ${integ.displayName} only.`);
+    }
     console.log(`Settings: ${settingsPath}`);
     // claude-code and copilot project-scope hooks use npx — no machine-specific paths.
     // Other integrations embed absolute binary paths even in project scope.
@@ -322,17 +328,23 @@ export async function removeHooks(
   policyNames?: string[],
   scope: HookScope | "repo" | "all" = "user",
   cwd?: string,
-  opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean; integration?: IntegrationType | IntegrationType[] },
+  opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean; integration?: IntegrationType | IntegrationType[]; cliExplicit?: boolean },
   integration: IntegrationType | IntegrationType[] = "claude-code",
 ): Promise<void> {
   const integrations = opts?.integration ?? integration;
   const arr = Array.isArray(integrations) ? integrations : [integrations];
 
-  // Clear custom hooks path if requested
+  // Clear custom hooks path if requested (global + all per-CLI entries)
   const configScope: HookScope = scope === "all" ? "user" : (scope as HookScope);
   if (opts?.removeCustomHooks) {
     const config = readScopedHooksConfig(configScope, cwd);
     delete config.customPoliciesPath;
+    // Also clear per-CLI customPoliciesPath entries
+    if (config.cli) {
+      for (const cliOvr of Object.values(config.cli)) {
+        if (cliOvr) delete cliOvr.customPoliciesPath;
+      }
+    }
     writeScopedHooksConfig(config, configScope, cwd);
     console.log("Custom hooks path cleared.");
   }
@@ -344,6 +356,80 @@ export async function removeHooks(
     if (policyNames && policyNames.length > 0 && !(policyNames.length === 1 && policyNames[0] === "all")) {
       validatePolicyNames(policyNames);
       const config = readScopedHooksConfig(configScope, cwd);
+
+      // Per-CLI scoped removal: --cli was explicitly provided by the user
+      if (opts?.cliExplicit) {
+        const cliOverride: CliPoliciesOverride = { ...(config.cli?.[integId] ?? {}) };
+        const globalEnabled = new Set(config.enabledPolicies);
+        const notEnabled: string[] = [];
+
+        for (const policyName of policyNames) {
+          const inCliEnabled = (cliOverride.enabledPolicies ?? []).includes(policyName);
+          const inGlobal = globalEnabled.has(policyName);
+
+          if (inCliEnabled) {
+            // Was a CLI-specific addition — remove it from there
+            cliOverride.enabledPolicies = (cliOverride.enabledPolicies ?? []).filter((p) => p !== policyName);
+          } else if (inGlobal) {
+            // In global — suppress for this CLI only, leave global unchanged
+            const alreadySuppressed = (cliOverride.disabledPolicies ?? []).includes(policyName);
+            if (!alreadySuppressed) {
+              cliOverride.disabledPolicies = [...(cliOverride.disabledPolicies ?? []), policyName];
+            }
+          } else {
+            notEnabled.push(policyName);
+          }
+        }
+
+        if (notEnabled.length > 0) {
+          console.log(`Warning: policy(ies) not enabled globally or for ${integ.displayName}: ${notEnabled.join(", ")}`);
+        }
+
+        // Clean up empty arrays
+        if (cliOverride.enabledPolicies?.length === 0) delete cliOverride.enabledPolicies;
+        if (cliOverride.disabledPolicies?.length === 0) delete cliOverride.disabledPolicies;
+
+        // Build updated cli map
+        const updatedCli: Partial<Record<IntegrationType, CliPoliciesOverride>> = {
+          ...(config.cli ?? {}),
+          [integId]: cliOverride,
+        };
+        // Remove empty CLI entry
+        if (!Object.keys(cliOverride).length) delete updatedCli[integId];
+
+        const updatedConfig: HooksConfig = {
+          ...config,
+          ...(Object.keys(updatedCli).length > 0 ? { cli: updatedCli } : { cli: undefined }),
+        };
+
+        writeScopedHooksConfig(updatedConfig, configScope, cwd);
+
+        // Telemetry
+        try {
+          const distinctId = getInstanceId();
+          const actuallyDisabled = policyNames.filter((p) => !notEnabled.includes(p));
+          await trackHookEvent(distinctId, "hooks_removed", {
+            scope,
+            integration: integ.id,
+            removal_mode: "cli-scoped",
+            beta_only: false,
+            policies_removed: actuallyDisabled,
+            removed_count: actuallyDisabled.length,
+            ...(opts?.source ? { source: opts.source } : {}),
+            platform: platform(),
+            arch: arch(),
+            os_release: release(),
+            hostname_hash: hashToId(hostname()),
+          });
+        } catch { /* best effort */ }
+
+        const actualCount = policyNames.length - notEnabled.length;
+        console.log(`Disabled ${actualCount} policy(ies) for ${integ.displayName}. Other CLIs unaffected.`);
+        console.log(`Global list unchanged: ${config.enabledPolicies.length > 0 ? config.enabledPolicies.join(", ") : "(none)"}`);
+        continue;
+      }
+
+      // Global removal path (no --cli flag)
       const removeSet = new Set(policyNames);
       const remaining = config.enabledPolicies.filter((p) => !removeSet.has(p));
       const notEnabled = policyNames.filter((p) => !config.enabledPolicies.includes(p));
@@ -435,12 +521,12 @@ export async function removeHooks(
       for (const s of integ.scopes) {
         if (s === "repo") continue;
         const existing = readScopedHooksConfig(s as HookScope, cwd);
-        if (existing.enabledPolicies.length > 0) {
-          writeScopedHooksConfig({ ...existing, enabledPolicies: [] }, s as HookScope, cwd);
+        if (existing.enabledPolicies.length > 0 || existing.cli) {
+          writeScopedHooksConfig({ ...existing, enabledPolicies: [], cli: undefined }, s as HookScope, cwd);
         }
       }
     } else if (!integ.scopes.some((s) => integ.hooksInstalledInSettings(s as any, cwd))) {
-      writeScopedHooksConfig({ ...configBeforeRemoval, enabledPolicies: [] }, configScope, cwd);
+      writeScopedHooksConfig({ ...configBeforeRemoval, enabledPolicies: [], cli: undefined }, configScope, cwd);
     }
   }
 }
@@ -450,7 +536,7 @@ export async function listHooks(
   integration: IntegrationType = "claude-code",
 ): Promise<void> {
   const integ = getIntegration(integration);
-  // Multi-scope config is merged for listing
+  // Multi-scope config is merged for listing (no CLI filter \u2014 show global view)
   const config = readMergedHooksConfig(cwd);
   const enabledSet = new Set(config.enabledPolicies);
 
@@ -463,12 +549,47 @@ export async function listHooks(
   const nameColWidth = Math.max(...BUILTIN_POLICIES.map((p) => p.name.length)) + 2;
   const builtinPolicyNames = new Set(BUILTIN_POLICIES.map((p) => p.name));
 
+  // Build per-CLI annotation map from all three scoped configs
+  const cliAnnotations = new Map<string, { disabled: string[]; enabledOnly: string[] }>();
+  for (const scopeConfig of [
+    readScopedHooksConfig("project", cwd),
+    readScopedHooksConfig("local", cwd),
+    readScopedHooksConfig("user", cwd),
+  ]) {
+    for (const [cliId, cliOvr] of Object.entries(scopeConfig.cli ?? {})) {
+      for (const p of cliOvr.disabledPolicies ?? []) {
+        const entry = cliAnnotations.get(p) ?? { disabled: [], enabledOnly: [] };
+        if (!entry.disabled.includes(cliId)) entry.disabled.push(cliId);
+        cliAnnotations.set(p, entry);
+      }
+      for (const p of cliOvr.enabledPolicies ?? []) {
+        if (!enabledSet.has(p)) {
+          const entry = cliAnnotations.get(p) ?? { disabled: [], enabledOnly: [] };
+          if (!entry.enabledOnly.includes(cliId)) entry.enabledOnly.push(cliId);
+          cliAnnotations.set(p, entry);
+        }
+      }
+    }
+  }
+
+  const getCliSuffix = (policyName: string): string => {
+    const ann = cliAnnotations.get(policyName);
+    if (ann?.disabled.length) return `  \x1B[2m[disabled for: ${ann.disabled.join(", ")}]\x1B[0m`;
+    if (ann?.enabledOnly.length) return `  \x1B[2m[enabled for: ${ann.enabledOnly.join(", ")} only]\x1B[0m`;
+    return "";
+  };
+
   const printParamsSummary = (policyName: string, indent: string) => {
     const params = config.policyParams?.[policyName];
     if (!params) return;
     for (const [key, val] of Object.entries(params)) {
       console.log(`${indent}  ${key}: ${JSON.stringify(val)}`);
     }
+  };
+
+  const printPolicyLine = (p: { name: string; description: string }, mark: string) => {
+    console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}${getCliSuffix(p.name)}`);
+    printParamsSummary(p.name, "          ");
   };
 
   const statusCol = installedScopes.length > 1 ? installedScopes.length * 9 : 8;
@@ -479,16 +600,14 @@ export async function listHooks(
 
     for (const p of regularPolicies) {
       const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-      console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}`);
-      printParamsSummary(p.name, "          ");
+      printPolicyLine(p, mark);
     }
 
     if (betaPolicies.length > 0) {
       console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
       for (const p of betaPolicies) {
         const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-        console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}`);
-        printParamsSummary(p.name, "          ");
+        printPolicyLine(p, mark);
       }
     }
     console.log(`\n  Run \`failproofai policies --install --cli ${integration}\` to activate hooks for ${integ.displayName}.`);
@@ -499,15 +618,13 @@ export async function listHooks(
 
     for (const p of regularPolicies) {
       const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-      console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}`);
-      printParamsSummary(p.name, "          ");
+      printPolicyLine(p, mark);
     }
     if (betaPolicies.length > 0) {
       console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
       for (const p of betaPolicies) {
         const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-        console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}`);
-        printParamsSummary(p.name, "          ");
+        printPolicyLine(p, mark);
       }
     }
   } else {
@@ -517,15 +634,13 @@ export async function listHooks(
 
     for (const p of regularPolicies) {
       const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-      console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}`);
-      printParamsSummary(p.name, "          ");
+      printPolicyLine(p, mark);
     }
     if (betaPolicies.length > 0) {
       console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
       for (const p of betaPolicies) {
         const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-        console.log(`  ${mark}${" ".repeat(7)}${p.name.padEnd(nameColWidth)}${p.description}`);
-        printParamsSummary(p.name, "          ");
+        printPolicyLine(p, mark);
       }
     }
     console.log(`\n  Hooks active in scopes: ${installedScopes.join(", ")}`);

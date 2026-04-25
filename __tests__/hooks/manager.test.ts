@@ -16,10 +16,17 @@ vi.mock("node:child_process", () => ({
   execSync: vi.fn(),
 }));
 
-// resolveFailproofaiBinary() uses FAILPROOFAI_DIST_PATH or relative paths
 // Set a dist path so it finds a predictable binary path
 const MOCK_DIST_PATH = "/mock/dist";
 const MOCK_BINARY_PATH = "/mock/dist/bin/failproofai.mjs";
+
+vi.mock("../../src/hooks/integrations", async () => {
+  const actual = await vi.importActual("../../src/hooks/integrations") as any;
+  return {
+    ...actual,
+    getIntegration: vi.fn(actual.getIntegration),
+  };
+});
 
 vi.mock("../../src/hooks/install-prompt", () => ({
   promptPolicySelection: vi.fn(() =>
@@ -569,10 +576,27 @@ describe("hooks/manager", () => {
       }
     });
 
-    it("warns when Stop-event policy installed for opencode (no Stop event support)", async () => {
+    it("warns when Stop-event policy installed for an integration with no Stop event support", async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("{}");
       vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      // Mock getIntegration to return an integration with NO stop events
+      const { getIntegration } = await import("../../src/hooks/integrations");
+      vi.mocked(getIntegration).mockReturnValue({
+        id: "no-stop-cli",
+        displayName: "NoStopCLI",
+        eventTypes: ["PreToolUse", "PostToolUse"],
+        scopes: ["user"],
+        getSettingsPath: () => "/tmp/settings.json",
+        readSettings: () => ({}),
+        writeSettings: () => {},
+        buildHookEntry: () => ({}),
+        hooksInstalledInSettings: () => false,
+        writeHookEntries: () => {},
+        detect: () => false,
+        detectInstalled: () => true,
+      } as any);
 
       const { installHooks } = await import("../../src/hooks/manager");
       await installHooks(
@@ -583,11 +607,12 @@ describe("hooks/manager", () => {
         undefined,
         undefined,
         false,
-        ["opencode"],
+        ["no-stop-cli"],
       );
 
       const warnCalls = vi.mocked(console.warn).mock.calls.map((c) => String(c[0]));
       expect(warnCalls.some((msg) => msg.includes("Stop") && msg.includes("require-commit-before-stop"))).toBe(true);
+      expect(warnCalls.some((msg) => msg.includes("NoStopCLI"))).toBe(true);
     });
 
     it("does not warn about Stop events when installing for claude-code (Stop is supported)", async () => {
@@ -946,6 +971,278 @@ describe("hooks/manager", () => {
     });
   });
 
+  describe("removeHooks — per-CLI scoped removal (cliExplicit: true)", () => {
+    it("adds policy to cli[X].disabledPolicies when it is in global, leaving global unchanged", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo", "block-rm-rf"],
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["block-rm-rf"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini"] },
+      );
+
+      const [writtenConfig] = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      // Global enabledPolicies must be unchanged
+      expect(writtenConfig.enabledPolicies).toEqual(["block-sudo", "block-rm-rf"]);
+      // CLI-specific suppression must be added
+      expect(writtenConfig.cli?.["gemini"]?.disabledPolicies).toContain("block-rm-rf");
+    });
+
+    it("removes policy from cli[X].enabledPolicies when it was a CLI-specific addition", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo"],
+        cli: { gemini: { enabledPolicies: ["sanitize-jwt"] } },
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["sanitize-jwt"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini"] },
+      );
+
+      const [writtenConfig] = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      // Global unchanged
+      expect(writtenConfig.enabledPolicies).toEqual(["block-sudo"]);
+      // CLI-specific addition removed; no disabledPolicies added
+      expect(writtenConfig.cli?.["gemini"]?.enabledPolicies ?? []).not.toContain("sanitize-jwt");
+      expect(writtenConfig.cli?.["gemini"]?.disabledPolicies ?? []).not.toContain("sanitize-jwt");
+    });
+
+    it("warns and does not write when policy is not enabled anywhere for that CLI", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo"],
+      });
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["sanitize-jwt"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini"] },
+      );
+
+      expect(writeScopedHooksConfig).toHaveBeenCalledOnce();
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("not enabled"));
+      consoleSpy.mockRestore();
+    });
+
+    it("falls back to global removal path when cliExplicit is false", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo", "block-rm-rf"],
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["block-rm-rf"],
+        "user",
+        undefined,
+        { cliExplicit: false, integration: ["gemini"] },
+      );
+
+      const [writtenConfig] = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      // Global removal: block-rm-rf should be gone from enabledPolicies
+      expect(writtenConfig.enabledPolicies).not.toContain("block-rm-rf");
+      expect(writtenConfig.enabledPolicies).toContain("block-sudo");
+      // No cli section created
+      expect(writtenConfig.cli).toBeUndefined();
+    });
+
+    it("cleans up empty cli[X] entry after removal", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo"],
+        cli: { gemini: { enabledPolicies: ["sanitize-jwt"] } },
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["sanitize-jwt"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini"] },
+      );
+
+      const [writtenConfig] = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      // cli.gemini should be deleted since it's now empty
+      expect(writtenConfig.cli?.["gemini"]).toBeUndefined();
+    });
+
+    it("applies per-CLI suppression to each CLI in a multi-CLI array", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo", "block-rm-rf"],
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["block-rm-rf"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini", "cursor"] },
+      );
+
+      // writeScopedHooksConfig should be called once per CLI
+      expect(writeScopedHooksConfig).toHaveBeenCalledTimes(2);
+      const configs = vi.mocked(writeScopedHooksConfig).mock.calls.map((c) => c[0]);
+      // Both CLIs should have the suppression; global unchanged in each
+      for (const cfg of configs) {
+        expect(cfg.enabledPolicies).toContain("block-rm-rf");
+      }
+      // One call for gemini, one for cursor — check at least one has gemini suppression
+      const hasGeminiSuppression = configs.some(
+        (c) => c.cli?.["gemini"]?.disabledPolicies?.includes("block-rm-rf"),
+      );
+      const hasCursorSuppression = configs.some(
+        (c) => c.cli?.["cursor"]?.disabledPolicies?.includes("block-rm-rf"),
+      );
+      expect(hasGeminiSuppression).toBe(true);
+      expect(hasCursorSuppression).toBe(true);
+    });
+
+    it("is idempotent: adding to disabledPolicies skipped when policy is already there", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo", "block-rm-rf"],
+        cli: { gemini: { disabledPolicies: ["block-rm-rf"] } },
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["block-rm-rf"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini"] },
+      );
+
+      const [writtenConfig] = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      // Must not be duplicated in disabledPolicies
+      const disabled = writtenConfig.cli?.["gemini"]?.disabledPolicies ?? [];
+      expect(disabled.filter((p: string) => p === "block-rm-rf")).toHaveLength(1);
+    });
+
+    it("removing policy for gemini does not affect cursor's cli entry", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo", "block-rm-rf"],
+        cli: { cursor: { disabledPolicies: ["block-rm-rf"] } },
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["block-rm-rf"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini"] },
+      );
+
+      const [writtenConfig] = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      // Gemini suppression added
+      expect(writtenConfig.cli?.["gemini"]?.disabledPolicies).toContain("block-rm-rf");
+      // Cursor entry preserved exactly as it was
+      expect(writtenConfig.cli?.["cursor"]?.disabledPolicies).toEqual(["block-rm-rf"]);
+    });
+
+    it("policy in both cli[X].enabledPolicies and global: removes from CLI and adds to disabledPolicies", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo", "block-rm-rf"],
+        cli: { gemini: { enabledPolicies: ["block-rm-rf"] } },
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["block-rm-rf"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini"] },
+      );
+
+      const [writtenConfig] = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      // Per the code: inCliEnabled is checked first, so it's removed from enabledPolicies
+      // The global still has it; a separate run would be needed to suppress that
+      expect(writtenConfig.cli?.["gemini"]?.enabledPolicies ?? []).not.toContain("block-rm-rf");
+    });
+
+    it("multiple policies: some in global, some CLI-specific — each handled independently", async () => {
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo"],
+        cli: { gemini: { enabledPolicies: ["sanitize-jwt"] } },
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(
+        ["block-sudo", "sanitize-jwt"],
+        "user",
+        undefined,
+        { cliExplicit: true, integration: ["gemini"] },
+      );
+
+      const [writtenConfig] = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      // block-sudo is global → goes to disabledPolicies
+      expect(writtenConfig.cli?.["gemini"]?.disabledPolicies).toContain("block-sudo");
+      // sanitize-jwt is CLI-specific → removed from enabledPolicies, not in disabledPolicies
+      expect(writtenConfig.cli?.["gemini"]?.enabledPolicies ?? []).not.toContain("sanitize-jwt");
+      expect(writtenConfig.cli?.["gemini"]?.disabledPolicies ?? []).not.toContain("sanitize-jwt");
+    });
+
+    it("removeCustomHooks clears per-CLI customPoliciesPath entries in addition to global", async () => {
+      vi.mocked(existsSync).mockReturnValue(false);
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo"],
+        customPoliciesPath: "/global/policies.js",
+        cli: {
+          gemini: { customPoliciesPath: "/gemini/policies.js" },
+          cursor: { customPoliciesPath: "/cursor/policies.js" },
+        },
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      // policyNames=undefined triggers full removal path, but existsSync=false means no files touched
+      await removeHooks(undefined, "user", undefined, { removeCustomHooks: true, integration: ["claude-code"] });
+
+      // First writeScopedHooksConfig call is from the removeCustomHooks block
+      const firstWriteCall = vi.mocked(writeScopedHooksConfig).mock.calls[0];
+      const written = firstWriteCall[0] as Record<string, unknown>;
+      // Global customPoliciesPath cleared
+      expect(written.customPoliciesPath).toBeUndefined();
+      // Per-CLI customPoliciesPath cleared too
+      expect((written as Record<string, { customPoliciesPath?: string }>).cli?.["gemini"]?.customPoliciesPath).toBeUndefined();
+      expect((written as Record<string, { customPoliciesPath?: string }>).cli?.["cursor"]?.customPoliciesPath).toBeUndefined();
+    });
+
+    it("scope=all wipe clears both enabledPolicies and cli sections", async () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue("{}");
+      const { readScopedHooksConfig, writeScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+      vi.mocked(readScopedHooksConfig).mockReturnValue({
+        enabledPolicies: ["block-sudo"],
+        cli: { gemini: { disabledPolicies: ["block-sudo"] } },
+      });
+
+      const { removeHooks } = await import("../../src/hooks/manager");
+      await removeHooks(undefined, "all");
+
+      const writeCalls = vi.mocked(writeScopedHooksConfig).mock.calls;
+      for (const [written] of writeCalls) {
+        expect(written.enabledPolicies).toEqual([]);
+        expect(written.cli).toBeUndefined();
+      }
+    });
+  });
+
   describe("listHooks", () => {
     it("compact output when no hooks installed", async () => {
       const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
@@ -1258,6 +1555,150 @@ describe("hooks/manager", () => {
       const output = calls.join("\n");
       expect(output).toContain("ERR");
       expect(output).toContain("failed to load");
+    });
+
+    describe("per-CLI annotations", () => {
+      it("shows [disabled for: gemini] annotation on a policy suppressed for gemini", async () => {
+        const { readMergedHooksConfig, readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+        vi.mocked(readMergedHooksConfig).mockReturnValue({
+          enabledPolicies: ["block-sudo"],
+        });
+        vi.mocked(readScopedHooksConfig).mockImplementation((scope) => {
+          if (scope === "user") {
+            return {
+              enabledPolicies: ["block-sudo"],
+              cli: { gemini: { disabledPolicies: ["block-sudo"] } },
+            };
+          }
+          return { enabledPolicies: [] };
+        });
+        vi.mocked(existsSync).mockReturnValue(false);
+
+        const { listHooks } = await import("../../src/hooks/manager");
+        await listHooks();
+
+        const output = vi.mocked(console.log).mock.calls.map((c) => c[0]).join("\n");
+        expect(output).toMatch(/block-sudo.*disabled for: gemini/);
+      });
+
+      it("shows [disabled for: gemini, cursor] when policy suppressed for multiple CLIs", async () => {
+        const { readMergedHooksConfig, readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+        vi.mocked(readMergedHooksConfig).mockReturnValue({
+          enabledPolicies: ["block-sudo"],
+        });
+        vi.mocked(readScopedHooksConfig).mockImplementation((scope) => {
+          if (scope === "user") {
+            return {
+              enabledPolicies: ["block-sudo"],
+              cli: {
+                gemini: { disabledPolicies: ["block-sudo"] },
+                cursor: { disabledPolicies: ["block-sudo"] },
+              },
+            };
+          }
+          return { enabledPolicies: [] };
+        });
+        vi.mocked(existsSync).mockReturnValue(false);
+
+        const { listHooks } = await import("../../src/hooks/manager");
+        await listHooks();
+
+        const output = vi.mocked(console.log).mock.calls.map((c) => c[0]).join("\n");
+        expect(output).toMatch(/block-sudo.*disabled for:.*gemini.*cursor|block-sudo.*disabled for:.*cursor.*gemini/);
+      });
+
+      it("shows [enabled for: cursor only] for a CLI-only enabled policy not in global list", async () => {
+        const { readMergedHooksConfig, readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+        // sanitize-jwt is NOT in global, only added for cursor via CLI override
+        vi.mocked(readMergedHooksConfig).mockReturnValue({
+          enabledPolicies: [],
+        });
+        vi.mocked(readScopedHooksConfig).mockImplementation((scope) => {
+          if (scope === "user") {
+            return {
+              enabledPolicies: [],
+              cli: { cursor: { enabledPolicies: ["sanitize-jwt"] } },
+            };
+          }
+          return { enabledPolicies: [] };
+        });
+        vi.mocked(existsSync).mockReturnValue(false);
+
+        const { listHooks } = await import("../../src/hooks/manager");
+        await listHooks();
+
+        const output = vi.mocked(console.log).mock.calls.map((c) => c[0]).join("\n");
+        expect(output).toMatch(/sanitize-jwt.*enabled for: cursor only/);
+      });
+
+      it("shows no annotation suffix for policies with no per-CLI overrides", async () => {
+        const { readMergedHooksConfig, readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+        vi.mocked(readMergedHooksConfig).mockReturnValue({
+          enabledPolicies: ["block-sudo"],
+        });
+        vi.mocked(readScopedHooksConfig).mockReturnValue({ enabledPolicies: ["block-sudo"] });
+        vi.mocked(existsSync).mockReturnValue(false);
+
+        const { listHooks } = await import("../../src/hooks/manager");
+        await listHooks();
+
+        const output = vi.mocked(console.log).mock.calls.map((c) => c[0]).join("\n");
+        expect(output).not.toContain("disabled for:");
+        expect(output).not.toContain("enabled for:");
+      });
+
+      it("accumulates annotations from project + local + user scopes without duplication", async () => {
+        const { readMergedHooksConfig, readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+        vi.mocked(readMergedHooksConfig).mockReturnValue({
+          enabledPolicies: ["block-sudo"],
+        });
+        // Same gemini suppression appears in both project and user scopes
+        vi.mocked(readScopedHooksConfig).mockImplementation((scope) => {
+          if (scope === "project") {
+            return {
+              enabledPolicies: [],
+              cli: { gemini: { disabledPolicies: ["block-sudo"] } },
+            };
+          }
+          if (scope === "user") {
+            return {
+              enabledPolicies: ["block-sudo"],
+              cli: { gemini: { disabledPolicies: ["block-sudo"] } },
+            };
+          }
+          return { enabledPolicies: [] };
+        });
+        vi.mocked(existsSync).mockReturnValue(false);
+
+        const { listHooks } = await import("../../src/hooks/manager");
+        await listHooks();
+
+        const output = vi.mocked(console.log).mock.calls.map((c) => c[0]).join("\n");
+        // gemini should appear exactly once even though two scopes both list it
+        const matches = output.match(/disabled for:[^)]*gemini/g) ?? [];
+        const allCLIs = matches.flatMap((m) => m.split(",").map((s) => s.trim()));
+        const geminiCount = allCLIs.filter((s) => s.includes("gemini")).length;
+        expect(geminiCount).toBe(1);
+      });
+
+      it("does not crash when cli section contains customPoliciesPath entries only (no disabled/enabled lists)", async () => {
+        const { readMergedHooksConfig, readScopedHooksConfig } = await import("../../src/hooks/hooks-config");
+        vi.mocked(readMergedHooksConfig).mockReturnValue({
+          enabledPolicies: ["block-sudo"],
+        });
+        vi.mocked(readScopedHooksConfig).mockReturnValue({
+          enabledPolicies: ["block-sudo"],
+          cli: { gemini: { customPoliciesPath: "/gemini/policies.js" } },
+        });
+        vi.mocked(existsSync).mockReturnValue(false);
+
+        const { listHooks } = await import("../../src/hooks/manager");
+        await expect(listHooks()).resolves.not.toThrow();
+
+        const output = vi.mocked(console.log).mock.calls.map((c) => c[0]).join("\n");
+        expect(output).toContain("block-sudo");
+        expect(output).not.toContain("disabled for:");
+      });
     });
 
     it("installHooks does not warn about duplicates when cwd is home directory", async () => {

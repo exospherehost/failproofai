@@ -284,4 +284,408 @@ describe("hooks/hooks-config", () => {
       );
     });
   });
+
+  describe("readMergedHooksConfig — per-CLI overrides", () => {
+    const CWD = "/tmp/test-project";
+    const projectPath = resolve(CWD, ".failproofai", "policies-config.json");
+    const localPath = resolve(CWD, ".failproofai", "policies-config.local.json");
+    const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
+
+    function mockFiles(files: Record<string, object>): void {
+      vi.mocked(existsSync).mockImplementation((p) => String(p) in files);
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        const key = String(p);
+        if (key in files) return JSON.stringify(files[key]);
+        throw new Error("ENOENT");
+      });
+    }
+
+    it("disabledPolicies suppresses a globally enabled policy for the target CLI", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo", "block-rm-rf"],
+          cli: { gemini: { disabledPolicies: ["block-rm-rf"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.enabledPolicies).toContain("block-sudo");
+      expect(config.enabledPolicies).not.toContain("block-rm-rf");
+    });
+
+    it("CLI enabledPolicies adds a policy not in global, only for that CLI", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          cli: { cursor: { enabledPolicies: ["sanitize-jwt"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const forCursor = readMergedHooksConfig(CWD, "cursor");
+      expect(forCursor.enabledPolicies).toContain("block-sudo");
+      expect(forCursor.enabledPolicies).toContain("sanitize-jwt");
+
+      const forClaude = readMergedHooksConfig(CWD, "claude-code");
+      expect(forClaude.enabledPolicies).toContain("block-sudo");
+      expect(forClaude.enabledPolicies).not.toContain("sanitize-jwt");
+    });
+
+    it("deduplicates when same policy is in global and CLI enabledPolicies", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          cli: { cursor: { enabledPolicies: ["block-sudo"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "cursor");
+      expect(config.enabledPolicies.filter((p) => p === "block-sudo")).toHaveLength(1);
+    });
+
+    it("disabledPolicies wins when same policy is also in CLI enabledPolicies", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          cli: {
+            gemini: {
+              enabledPolicies: ["block-rm-rf"],
+              disabledPolicies: ["block-rm-rf"],
+            },
+          },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.enabledPolicies).not.toContain("block-rm-rf");
+    });
+
+    it("CLI policyParams overrides global policyParams for the same key", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          policyParams: { "block-sudo": { allowPatterns: ["sudo apt"] } },
+          cli: {
+            gemini: {
+              policyParams: { "block-sudo": { allowPatterns: ["sudo systemctl"] } },
+            },
+          },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.policyParams?.["block-sudo"]).toEqual({ allowPatterns: ["sudo systemctl"] });
+    });
+
+    it("CLI customPoliciesPath overrides global customPoliciesPath", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: [],
+          customPoliciesPath: "/global/policies.js",
+          cli: { gemini: { customPoliciesPath: "/gemini/policies.js" } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.customPoliciesPath).toBe("/gemini/policies.js");
+
+      const globalConfig = readMergedHooksConfig(CWD);
+      expect(globalConfig.customPoliciesPath).toBe("/global/policies.js");
+    });
+
+    it("ignores cli section entirely when no cliType arg is provided", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          cli: { gemini: { disabledPolicies: ["block-sudo"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD);
+      expect(config.enabledPolicies).toContain("block-sudo");
+    });
+
+    it("accumulates disabledPolicies from multiple scopes (union)", async () => {
+      mockFiles({
+        [projectPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { disabledPolicies: ["block-sudo"] } },
+        },
+        [globalPath]: {
+          enabledPolicies: ["block-sudo", "block-rm-rf"],
+          cli: { gemini: { disabledPolicies: ["block-rm-rf"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.enabledPolicies).not.toContain("block-sudo");
+      expect(config.enabledPolicies).not.toContain("block-rm-rf");
+    });
+
+    it("returns global-only result for a CLI with no cli entry in any scope", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          cli: { cursor: { disabledPolicies: ["block-sudo"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.enabledPolicies).toContain("block-sudo");
+    });
+  });
+
+  describe("readMergedHooksConfig — per-CLI collision and precedence scenarios", () => {
+    const CWD = "/tmp/test-project";
+    const projectPath = resolve(CWD, ".failproofai", "policies-config.json");
+    const localPath = resolve(CWD, ".failproofai", "policies-config.local.json");
+    const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
+
+    function mockFiles(files: Record<string, object>): void {
+      vi.mocked(existsSync).mockImplementation((p) => String(p) in files);
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        const key = String(p);
+        if (key in files) return JSON.stringify(files[key]);
+        throw new Error("ENOENT");
+      });
+    }
+
+    it("policyParams gap-filling: CLI has key A, global has key B — both appear in result", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo", "block-rm-rf"],
+          policyParams: { "block-rm-rf": { severity: "high" } },
+          cli: { gemini: { policyParams: { "block-sudo": { allowPatterns: ["sudo systemctl"] } } } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      // CLI-level key A
+      expect(config.policyParams?.["block-sudo"]).toEqual({ allowPatterns: ["sudo systemctl"] });
+      // Global-level key B fills in
+      expect(config.policyParams?.["block-rm-rf"]).toEqual({ severity: "high" });
+    });
+
+    it("policyParams: global fills in when no CLI policyParams override is present", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          policyParams: { "block-sudo": { allowPatterns: ["sudo apt"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.policyParams?.["block-sudo"]).toEqual({ allowPatterns: ["sudo apt"] });
+    });
+
+    it("project scope CLI policyParams wins over global scope CLI policyParams for same key", async () => {
+      mockFiles({
+        [projectPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { policyParams: { "block-sudo": { allowPatterns: ["project-pattern"] } } } },
+        },
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          cli: { gemini: { policyParams: { "block-sudo": { allowPatterns: ["global-pattern"] } } } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      // project scope CLI params win (first-scope-wins)
+      expect(config.policyParams?.["block-sudo"]).toEqual({ allowPatterns: ["project-pattern"] });
+    });
+
+    it("customPoliciesPath: project CLI-level wins over global CLI-level", async () => {
+      mockFiles({
+        [projectPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { customPoliciesPath: "/project/gemini-policies.js" } },
+        },
+        [globalPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { customPoliciesPath: "/global/gemini-policies.js" } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.customPoliciesPath).toBe("/project/gemini-policies.js");
+    });
+
+    it("customPoliciesPath: local CLI-level wins over global CLI-level", async () => {
+      mockFiles({
+        [localPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { customPoliciesPath: "/local/gemini-policies.js" } },
+        },
+        [globalPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { customPoliciesPath: "/global/gemini-policies.js" } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.customPoliciesPath).toBe("/local/gemini-policies.js");
+    });
+
+    it("customPoliciesPath: falls back to global non-CLI when no CLI override in any scope", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: [],
+          customPoliciesPath: "/global/policies.js",
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.customPoliciesPath).toBe("/global/policies.js");
+    });
+
+    it("two CLIs suppress the same global policy independently — no cross-CLI bleed", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          cli: {
+            gemini: { disabledPolicies: ["block-sudo"] },
+            cursor: { disabledPolicies: ["block-sudo"] },
+          },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const forGemini = readMergedHooksConfig(CWD, "gemini");
+      const forCursor = readMergedHooksConfig(CWD, "cursor");
+      const forClaude = readMergedHooksConfig(CWD, "claude-code");
+      expect(forGemini.enabledPolicies).not.toContain("block-sudo");
+      expect(forCursor.enabledPolicies).not.toContain("block-sudo");
+      // Claude Code is not in disabledPolicies, so it still sees the global policy
+      expect(forClaude.enabledPolicies).toContain("block-sudo");
+    });
+
+    it("one CLI suppresses a policy while another CLI adds the same policy", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-sudo"],
+          cli: {
+            gemini: { disabledPolicies: ["block-sudo"] },
+            cursor: { enabledPolicies: ["block-rm-rf"] },
+          },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const forGemini = readMergedHooksConfig(CWD, "gemini");
+      const forCursor = readMergedHooksConfig(CWD, "cursor");
+      expect(forGemini.enabledPolicies).not.toContain("block-sudo");
+      expect(forCursor.enabledPolicies).toContain("block-sudo");
+      expect(forCursor.enabledPolicies).toContain("block-rm-rf");
+    });
+
+    it("CLI enabledPolicies from project and global scopes are unioned for same CLI", async () => {
+      mockFiles({
+        [projectPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { enabledPolicies: ["block-rm-rf"] } },
+        },
+        [globalPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { enabledPolicies: ["sanitize-jwt"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.enabledPolicies).toContain("block-rm-rf");
+      expect(config.enabledPolicies).toContain("sanitize-jwt");
+    });
+
+    it("disabledPolicies from global CLI entry suppresses policy added in project CLI entry for same CLI", async () => {
+      mockFiles({
+        [projectPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { enabledPolicies: ["block-rm-rf"] } },
+        },
+        [globalPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { disabledPolicies: ["block-rm-rf"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      // disable wins even when the add came from a higher-priority scope
+      expect(config.enabledPolicies).not.toContain("block-rm-rf");
+    });
+
+    it("all three scopes contribute CLI enabledPolicies for same CLI — full union", async () => {
+      mockFiles({
+        [projectPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { enabledPolicies: ["policy-a"] } },
+        },
+        [localPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { enabledPolicies: ["policy-b"] } },
+        },
+        [globalPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { enabledPolicies: ["policy-c"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.enabledPolicies).toContain("policy-a");
+      expect(config.enabledPolicies).toContain("policy-b");
+      expect(config.enabledPolicies).toContain("policy-c");
+    });
+
+    it("CLI enabledPolicies deduped when same policy appears in project and global cli entries", async () => {
+      mockFiles({
+        [projectPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { enabledPolicies: ["block-rm-rf"] } },
+        },
+        [globalPath]: {
+          enabledPolicies: [],
+          cli: { gemini: { enabledPolicies: ["block-rm-rf"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig(CWD, "gemini");
+      expect(config.enabledPolicies.filter((p) => p === "block-rm-rf")).toHaveLength(1);
+    });
+
+    it("suppressing a policy for gemini does not suppress it for cursor", async () => {
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: ["block-rm-rf"],
+          cli: { gemini: { disabledPolicies: ["block-rm-rf"] } },
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const forGemini = readMergedHooksConfig(CWD, "gemini");
+      const forCursor = readMergedHooksConfig(CWD, "cursor");
+      expect(forGemini.enabledPolicies).not.toContain("block-rm-rf");
+      expect(forCursor.enabledPolicies).toContain("block-rm-rf");
+    });
+
+    it("all seven IntegrationType values work as CLI keys without collision", async () => {
+      const integrations = ["claude-code", "cursor", "gemini", "copilot", "codex", "opencode", "pi"] as const;
+      const cliEntries: Record<string, { disabledPolicies: string[] }> = {};
+      for (const id of integrations) {
+        cliEntries[id] = { disabledPolicies: [`block-${id}`] };
+      }
+      mockFiles({
+        [globalPath]: {
+          enabledPolicies: integrations.map((id) => `block-${id}`),
+          cli: cliEntries,
+        },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      for (const id of integrations) {
+        const config = readMergedHooksConfig(CWD, id);
+        // Only this CLI's own policy is suppressed
+        expect(config.enabledPolicies).not.toContain(`block-${id}`);
+        // All other CLIs' policies are still present
+        for (const other of integrations) {
+          if (other !== id) {
+            expect(config.enabledPolicies).toContain(`block-${other}`);
+          }
+        }
+      }
+    });
+  });
 });

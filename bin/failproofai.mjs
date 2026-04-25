@@ -386,7 +386,7 @@ EXAMPLES
         policyNames.length > 0 ? policyNames : undefined,
         scope,
         undefined,
-        { betaOnly, removeCustomHooks, integration: integrationArg },
+        { betaOnly, removeCustomHooks, integration: integrationArg, cliExplicit: cliValues.length > 0 },
       );
       process.exit(0);
     }

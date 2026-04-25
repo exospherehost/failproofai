@@ -456,6 +456,7 @@ describe("hooks/integrations", () => {
     it("maps events to canonical names", () => {
       expect(opencode.getCanonicalEventName({ data: { type: "session.created" } }, "")).toBe("SessionStart");
       expect(opencode.getCanonicalEventName({ hook_event_name: "tool.execute.before" }, "")).toBe("PreToolUse");
+      expect(opencode.getCanonicalEventName({ hook_event_name: "session.idle" }, "")).toBe("Stop");
     });
 
     it("resolves user settings path including filename", () => {
@@ -706,6 +707,12 @@ describe("hooks/integrations", () => {
       };
       pi.normalizePayload(payload);
       expect(payload.sessionId).toBe("pi-real-session-123");
+    });
+
+    it("maps events to canonical names", () => {
+      expect(pi.getCanonicalEventName({ hook_event_name: "session_start" }, "")).toBe("SessionStart");
+      expect(pi.getCanonicalEventName({ hook_event_name: "tool_call" }, "")).toBe("PreToolUse");
+      expect(pi.getCanonicalEventName({ hook_event_name: "stop" }, "")).toBe("Stop");
     });
 
     it("does not confuse pi with codex payloads", () => {

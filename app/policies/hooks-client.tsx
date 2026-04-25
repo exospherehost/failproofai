@@ -22,7 +22,9 @@ import type { HookActivityPayload } from "@/app/actions/get-hook-activity";
 import { getHooksConfigAction } from "@/app/actions/get-hooks-config";
 import type { HooksConfigPayload, PolicyInfo, CustomPolicyInfo } from "@/app/actions/get-hooks-config";
 import { togglePolicyAction } from "@/app/actions/update-hooks-config";
-import { installHooksWebAction, removeHooksWebAction } from "@/app/actions/install-hooks-web";
+import { toggleCliPolicyAction, updateCliPolicyParamsAction } from "@/app/actions/update-cli-policy";
+import { installHooksWebAction, removeHooksWebAction, getIntegrationsStatusAction } from "@/app/actions/install-hooks-web";
+import type { IntegrationStatus } from "@/app/actions/install-hooks-web";
 import { updatePolicyParamsAction } from "@/app/actions/update-policy-params";
 import { useAutoRefresh } from "@/contexts/AutoRefreshContext";
 import { useUrlParams } from "@/lib/use-url-params";
@@ -626,6 +628,44 @@ function PolicyToggle({
   );
 }
 
+function PolicyCliControl({
+  mode,
+  onChange,
+  disabled,
+}: {
+  mode: "enable" | "disable" | "inherit";
+  onChange: (mode: "enable" | "disable" | "inherit") => void;
+  disabled?: boolean;
+}) {
+  const opts: { label: string; value: "enable" | "disable" | "inherit" }[] = [
+    { label: "Inherit", value: "inherit" },
+    { label: "ON", value: "enable" },
+    { label: "OFF", value: "disable" },
+  ];
+  return (
+    <div className="inline-flex items-center rounded-md border border-border bg-muted/30 p-0.5">
+      {opts.map((opt) => (
+        <button
+          key={opt.value}
+          disabled={disabled}
+          onClick={() => onChange(opt.value)}
+          className={`px-2 py-0.5 text-[0.6rem] font-medium rounded transition-all ${
+            mode === opt.value
+              ? opt.value === "enable"
+                ? "bg-emerald-500/15 text-emerald-400 shadow-sm"
+                : opt.value === "disable"
+                  ? "bg-red-500/15 text-red-400 shadow-sm"
+                  : "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // -- Policy Config Modal --
 
 function PolicyConfigModal({
@@ -798,6 +838,92 @@ function PolicyConfigModal({
   );
 }
 
+function IntegrationSelectModal({
+  integrations,
+  onClose,
+  onInstall,
+}: {
+  integrations: IntegrationStatus[] | null;
+  onClose: () => void;
+  onInstall: (ids: string[]) => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(() =>
+    new Set(integrations?.filter((i) => i.installed).map((i) => i.id) ?? [])
+  );
+
+  useEffect(() => {
+    if (integrations) {
+      setSelected(new Set(integrations.filter((i) => i.installed).map((i) => i.id)));
+    }
+  }, [integrations]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-card border border-border rounded-lg shadow-xl w-full max-w-sm mx-4 flex flex-col">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Select CLI Integrations</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Where do you want to install hooks?</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="px-4 py-3 space-y-1">
+          {integrations === null ? (
+            <p className="text-xs text-muted-foreground py-4 text-center">Loading…</p>
+          ) : (
+            integrations.map((integ) => (
+              <label key={integ.id} className="flex items-center gap-3 cursor-pointer py-1.5">
+                <input
+                  type="checkbox"
+                  checked={selected.has(integ.id)}
+                  onChange={() => toggle(integ.id)}
+                  className="rounded border-border"
+                />
+                <span className="flex-1 text-sm text-foreground">{integ.name}</span>
+                <span className={`text-[0.65rem] ${integ.installed ? "text-emerald-500" : "text-muted-foreground/40"}`}>
+                  {integ.installed ? "Installed" : "Not detected"}
+                </span>
+              </label>
+            ))
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2 px-4 py-3 border-t border-border">
+          <Button variant="outline" size="sm" onClick={onClose} className="h-7 text-xs">
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => onInstall(Array.from(selected))}
+            disabled={integrations === null || selected.size === 0}
+            className="h-7 text-xs"
+          >
+            Install
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function formatParamValue(type: string, value: unknown): string {
   if (type === "string[]" || type === "pattern[]") {
     const arr = Array.isArray(value) ? value : [];
@@ -887,6 +1013,9 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
   const [actionError, setActionError] = useState<string | null>(null);
   const [hooksWarning, setHooksWarning] = useState<string | null>(null);
   const [configuringPolicy, setConfiguringPolicy] = useState<PolicyInfo | null>(null);
+  const [showIntegrationModal, setShowIntegrationModal] = useState(false);
+  const [integrationsList, setIntegrationsList] = useState<IntegrationStatus[] | null>(null);
+  const [selectedCliTab, setSelectedCliTab] = useState<string | null>(null); // null = Global
 
   const reload = useCallback(async () => {
     try {
@@ -932,11 +1061,65 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
     });
   };
 
+  const handleToggleCli = (integrationId: string, policyName: string, mode: "enable" | "disable" | "inherit") => {
+    if (!config) return;
+    // Optimistic update
+    setConfig((prev) => {
+      if (!prev) return prev;
+      const current = prev.cliOverrides[integrationId] || {
+        enabledPolicies: [],
+        disabledPolicies: [],
+        policyParams: {},
+      };
+      const enabled = new Set(current.enabledPolicies);
+      const disabled = new Set(current.disabledPolicies);
+
+      if (mode === "enable") {
+        enabled.add(policyName);
+        disabled.delete(policyName);
+      } else if (mode === "disable") {
+        disabled.add(policyName);
+        enabled.delete(policyName);
+      } else {
+        enabled.delete(policyName);
+        disabled.delete(policyName);
+      }
+
+      return {
+        ...prev,
+        cliOverrides: {
+          ...prev.cliOverrides,
+          [integrationId]: {
+            ...current,
+            enabledPolicies: Array.from(enabled),
+            disabledPolicies: Array.from(disabled),
+          },
+        },
+      };
+    });
+
+    startTransition(async () => {
+      try {
+        await toggleCliPolicyAction(integrationId, policyName, mode);
+      } catch {
+        setActionError("Failed to save CLI policy change.");
+        reload();
+      }
+    });
+  };
+
   const handleInstall = () => {
+    setIntegrationsList(null);
+    setShowIntegrationModal(true);
+    getIntegrationsStatusAction().then(setIntegrationsList);
+  };
+
+  const handleInstallWithIntegrations = (integrations: string[]) => {
+    setShowIntegrationModal(false);
     startTransition(async () => {
       try {
         setActionError(null);
-        await installHooksWebAction("user");
+        await installHooksWebAction("user", integrations);
         await reload();
       } catch (e) {
         setActionError(e instanceof Error ? e.message : "Failed to install hooks.");
@@ -963,7 +1146,11 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
     startTransition(async () => {
       try {
         setActionError(null);
-        await updatePolicyParamsAction(policyName, params);
+        if (selectedCliTab) {
+          await updateCliPolicyParamsAction(selectedCliTab, policyName, params);
+        } else {
+          await updatePolicyParamsAction(policyName, params);
+        }
         await reload();
       } catch (e) {
         setActionError(e instanceof Error ? e.message : "Failed to save configuration.");
@@ -991,6 +1178,13 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
         policy={configuringPolicy}
         onClose={() => setConfiguringPolicy(null)}
         onSave={handleSaveParams}
+      />
+    )}
+    {showIntegrationModal && (
+      <IntegrationSelectModal
+        integrations={integrationsList}
+        onClose={() => setShowIntegrationModal(false)}
+        onInstall={handleInstallWithIntegrations}
       />
     )}
     <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -1032,6 +1226,35 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
           </Button>
         </div>
       </div>
+
+      {/* CLI tabs */}
+      {config.installedIntegrations.length > 0 && (
+        <div className="flex items-center gap-1.5 px-4 py-2 border-b border-border/40 bg-muted/5 overflow-x-auto no-scrollbar">
+          <button
+            onClick={() => setSelectedCliTab(null)}
+            className={`px-2.5 py-1 text-[0.65rem] font-medium rounded-full transition-all whitespace-nowrap ${
+              selectedCliTab === null
+                ? "bg-primary/10 text-primary border border-primary/20 shadow-sm"
+                : "text-muted-foreground hover:text-foreground border border-transparent"
+            }`}
+          >
+            Global
+          </button>
+          {config.installedIntegrations.map((integ) => (
+            <button
+              key={integ.id}
+              onClick={() => setSelectedCliTab(integ.id)}
+              className={`px-2.5 py-1 text-[0.65rem] font-medium rounded-full transition-all whitespace-nowrap ${
+                selectedCliTab === integ.id
+                  ? "bg-primary/10 text-primary border border-primary/20 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground border border-transparent"
+              }`}
+            >
+              {integ.name}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Policy summary */}
       <div className="flex items-center gap-2 px-4 py-2 border-b border-border/40 bg-muted/5">
@@ -1078,68 +1301,110 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
               </span>
             </div>
             {/* Policy rows */}
-            {policies.map((policy) => (
-              <div
-                key={policy.name}
-                className="flex items-start gap-3 px-4 py-3 border-b border-border/20 hover:bg-muted/20 transition-colors"
-              >
-                <div className="mt-0.5 shrink-0">
-                  <PolicyToggle
-                    enabled={policy.enabled}
-                    onChange={() => handleToggle(policy.name, policy.enabled)}
-                    disabled={isPending}
-                  />
-                </div>
-                <div className="flex items-center gap-1.5 min-w-0 w-56 shrink-0 mt-0.5">
-                  <span className="text-xs font-mono text-foreground truncate">{policy.name}</span>
-                  {policy.beta && (
-                    <span className="shrink-0 text-[0.6rem] px-1 py-0.5 rounded border bg-violet-500/10 text-violet-400 border-violet-500/20">
-                      beta
+            {policies.map((policy) => {
+              const cliOverride = selectedCliTab ? config.cliOverrides[selectedCliTab] : null;
+              const cliMode: "enable" | "disable" | "inherit" = cliOverride
+                ? cliOverride.enabledPolicies.includes(policy.name)
+                  ? "enable"
+                  : cliOverride.disabledPolicies.includes(policy.name)
+                    ? "disable"
+                    : "inherit"
+                : "inherit";
+
+              const currentParams = selectedCliTab
+                ? (config.cliOverrides[selectedCliTab]?.policyParams[policy.name] ?? policy.currentParams)
+                : policy.currentParams;
+
+              const isForcedOn = selectedCliTab ? cliMode === "enable" : policy.enabled;
+
+              return (
+                <div
+                  key={policy.name}
+                  className="flex items-start gap-3 px-4 py-3 border-b border-border/20 hover:bg-muted/20 transition-colors"
+                >
+                  <div className="mt-0.5 shrink-0">
+                    {selectedCliTab ? (
+                      <PolicyCliControl
+                        mode={cliMode}
+                        onChange={(m) => handleToggleCli(selectedCliTab, policy.name, m)}
+                        disabled={isPending}
+                      />
+                    ) : (
+                      <PolicyToggle
+                        enabled={policy.enabled}
+                        onChange={() => handleToggle(policy.name, policy.enabled)}
+                        disabled={isPending}
+                      />
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 min-w-0 w-56 shrink-0 mt-0.5">
+                    <span className="text-xs font-mono text-foreground truncate">{policy.name}</span>
+                    {policy.beta && (
+                      <span className="shrink-0 text-[0.6rem] px-1 py-0.5 rounded border bg-violet-500/10 text-violet-400 border-violet-500/20">
+                        beta
+                      </span>
+                    )}
+                    {selectedCliTab && (
+                      <span
+                        className={`shrink-0 text-[0.6rem] px-1 py-0.5 rounded border ${
+                          policy.enabled
+                            ? "bg-emerald-500/5 text-emerald-500/60 border-emerald-500/10"
+                            : "bg-muted/30 text-muted-foreground/40 border-border/40"
+                        }`}
+                        title="Global status"
+                      >
+                        Global: {policy.enabled ? "ON" : "OFF"}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs text-muted-foreground leading-relaxed">
+                      {policy.description}
                     </span>
+                    {policy.eventScope && (
+                      <span className="block text-[0.65rem] text-muted-foreground/40 font-mono mt-0.5 hidden lg:block">
+                        {policy.eventScope}
+                      </span>
+                    )}
+                    {policy.params && Object.keys(policy.params).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1.5">
+                        {Object.entries(policy.params).map(([key, spec]) => {
+                          const val = currentParams?.[key] ?? spec.default;
+                          const isCustomized = JSON.stringify(val) !== JSON.stringify(spec.default);
+                          return (
+                            <span
+                              key={key}
+                              className={`inline-flex items-center gap-1 font-mono text-[0.6rem] px-1.5 py-0.5 rounded border ${
+                                isCustomized
+                                  ? "bg-primary/10 text-primary/70 border-primary/20"
+                                  : "bg-muted/40 text-muted-foreground/55 border-border/40"
+                              }`}
+                            >
+                              <span className="opacity-70">{key}:</span>
+                              <span>{formatParamValue(spec.type, val)}</span>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {policy.params && Object.keys(policy.params).length > 0 && isForcedOn && (
+                    <button
+                      className="shrink-0 mt-0.5 text-muted-foreground hover:text-primary transition-colors"
+                      onClick={() =>
+                        setConfiguringPolicy({
+                          ...policy,
+                          currentParams,
+                        })
+                      }
+                      title="Edit parameters"
+                    >
+                      <Settings className="h-3.5 w-3.5" />
+                    </button>
                   )}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-xs text-muted-foreground leading-relaxed">
-                    {policy.description}
-                  </span>
-                  {policy.eventScope && (
-                    <span className="block text-[0.65rem] text-muted-foreground/40 font-mono mt-0.5 hidden lg:block">
-                      {policy.eventScope}
-                    </span>
-                  )}
-                  {policy.params && Object.keys(policy.params).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {Object.entries(policy.params).map(([key, spec]) => {
-                        const currentVal = policy.currentParams?.[key] ?? spec.default;
-                        const isCustomized = JSON.stringify(currentVal) !== JSON.stringify(spec.default);
-                        return (
-                          <span
-                            key={key}
-                            className={`inline-flex items-center gap-1 font-mono text-[0.6rem] px-1.5 py-0.5 rounded border ${
-                              isCustomized
-                                ? "bg-primary/10 text-primary/70 border-primary/20"
-                                : "bg-muted/40 text-muted-foreground/55 border-border/40"
-                            }`}
-                          >
-                            <span className="opacity-70">{key}:</span>
-                            <span>{formatParamValue(spec.type, currentVal)}</span>
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                {policy.params && Object.keys(policy.params).length > 0 && (
-                  <button
-                    className="shrink-0 mt-0.5 text-muted-foreground hover:text-primary transition-colors"
-                    onClick={() => setConfiguringPolicy(policy)}
-                    title="Edit parameters"
-                  >
-                    <Settings className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         );
       })}

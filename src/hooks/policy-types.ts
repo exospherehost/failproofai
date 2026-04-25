@@ -1,7 +1,7 @@
 /**
  * Types for the hook policy system.
  */
-import type { HookEventType, SessionMetadata } from "./types";
+import type { HookEventType, SessionMetadata, IntegrationType } from "./types";
 
 export type PolicyDecision = "allow" | "deny" | "instruct";
 
@@ -69,9 +69,17 @@ export interface LlmConfig {
   model?: string;
 }
 
+export interface CliPoliciesOverride {
+  enabledPolicies?: string[];
+  disabledPolicies?: string[];
+  policyParams?: Record<string, Record<string, unknown>>;
+  customPoliciesPath?: string;
+}
+
 export interface HooksConfig {
   enabledPolicies: string[];
   llm?: LlmConfig;
   policyParams?: Record<string, Record<string, unknown>>;
   customPoliciesPath?: string;
+  cli?: Partial<Record<IntegrationType, CliPoliciesOverride>>;
 }

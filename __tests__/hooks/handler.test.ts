@@ -123,6 +123,55 @@ describe("hooks/handler", () => {
     expect(registerBuiltinPolicies).toHaveBeenCalledWith(["block-sudo"]);
   });
 
+  it("passes session.integration as cliType to readMergedHooksConfig", async () => {
+    mockStdin(JSON.stringify({ hook_event_name: "BeforeTool", toolName: "Shell", toolArgs: "{}" }));
+    const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+
+    await handleHookEvent("BeforeTool", "gemini");
+
+    const calls = vi.mocked(readMergedHooksConfig).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls[0][1]).toBe("gemini");
+  });
+
+  it("passes undefined cliType to readMergedHooksConfig when no integrationType arg given", async () => {
+    mockStdin(JSON.stringify({}));
+    const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+
+    await handleHookEvent("PreToolUse");
+
+    const calls = vi.mocked(readMergedHooksConfig).mock.calls;
+    expect(calls.length).toBeGreaterThan(0);
+    // No explicit integrationArg → falls back to "claude-code" (the default in handler)
+    // The cliType is session.integration which is set from the arg or payload
+    // When neither arg nor payload has integration, defaults to "claude-code"
+    expect(calls[0][1]).toBeDefined();
+  });
+
+  it("does not crash when readMergedHooksConfig returns config with no cli section", async () => {
+    mockStdin(JSON.stringify({ hook_event_name: "BeforeTool", toolName: "Shell", toolArgs: "{}" }));
+    const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+    vi.mocked(readMergedHooksConfig).mockReturnValueOnce({ enabledPolicies: ["block-sudo"] });
+
+    await expect(handleHookEvent("BeforeTool", "cursor")).resolves.not.toThrow();
+  });
+
+  it("passes both global and per-CLI merged policies to registerBuiltinPolicies", async () => {
+    mockStdin(JSON.stringify({ hook_event_name: "BeforeTool", toolName: "Shell", toolArgs: "{}" }));
+    const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+    const { registerBuiltinPolicies } = await import("../../src/hooks/builtin-policies");
+    // Simulate merged config: global block-sudo + CLI-specific block-rm-rf (already merged by readMergedHooksConfig)
+    vi.mocked(readMergedHooksConfig).mockReturnValueOnce({
+      enabledPolicies: ["block-sudo", "block-rm-rf"],
+    });
+
+    await handleHookEvent("BeforeTool", "gemini");
+
+    expect(registerBuiltinPolicies).toHaveBeenCalledWith(
+      expect.arrayContaining(["block-sudo", "block-rm-rf"]),
+    );
+  });
+
   it("passes session cwd to loadAllCustomHooks for relative customPoliciesPath resolution", async () => {
     const sessionPayload = JSON.stringify({
       cwd: "/home/user/project",

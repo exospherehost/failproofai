@@ -1822,17 +1822,6 @@ export function registerBuiltinPolicies(enabledNames: string[]): void {
     }
   }
 
-  // Diagnostic policy to verify prompt capture for multi-agent support
-  registerPolicy(
-    "debug-prompt",
-    "Diagnostic policy to verify prompt capture",
-    async (ctx) => ({
-      decision: "allow",
-      reason: `Prompt captured from ${ctx.session?.integration ?? "unknown"}`,
-    }),
-    { events: ["UserPromptSubmit"] },
-    100,
-  );
 }
 
 /** Clears the git branch cache. Exposed for test isolation only. */

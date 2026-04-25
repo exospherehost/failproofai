@@ -221,13 +221,14 @@ export const OPENCODE_HOOK_EVENT_TYPES = [
   "tool.execute.before",
   "tool.execute.after",
   "chat.message",
+  "stop",
 ] as const;
 
 export type OpencodeHookEventType = (typeof OPENCODE_HOOK_EVENT_TYPES)[number];
 
 export const OPENCODE_EVENT_MAP: Record<string, string> = {
   "session.created": "SessionStart",
-  "session.idle": "SessionEnd",
+  "session.idle": "Stop",
   "tool.execute.before": "PreToolUse",
   "tool.execute.after": "PostToolUse",
   "chat.message": "UserPromptSubmit",
@@ -240,6 +241,7 @@ export const PI_HOOK_EVENT_TYPES = [
   "tool_call",
   "tool_result",
   "input",
+  "stop",
 ] as const;
 
 export type PiHookEventType = (typeof PI_HOOK_EVENT_TYPES)[number];
@@ -249,4 +251,5 @@ export const PI_EVENT_MAP: Record<string, string> = {
   "tool_call": "PreToolUse",
   "tool_result": "PostToolUse",
   "input": "UserPromptSubmit",
+  "stop": "Stop",
 };

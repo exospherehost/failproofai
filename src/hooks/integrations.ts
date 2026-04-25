@@ -1356,7 +1356,10 @@ export const FailproofAIPlugin = (ctx: any) => {
       syncSession(input.sessionID);
     },
     "session.idle": async (input: any) => {
-      try { callcli("SessionEnd", { session_id: input.sessionID }); } catch {}
+      try { 
+        callcli("session.idle", { session_id: input.sessionID });
+        callcli("SessionEnd", { session_id: input.sessionID }); 
+      } catch {}
     },
   };
 };
@@ -1590,6 +1593,15 @@ export default function (pi: ExtensionAPI) {
         // Isolation guard: ensure we don't handle messages that might be recursive
         if (text === "/failproofai-status") return;
         callcli("UserPromptSubmit", { tool_input: text }, ctx);
+      }
+    } catch {}
+  });
+
+  pi.on("message", (event, ctx) => {
+    try {
+      // Trigger Stop when the assistant finishes its turn
+      if (event.role === "assistant" && (event.stopReason === "stop" || event.stopReason === "end_turn")) {
+        callcli("stop", {}, ctx);
       }
     } catch {}
   });

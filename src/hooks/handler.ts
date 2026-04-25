@@ -651,8 +651,8 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
     session.transcriptPath = resolveTranscriptPath(integrationType, session.sessionId);
   }
 
-  // Load enabled policies (merge across project/local/global scopes)
-  const config = readMergedHooksConfig(session.cwd);
+  // Load enabled policies (merge across project/local/global scopes, with per-CLI overrides)
+  const config = readMergedHooksConfig(session.cwd, session.integration);
   clearPolicies();
   registerBuiltinPolicies(config.enabledPolicies);
 

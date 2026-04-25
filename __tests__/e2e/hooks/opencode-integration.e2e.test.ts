@@ -101,7 +101,7 @@ describe("E2E: OpenCode Integration", () => {
     expect(content).toContain("--cli opencode");
   });
 
-  it("emits warning at install time when require-commit-before-stop is installed (no Stop event)", () => {
+  it("does NOT emit warning at install time when require-commit-before-stop is installed (Stop event is supported)", () => {
     const result = spawnSync(
       "bun",
       [BINARY_PATH, "policies", "--install", "require-commit-before-stop", "--cli", "opencode", "--scope", "project"],
@@ -113,7 +113,7 @@ describe("E2E: OpenCode Integration", () => {
     );
 
     const combinedOutput = result.stdout + result.stderr;
-    expect(combinedOutput).toContain("Stop");
+    expect(combinedOutput).not.toContain("does not support a Stop event");
     expect(combinedOutput).toContain("require-commit-before-stop");
   });
 

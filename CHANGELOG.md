@@ -3,6 +3,8 @@
 ## Unreleased
 
 ### Features
+- Add per-CLI policy configuration UI to dashboard: Switch between Global and specific CLI tabs (Claude Code, Cursor, etc.) to apply 3-state overrides (Inherit/ON/OFF) and per-CLI policy parameters. Fixes terminal TUI prompt hijacking when installing hooks from the web dashboard.
+- Add per-CLI policy scoping: `--uninstall <policy> --cli <X>` now disables only for that CLI (writes to `cli[X].disabledPolicies`), leaving all other CLIs unaffected. Per-CLI `policyParams` and `customPoliciesPath` overrides are also supported. `listHooks` shows per-CLI suppressions and CLI-only additions inline.
 - Populate `permissionMode` in activity entries for all CLIs: Codex reads `approval_policy` from its session transcript, Cursor/Copilot/Gemini walk the `/proc` ancestor tree to parse mode flags (checking both `argv[0]` and `argv[1]` to support Node.js-wrapped binaries), all CLIs fall back to `"default"` when no explicit mode is detected
 - Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
 - Add native transcript/session support across non-Claude CLIs in dashboard parsing: OpenCode sessions now load from `~/.local/share/opencode/opencode.db`, Gemini/Pi native transcript discovery is expanded, and Gemini chat discovery now targets real chat files (`.jsonl`/`.json`) while ignoring tool-call sidecar artifacts.

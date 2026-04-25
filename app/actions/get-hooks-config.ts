@@ -5,6 +5,7 @@ import { hooksInstalledInSettings, getSettingsPath } from "@/src/hooks/manager";
 import { BUILTIN_POLICIES } from "@/src/hooks/builtin-policies";
 import { HOOK_SCOPES } from "@/src/hooks/types";
 import type { HookScope } from "@/src/hooks/types";
+import { detectInstalledIntegrations } from "@/src/hooks/integrations";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
@@ -32,6 +33,12 @@ export interface CustomPolicyInfo {
   eventScope?: string;
 }
 
+export interface CliOverrideInfo {
+  enabledPolicies: string[];
+  disabledPolicies: string[];
+  policyParams: Record<string, Record<string, unknown>>;
+}
+
 export interface HooksConfigPayload {
   enabledPolicies: string[];
   installedScopes: HookScope[];
@@ -39,6 +46,8 @@ export interface HooksConfigPayload {
   policies: PolicyInfo[];
   customPoliciesPath?: string;
   customPolicies?: CustomPolicyInfo[];
+  installedIntegrations: { id: string; name: string }[];
+  cliOverrides: Record<string, CliOverrideInfo>;
 }
 
 async function parseCustomPoliciesFromFile(filePath: string): Promise<CustomPolicyInfo[]> {
@@ -94,6 +103,23 @@ export async function getHooksConfigAction(): Promise<HooksConfigPayload> {
     ? await parseCustomPoliciesFromFile(config.customPoliciesPath)
     : undefined;
 
+  const installedIntegrations = detectInstalledIntegrations().map((i) => ({
+    id: i.id,
+    name: i.displayName,
+  }));
+
+  const rawCli = config.cli ?? {};
+  const cliOverrides: Record<string, CliOverrideInfo> = {};
+  for (const [id, override] of Object.entries(rawCli)) {
+    if (override) {
+      cliOverrides[id] = {
+        enabledPolicies: override.enabledPolicies ?? [],
+        disabledPolicies: override.disabledPolicies ?? [],
+        policyParams: override.policyParams ?? {},
+      };
+    }
+  }
+
   return {
     enabledPolicies: config.enabledPolicies,
     installedScopes,
@@ -101,5 +127,7 @@ export async function getHooksConfigAction(): Promise<HooksConfigPayload> {
     policies,
     customPoliciesPath: config.customPoliciesPath,
     customPolicies: customPolicies?.length ? customPolicies : undefined,
+    installedIntegrations,
+    cliOverrides,
   };
 }

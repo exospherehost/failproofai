@@ -5,7 +5,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import type { HooksConfig } from "./policy-types";
-import type { HookScope } from "./types";
+import type { HookScope, IntegrationType } from "./types";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
 function getHomeDir(): string {
@@ -31,12 +31,18 @@ function readConfigAt(path: string): Partial<HooksConfig> {
  *   3. ~/.failproofai/policies-config.json             (global)
  *
  * Merge rules:
- *   enabledPolicies: union + dedup across all three
- *   policyParams:    per-policy key, first scope that defines it wins entirely
- *   customPoliciesPath: first scope that defines it wins
- *   llm:            first scope that defines it wins
+ *   enabledPolicies:   union + dedup across all three
+ *   policyParams:      per-policy key, first scope wins; CLI-level overrides global for the same key
+ *   customPoliciesPath: first scope wins; CLI-level overrides global
+ *   llm:               first scope wins (no CLI override)
+ *
+ * When cliType is provided, per-CLI overrides from cli[cliType] are applied after the global merge:
+ *   cli[X].enabledPolicies  — adds policies only for that CLI (beyond global)
+ *   cli[X].disabledPolicies — suppresses global policies for that CLI (disable wins over enable)
+ *   cli[X].policyParams     — per-key override over global policyParams
+ *   cli[X].customPoliciesPath — overrides global customPoliciesPath for that CLI
  */
-export function readMergedHooksConfig(cwd?: string): HooksConfig {
+export function readMergedHooksConfig(cwd?: string, cliType?: IntegrationType): HooksConfig {
   const base = cwd ? resolve(cwd) : process.cwd();
   const projectPath = resolve(base, ".failproofai", "policies-config.json");
   const localPath = resolve(base, ".failproofai", "policies-config.local.json");
@@ -46,30 +52,62 @@ export function readMergedHooksConfig(cwd?: string): HooksConfig {
   const local = readConfigAt(localPath);
   const global_ = readConfigAt(globalPath);
 
-  // enabledPolicies: union + dedup
+  // Step 1: global enabledPolicies — union + dedup (unchanged)
   const enabledSet = new Set<string>([
     ...(project.enabledPolicies ?? []),
     ...(local.enabledPolicies ?? []),
     ...(global_.enabledPolicies ?? []),
   ]);
 
-  // policyParams: per-policy, first scope wins
+  // Step 2: policyParams — CLI-level first (higher priority), then global fills gaps
   const mergedParams: Record<string, Record<string, unknown>> = {};
-  for (const scope of [project, local, global_]) {
-    if (!scope.policyParams) continue;
-    for (const [policyName, params] of Object.entries(scope.policyParams)) {
-      if (!(policyName in mergedParams)) {
-        mergedParams[policyName] = params;
+  if (cliType) {
+    for (const scope of [project, local, global_]) {
+      const cliParams = scope.cli?.[cliType]?.policyParams;
+      if (!cliParams) continue;
+      for (const [policyName, params] of Object.entries(cliParams)) {
+        if (!(policyName in mergedParams)) mergedParams[policyName] = params;
       }
     }
   }
+  for (const scope of [project, local, global_]) {
+    if (!scope.policyParams) continue;
+    for (const [policyName, params] of Object.entries(scope.policyParams)) {
+      if (!(policyName in mergedParams)) mergedParams[policyName] = params;
+    }
+  }
 
-  // customPoliciesPath: first scope wins
-  const customPoliciesPath =
-    project.customPoliciesPath ?? local.customPoliciesPath ?? global_.customPoliciesPath;
+  // Step 3: customPoliciesPath — CLI-level first, then global
+  let customPoliciesPath: string | undefined;
+  if (cliType) {
+    customPoliciesPath =
+      project.cli?.[cliType]?.customPoliciesPath
+      ?? local.cli?.[cliType]?.customPoliciesPath
+      ?? global_.cli?.[cliType]?.customPoliciesPath;
+  }
+  if (customPoliciesPath === undefined) {
+    customPoliciesPath = project.customPoliciesPath ?? local.customPoliciesPath ?? global_.customPoliciesPath;
+  }
 
-  // llm: first scope wins
+  // Step 4: llm — first scope wins (unchanged)
   const llm = project.llm ?? local.llm ?? global_.llm;
+
+  // Step 5: per-CLI enabledPolicies/disabledPolicies (only when cliType provided)
+  if (cliType) {
+    const cliAdded = new Set<string>([
+      ...(project.cli?.[cliType]?.enabledPolicies ?? []),
+      ...(local.cli?.[cliType]?.enabledPolicies ?? []),
+      ...(global_.cli?.[cliType]?.enabledPolicies ?? []),
+    ]);
+    const cliRemoved = new Set<string>([
+      ...(project.cli?.[cliType]?.disabledPolicies ?? []),
+      ...(local.cli?.[cliType]?.disabledPolicies ?? []),
+      ...(global_.cli?.[cliType]?.disabledPolicies ?? []),
+    ]);
+    for (const p of cliAdded) enabledSet.add(p);
+    // disabledPolicies runs after add — disable always wins
+    for (const p of cliRemoved) enabledSet.delete(p);
+  }
 
   return {
     enabledPolicies: [...enabledSet],
