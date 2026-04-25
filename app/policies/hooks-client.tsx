@@ -64,14 +64,21 @@ function projectFromTranscriptPath(transcriptPath: string): string | null {
   return folder;
 }
 
-function SessionCell({ sessionId, transcriptPath }: { sessionId?: string; transcriptPath?: string }) {
+function encodeCwd(cwd: string): string {
+  if (/^[A-Za-z]:[\\/]/.test(cwd)) {
+    return cwd[0] + "-" + cwd.slice(2).replace(/[\\/]/g, "-");
+  }
+  return cwd.replace(/[\\/]/g, "-");
+}
+
+function SessionCell({ sessionId, transcriptPath, cwd }: { sessionId?: string; transcriptPath?: string; cwd?: string }) {
   if (!sessionId) return <span className="text-muted-foreground">\u2014</span>;
   const short = shortenSession(sessionId);
   // OpenCode sessions use ses_ prefix and don't have a transcriptPath; the session ID
   // doubles as the project name in the URL.
   const project = sessionId.startsWith("ses_")
     ? sessionId
-    : transcriptPath ? projectFromTranscriptPath(transcriptPath) : null;
+    : cwd ? encodeCwd(cwd) : transcriptPath ? projectFromTranscriptPath(transcriptPath) : null;
   if (project) {
     return (
       <Link
@@ -550,7 +557,7 @@ function ActivityTab({
                           <DurationDisplay ms={item.durationMs} />
                         </td>
                         <td className="px-3 py-2" title={item.sessionId ?? ""}>
-                          <SessionCell sessionId={item.sessionId} transcriptPath={item.transcriptPath} />
+                          <SessionCell sessionId={item.sessionId} transcriptPath={item.transcriptPath} cwd={item.cwd} />
                         </td>
                         <td className="px-3 py-2">
                           {item.permissionMode ? (

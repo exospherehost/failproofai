@@ -10,14 +10,21 @@ export function resolvePermissionMode(
   if (integration === "claude-code") {
     return (parsed.permission_mode as string | undefined) ?? "default";
   }
-  if (integration === "codex" && sessionId) {
-    return resolveCodexMode(sessionId) ?? "default";
-  }
+  
   if (process.platform === "linux") {
     if (integration === "cursor")  return parseCursorMode(findAncestorCmdline("cursor")) ?? "default";
     if (integration === "copilot") return parseCopilotMode(findAncestorCmdline("copilot")) ?? "default";
     if (integration === "gemini")  return parseGeminiMode(findAncestorCmdline("gemini")) ?? "default";
+    if (integration === "codex") {
+      const cliMode = parseCodexMode(findAncestorCmdline("codex"));
+      if (cliMode) return cliMode;
+    }
   }
+
+  if (integration === "codex" && sessionId) {
+    return resolveCodexMode(sessionId) ?? "default";
+  }
+
   return "default";
 }
 
@@ -75,7 +82,18 @@ export function findAncestorCmdline(binaryName: string): string[] | null {
       if (!ppid || ppid <= 1) break;
       const raw = readFileSync(`/proc/${ppid}/cmdline`, "utf-8");
       const argv = raw.split("\0").filter(Boolean);
-      if (argv[0]?.includes(binaryName) || argv[1]?.includes(binaryName)) return argv;
+      const fullCmd = argv.join(" ");
+
+      // Skip the Failproof AI hook wrappers
+      if (fullCmd.includes(`--cli ${binaryName}`)) {
+        pid = ppid;
+        continue;
+      }
+
+      // Check if any argument contains the binary name
+      if (argv.some(arg => arg.includes(binaryName))) {
+        return argv;
+      }
       pid = ppid;
     } catch { break; }
   }
@@ -110,6 +128,13 @@ function parseCopilotMode(argv: string[] | null): string | undefined {
 
 function parseGeminiMode(argv: string[] | null): string | undefined {
   if (!argv) return undefined;
+  if (argv.includes("--yolo")) return "yolo";
+  return undefined;
+}
+
+function parseCodexMode(argv: string[] | null): string | undefined {
+  if (!argv) return undefined;
+  if (argv.includes("--full-auto")) return "full-auto";
   if (argv.includes("--yolo")) return "yolo";
   return undefined;
 }

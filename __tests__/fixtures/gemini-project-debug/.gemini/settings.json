@@ -1,0 +1,136 @@
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook BeforeTool --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "AfterTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook AfterTool --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "BeforeAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook BeforeAgent --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook AfterAgent --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "BeforeModel": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook BeforeModel --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "AfterModel": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook AfterModel --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "BeforeToolSelection": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook BeforeToolSelection --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook SessionStart --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook SessionEnd --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook Notification --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PreCompress": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/yashu/.bun/bin/bun\" \"/home/yashu/fp/failproofai/bin/failproofai.mjs\" --hook PreCompress --cli gemini --stdin",
+            "timeout": 10000,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ]
+  }
+}
