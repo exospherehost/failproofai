@@ -528,7 +528,7 @@ describe("hooks/handler", () => {
         sessionId: expect.stringContaining("session-claude-code"),
         transcriptPath: undefined,
         cwd: undefined,
-        permissionMode: undefined,
+        permissionMode: "default",
         hookEventName: undefined,
       }),
     );
@@ -1311,7 +1311,7 @@ describe("hooks/handler", () => {
       const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
       await handleHookEvent("PreToolUse");
       expect(persistHookActivity).toHaveBeenCalledWith(
-        expect.objectContaining({ permissionMode: undefined, integration: "opencode" }),
+        expect.objectContaining({ permissionMode: "default", integration: "opencode" }),
       );
     });
 
@@ -1324,7 +1324,7 @@ describe("hooks/handler", () => {
       const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
       await handleHookEvent("PreToolUse");
       expect(persistHookActivity).toHaveBeenCalledWith(
-        expect.objectContaining({ permissionMode: undefined, integration: "pi" }),
+        expect.objectContaining({ permissionMode: "default", integration: "pi" }),
       );
     });
   });
