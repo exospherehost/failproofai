@@ -23,25 +23,29 @@
 
 **Çeviriler**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-AI aracılarınızı güvenilir, görevlerine odaklanmış ve özerk olarak çalışır durumda tutmak için politikaları yönetmenin en kolay yolu - **Claude Code** ve **Agents SDK** için.
+AI ajanlarınızı güvenilir, hedef odaklı ve otonom şekilde çalışır tutmanız için politikaları yönetmenin en kolay yolu - **Claude Code** & **Agents SDK** için.
 
-- **30 Yerleşik Politika** - Ortak ajan başarısızlık modlarını kutudan çıkar çıkmaz yakalayın. Yıkıcı komutları engelleyin, gizli sızıntılarını önleyin, ajanları proje sınırları içinde tutun, döngüleri algılayın ve daha fazlasını yapın.
-- **Özel Politikalar** - JavaScript'te kendi güvenilirlik kurallarınızı yazın. `allow`/`deny`/`instruct` API'sini kullanarak kuralları zorunlu kılın, sapmaları önleyin, işlemleri sınırlandırın veya harici sistemlerle entegre olun.
-- **Kolay Yapılandırma** - Herhangi bir politikayı kod yazmadan ayarlayın. İzin listeleri, korumalı dallar, eşikleri proje başına veya genel olarak belirleyin. Üç kapsamlı yapılandırma otomatik olarak birleşir.
-- **Ajan Monitörü** - Aracılarınızın yokken neler yaptığını görün. Oturumları inceleyin, her araç çağrısını denetleyin ve politikaların tam olarak nerede çalıştığını gözden geçirin.
+<p align="center">
+  <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
+</p>
 
-Her şey yerel olarak çalışır - veriler makinenizi terk etmez.
+- **30 Yerleşik Politika** - Yaygın ajan başarısızlık modlarını kutudan hemen çıkar. Yıkıcı komutları engelle, gizli sızıntılarını önle, ajanları proje sınırları içinde tut, döngüleri algıla ve daha fazlası.
+- **Özel Politikalar** - JavaScript'te kendi güvenilirlik kurallarını yaz. Kuralları zorunlu kılmak, sapmayı önlemek, işlemleri kontrol etmek veya harici sistemlerle entegre olmak için `allow`/`deny`/`instruct` API'sini kullan.
+- **Kolay Yapılandırma** - Kod yazmadan herhangi bir politikayı ayarla. İzin listelerini, korunan dalları, eşikleri proje başına veya küresel olarak ayarla. Üç kapsamlı yapılandırma otomatik olarak birleştirilir.
+- **Ajan İzleyici** - Uzakta iken ajanlarınızın ne yaptığını gör. Oturumları gözat, her araç çağrısını incele ve politikaların tam olarak nerede devreye girdiğini gözden geçir.
+
+Her şey yerel olarak çalışır - hiçbir veri makinenizi terk etmez.
 
 ---
 
 ## Gereksinimler
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0 (isteğe bağlı - yalnızca geliştirme / kaynaktan derleme için gerekli)
+- Bun >= 1.3.0 (isteğe bağlı - sadece geliştirme / kaynaktan derleme için gerekli)
 
 ---
 
-## Yükleme
+## Kurulum
 
 ```bash
 npm install -g failproofai
@@ -53,23 +57,23 @@ bun add -g failproofai
 
 ## Hızlı başlangıç
 
-### 1. Politikaları genel olarak etkinleştirin
+### 1. Politikaları küresel olarak etkinleştir
 
 ```bash
 failproofai policies --install
 ```
 
-Hook girdilerini `~/.claude/settings.json` dosyasına yazar. Claude Code artık her araç çağrısından önce ve sonra failproofai'yi çağıracaktır.
+`~/.claude/settings.json` içine hook girişleri yazar. Claude Code artık her araç çağrısından önce ve sonra failproofai'ı çağıracaktır.
 
-### 2. Panoyu başlatın
+### 2. Panoyu başlat
 
 ```bash
 failproofai
 ```
 
-`http://localhost:8020` adresini açar - oturumları inceleyin, günlükleri denetleyin, politikaları yönetin.
+`http://localhost:8020` açılır - oturumları gözat, günlükleri incele, politikaları yönet.
 
-### 3. Nelerin etkin olduğunu kontrol edin
+### 3. Ne'nin etkin olduğunu kontrol et
 
 ```bash
 failproofai policies
@@ -77,23 +81,23 @@ failproofai policies
 
 ---
 
-## Politika yüklemesi
+## Politika kurulumu
 
 ### Kapsamlar
 
-| Kapsam | Komut | Nereye yazıyor |
-|--------|-------|---|
-| Genel (varsayılan) | `failproofai policies --install` | `~/.claude/settings.json` |
+| Kapsam | Komut | Nereye yazar |
+|--------|-------|--------------|
+| Küresel (varsayılan) | `failproofai policies --install` | `~/.claude/settings.json` |
 | Proje | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | Yerel | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
-### Belirli politikaları yükleyin
+### Belirli politikaları kur
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 ```
 
-### Politikaları kaldırın
+### Politikaları kaldır
 
 ```bash
 failproofai policies --uninstall
@@ -105,7 +109,7 @@ failproofai policies --uninstall --scope project
 
 ## Yapılandırma
 
-Politika yapılandırması `~/.failproofai/policies-config.json` (genel) veya projenizde `.failproofai/policies-config.json` (proje başına) dosyasında bulunur.
+Politika yapılandırması `~/.failproofai/policies-config.json` dosyasında (küresel) veya projenizin `.failproofai/policies-config.json` dosyasında (proje başına) bulunur.
 
 ```json
 {
@@ -120,11 +124,11 @@ Politika yapılandırması `~/.failproofai/policies-config.json` (genel) veya pr
   "policyParams": {
     "block-sudo": {
       "allowPatterns": ["sudo systemctl status", "sudo journalctl"],
-      "hint": "sudo olmadan apt-get'i doğrudan kullanın."
+      "hint": "sudo olmadan apt-get'i doğrudan kullan."
     },
     "block-push-master": {
       "protectedBranches": ["main", "release", "prod"],
-      "hint": "Bunun yerine yeni bir dal oluşturmayı deneyin."
+      "hint": "Bunun yerine yeni bir dal oluşturmayı dene."
     },
     "sanitize-api-keys": {
       "additionalPatterns": [
@@ -138,66 +142,66 @@ Politika yapılandırması `~/.failproofai/policies-config.json` (genel) veya pr
 }
 ```
 
-**Üç yapılandırma kapsamı** otomatik olarak birleştirilir (proje → yerel → genel). Tam birleştirme kuralları için [docs/configuration.mdx](docs/configuration.mdx) bölümüne bakın.
+**Üç yapılandırma kapsamı** otomatik olarak birleştirilir (proje → yerel → küresel). Tam birleştirme kuralları için [docs/configuration.mdx](docs/configuration.mdx) dosyasını gör.
 
 ---
 
 ## Yerleşik politikalar
 
 | Politika | Açıklama | Yapılandırılabilir |
-|----------|----------|:---:|
-| `block-sudo` | Ajanların ayrıcalıklı sistem komutlarını çalıştırmasını önleyin | `allowPatterns` |
-| `block-rm-rf` | Yanlışlıkla özyinelemeli dosya silmeyi önleyin | `allowPaths` |
-| `block-curl-pipe-sh` | Ajanların güvenilmeyen betikleri shell'e aktarmasını önleyin | |
-| `block-failproofai-commands` | Kendi kendine kaldırmayı önleyin | |
-| `sanitize-jwt` | JWT belirteçlerinin ajan bağlamında sızmasını durdurun | |
-| `sanitize-api-keys` | API anahtarlarının ajan bağlamında sızmasını durdurun | `additionalPatterns` |
-| `sanitize-connection-strings` | Veritabanı kimlik bilgilerinin ajan bağlamında sızmasını durdurun | |
-| `sanitize-private-key-content` | PEM özel anahtar bloklarını çıktıdan kaldırın | |
-| `sanitize-bearer-tokens` | Authorization Bearer belirteçlerini çıktıdan kaldırın | |
-| `block-env-files` | Ajanları .env dosyalarını okumasından tutun | |
-| `protect-env-vars` | Ajanların ortam değişkenlerini yazdırmasını önleyin | |
-| `block-read-outside-cwd` | Ajanları proje sınırları içinde tutun | `allowPaths` |
-| `block-secrets-write` | Özel anahtar ve sertifika dosyalarına yazmaları önleyin | `additionalPatterns` |
-| `block-push-master` | Ana/master'a yanlışlıkla itmeyi önleyin | `protectedBranches` |
-| `block-work-on-main` | Ajanları korumalı dallardan uzak tutun | `protectedBranches` |
-| `block-force-push` | `git push --force` komutunu önleyin | |
-| `warn-git-amend` | Ajanları commit'leri değiştirmeden önce uyarın | |
-| `warn-git-stash-drop` | Ajanları stash'leri bırakmadan önce uyarın | |
-| `warn-all-files-staged` | Yanlışlıkla `git add -A` komutunu yakalayın | |
-| `warn-destructive-sql` | DROP/DELETE SQL komutlarını yürütmeden önce yakalayın | |
-| `warn-schema-alteration` | ALTER TABLE komutlarını yürütmeden önce yakalayın | |
-| `warn-large-file-write` | Beklenmedik şekilde büyük dosya yazımlarını yakalayın | `thresholdKb` |
-| `warn-package-publish` | Yanlışlıkla `npm publish` komutunu yakalayın | |
-| `warn-background-process` | İstenmeyen arka plan işlemi başlatmalarını yakalayın | |
-| `warn-global-package-install` | İstenmeyen genel paket kurulumlarını yakalayın | |
+|----------|----------|:--:|
+| `block-sudo` | Ajanları ayrıcalıklı sistem komutlarını çalıştırmaktan engelle | `allowPatterns` |
+| `block-rm-rf` | Kazara yinelemeli dosya silmeyi engelle | `allowPaths` |
+| `block-curl-pipe-sh` | Ajanları güvenilmeyen betikleri kabuğa yöneltmekten engelle | |
+| `block-failproofai-commands` | Kendi kendini kaldırmayı engelle | |
+| `sanitize-jwt` | JWT belirteçlerinin ajan bağlamına sızmasını durdur | |
+| `sanitize-api-keys` | API anahtarlarının ajan bağlamına sızmasını durdur | `additionalPatterns` |
+| `sanitize-connection-strings` | Veritabanı kimlik bilgilerinin ajan bağlamına sızmasını durdur | |
+| `sanitize-private-key-content` | PEM özel anahtar bloklarını çıktıdan gizle | |
+| `sanitize-bearer-tokens` | Yetkilendirme Bearer belirteçlerini çıktıdan gizle | |
+| `block-env-files` | Ajanları .env dosyalarını okumaktan engelle | |
+| `protect-env-vars` | Ajanları ortam değişkenlerini yazdırmaktan engelle | |
+| `block-read-outside-cwd` | Ajanları proje sınırları içinde tut | `allowPaths` |
+| `block-secrets-write` | Özel anahtar ve sertifika dosyalarına yazmaları engelle | `additionalPatterns` |
+| `block-push-master` | Ana/master dalına kazara itmeleri engelle | `protectedBranches` |
+| `block-work-on-main` | Ajanları korunan dallardan uzak tut | `protectedBranches` |
+| `block-force-push` | `git push --force` komutunu engelle | |
+| `warn-git-amend` | Ajanları commit'leri düzenlemeden önce uyar | |
+| `warn-git-stash-drop` | Ajanları stash'leri bırakmadan önce uyar | |
+| `warn-all-files-staged` | Kazara `git add -A` komutunu yakala | |
+| `warn-destructive-sql` | DROP/DELETE SQL'i yürütmeden önce yakala | |
+| `warn-schema-alteration` | ALTER TABLE komutunu yürütmeden önce yakala | |
+| `warn-large-file-write` | Beklenmedik büyüklükteki dosya yazımlarını yakala | `thresholdKb` |
+| `warn-package-publish` | Kazara `npm publish` komutunu yakala | |
+| `warn-background-process` | İstenmeyen arka plan işlemi başlatımını yakala | |
+| `warn-global-package-install` | İstenmeyen küresel paket kurulumunu yakala | |
 | …ve daha fazlası | | |
 
 Tam politika ayrıntıları ve parametre referansı: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
 ---
 
-## Özel politikalar
+## Özel Politikalar
 
-Ajanlarınızı güvenilir ve görevlerine odaklanmış tutmak için kendi politikalarınızı yazın:
+Ajanlarınızı güvenilir ve hedef odaklı tutmak için kendi politikalarınızı yazın:
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
 
 customPolicies.add({
   name: "no-production-writes",
-  description: "'production' içeren yollara yazmaları engelleyin",
+  description: "Block writes to paths containing 'production'",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
     const path = ctx.toolInput?.file_path ?? "";
-    if (path.includes("production")) return deny("Production yollarına yazma işlemleri engellendi");
+    if (path.includes("production")) return deny("Writes to production paths are blocked");
     return allow();
   },
 });
 ```
 
-Şu komutuyla yükleyin:
+Şu şekilde kurun:
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -207,47 +211,47 @@ failproofai policies --install --custom ./my-policies.js
 
 | İşlev | Etki |
 |-------|------|
-| `allow()` | İşleme izin verin |
-| `allow(message)` | İzin verin ve Claude'a bilgilendirici bağlam gönderin |
-| `deny(message)` | İşlemi engelleyin; ileti Claude'a gösterilir |
-| `instruct(message)` | Claude'un istemine bağlam ekleyin; engellemez |
+| `allow()` | İşleme izin ver |
+| `allow(message)` | İzin ver ve Claude'a bilgi bağlamı gönder |
+| `deny(message)` | İşlemi engelle; ileti Claude'a gösterilir |
+| `instruct(message)` | Claude'un istlemine bağlam ekle; engelleme yapmaz |
 
 ### Bağlam nesnesi (`ctx`)
 
 | Alan | Tür | Açıklama |
-|------|-----|---------|
+|------|-----|----------|
 | `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
 | `toolName` | `string` | Çağrılan araç (`"Bash"`, `"Write"`, `"Read"`, …) |
 | `toolInput` | `object` | Aracın giriş parametreleri |
 | `payload` | `object` | Tam ham olay yükü |
 | `session.cwd` | `string` | Claude Code oturumunun çalışma dizini |
 | `session.sessionId` | `string` | Oturum tanımlayıcısı |
-| `session.transcriptPath` | `string` | Oturum döküm dosyasının yolu |
+| `session.transcriptPath` | `string` | Oturum transkript dosyasının yolu |
 
-Özel hook'lar geçişli yerel içe aktarmaları, async/await ve `process.env` erişimini destekler. Hatalar açık başarısız olur (hatalara `~/.failproofai/hook.log` dosyasında kaydedilir, yerleşik politikalar devam eder). Tam rehber için [docs/custom-hooks.mdx](docs/custom-hooks.mdx) bölümüne bakın.
+Özel kancalar, geçişli yerel içe aktarmaları, async/await'i ve `process.env` erişimini destekler. Hatalar açık başarısız olur (günlüğe `~/.failproofai/hook.log` dosyasına yazılır, yerleşik politikalar devam eder). Tam rehber için [docs/custom-hooks.mdx](docs/custom-hooks.mdx) dosyasını gör.
 
 ### Kural tabanlı politikalar
 
-`*policies.{js,mjs,ts}` dosyalarını `.failproofai/policies/` dizinine bırakın ve otomatik olarak yüklenir - bayrak veya yapılandırma değişikliği yapılmaz. Dizini git'e commit edin ve her takım üyesi aynı kalite standartlarını otomatik olarak alır.
+`*policies.{js,mjs,ts}` dosyalarını `.failproofai/policies/` dizinine bırak ve otomatik olarak yüklenir - hiçbir bayrak veya yapılandırma değişikliğine gerek yoktur. Dizini git'e işle ve her takım üyesi otomatik olarak aynı kalite standartlarını alır.
 
 ```text
-# Proje seviyesi — git'e commit edilmiş, takım ile paylaşılan
+# Proje seviyesi — git'e işlenir, takım ile paylaşılır
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# Kullanıcı seviyesi — kişisel, tüm projelere uygulanır
+# Kullanıcı seviyesi — kişisel, tüm projeler için geçerlidir
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-Her iki seviye de yüklenir (birleşim). Dosyalar her dizin içinde alfabetik olarak yüklenir. Sırayı kontrol etmek için `01-`, `02-` vb. ön ekle ekleyin. Takımınız yeni başarısızlık modlarını keşfettikçe, bir politika ekleyin ve gönderin — herkes kendi sonraki pull'larında güncellemeyi alır. Kullanıma hazır örnekler için [examples/convention-policies/](examples/convention-policies/) bölümüne bakın.
+Her iki seviye de yüklenir (birleşim). Dosyalar her dizinin içinde alfabetik sıraya göre yüklenir. Sırayı kontrol etmek için `01-`, `02-` vb. ile ön ek ekle. Takımınız yeni başarısızlık modlarını keşfettikçe, bir politika ekle ve gönder — her sonraki pull'da herkes güncellemeyi alır. Hazır örnekler için [examples/convention-policies/](examples/convention-policies/) dosyasını gör.
 
 ---
 
 ## Telemetri
 
-Failproof AI, özellik kullanımını anlamak için PostHog aracılığıyla anonim kullanım telemetrisi toplar. Oturum içeriği, dosya adları, araç girdileri veya kişisel bilgiler asla gönderilmez.
+Failproof AI, özellik kullanımını anlamak için PostHog aracılığıyla anonim kullanım telemetrisi toplar. Oturum içeriği, dosya adları, araç girişleri veya kişisel bilgiler asla gönderilmez.
 
-Devre dışı bırakmak için:
+Devre dışı bırak:
 
 ```bash
 FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
@@ -259,22 +263,22 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 
 | Rehber | Açıklama |
 |--------|----------|
-| [Başlangıç Kılavuzu](docs/getting-started.mdx) | Kurulum ve ilk adımlar |
-| [Yerleşik Politikalar](docs/built-in-policies.mdx) | 30 yerleşik politika ve parametreleri |
+| [Başlarken](docs/getting-started.mdx) | Kurulum ve ilk adımlar |
+| [Yerleşik Politikalar](docs/built-in-policies.mdx) | Tüm 30 yerleşik politika ve parametreleri |
 | [Özel Politikalar](docs/custom-policies.mdx) | Kendi politikalarınızı yazın |
 | [Yapılandırma](docs/configuration.mdx) | Yapılandırma dosyası biçimi ve kapsam birleştirme |
-| [Pano](docs/dashboard.mdx) | Oturumları izleyin ve politika etkinliğini gözden geçirin |
-| [Mimari](docs/architecture.mdx) | Hook sistemi nasıl çalışır |
-| [Test](docs/testing.mdx) | Testleri çalıştırın ve yenilerini yazın |
+| [Pano](docs/dashboard.mdx) | Oturumları izle ve politika aktivitesini gözden geçir |
+| [Mimari](docs/architecture.mdx) | Kanca sistemi nasıl çalışır |
+| [Test Etme](docs/testing.mdx) | Testleri çalıştır ve yenilerini yaz |
 
-### Belgeleri yerel olarak çalıştırın
+### Belgeleri yerel olarak çalıştır
 
 ```bash
 docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-Mintlify belgeleri sitesini `http://localhost:3000` adresinde açar. Belge dizinini bağlarsanız, konteyner değişiklikleri izler:
+`http://localhost:3000` adresinde Mintlify belgeleri sitesini açar. Belgeler dizinini bağlarsanız, konteyner değişiklikleri izler:
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -284,24 +288,24 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ## failproofai katılımcıları için not
 
-Bu depo'nun `.claude/settings.json` dosyası, standart `npx -y failproofai` komutu yerine `bun ./bin/failproofai.mjs --hook <EventType>` komutunu kullanır. Bunun nedeni, `npx -y failproofai` komutunu failproofai projesi içinde çalıştırmanın kendine referans bir çatışma oluşturmasıdır.
+Bu depo'nun `.claude/settings.json` dosyası, standart `npx -y failproofai` komutu yerine `bun ./bin/failproofai.mjs --hook <EventType>` komutunu kullanır. Bunun nedeni, failproofai projesi içinde `npx -y failproofai` çalıştırmanın kendi kendisine gönderme çatışması yaratmasıdır.
 
-Diğer tüm repolar için önerilen yaklaşım `npx -y failproofai` olup, şu komutla kurulur:
+Diğer tüm depolar için, önerilen yaklaşım `npx -y failproofai` komutudur, şu şekilde kurulur:
 
 ```bash
 failproofai policies --install --scope project
 ```
 
-## Katkıda bulunma
+## Katkıda Bulunma
 
-[CONTRIBUTING.md](CONTRIBUTING.md) bölümüne bakın.
+Bkz. [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 ## Lisans
 
-[LICENSE](LICENSE) bölümüne bakın.
+Bkz. [LICENSE](LICENSE).
 
 ---
 
-**ExosphereHost tarafından inşa edilmiş ve bakımı yapılmaktadır: Aracılarınız için Güvenilirlik Araştırma Laboratuvarı**. Kuruluşların ve girişimlerin kendi aracıları, yazılımları ve uzmanlıkları aracılığıyla AI aracılarının güvenilirliğini iyileştirmelerine yardımcı oluruz. Daha fazla bilgi için [exosphere.host](https://exosphere.host) adresini ziyaret edin.
+**ExosphereHost: Ajanlarınız için Güvenilirlik Araştırma Laboratuvarı** tarafından inşa edilmiş ve yönetilmektedir. Kendi ajanlarımız, yazılımımız ve uzmanlığımız aracılığıyla işletmelerin ve başlangıçların AI ajanlarının güvenilirliğini iyileştirmesine yardımcı oluyoruz. [exosphere.host](https://exosphere.host) adresinde daha fazla bilgi edinin.
