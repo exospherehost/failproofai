@@ -40,7 +40,7 @@ export interface HookRunResult {
 export function runHook(
   event: string,
   payload: Record<string, unknown>,
-  opts?: { homeDir?: string },
+  opts?: { homeDir?: string; cli?: string; cwd?: string },
 ): HookRunResult {
   const binaryPath = getBinaryPath();
 
@@ -53,12 +53,19 @@ export function runHook(
     FAILPROOFAI_TELEMETRY_DISABLED: "1",
     FAILPROOFAI_DIST_PATH: getDistPath(),
     FAILPROOFAI_SKIP_KILL: "true",
+    FAILPROOFAI_DISABLE_INSTANT_CATCH: "1",
     ...(opts?.homeDir ? { HOME: opts.homeDir } : {}),
   };
 
-  const result = spawnSync("bun", [binaryPath, "--hook", event], {
+  const args = [binaryPath, "--hook", event];
+  if (opts?.cli) {
+    args.push("--cli", opts.cli);
+  }
+
+  const result = spawnSync("bun", args, {
     input: JSON.stringify(payload),
     env,
+    cwd: opts?.cwd,
     encoding: "utf8",
     timeout: 15_000,
   });

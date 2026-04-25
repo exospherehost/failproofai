@@ -978,6 +978,49 @@ describe("parseLogContent", () => {
         expect(toolBlock.result?.content).toContain("file contents");
       }
     });
+
+    it("deduplicates mirrored and activity lifecycle rows with slight timestamp drift", async () => {
+      const hookStoreDir = join(tempRoot, ".failproofai", "cache", "hook-activity");
+      resetHookStoreForTest(hookStoreDir);
+      process.env.CLAUDE_PROJECTS_PATH = join(tempRoot, ".claude", "projects");
+
+      const projectName = "-tmp-workspace";
+      const sessionId = "copilot-lifecycle-dedupe";
+      const projectDir = join(process.env.CLAUDE_PROJECTS_PATH, projectName);
+      mkdirSync(projectDir, { recursive: true });
+
+      writeFileSync(
+        join(projectDir, `${sessionId}.jsonl`),
+        line({
+          type: "assistant",
+          uuid: "a-life-1",
+          parentUuid: null,
+          timestamp: "2024-06-15T12:00:00.000Z",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "Session started via copilot" }],
+          },
+        }),
+        "utf8",
+      );
+
+      persistHookActivity({
+        timestamp: Date.parse("2024-06-15T12:00:01.000Z"), // within dedupe bucket tolerance
+        eventType: "sessionStart",
+        toolName: null,
+        policyName: null,
+        decision: "allow",
+        reason: null,
+        durationMs: 1,
+        sessionId,
+        integration: "copilot",
+        cwd: "/tmp/workspace",
+      });
+
+      const result = await parseSessionLog(projectName, sessionId);
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].type).toBe("assistant");
+    });
   });
 });
 

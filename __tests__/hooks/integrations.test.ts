@@ -241,6 +241,57 @@ describe("hooks/integrations", () => {
       expect(copilot.detect({ hook_event_name: "preToolUse" })).toBe(true);
     });
 
+    // Regression: detect() is only reached when no --cli flag was passed (Secondary Detection).
+    // In that context, COPILOT_SESSION_ID in the environment is authoritative — the hook fired
+    // from inside a Copilot terminal. Requiring additional payload shape caused empty-payload
+    // Stop/agentStop events to fall through to "claude-code", producing wrong labels + unnamed sessions.
+    it("detects Copilot from env var alone when no --cli flag provided (secondary detection path)", () => {
+      const prevSession = process.env.COPILOT_SESSION_ID;
+      process.env.COPILOT_SESSION_ID = "cop-env-1";
+      try {
+        expect(copilot.detect({})).toBe(true);
+      } finally {
+        if (prevSession === undefined) delete process.env.COPILOT_SESSION_ID;
+        else process.env.COPILOT_SESSION_ID = prevSession;
+      }
+    });
+
+    it("detects Copilot from COPILOT_CMD_ID env var alone", () => {
+      const prevCmd = process.env.COPILOT_CMD_ID;
+      process.env.COPILOT_CMD_ID = "cmd-abc";
+      try {
+        expect(copilot.detect({})).toBe(true);
+      } finally {
+        if (prevCmd === undefined) delete process.env.COPILOT_CMD_ID;
+        else process.env.COPILOT_CMD_ID = prevCmd;
+      }
+    });
+
+    it("does NOT detect Copilot from env var when neither COPILOT_SESSION_ID nor COPILOT_CMD_ID is set and payload is empty", () => {
+      const prevSession = process.env.COPILOT_SESSION_ID;
+      const prevCmd = process.env.COPILOT_CMD_ID;
+      delete process.env.COPILOT_SESSION_ID;
+      delete process.env.COPILOT_CMD_ID;
+      try {
+        expect(copilot.detect({})).toBe(false);
+      } finally {
+        if (prevSession !== undefined) process.env.COPILOT_SESSION_ID = prevSession;
+        if (prevCmd !== undefined) process.env.COPILOT_CMD_ID = prevCmd;
+      }
+    });
+
+    it("detects Copilot with env var + Copilot-shaped payload", () => {
+      const prevSession = process.env.COPILOT_SESSION_ID;
+      process.env.COPILOT_SESSION_ID = "cop-env-2";
+      try {
+        expect(copilot.detect({ hookEventName: "preToolUse" })).toBe(true);
+        expect(copilot.detect({ sessionId: "abc" })).toBe(true);
+      } finally {
+        if (prevSession === undefined) delete process.env.COPILOT_SESSION_ID;
+        else process.env.COPILOT_SESSION_ID = prevSession;
+      }
+    });
+
     it("detects copilot payloads from nested data without confusing PascalCase Claude events", () => {
       expect(copilot.detect({ data: { sessionId: "cop-123" } })).toBe(true);
       expect(copilot.detect({ data: { toolName: "bash" } })).toBe(true);
@@ -343,6 +394,19 @@ describe("hooks/integrations", () => {
       expect(settings.copilotTokens).toEqual(["keep-me"]);
       expect(settings.loggedInUsers).toEqual([{ login: "octocat" }]);
       expect(settings.hooks.sessionStart.some((h: any) => String(h.bash).includes("failproofai"))).toBe(true);
+    });
+
+    it("readSettings tolerates JSONC comment lines at the top of config.json", () => {
+      const jsonc = [
+        "// User settings belong in settings.json.",
+        "// This file is managed automatically.",
+        '{ "version": 1, "firstLaunchAt": "2026-03-11T00:00:00.000Z" }',
+      ].join("\n");
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(jsonc as any);
+      const result = copilot.readSettings("/fake/.copilot/config.json");
+      expect(result.version).toBe(1);
+      expect((result as any).firstLaunchAt).toBe("2026-03-11T00:00:00.000Z");
     });
   });
 

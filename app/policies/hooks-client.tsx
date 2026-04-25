@@ -66,8 +66,12 @@ function projectFromTranscriptPath(transcriptPath: string): string | null {
 
 function SessionCell({ sessionId, transcriptPath }: { sessionId?: string; transcriptPath?: string }) {
   if (!sessionId) return <span className="text-muted-foreground">\u2014</span>;
-  const project = transcriptPath ? projectFromTranscriptPath(transcriptPath) : null;
   const short = shortenSession(sessionId);
+  // OpenCode sessions use ses_ prefix and don't have a transcriptPath; the session ID
+  // doubles as the project name in the URL.
+  const project = sessionId.startsWith("ses_")
+    ? sessionId
+    : transcriptPath ? projectFromTranscriptPath(transcriptPath) : null;
   if (project) {
     return (
       <Link

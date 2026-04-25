@@ -8,6 +8,11 @@ import type { HooksConfig } from "./policy-types";
 import type { HookScope } from "./types";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
+function getHomeDir(): string {
+  const envHome = process.env.HOME;
+  return envHome && envHome.trim().length > 0 ? envHome : homedir();
+}
+
 function readConfigAt(path: string): Partial<HooksConfig> {
   if (!existsSync(path)) return {};
   try {
@@ -35,7 +40,7 @@ export function readMergedHooksConfig(cwd?: string): HooksConfig {
   const base = cwd ? resolve(cwd) : process.cwd();
   const projectPath = resolve(base, ".failproofai", "policies-config.json");
   const localPath = resolve(base, ".failproofai", "policies-config.local.json");
-  const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
+  const globalPath = resolve(getHomeDir(), ".failproofai", "policies-config.json");
 
   const project = readConfigAt(projectPath);
   const local = readConfigAt(localPath);
@@ -75,7 +80,7 @@ export function readMergedHooksConfig(cwd?: string): HooksConfig {
 }
 
 function getConfigPath(): string {
-  return resolve(homedir(), ".failproofai", "policies-config.json");
+  return resolve(getHomeDir(), ".failproofai", "policies-config.json");
 }
 
 export function readHooksConfig(): HooksConfig {
@@ -108,7 +113,7 @@ export function getConfigPathForScope(scope: HookScope, cwd?: string): string {
   const base = cwd ? resolve(cwd) : process.cwd();
   switch (scope) {
     case "user":
-      return resolve(homedir(), ".failproofai", "policies-config.json");
+      return resolve(getHomeDir(), ".failproofai", "policies-config.json");
     case "project":
       return resolve(base, ".failproofai", "policies-config.json");
     case "local":

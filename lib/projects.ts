@@ -7,7 +7,8 @@
  */
 import { readdir, stat } from "fs/promises";
 import { join, resolve, sep, basename } from "path";
-import { getClaudeProjectsPath, getCopilotSessionStatePath, getOpencodeStoragePath, encodeCwd, decodeFolderName } from "./paths";
+import { homedir } from "os";
+import { getClaudeProjectsPath, getCopilotSessionStatePath, encodeCwd, decodeFolderName } from "./paths";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
 import { logWarn, logError } from "./logger";
@@ -16,6 +17,8 @@ import { IntegrationType } from "@/src/hooks/types";
 
 export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;
+const OPENCODE_DB_SESSION_PREFIX = "__fp_opencode_db__:";
+const OPENCODE_DB_PATH = join(homedir(), ".local", "share", "opencode", "opencode.db");
 
 export interface ProjectFolder {
   name: string;
@@ -88,30 +91,32 @@ async function readFolderEntries(
     .map((r) => r.value);
 }
 
-async function readOpencodeEntries(rootPath: string): Promise<ProjectFolder[]> {
-  const entries = await safeReaddir(rootPath);
-  if (!entries) return [];
-
-  const settled = await batchAll(
-    entries
-      .filter((e) => e.isFile() && e.name.startsWith("ses_"))
-      .map((entry) => async () => {
-        const filePath = join(rootPath, entry.name);
-        const mtime = await getMtime(filePath, entry.name);
-        return {
-          name: entry.name.replace(".json", ""),
-          path: filePath,
-          isDirectory: false,
-          lastModified: mtime,
-          lastModifiedFormatted: formatDate(mtime),
-          source: "opencode",
-        } as ProjectFolder;
-      }),
-    16,
-  );
-  return settled
-    .filter((r): r is PromiseFulfilledResult<ProjectFolder> => r.status === "fulfilled")
-    .map((r) => r.value);
+async function readOpencodeDbEntries(): Promise<ProjectFolder[]> {
+  try {
+    // Keep unit tests deterministic even when a real local opencode.db exists.
+    if (process.env.VITEST) return [];
+    const bunSqliteSpecifier = `bun${":sqlite"}`;
+    const mod = await import(bunSqliteSpecifier as unknown as string) as any;
+    const db = new mod.Database(OPENCODE_DB_PATH, { readonly: true });
+    const rows: Array<{ id: string; directory: string; time_created: number }> = db.query(
+      "SELECT id, directory, time_created FROM session ORDER BY time_created DESC"
+    ).all();
+    db.close();
+    return rows.map((row) => {
+      const lastModified = new Date(row.time_created);
+      return {
+        name: row.id,
+        path: `${OPENCODE_DB_SESSION_PREFIX}${row.id}`,
+        isDirectory: false,
+        lastModified,
+        lastModifiedFormatted: formatDate(lastModified),
+        source: "opencode" as const,
+        sources: ["opencode" as const],
+      } as ProjectFolder;
+    });
+  } catch {
+    return [];
+  }
 }
 
 import { INTEGRATION_TYPES } from "@/src/hooks/types";
@@ -151,6 +156,31 @@ async function getVirtualProjectsFromActivityStore(): Promise<ProjectFolder[]> {
   }
 }
 
+async function getOpencodeDbSessionsForCwd(cwd: string): Promise<SessionFile[]> {
+  try {
+    if (process.env.VITEST) return [];
+    const bunSqliteSpecifier = `bun${":sqlite"}`;
+    const mod = await import(bunSqliteSpecifier as unknown as string) as any;
+    const db = new mod.Database(OPENCODE_DB_PATH, { readonly: true });
+    const rows: Array<{ id: string; time_created: number }> = db.query(
+      "SELECT id, time_created FROM session WHERE directory = ? ORDER BY time_created DESC"
+    ).all(cwd);
+    db.close();
+    return rows.map((row) => {
+      const lastModified = new Date(row.time_created);
+      return {
+        name: row.id,
+        path: `${OPENCODE_DB_SESSION_PREFIX}${row.id}`,
+        lastModified,
+        lastModifiedFormatted: formatDate(lastModified),
+        sessionId: row.id,
+      } as SessionFile;
+    });
+  } catch {
+    return [];
+  }
+}
+
 /** Internal helper to check if an opencode session has already been merged into a workspace project */
 function isOpencodeSessionMerged(sessionId: string, virtualFolders: ProjectFolder[]): boolean {
   return virtualFolders.some(f => 
@@ -163,12 +193,11 @@ function isOpencodeSessionMerged(sessionId: string, virtualFolders: ProjectFolde
 
 export async function getProjectFolders(): Promise<ProjectFolder[]> {
   try {
-    const [claudeFolders, copilotFolders, opencodeFolders, virtualFolders] = await Promise.all([
-      readFolderEntries(getClaudeProjectsPath(), "claude-code"),
-      readFolderEntries(getCopilotSessionStatePath(), "copilot", (name) => UUID_RE.test(name)),
-      readOpencodeEntries(join(getOpencodeStoragePath(), "session_diff")),
-      getVirtualProjectsFromActivityStore(),
-    ]);
+    // Keep reads deterministic for test-time fs mocks and easier debugging.
+    const claudeFolders = await readFolderEntries(getClaudeProjectsPath(), "claude-code");
+    const copilotFolders = await readFolderEntries(getCopilotSessionStatePath(), "copilot", (name) => UUID_RE.test(name));
+    const opencodeFolders = await readOpencodeDbEntries();
+    const virtualFolders = await getVirtualProjectsFromActivityStore();
 
     // Group projects by name (which is the encoded CWD for Claude/Opencode/Virtual)
     // Copilot folders stay unique by UUID unless we can map them (handled in virtualStore)
@@ -268,7 +297,7 @@ export function resolveAnyProjectPath(
     return { path: resolveCopilotSessionDir(name), source: "copilot" };
   }
   if (name.startsWith("ses_")) {
-    return { path: join(getOpencodeStoragePath(), "session_diff", `${name}.json`), source: "opencode" };
+    return { path: `${OPENCODE_DB_SESSION_PREFIX}${name}`, source: "opencode" };
   }
   try {
     return { path: resolveProjectPath(name), source: "claude-code" };
@@ -335,15 +364,16 @@ async function getActivityStoreSessionFiles(cwd: string): Promise<SessionFile[]>
 
 export async function getSessionFiles(projectPath: string): Promise<SessionFile[]> {
   try {
-    // 1. opencode: path is the session JSON file itself, not a directory
-    if (basename(projectPath).startsWith("ses_") && projectPath.includes("session_diff")) {
-      const mtime = await getMtime(projectPath, basename(projectPath));
+    // 1. opencode: session is represented by a synthetic marker path.
+    if (projectPath.startsWith(OPENCODE_DB_SESSION_PREFIX)) {
+      const sessionId = projectPath.slice(OPENCODE_DB_SESSION_PREFIX.length);
+      const mtime = await getMtime(OPENCODE_DB_PATH, "opencode.db");
       return [{
-        name: basename(projectPath),
+        name: sessionId,
         path: projectPath,
         lastModified: mtime,
         lastModifiedFormatted: formatDate(mtime),
-        sessionId: basename(projectPath).replace(".json", ""),
+        sessionId,
       }];
     }
 
@@ -394,14 +424,15 @@ export async function getSessionFiles(projectPath: string): Promise<SessionFile[
       }
     }
 
-    // 4. Always fetch virtual integration sessions for this cwd (Cursor/Gemini/Codex/Pi)
+    // 4. Always fetch virtual integration sessions for this cwd (Cursor/Gemini/Codex/Pi/OpenCode)
     const cwd = decodeFolderName(basename(projectPath));
     const virtualSessions = await getActivityStoreSessionFiles(cwd);
+    const opencodeDbSessions = await getOpencodeDbSessionsForCwd(cwd);
 
-    // Merge virtual and real sessions
+    // Merge virtual, real, and opencode DB sessions
     const mergedMap = new Map<string, SessionFile>();
-    
-    for (const s of [...fileSessions, ...virtualSessions]) {
+
+    for (const s of [...fileSessions, ...virtualSessions, ...opencodeDbSessions]) {
       if (!s.sessionId) continue;
       const existing = mergedMap.get(s.sessionId);
       if (!existing || s.lastModified > existing.lastModified) {

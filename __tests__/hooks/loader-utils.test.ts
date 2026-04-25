@@ -94,7 +94,8 @@ describe("hooks/loader-utils - createEsmShim", () => {
 
     const { shimPath } = await createEsmShim(distIndex, distUrl);
 
-    expect(shimPath).toBe(`${distIndex}.__failproofai_esm_shim__.mjs`);
+    expect(shimPath.startsWith(`${distIndex}.__failproofai_esm_shim__.`)).toBe(true);
+    expect(shimPath.endsWith(".mjs")).toBe(true);
 
     expect(writeFile).toHaveBeenCalledOnce();
     const writtenContent = vi.mocked(writeFile).mock.calls[0][1] as string;
@@ -135,7 +136,8 @@ describe("hooks/loader-utils - rewriteFileTree", () => {
     expect(entryTmpWrite).toBeDefined();
     const writtenCode = entryTmpWrite![1] as string;
     expect(writtenCode).not.toContain("from 'failproofai'");
-    expect(writtenCode).toContain("__failproofai_esm_shim__.mjs");
+    expect(writtenCode).toContain("__failproofai_esm_shim__.");
+    expect(writtenCode).toContain(".mjs");
   });
 
   it("rewrites require('failproofai') to the CJS dist path", async () => {

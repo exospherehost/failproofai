@@ -95,7 +95,10 @@ export interface Integration {
 
 function readJsonFile(path: string): Record<string, unknown> {
   if (!existsSync(path)) return {};
-  return JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  const raw = readFileSync(path, "utf8");
+  // Strip JSONC line comments (e.g. GitHub Copilot's config.json starts with "// ..." lines)
+  const stripped = raw.split("\n").filter((l) => !l.trimStart().startsWith("//")).join("\n");
+  return JSON.parse(stripped) as Record<string, unknown>;
 }
 
 function writeJsonFile(path: string, data: Record<string, unknown>): void {
@@ -1007,19 +1010,30 @@ const copilot: Integration = {
 
   detect(payload) {
     if (payload.integration === "copilot") return true;
+
+    // detect() is only reached via Secondary Detection — i.e. when no --cli flag was present.
+    // In that case COPILOT_SESSION_ID/COPILOT_CMD_ID in the process environment is authoritative:
+    // the hook was fired from inside a Copilot terminal session, so treat it as Copilot.
+    // Env-var bleed across integrations is prevented at the session-extraction layer (handler.ts),
+    // which already scopes each env var to its matching integrationType.
     if (process.env.COPILOT_SESSION_ID || process.env.COPILOT_CMD_ID) return true;
-    
+
     // Check top level and nested data
     const data = (payload.data as Record<string, any>) || {};
-    const hookName = (payload.hook_event_name as string) || (payload.hookEventName as string) || 
+    const hookName = (payload.hook_event_name as string) || (payload.hookEventName as string) ||
                      (data.hook_event_name as string) || (data.hookEventName as string) || "";
-    
-    return (
+
+    const hasCopilotShape =
       "sessionId" in payload || "sessionId" in data ||
       "toolName" in payload || "toolName" in data ||
-      "hookEventName" in payload || "hookEventName" in data ||
+      "hookEventName" in payload || "hookEventName" in data;
+    const hasCopilotEventName =
+      COPILOT_HOOK_EVENT_TYPES.includes(hookName as any) && !/^[A-Z]/.test(hookName);
+
+    return (
+      hasCopilotShape ||
       // Strictly avoid PascalCase events from Claude if they don't match Copilot expected types
-      (COPILOT_HOOK_EVENT_TYPES.includes(hookName as any) && !/^[A-Z]/.test(hookName))
+      hasCopilotEventName
     );
   },
 
@@ -1331,7 +1345,7 @@ export const FailproofAIPlugin = (ctx: any) => {
       } catch {}
     },
     "tool.execute.before": async (input: any, output: any) => {
-      callcli("PreToolUse", { tool_name: input.tool, tool_input: output.args });
+      callcli("PreToolUse", { tool_name: input.tool, tool_input: output.args, session_id: currentSessionId });
     },
     "tool.execute.after": async (input: any, output: any) => {
       try {

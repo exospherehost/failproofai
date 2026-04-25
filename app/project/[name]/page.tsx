@@ -44,7 +44,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   if (!isOpencode && !existsSync(projectPath)) {
     const { getAllHookActivityEntries } = await import("@/src/hooks/hook-activity-store");
     const allActivity = getAllHookActivityEntries();
-    const VIRTUAL_INTEGRATIONS = ["cursor", "gemini", "codex", "pi"];
+    const VIRTUAL_INTEGRATIONS = ["cursor", "gemini", "codex", "pi", "opencode"];
     const hasVirtualSessions = allActivity.some(
       (e) => e.cwd === decodedName && VIRTUAL_INTEGRATIONS.includes(e.integration || ""),
     );

@@ -194,10 +194,18 @@ export async function installHooks(
     configToWrite.customPoliciesPath = resolve(customPoliciesPath);
     // Validate the file before committing it to config
     let validatedHooks: Awaited<ReturnType<typeof loadCustomHooks>> = [];
-    try {
-      validatedHooks = await loadCustomHooks(configToWrite.customPoliciesPath, { strict: true });
-    } catch (err) {
-      console.error(`Error: ${err instanceof Error ? err.message : String(err)}`);
+    let lastValidationError: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        validatedHooks = await loadCustomHooks(configToWrite.customPoliciesPath, { strict: true });
+        lastValidationError = null;
+        break;
+      } catch (err) {
+        lastValidationError = err;
+      }
+    }
+    if (lastValidationError) {
+      console.error(`Error: ${lastValidationError instanceof Error ? lastValidationError.message : String(lastValidationError)}`);
       process.exit(1);
     }
     if (validatedHooks.length === 0) {

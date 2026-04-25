@@ -18,6 +18,7 @@ import { persistHookActivity } from "./hook-activity-store";
 import { trackHookEvent } from "./hook-telemetry";
 import { getInstanceId } from "../../lib/telemetry-id";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
+import { resolvePermissionMode } from "./resolve-permission-mode";
 import { getIntegration, INTEGRATIONS } from "./integrations";
 import { getClaudeProjectsPath, encodeCwd } from "../../lib/paths";
 import type { HookActivityEntry } from "./hook-activity-store";
@@ -28,7 +29,83 @@ import { homedir } from "os";
 import { existsSync, readdirSync, mkdirSync, writeFileSync, readFileSync, appendFileSync } from "fs";
 
 const DEDUP_BUCKET_MS = 2000; // 2s time buckets (4-6s total lookback)
-const DEDUP_DIR = join(homedir(), ".failproofai", "cache", "dedup");
+
+function getHomeDir(): string {
+  const envHome = process.env.HOME;
+  return envHome && envHome.trim().length > 0 ? envHome : homedir();
+}
+
+function getDedupDir(): string {
+  return join(getHomeDir(), ".failproofai", "cache", "dedup");
+}
+
+function normalizeEventTypeName(name: string | undefined): string {
+  return (name ?? "").trim();
+}
+
+function isCopilotUniqueEvent(name: string | undefined): boolean {
+  const normalized = normalizeEventTypeName(name);
+  if (!normalized) return false;
+  return COPILOT_HOOK_EVENT_TYPES.includes(normalized as any)
+    && !HOOK_EVENT_TYPES.includes(normalized as any);
+}
+
+function isGeminiUniqueEvent(name: string | undefined): boolean {
+  const normalized = normalizeEventTypeName(name);
+  if (!normalized) return false;
+  return GEMINI_HOOK_EVENT_TYPES.includes(normalized as any)
+    && !HOOK_EVENT_TYPES.includes(normalized as any);
+}
+
+function findGeminiChatsPath(cwd: string, sessionId: string): string | undefined {
+  const geminiRoot = join(getHomeDir(), ".gemini");
+  const tmpRoot = join(geminiRoot, "tmp");
+  const candidateProjects: string[] = [];
+
+  // Prefer the project mapped from this cwd when available.
+  try {
+    const projectsJsonPath = join(geminiRoot, "projects.json");
+    if (existsSync(projectsJsonPath)) {
+      const raw = JSON.parse(readFileSync(projectsJsonPath, "utf-8")) as Record<string, unknown>;
+      const projects = raw.projects as Record<string, string> | undefined;
+      const mapped = projects?.[cwd];
+      if (mapped && mapped.trim().length > 0) {
+        candidateProjects.push(mapped);
+      }
+    }
+  } catch {
+    // best-effort lookup
+  }
+
+  try {
+    if (existsSync(tmpRoot)) {
+      for (const projectName of readdirSync(tmpRoot)) {
+        if (!candidateProjects.includes(projectName)) candidateProjects.push(projectName);
+      }
+    }
+  } catch {
+    // best-effort lookup
+  }
+
+  for (const projectName of candidateProjects) {
+    const chatsDir = join(tmpRoot, projectName, "chats");
+    if (!existsSync(chatsDir)) continue;
+    try {
+      const chatFiles = readdirSync(chatsDir).filter((f) => {
+        if (!f.includes(sessionId)) return false;
+        if (f.endsWith(".jsonl.tool-calls.json")) return false;
+        return f.endsWith(".jsonl") || f.endsWith(".json");
+      });
+      const preferredJsonl = chatFiles.find((f) => f.endsWith(".jsonl"));
+      const match = preferredJsonl ?? chatFiles[0];
+      if (match) return join(chatsDir, match);
+    } catch {
+      continue;
+    }
+  }
+
+  return undefined;
+}
 
 function resolveTranscriptPath(
   integrationType: IntegrationType | undefined,
@@ -59,7 +136,7 @@ function resolveTranscriptPath(
     // Cursor stores transcripts in: ~/.cursor/projects/{project-name}/agent-transcripts/{session-id}/
     // We search all projects for this session ID
     try {
-      const projectsDir = join(homedir(), ".cursor", "projects");
+      const projectsDir = join(getHomeDir(), ".cursor", "projects");
       if (existsSync(projectsDir)) {
         const projects = readdirSync(projectsDir);
         for (const project of projects) {
@@ -74,7 +151,7 @@ function resolveTranscriptPath(
     // Pi stores transcripts in: ~/.pi/agent/sessions/{encoded-cwd}/{timestamp}_{session-id}.jsonl
     // Session ID format: encoded as hex timestamp + uuid, filename has ISO timestamp prefix
     try {
-      const sessionsDir = join(homedir(), ".pi", "agent", "sessions");
+      const sessionsDir = join(getHomeDir(), ".pi", "agent", "sessions");
       if (existsSync(sessionsDir)) {
         const cwdDirs = readdirSync(sessionsDir);
         for (const cwdDir of cwdDirs) {
@@ -94,21 +171,22 @@ function resolveTranscriptPath(
   const searchPaths: string[] = [];
   if (integrationType === "copilot") {
     searchPaths.push(
-      join(homedir(), ".copilot", "session-state", sessionId, "events.jsonl"),
-      join(homedir(), ".config", "Copilot", "session-state", sessionId, "events.jsonl"),
-      join(homedir(), "AppData", "Roaming", "GitHub Copilot", "session-state", sessionId, "events.jsonl"),
+      join(getHomeDir(), ".copilot", "session-state", sessionId, "events.jsonl"),
+      join(getHomeDir(), ".config", "Copilot", "session-state", sessionId, "events.jsonl"),
+      join(getHomeDir(), "AppData", "Roaming", "GitHub Copilot", "session-state", sessionId, "events.jsonl"),
     );
   } else if (integrationType === "codex") {
     searchPaths.push(
-      join(homedir(), ".codex", "sessions", sessionId, "transcript.jsonl"),
-      join(homedir(), ".config", "Codex", "sessions", sessionId, "transcript.jsonl"),
-      join(homedir(), "AppData", "Roaming", "Codex", "sessions", sessionId, "transcript.jsonl"),
+      join(getHomeDir(), ".codex", "sessions", sessionId, "transcript.jsonl"),
+      join(getHomeDir(), ".config", "Codex", "sessions", sessionId, "transcript.jsonl"),
+      join(getHomeDir(), "AppData", "Roaming", "Codex", "sessions", sessionId, "transcript.jsonl"),
     );
   } else if (integrationType === "gemini") {
+    // Gemini stores chats in ~/.gemini/tmp/{project}/chats/session-*.jsonl|json
+    const discovered = findGeminiChatsPath(process.cwd(), sessionId);
+    if (discovered) return discovered;
     searchPaths.push(
-      join(homedir(), ".gemini", "sessions", sessionId, "transcript.jsonl"),
-      join(homedir(), ".config", "Gemini", "sessions", sessionId, "transcript.jsonl"),
-      join(homedir(), "AppData", "Roaming", "Gemini", "sessions", sessionId, "transcript.jsonl"),
+      join(getHomeDir(), ".gemini", "tmp", sessionId, "chats", `session-${sessionId}.jsonl`),
     );
   }
 
@@ -124,11 +202,11 @@ function resolveTranscriptPath(
   // Priority 4: Return default path even if it doesn't exist
   // (parseNativeTranscript will handle the missing file gracefully)
   const defaultRoot =
-    integrationType === "copilot" ? join(homedir(), ".copilot", "session-state")
-    : integrationType === "cursor" ? join(homedir(), ".cursor", "workspace")
-    : integrationType === "codex" ? join(homedir(), ".codex", "sessions")
-    : integrationType === "gemini" ? join(homedir(), ".gemini", "sessions")
-    : integrationType === "pi" ? join(homedir(), ".pi", "sessions")
+    integrationType === "copilot" ? join(getHomeDir(), ".copilot", "session-state")
+    : integrationType === "cursor" ? join(getHomeDir(), ".cursor", "workspace")
+    : integrationType === "codex" ? join(getHomeDir(), ".codex", "sessions")
+    : integrationType === "gemini" ? join(getHomeDir(), ".gemini", "tmp")
+    : integrationType === "pi" ? join(getHomeDir(), ".pi", "agent", "sessions")
     : undefined;
 
   return defaultRoot ? join(defaultRoot, sessionId, fileName) : undefined;
@@ -136,8 +214,9 @@ function resolveTranscriptPath(
 
 function ensureDedupDir(): void {
   try {
-    if (!existsSync(DEDUP_DIR)) {
-      mkdirSync(DEDUP_DIR, { recursive: true });
+    const dedupDir = getDedupDir();
+    if (!existsSync(dedupDir)) {
+      mkdirSync(dedupDir, { recursive: true });
     }
   } catch {
     // Best-effort directory management
@@ -169,13 +248,12 @@ function getDedupeKey(
   // Integration is always the first component so events from different CLIs never collide
   // even when they share the same session ID, event type, and fingerprint.
   const integ = integration ?? "unknown";
-  const isTool = eventType.includes("Tool");
   const sessionTag = sessionId ?? "no-session";
 
   const signatureParts = [integ, eventType, sessionTag];
-  if (isTool) {
-    signatureParts.push(fingerprint);
-  }
+  // Include payload fingerprint for all events so retries with identical payload
+  // collapse, while distinct prompts/tool invocations stay separate.
+  signatureParts.push(fingerprint);
 
   const signature = signatureParts.join("|");
 
@@ -195,6 +273,7 @@ function tryRecordEvent(
   windowMs: number = DEDUP_BUCKET_MS // Default to standard 2s bucket
 ): boolean {
   ensureDedupDir();
+  const dedupDir = getDedupDir();
   const now = Date.now();
   const bucketSize = windowMs;
   const currentBucket = Math.floor(now / bucketSize);
@@ -205,13 +284,13 @@ function tryRecordEvent(
   
   for (const bucket of bucketsToCheck) {
     const key = getDedupeKey(integration, eventType, sessionId, fingerprint, bucket);
-    const p = join(DEDUP_DIR, `${key}.lock`);
+    const p = join(dedupDir, `${key}.lock`);
     if (existsSync(p)) return false;
   }
 
   // 2. Atomic Recording
   const currentKey = getDedupeKey(integration, eventType, sessionId, fingerprint, currentBucket);
-  const currentPath = join(DEDUP_DIR, `${currentKey}.lock`);
+  const currentPath = join(dedupDir, `${currentKey}.lock`);
 
   try {
     writeFileSync(currentPath, now.toString(), { flag: "wx" });
@@ -225,8 +304,9 @@ function tryRecordEvent(
 // For testing: reset deduplication state
 export function _resetDedupeCache(): void {
   try {
-    if (existsSync(DEDUP_DIR)) {
-      require("node:fs").rmSync(DEDUP_DIR, { recursive: true, force: true });
+    const dedupDir = getDedupDir();
+    if (existsSync(dedupDir)) {
+      require("node:fs").rmSync(dedupDir, { recursive: true, force: true });
     }
   } catch {
     // Ignore cleanup errors in tests
@@ -241,9 +321,12 @@ export function _resetDedupeCache(): void {
  * tool concurrently without one suppressing the other.
  */
 function tryAcquireFiringLock(integration: string | undefined, eventType: string, sessionId: string | undefined, fingerprint?: string): boolean {
+  // Explicit test-only toggle used by e2e subprocesses.
+  // Keep production and unit behavior unchanged unless this flag is set.
+  if (process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH === "1") return true;
   if (!sessionId) return true; // Can't safely deduplicate without session
 
-  const lockDir = join(DEDUP_DIR, "firing-locks");
+  const lockDir = join(getDedupDir(), "firing-locks");
   if (!existsSync(lockDir)) {
     try { mkdirSync(lockDir, { recursive: true }); } catch { /* ignore */ }
   }
@@ -324,9 +407,8 @@ export function writeVirtualLogEntry(
 
     const inputKey = `${toolName}:${JSON.stringify(toolInput).slice(0, 300)}`;
     state.pendingTools[inputKey] = toolUseId;
-    // Prevent unbounded growth on very long sessions
     const keys = Object.keys(state.pendingTools);
-    if (keys.length > 50) delete state.pendingTools[keys[0]];
+    if (keys.length > 500) delete state.pendingTools[keys[0]];
 
     logLine = JSON.stringify({
       type: "assistant",
@@ -370,11 +452,14 @@ export function writeVirtualLogEntry(
 }
 
 export async function handleHookEvent(eventType: string, cliOverride?: string): Promise<{ exitCode: number; hardStop: boolean }> {
+  const rawEventType = normalizeEventTypeName(eventType);
+  const normalizedCli = (cliOverride ?? "").trim().toLowerCase();
+  const cliIsClaude = normalizedCli === "claude-code" || normalizedCli === "claude";
   // SILENCE GUARD (Stage 1): If the --cli flag explicitly says claude-code but the
   // raw event name is unique to Gemini/Copilot, this is a misconfigured hook — exit silently.
-  if (cliOverride === "claude-code") {
-    const isGeminiUnique = GEMINI_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
-    const isCopilotUnique = COPILOT_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
+  if (cliIsClaude) {
+    const isGeminiUnique = isGeminiUniqueEvent(rawEventType);
+    const isCopilotUnique = isCopilotUniqueEvent(rawEventType);
     if (isGeminiUnique || isCopilotUnique) {
       return { exitCode: 0, hardStop: false };
     }
@@ -391,7 +476,7 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
       process.stdin.on("data", (chunk: string) => {
         totalBytes += Buffer.byteLength(chunk);
         if (totalBytes > MAX_STDIN_BYTES) {
-          hookLogWarn(`stdin payload exceeds 1 MB for ${eventType}, discarding`);
+          hookLogWarn(`stdin payload exceeds 1 MB for ${rawEventType}, discarding`);
           process.stdin.destroy();
           resolve("");
           return;
@@ -409,7 +494,7 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
       if (process.stdin.readableEnded) resolve("");
     });
   } catch {
-    hookLogWarn(`stdin read failed for ${eventType}`);
+    hookLogWarn(`stdin read failed for ${rawEventType}`);
   }
 
   let parsed: Record<string, unknown> = {};
@@ -417,15 +502,15 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
     try {
       parsed = JSON.parse(payload) as Record<string, unknown>;
     } catch {
-      hookLogWarn(`payload parse failed for ${eventType} (${payload.length} bytes)`);
+      hookLogWarn(`payload parse failed for ${rawEventType} (${payload.length} bytes)`);
     }
   }
 
   // SILENCE GUARD (Stage 2b): payload.integration says claude-code but raw event is
   // Gemini/Copilot-unique — misconfigured hook, exit silently.
-  if (!cliOverride && parsed.integration === "claude-code") {
-    const isGeminiUnique = GEMINI_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
-    const isCopilotUnique = COPILOT_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any);
+  if (!cliOverride && (parsed.integration === "claude-code" || parsed.integration === "claude")) {
+    const isGeminiUnique = isGeminiUniqueEvent(rawEventType);
+    const isCopilotUnique = isCopilotUniqueEvent(rawEventType);
     if (isGeminiUnique || isCopilotUnique) {
       return { exitCode: 0, hardStop: false };
     }
@@ -436,20 +521,19 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
   // PRIMARY SOURCE OF TRUTH: the explicit --cli CLI flag (or payload.integration).
   // The hook entries we install always include this flag, so it's the most reliable signal.
   let integrationType: IntegrationType | undefined =
-    (cliOverride as IntegrationType) || (parsed.integration as IntegrationType);
+    (normalizedCli === "claude" ? "claude-code" : cliOverride as IntegrationType) || (parsed.integration as IntegrationType);
 
   // Unique-event-name fallback (only for events truly unique to one integration;
   // avoid shared names like SessionStart/SessionEnd that multiple integrations emit).
   if (!integrationType) {
-    const GEMINI_UNIQUE = ["BeforeTool", "AfterTool", "BeforeAgent", "AfterAgent", "BeforeModel", "AfterModel", "BeforeToolSelection", "PreCompress"];
-    if (GEMINI_UNIQUE.includes(eventType)) {
+    if (isGeminiUniqueEvent(rawEventType)) {
       integrationType = "gemini";
-    } else if (COPILOT_HOOK_EVENT_TYPES.includes(eventType as any) && !HOOK_EVENT_TYPES.includes(eventType as any)) {
+    } else if (isCopilotUniqueEvent(rawEventType)) {
       // camelCase event names are the unique signature of Copilot/Cursor.
       // PascalCase SessionStart/SessionEnd are shared by Claude/Gemini.
       // We check that the event is NOT in the standard Claude/Gemini PascalCase list.
       integrationType = "copilot";
-    } else if (CODEX_HOOK_EVENT_TYPES.includes(eventType as any)) {
+    } else if (CODEX_HOOK_EVENT_TYPES.includes(rawEventType as any)) {
       integrationType = "codex";
     }
   }
@@ -480,11 +564,11 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
 
   const integ = getInteg(integrationType);
   integ.normalizePayload(parsed);
-  const canonicalEventName = integ.getCanonicalEventName(parsed, eventType);
+  const canonicalEventName = integ.getCanonicalEventName(parsed, rawEventType);
 
   // Gemini BeforeToolSelection is advisory-only per spec (no deny/continue/systemMessage).
   // Treat it as no-op to avoid hook-failed warnings and enforce blocking at BeforeTool.
-  if (integrationType === "gemini" && eventType === "BeforeToolSelection") {
+  if (integrationType === "gemini" && rawEventType === "BeforeToolSelection") {
     return { exitCode: 0, hardStop: false };
   }
 
@@ -514,7 +598,8 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
     (integrationType === "cursor" ? process.env.CURSOR_SESSION_ID : undefined) ||
     (integrationType === "claude-code" ? process.env.CLAUDE_SESSION_ID : undefined) ||
     (integrationType === "gemini" ? process.env.GEMINI_SESSION_ID : undefined) ||
-    (integrationType === "pi" ? process.env.PI_SESSION_ID : undefined);
+    (integrationType === "pi" ? process.env.PI_SESSION_ID : undefined) ||
+    (integrationType === "opencode" ? process.env.OPENCODE_SESSION_ID : undefined);
 
   let finalCwd = parsed.cwd as string | undefined;
   // Prioritize PWD (actual terminal location) over process.cwd() (often workspace root)
@@ -536,24 +621,26 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
     sessionId: extractedSessionId || fallbackSessionId,
     transcriptPath: parsed.transcript_path as string | undefined,
     cwd: finalCwd,
-    permissionMode: parsed.permission_mode as string | undefined,
+    permissionMode: resolvePermissionMode(integrationType, parsed, extractedSessionId || fallbackSessionId),
     hookEventName: parsed.hook_event_name as string | undefined,
     integration: integrationType || "claude-code",
   };
 
   // Instant Catch - Exit if we already saw this firing in another scope
-  if (!tryAcquireFiringLock(integrationType, canonicalEventName, session.sessionId, fingerprint)) {
-    hookLogInfo(`event=${eventType} skipped (instant-catch twin)`);
-    
-    // For IDE integrations, we exit silently (0) to let the "twin" 
-    // process handle the authoritative decision. We do NOT output 
+  // Only use firing-lock dedupe when we have a real session id from payload/env.
+  // Synthetic fallback ids are stable across tests and can cause false twins.
+  if (!tryAcquireFiringLock(integrationType, canonicalEventName, extractedSessionId, fingerprint)) {
+    hookLogInfo(`event=${rawEventType} skipped (instant-catch twin)`);
+
+    // For IDE integrations, we exit silently (0) to let the "twin"
+    // process handle the authoritative decision. We do NOT output
     // an explicit "allow" JSON here, as that could bypass a "deny"
     // from the primary hook process.
     return { exitCode: 0, hardStop: false };
   }
 
   if (!payload && session.integration === "cursor") {
-    hookLogWarn(`stdin is empty for ${eventType} - Cursor Agent might not be piping context`);
+    hookLogWarn(`stdin is empty for ${rawEventType} - Cursor Agent might not be piping context`);
   }
 
   const startTime = performance.now();
@@ -631,7 +718,7 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
     });
   }
 
-  hookLogInfo(`event=${eventType} policies=${config.enabledPolicies.length} custom=${customHooksList.length} convention=${conventionHookNames.size}`);
+  hookLogInfo(`event=${rawEventType} policies=${config.enabledPolicies.length} custom=${customHooksList.length} convention=${conventionHookNames.size}`);
 
   // Evaluate policies
   const result = await evaluatePolicies(canonicalEventName as HookEventType, parsed, session, config);
@@ -664,6 +751,14 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
     toolInput: parsed.tool_input,
     toolOutput: parsed.tool_output,
   };
+
+  // Persist dedupe (separate from instant-catch): this drops sequential retries
+  // that can occur on some integrations (notably Gemini) a few ms apart.
+  if (!tryRecordEvent(integrationType, canonicalEventName, session.sessionId, fingerprint)) {
+    hookLogInfo(`event=${canonicalEventName} skipped (dedupe replay)`);
+    return { exitCode: result.exitCode, hardStop: !!result.hardStop };
+  }
+
   try {
     persistHookActivity(activityEntry);
   } catch {
@@ -730,20 +825,6 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
     } catch {
       // Telemetry is best-effort — never block the hook
     }
-  }
-
-  if (result.hardStop && process.env.FAILPROOFAI_SKIP_KILL !== "true") {
-    // Session-level Hard Stop for Gemini/Cursor.
-    // We use a small delay to ensure stdout (JSON denial) is flushed to the agent 
-    // before we terminate the process group.
-    setTimeout(() => {
-      try {
-        // Negative PID signals the entire process group
-        process.kill(-process.ppid, "SIGINT");
-      } catch {
-        try { process.kill(process.ppid, "SIGINT"); } catch {}
-      }
-    }, 50);
   }
 
   return { exitCode: result.exitCode, hardStop: !!result.hardStop };

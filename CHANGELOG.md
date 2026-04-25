@@ -3,7 +3,9 @@
 ## Unreleased
 
 ### Features
+- Populate `permissionMode` in activity entries for all CLIs: Codex reads `approval_policy` from its session transcript, Cursor/Copilot/Gemini walk the `/proc` ancestor tree to parse mode flags (checking both `argv[0]` and `argv[1]` to support Node.js-wrapped binaries), all CLIs fall back to `"default"` when no explicit mode is detected
 - Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
+- Add native transcript/session support across non-Claude CLIs in dashboard parsing: OpenCode sessions now load from `~/.local/share/opencode/opencode.db`, Gemini/Pi native transcript discovery is expanded, and Gemini chat discovery now targets real chat files (`.jsonl`/`.json`) while ignoring tool-call sidecar artifacts.
 
 ### Fixes
 - Fix `block-sudo` and `block-read-outside-cwd` bypassed on Gemini when tool name is `run_shell_command` or `sh` — both policies now use `SHELL_TOOL_NAMES` so all shell tool variants are covered

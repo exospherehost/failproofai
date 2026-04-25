@@ -1071,6 +1071,7 @@ describe("hooks/handler", () => {
     });
 
     afterEach(() => {
+      delete process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH;
       _resetDedupeCache();
     });
 
@@ -1096,6 +1097,28 @@ describe("hooks/handler", () => {
       // Both lock files should exist (distinct keys)
       const lockFiles = fs.existsSync(dedupDir) ? fs.readdirSync(dedupDir) : [];
       expect(lockFiles.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it("bypasses instant-catch when FAILPROOFAI_DISABLE_INSTANT_CATCH=1", async () => {
+      process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH = "1";
+
+      const payload = JSON.stringify({
+        session_id: "instant-catch-bypass-session",
+        tool_name: "Bash",
+        tool_input: { command: "ls -la" },
+        cwd: "/tmp",
+      });
+
+      mockStdin(payload);
+      const first = await handleHookEvent("PreToolUse", "claude-code");
+      expect(first.exitCode).toBe(0);
+
+      mockStdin(payload);
+      const second = await handleHookEvent("PreToolUse", "claude-code");
+      expect(second.exitCode).toBe(0);
+
+      const lockFiles = fs.existsSync(dedupDir) ? fs.readdirSync(dedupDir) : [];
+      expect(lockFiles).toHaveLength(0);
     });
   });
 
@@ -1140,6 +1163,169 @@ describe("hooks/handler", () => {
       const result = await handleHookEvent("preToolUse", "cursor");
       expect(result.exitCode).toBe(0);
       // No assertion on session ID value (it's internal), but verify no crash
+    });
+  });
+
+  // Regression tests for: Copilot events misidentified as "claude-code" → wrong label + unnamed sessions.
+  //
+  // Root cause: the Copilot detect() function was changed to require BOTH an env var AND a
+  // copilot-shaped payload.  When a hook fires without --cli (old installation) and the payload
+  // is minimal (e.g. a Stop/agentStop with no body), Secondary Detection fell through to
+  // "claude-code".  This caused:
+  //   1. Wrong integration label ("Claude" instead of "Copilot" in the dashboard).
+  //   2. Session ID attribution failure: the copilot env-var recovery path was gated on
+  //      integrationType==="copilot", so with the wrong type the session stayed as a
+  //      non-UUID fallback ("session-claude-code-…") which the dashboard rendered as "—".
+  describe("Copilot integration detection and session attribution (regression)", () => {
+    afterEach(() => {
+      delete process.env.COPILOT_SESSION_ID;
+      delete process.env.COPILOT_CMD_ID;
+      _resetDedupeCache();
+      vi.clearAllMocks();
+    });
+
+    // SCENARIO 1: agentStop (camelCase, copilot-unique) with no --cli and COPILOT_SESSION_ID set.
+    // Should be detected via event-name fallback as "copilot" and carry the real session ID.
+    it("agentStop without --cli + COPILOT_SESSION_ID → detected as copilot with real session ID", async () => {
+      process.env.COPILOT_SESSION_ID = "real-cop-session-1";
+      process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH = "1";
+      // Empty payload: Copilot sometimes fires lifecycle hooks with no body
+      mockStdin("");
+      const { persistHookActivity: persist } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("agentStop"); // no --cli flag
+
+      expect(persist).toHaveBeenCalledWith(
+        expect.objectContaining({
+          integration: "copilot",
+          sessionId: "real-cop-session-1",
+        }),
+      );
+    });
+
+    // SCENARIO 2: Stop (PascalCase, NOT copilot-unique) with no --cli and COPILOT_SESSION_ID set.
+    // Must be caught by Secondary Detection (detect()), which should return true from the env var.
+    it("Stop without --cli + COPILOT_SESSION_ID → detected as copilot via Secondary Detection", async () => {
+      process.env.COPILOT_SESSION_ID = "real-cop-session-2";
+      process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH = "1";
+      mockStdin("");
+      const { persistHookActivity: persist } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("Stop"); // no --cli flag, PascalCase — not copilot-unique
+
+      expect(persist).toHaveBeenCalledWith(
+        expect.objectContaining({
+          integration: "copilot",
+          sessionId: "real-cop-session-2",
+        }),
+      );
+    });
+
+    // SCENARIO 3: UserPromptSubmit (PascalCase) with no --cli and COPILOT_SESSION_ID set.
+    it("UserPromptSubmit without --cli + COPILOT_SESSION_ID → detected as copilot", async () => {
+      process.env.COPILOT_SESSION_ID = "real-cop-session-3";
+      process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH = "1";
+      mockStdin("");
+      const { persistHookActivity: persist } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("UserPromptSubmit");
+
+      expect(persist).toHaveBeenCalledWith(
+        expect.objectContaining({ integration: "copilot" }),
+      );
+    });
+
+    // SCENARIO 4: Explicit --cli claude-code must NOT be overridden by COPILOT_SESSION_ID.
+    // The env var only matters for Secondary Detection (no --cli); explicit flags win.
+    it("--cli claude-code is not overridden by COPILOT_SESSION_ID env var", async () => {
+      process.env.COPILOT_SESSION_ID = "cop-env-should-not-override";
+      process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH = "1";
+      mockStdin(JSON.stringify({ session_id: "claude-session-xyz", cwd: "/tmp" }));
+      const { persistHookActivity: persist } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("Stop", "claude-code");
+
+      expect(persist).toHaveBeenCalledWith(
+        expect.objectContaining({ integration: "claude-code" }),
+      );
+    });
+
+    // SCENARIO 5: COPILOT_SESSION_ID is not bled into session ID for non-copilot events.
+    // When --cli copilot is explicit, session recovery uses COPILOT_SESSION_ID.
+    // When --cli claude-code is explicit, session recovery does NOT use COPILOT_SESSION_ID.
+    it("COPILOT_SESSION_ID not used as session ID for claude-code events", async () => {
+      process.env.COPILOT_SESSION_ID = "cop-session-should-not-bleed";
+      process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH = "1";
+      // No session_id in payload → would need env recovery if any
+      mockStdin(JSON.stringify({ cwd: "/tmp" }));
+      const { persistHookActivity: persist } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("Stop", "claude-code");
+
+      expect(persist).toHaveBeenCalledWith(
+        expect.objectContaining({
+          integration: "claude-code",
+          sessionId: expect.not.stringContaining("cop-session-should-not-bleed"),
+        }),
+      );
+    });
+
+    // SCENARIO 6: Explicit --cli copilot with payload session ID — happy path unchanged.
+    it("--cli copilot + payload sessionId → persists with correct integration and session", async () => {
+      process.env.FAILPROOFAI_DISABLE_INSTANT_CATCH = "1";
+      mockStdin(JSON.stringify({ sessionId: "35f5938d", hookEventName: "agentStop", cwd: "/tmp" }));
+      const { persistHookActivity: persist } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("agentStop", "copilot");
+
+      expect(persist).toHaveBeenCalledWith(
+        expect.objectContaining({
+          integration: "copilot",
+          sessionId: "35f5938d",
+        }),
+      );
+    });
+  });
+
+  describe("resolvePermissionMode integration", () => {
+    it("claude-code: permissionMode comes from payload permission_mode", async () => {
+      mockStdin(JSON.stringify({
+        session_id: "cc-sess-1",
+        cwd: "/project",
+        permission_mode: "plan",
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+      await handleHookEvent("PreToolUse");
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({ permissionMode: "plan", integration: "claude-code" }),
+      );
+    });
+
+    it("opencode: permissionMode is undefined (no mode concept)", async () => {
+      mockStdin(JSON.stringify({
+        integration: "opencode",
+        session_id: "ses_abc123",
+        slug: "opencode",
+        cwd: "/project",
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+      await handleHookEvent("PreToolUse");
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({ permissionMode: undefined, integration: "opencode" }),
+      );
+    });
+
+    it("pi: permissionMode is undefined (no mode concept)", async () => {
+      mockStdin(JSON.stringify({
+        integration: "pi",
+        session_id: "pi-sess-abc",
+        cwd: "/project",
+      }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+      await handleHookEvent("PreToolUse");
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({ permissionMode: undefined, integration: "pi" }),
+      );
     });
   });
 

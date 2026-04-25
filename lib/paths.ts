@@ -22,7 +22,7 @@ export function getOpencodeLogPath(): string {
 }
 
 export function getOpencodeStoragePath(): string {
-  return process.env.OPENCODE_STORAGE_PATH ?? join(homedir(), ".local", "share", "opencode", "storage");
+  return process.env.OPENCODE_STORAGE_PATH ?? join(homedir(), ".local", "share", "opencode");
 }
 
 export function getDefaultClaudeProjectsPath(): string {
@@ -80,4 +80,3 @@ export function getClaudeProjectsPath(): string {
   
   return getDefaultClaudeProjectsPath();
 }
-

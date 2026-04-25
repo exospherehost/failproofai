@@ -10,7 +10,6 @@ vi.mock("fs/promises", () => ({
 vi.mock("@/lib/paths", () => ({
   getClaudeProjectsPath: vi.fn(() => "/mock/.claude/projects"),
   getCopilotSessionStatePath: vi.fn(() => "/mock/.copilot/session-state"),
-  getOpencodeStoragePath: vi.fn(() => "/mock/.local/share/opencode/storage"),
   decodeFolderName: vi.fn((name: string) => name.replace(/-/g, "/").replace(/^C\//, "C:/")),
   encodeCwd: vi.fn((cwd: string) => cwd.replace(/\//g, "-")),
 }));
@@ -54,6 +53,10 @@ describe("extractSessionId", () => {
 describe("getProjectFolders", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockStat.mockReset();
+    mockReaddir.mockReset();
+    mockGetAllActivity.mockReset();
+    mockGetAllActivity.mockReturnValue([]);
   });
 
   it("returns empty array when directory doesn't exist", async () => {
@@ -73,19 +76,21 @@ describe("getProjectFolders", () => {
   });
 
   it("returns only directories (not files)", async () => {
-    // Claude root stat, Copilot root stat, opencode root stat
-    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
-    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
-    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode root not found
+    mockStat.mockImplementation(async (path: any) => {
+      const p = String(path);
+      if (p.includes(".claude/projects") && !p.endsWith("project-a") && !p.endsWith("project-b")) {
+        return { isDirectory: () => true } as any;
+      }
+      if (p.includes(".copilot/session-state")) throw new Error("ENOENT");
+      if (p.endsWith("project-a")) return { mtime: new Date("2024-06-10T00:00:00Z") } as any;
+      if (p.endsWith("project-b")) return { mtime: new Date("2024-06-15T00:00:00Z") } as any;
+      throw new Error("ENOENT");
+    });
     mockReaddir.mockResolvedValueOnce([
       { name: "project-a", isDirectory: () => true, isFile: () => false } as any,
       { name: "file.txt", isDirectory: () => false, isFile: () => true } as any,
       { name: "project-b", isDirectory: () => true, isFile: () => false } as any,
     ] as any);
-    // Stat calls for each directory
-    mockStat
-      .mockResolvedValueOnce({ mtime: new Date("2024-06-10T00:00:00Z") } as any)
-      .mockResolvedValueOnce({ mtime: new Date("2024-06-15T00:00:00Z") } as any);
 
     const result = await getProjectFolders();
     expect(result).toHaveLength(2);
@@ -94,17 +99,20 @@ describe("getProjectFolders", () => {
   });
 
   it("sorts newest-first by mtime", async () => {
-    // Claude root stat, Copilot root stat, opencode root stat
-    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
-    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
-    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode root not found
+    mockStat.mockImplementation(async (path: any) => {
+      const p = String(path);
+      if (p.includes(".claude/projects") && !p.endsWith("old") && !p.endsWith("new")) {
+        return { isDirectory: () => true } as any;
+      }
+      if (p.includes(".copilot/session-state")) throw new Error("ENOENT");
+      if (p.endsWith("old")) return { mtime: new Date("2024-01-01T00:00:00Z") } as any;
+      if (p.endsWith("new")) return { mtime: new Date("2024-06-15T00:00:00Z") } as any;
+      throw new Error("ENOENT");
+    });
     mockReaddir.mockResolvedValueOnce([
       { name: "old", isDirectory: () => true, isFile: () => false } as any,
       { name: "new", isDirectory: () => true, isFile: () => false } as any,
     ] as any);
-    mockStat
-      .mockResolvedValueOnce({ mtime: new Date("2024-01-01T00:00:00Z") } as any)
-      .mockResolvedValueOnce({ mtime: new Date("2024-06-15T00:00:00Z") } as any);
 
     const result = await getProjectFolders();
     expect(result[0].name).toBe("new");
@@ -112,14 +120,18 @@ describe("getProjectFolders", () => {
   });
 
   it("uses fallback Date(0) when individual stat fails", async () => {
-    // Claude root stat, Copilot root stat, opencode root stat
-    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
-    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Copilot root not found
-    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode root not found
+    mockStat.mockImplementation(async (path: any) => {
+      const p = String(path);
+      if (p.includes(".claude/projects") && !p.endsWith("broken")) {
+        return { isDirectory: () => true } as any;
+      }
+      if (p.includes(".copilot/session-state")) throw new Error("ENOENT");
+      if (p.endsWith("broken")) throw new Error("EACCES");
+      throw new Error("ENOENT");
+    });
     mockReaddir.mockResolvedValueOnce([
       { name: "broken", isDirectory: () => true, isFile: () => false } as any,
     ] as any);
-    mockStat.mockRejectedValueOnce(new Error("EACCES"));
 
     const result = await getProjectFolders();
     expect(result).toHaveLength(1);
@@ -128,15 +140,19 @@ describe("getProjectFolders", () => {
 
   it("includes Copilot UUID session folders as projects", async () => {
     const sessionId = "11111111-2222-3333-4444-555555555555";
-
-    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // Claude root missing
-    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any); // Copilot root exists
-    mockStat.mockRejectedValueOnce(new Error("ENOENT")); // opencode root missing
+    mockStat.mockImplementation(async (path: any) => {
+      const p = String(path);
+      if (p.includes(".claude/projects")) throw new Error("ENOENT");
+      if (p.includes(".copilot/session-state") && !p.endsWith(sessionId)) {
+        return { isDirectory: () => true } as any;
+      }
+      if (p.endsWith(sessionId)) return { mtime: new Date("2024-06-20T00:00:00Z") } as any;
+      throw new Error("ENOENT");
+    });
     mockReaddir.mockResolvedValueOnce([
       { name: sessionId, isDirectory: () => true, isFile: () => false } as any,
       { name: "not-a-session", isDirectory: () => true, isFile: () => false } as any,
     ] as any);
-    mockStat.mockResolvedValueOnce({ mtime: new Date("2024-06-20T00:00:00Z") } as any);
 
     const result = await getProjectFolders();
 
@@ -150,10 +166,19 @@ describe("getProjectFolders", () => {
 describe("getSessionFiles", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockStat.mockReset();
+    mockReaddir.mockReset();
+    mockGetAllActivity.mockReset();
+    mockGetAllActivity.mockReturnValue([]);
   });
 
   it("returns only .jsonl files with valid UUID in name", async () => {
-    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockStat.mockImplementation(async (path: any) => {
+      const p = String(path);
+      if (p === "/some/path") return { isDirectory: () => true } as any;
+      if (p.endsWith(".jsonl")) return { mtime: new Date("2024-06-15T00:00:00Z") } as any;
+      throw new Error("ENOENT");
+    });
     mockReaddir.mockResolvedValueOnce([
       {
         name: "a1b2c3d4-e5f6-7890-abcd-ef1234567890.jsonl",
@@ -164,15 +189,18 @@ describe("getSessionFiles", () => {
       { name: "readme.txt", isFile: () => true, isDirectory: () => false } as any,
       { name: "subfolder", isFile: () => false, isDirectory: () => true } as any,
     ] as any);
-    mockStat.mockResolvedValueOnce({ mtime: new Date("2024-06-15T00:00:00Z") } as any);
-
     const result = await getSessionFiles("/some/path");
     expect(result).toHaveLength(1);
     expect(result[0].sessionId).toBe("a1b2c3d4-e5f6-7890-abcd-ef1234567890");
   });
 
   it("extracts sessionId into result", async () => {
-    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockStat.mockImplementation(async (path: any) => {
+      const p = String(path);
+      if (p === "/some/path") return { isDirectory: () => true } as any;
+      if (p.endsWith(".jsonl")) return { mtime: new Date("2024-06-15T00:00:00Z") } as any;
+      throw new Error("ENOENT");
+    });
     mockReaddir.mockResolvedValueOnce([
       {
         name: "11111111-2222-3333-4444-555555555555.jsonl",
@@ -180,14 +208,18 @@ describe("getSessionFiles", () => {
         isDirectory: () => false,
       } as any,
     ] as any);
-    mockStat.mockResolvedValueOnce({ mtime: new Date("2024-06-15T00:00:00Z") } as any);
-
     const result = await getSessionFiles("/some/path");
     expect(result[0].sessionId).toBe("11111111-2222-3333-4444-555555555555");
   });
 
   it("sorts newest-first", async () => {
-    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockStat.mockImplementation(async (path: any) => {
+      const p = String(path);
+      if (p === "/some/path") return { isDirectory: () => true } as any;
+      if (p.endsWith("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jsonl")) return { mtime: new Date("2024-01-01T00:00:00Z") } as any;
+      if (p.endsWith("11111111-2222-3333-4444-555555555555.jsonl")) return { mtime: new Date("2024-06-15T00:00:00Z") } as any;
+      throw new Error("ENOENT");
+    });
     mockReaddir.mockResolvedValueOnce([
       {
         name: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee.jsonl",
@@ -200,10 +232,6 @@ describe("getSessionFiles", () => {
         isDirectory: () => false,
       } as any,
     ] as any);
-    mockStat
-      .mockResolvedValueOnce({ mtime: new Date("2024-01-01T00:00:00Z") } as any)
-      .mockResolvedValueOnce({ mtime: new Date("2024-06-15T00:00:00Z") } as any);
-
     const result = await getSessionFiles("/some/path");
     expect(result[0].lastModified.getTime()).toBeGreaterThan(
       result[1].lastModified.getTime()
@@ -221,12 +249,15 @@ describe("getSessionFiles", () => {
     const sessionId = "11111111-2222-3333-4444-555555555555";
     const projectPath = `/mock/.copilot/session-state/${sessionId}`;
 
-    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockStat.mockImplementation(async (path: any) => {
+      const p = String(path);
+      if (p === projectPath) return { isDirectory: () => true } as any;
+      if (p.endsWith("/events.jsonl")) return { mtime: new Date("2024-06-21T00:00:00Z") } as any;
+      throw new Error("ENOENT");
+    });
     mockReaddir.mockResolvedValueOnce([
       { name: "events.jsonl", isFile: () => true, isDirectory: () => false } as any,
     ] as any);
-    mockStat.mockResolvedValueOnce({ mtime: new Date("2024-06-21T00:00:00Z") } as any);
-    mockGetAllActivity.mockReturnValueOnce([]);
 
     const result = await getSessionFiles(projectPath);
 
@@ -235,6 +266,19 @@ describe("getSessionFiles", () => {
       expect.objectContaining({
         name: "events.jsonl",
         sessionId,
+      }),
+    );
+  });
+
+  it("returns OpenCode session from db marker path", async () => {
+    mockStat.mockResolvedValueOnce({ mtime: new Date("2024-06-22T00:00:00Z") } as any);
+    const result = await getSessionFiles("__fp_opencode_db__:ses_abc123");
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        name: "ses_abc123",
+        sessionId: "ses_abc123",
+        path: "__fp_opencode_db__:ses_abc123",
       }),
     );
   });
@@ -255,8 +299,7 @@ describe("resolveAnyProjectPath", () => {
     const result = resolveAnyProjectPath(sessionId);
 
     expect(result.source).toBe("opencode");
-    expect(result.path).toContain("opencode/storage/session_diff");
-    expect(result.path).toContain(sessionId);
+    expect(result.path).toBe(`__fp_opencode_db__:${sessionId}`);
   });
 
   it("routes encoded CWD names (starting with -) to Claude projects", () => {

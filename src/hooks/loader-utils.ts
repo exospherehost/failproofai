@@ -15,6 +15,7 @@ import { readFile, writeFile, unlink, access } from "fs/promises";
 import { resolve, dirname, relative, extname } from "path";
 import { pathToFileURL } from "url";
 import { spawnSync } from "child_process";
+import { randomUUID } from "crypto";
 
 export const TMP_SUFFIX = ".__failproofai_tmp__.mjs";
 
@@ -79,7 +80,9 @@ export async function createEsmShim(
   distIndex: string,
   distUrl: string,
 ): Promise<{ shimPath: string; shimUrl: string }> {
-  const shimPath = distIndex + ".__failproofai_esm_shim__.mjs";
+  // Use a per-invocation shim path to avoid cross-process collisions when
+  // multiple hook subprocesses load custom policies in parallel.
+  const shimPath = `${distIndex}.__failproofai_esm_shim__.${process.pid}.${randomUUID()}.mjs`;
   const shimCode = [
     `import _cjs from '${distUrl}';`,
     `export const customPolicies = _cjs.customPolicies;`,

@@ -91,11 +91,7 @@ if (hookIdx >= 0) {
     const { handleHookEvent } = await import("../src/hooks/handler");
     const { exitCode, hardStop } = await handleHookEvent(args[hookIdx + 1], cliOverride);
 
-    if (hardStop && process.env.FAILPROOFAI_SKIP_KILL !== "true") {
-      // Allow a small delay for stdout to flush before the process group is killed.
-      // The signal is sent by handleHookEvent's setTimeout.
-      await new Promise(r => setTimeout(r, 100));
-    }
+    void hardStop;
     process.exit(exitCode);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
