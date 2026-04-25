@@ -67,3 +67,6 @@ packages/*/assets/
 
 # closed-source platform (cloned separately)
 /platform
+
+# WSL/Windows alternate data streams
+*:Zone.Identifier
