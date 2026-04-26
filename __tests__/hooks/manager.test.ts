@@ -1215,12 +1215,13 @@ describe("hooks/manager", () => {
 
       // First writeScopedHooksConfig call is from the removeCustomHooks block
       const firstWriteCall = vi.mocked(writeScopedHooksConfig).mock.calls[0];
-      const written = firstWriteCall[0] as Record<string, unknown>;
+      const written = firstWriteCall[0] as unknown as Record<string, unknown>;
       // Global customPoliciesPath cleared
       expect(written.customPoliciesPath).toBeUndefined();
       // Per-CLI customPoliciesPath cleared too
-      expect((written as Record<string, { customPoliciesPath?: string }>).cli?.["gemini"]?.customPoliciesPath).toBeUndefined();
-      expect((written as Record<string, { customPoliciesPath?: string }>).cli?.["cursor"]?.customPoliciesPath).toBeUndefined();
+      const cliSection = written.cli as Record<string, { customPoliciesPath?: string }> | undefined;
+      expect(cliSection?.["gemini"]?.customPoliciesPath).toBeUndefined();
+      expect(cliSection?.["cursor"]?.customPoliciesPath).toBeUndefined();
     });
 
     it("scope=all wipe clears both enabledPolicies and cli sections", async () => {

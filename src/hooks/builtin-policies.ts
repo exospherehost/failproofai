@@ -124,14 +124,15 @@ function getFilePath(ctx: PolicyContext): string {
   const input = parseJsonLikeValue(ctx.toolInput);
   if (!input || typeof input !== "object") return "";
   const record = input as Record<string, unknown>;
-  return (
+  const direct = (
     (record.file_path as string) ??
     (record.filePath as string) ??
     (record.path as string) ??
     (record.relative_path as string) ??
-    (record.filename as string) ??
-    ""
+    (record.filename as string)
   );
+  if (typeof direct === "string" && direct.trim().length > 0) return direct;
+  return findNestedStringByKeys(record, ["file_path", "filePath", "path", "relative_path", "filename"]);
 }
 
 /**

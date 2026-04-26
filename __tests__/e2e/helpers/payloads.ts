@@ -159,7 +159,7 @@ export const GeminiPayloads = {
         cwd,
         hook_event_name: "BeforeTool",
         tool_name: "bash",
-        tool_input: command,
+        tool_input: { command },
       };
     },
   },
@@ -208,7 +208,7 @@ export const CopilotPayloads = {
         cwd,
         hookEventName: "preToolUse",
         toolName: "bash",
-        toolInput: command,
+        toolInput: { command },
       };
     },
 

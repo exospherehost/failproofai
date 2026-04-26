@@ -12,14 +12,18 @@ function line(obj: Record<string, unknown>): string {
 }
 
 let tempRoot = "";
+let originalHome: string | undefined;
 
 beforeEach(() => {
   tempRoot = mkdtempSync(join(tmpdir(), "failproofai-log-entries-"));
+  originalHome = process.env.HOME;
 });
 
 afterEach(() => {
   delete process.env.CLAUDE_PROJECTS_PATH;
   delete process.env.COPILOT_SESSION_STATE_PATH;
+  if (originalHome === undefined) delete process.env.HOME;
+  else process.env.HOME = originalHome;
   resetHookStoreForTest();
   if (tempRoot) rmSync(tempRoot, { recursive: true, force: true });
   tempRoot = "";

@@ -10,6 +10,19 @@
 - Add native transcript/session support across non-Claude CLIs in dashboard parsing: OpenCode sessions now load from `~/.local/share/opencode/opencode.db`, Gemini/Pi native transcript discovery is expanded, and Gemini chat discovery now targets real chat files (`.jsonl`/`.json`) while ignoring tool-call sidecar artifacts.
 
 ### Fixes
+- Fix Cursor/Gemini e2e tests to use isolated temp HOME (isoHome) per test, preventing real `~/.failproofai` mutation and parallel flakes
+- Fix OpenCode e2e test to stop deleting real-home `DEDUP_DIR` (now redundant since `HOME: isoHome` is set for all invocations)
+- Fix `process.env.HOME` leak across log-entries unit tests: capture and restore in `afterEach`
+- Fix `GeminiPayloads.beforeTool.bash` and `CopilotPayloads.preToolUse.bash` to use object `tool_input`/`toolInput` shapes instead of raw strings
+- Fix `DetailPanel` `colSpan` in activity dashboard from 10 to 11 after the Integration column was added
+- Fix `isForcedOn` in policy list: inherit-mode + globally-enabled policies now show the parameter-edit button
+- Fix `isOpencodeSessionMerged` to compare session CWD against virtual folder names (encoded CWD) instead of always returning true
+- Fix `resolveAnyProjectPath` unreachable `"virtual"` branch: now uses `existsSync` to distinguish real Claude project directories from activity-store-only virtual projects
+- Fix `session.idle` in OpenCode plugin to not double-emit `SessionEnd` (idle is not a session close)
+- Remove debug logging of Pi session ID sources from `integrations.ts`
+- Fix `getFilePath` in builtin policies to use `findNestedStringByKeys` for nested payload lookup, matching `getCommand` behaviour
+- Fix silent fallback in `getInteg` handler to log a warning before falling back to `claude-code`
+- Fix `scripts/codex-trace.mjs` shebang from `node` to `bun` (file imports TypeScript sources directly)
 - Fix `block-sudo` and `block-read-outside-cwd` bypassed on Gemini when tool name is `run_shell_command` or `sh` — both policies now use `SHELL_TOOL_NAMES` so all shell tool variants are covered
 - Fix `block-failproofai-commands` now also blocks agents from reading `.failproofai/policies-config.json` via `Read`/`ReadFile` tools or shell commands, preventing policy config scouting
 - Fix cross-CLI dedup collision: integration type is now always the first component of both the firing-lock hash and the dedup key, so Cursor and Claude Code firing the same event concurrently no longer drop each other's entries

@@ -6,6 +6,7 @@
  * so that client components can display them without hydration mismatches.
  */
 import { readdir, stat } from "fs/promises";
+import { existsSync } from "fs";
 import { join, resolve, sep, basename } from "path";
 import { homedir } from "os";
 import { getClaudeProjectsPath, getCopilotSessionStatePath, encodeCwd, decodeFolderName } from "./paths";
@@ -28,6 +29,7 @@ export interface ProjectFolder {
   lastModifiedFormatted?: string; // Pre-formatted date string to avoid hydration issues
   source?: IntegrationType | "virtual"; // Primary/Historical source
   sources: (IntegrationType | "virtual")[]; // All integrations that have work in this project
+  cwd?: string; // Original filesystem directory (set for opencode DB sessions)
 }
 
 export interface SessionFile {
@@ -112,6 +114,7 @@ async function readOpencodeDbEntries(): Promise<ProjectFolder[]> {
         lastModifiedFormatted: formatDate(lastModified),
         source: "opencode" as const,
         sources: ["opencode" as const],
+        cwd: row.directory,
       } as ProjectFolder;
     });
   } catch {
@@ -182,13 +185,10 @@ async function getOpencodeDbSessionsForCwd(cwd: string): Promise<SessionFile[]> 
 }
 
 /** Internal helper to check if an opencode session has already been merged into a workspace project */
-function isOpencodeSessionMerged(sessionId: string, virtualFolders: ProjectFolder[]): boolean {
-  return virtualFolders.some(f => 
-    f.sources.includes("opencode") && 
-    // This is a heuristic: if we have activity for opencode in a CWD, 
-    // we assume the standalone session file for that CWD is redundant.
-    f.name !== sessionId
-  );
+function isOpencodeSessionMerged(sessionCwd: string, virtualFolders: ProjectFolder[]): boolean {
+  if (!sessionCwd) return false;
+  const encoded = encodeCwd(sessionCwd);
+  return virtualFolders.some(f => f.sources.includes("opencode") && f.name === encoded);
 }
 
 export async function getProjectFolders(): Promise<ProjectFolder[]> {
@@ -210,7 +210,7 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
     for (const folder of allFolders) {
       // For standalone opencode session files: skip if we've already merged opencode 
       // activity into a workspace project (unification).
-      if (folder.source === "opencode" && folder.name.startsWith("ses_") && isOpencodeSessionMerged(folder.name, virtualFolders)) {
+      if (folder.source === "opencode" && folder.name.startsWith("ses_") && isOpencodeSessionMerged(folder.cwd ?? "", virtualFolders)) {
         continue;
       }
 
@@ -300,14 +300,10 @@ export function resolveAnyProjectPath(
     return { path: `${OPENCODE_DB_SESSION_PREFIX}${name}`, source: "opencode" };
   }
   try {
-    return { path: resolveProjectPath(name), source: "claude-code" };
+    const path = resolveProjectPath(name);
+    return { path, source: existsSync(path) ? "claude-code" : "virtual" };
   } catch {
-    // If it's none of the above, it might be a virtual project name (encoded CWD)
-    try {
-      return { path: resolveProjectPath(name), source: "virtual" };
-    } catch {
-      throw new RangeError(`Project "${name}" not found in Claude, Copilot, or opencode paths`);
-    }
+    throw new RangeError(`Project "${name}" not found in Claude, Copilot, or opencode paths`);
   }
 }
 

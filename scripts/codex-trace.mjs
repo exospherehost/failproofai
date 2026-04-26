@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env bun
 import { homedir } from "node:os";
 import { resolve } from "node:path";
 import { writeCodexTraceFile } from "../src/codex/trace-parser";

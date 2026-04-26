@@ -24,13 +24,19 @@ vi.mock("../../src/hooks/hook-activity-store", () => ({
   trackHookEvent: vi.fn(),
 }));
 
+vi.mock("fs", () => ({
+  existsSync: vi.fn(() => false),
+}));
+
 import { readdir, stat } from "fs/promises";
+import { existsSync } from "fs";
 import { extractSessionId, getProjectFolders, getSessionFiles, resolveAnyProjectPath } from "@/lib/projects";
 import { getAllHookActivityEntries } from "../../src/hooks/hook-activity-store";
 
 const mockGetAllActivity = vi.mocked(getAllHookActivityEntries);
 const mockReaddir = vi.mocked(readdir);
 const mockStat = vi.mocked(stat);
+const mockExistsSync = vi.mocked(existsSync);
 
 describe("extractSessionId", () => {
   it("extracts UUID from a valid .jsonl filename", () => {
@@ -302,11 +308,22 @@ describe("resolveAnyProjectPath", () => {
     expect(result.path).toBe(`__fp_opencode_db__:${sessionId}`);
   });
 
-  it("routes encoded CWD names (starting with -) to Claude projects", () => {
+  it("routes encoded CWD names (starting with -) to Claude projects when directory exists", () => {
     const projectName = "-home-user-myproject";
+    mockExistsSync.mockReturnValueOnce(true);
     const result = resolveAnyProjectPath(projectName);
 
     expect(result.source).toBe("claude-code");
+    expect(result.path).toContain(".claude/projects");
+    expect(result.path).toContain(projectName);
+  });
+
+  it("routes encoded CWD names to virtual when directory does not exist", () => {
+    const projectName = "-home-user-myproject";
+    mockExistsSync.mockReturnValueOnce(false);
+    const result = resolveAnyProjectPath(projectName);
+
+    expect(result.source).toBe("virtual");
     expect(result.path).toContain(".claude/projects");
     expect(result.path).toContain(projectName);
   });

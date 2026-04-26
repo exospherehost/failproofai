@@ -508,7 +508,8 @@ describe("hooks/builtin-policies", () => {
     it("blocks stringified Gemini command payloads", async () => {
       const ctx = makeCtx({
         toolName: "Shell",
-        toolInput: "{\"tool\":{\"args\":\"{\\\"command\\\":\\\"sudo apt-get update\\\"}\"}}",
+        toolInput: "{\"tool\":{\"args\":\"{\\\"command\\\":\\\"sudo apt-get update\\\"}\"}}" as unknown as Record<string, unknown>,
+
       });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });

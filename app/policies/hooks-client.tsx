@@ -264,7 +264,7 @@ function DetailPanel({
 }) {
   return (
     <tr>
-      <td colSpan={10} className="px-0 py-0">
+      <td colSpan={11} className="px-0 py-0">
         <div className="px-6 py-3 bg-muted/20 border-t border-border/30 space-y-2 text-xs animate-expand">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-1.5">
             <div>
@@ -852,12 +852,6 @@ function IntegrationSelectModal({
   );
 
   useEffect(() => {
-    if (integrations) {
-      setSelected(new Set(integrations.filter((i) => i.installed).map((i) => i.id)));
-    }
-  }, [integrations]);
-
-  useEffect(() => {
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -1315,7 +1309,7 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
                 ? (config.cliOverrides[selectedCliTab]?.policyParams[policy.name] ?? policy.currentParams)
                 : policy.currentParams;
 
-              const isForcedOn = selectedCliTab ? cliMode === "enable" : policy.enabled;
+              const isForcedOn = selectedCliTab ? cliMode === "enable" || (cliMode === "inherit" && policy.enabled) : policy.enabled;
 
               return (
                 <div

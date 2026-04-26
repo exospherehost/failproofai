@@ -2,10 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execSync, spawnSync } from "node:child_process";
 import { readFileSync, existsSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { homedir, tmpdir } from "node:os";
+import { tmpdir } from "node:os";
 
 const BINARY_PATH = resolve(__dirname, "../../../bin/failproofai.mjs");
-const DEDUP_DIR = resolve(homedir(), ".failproofai", "cache", "dedup");
 
 describe("E2E: OpenCode Integration", () => {
   let projectDir: string;
@@ -14,7 +13,6 @@ describe("E2E: OpenCode Integration", () => {
   beforeEach(() => {
     projectDir = mkdtempSync(join(tmpdir(), "fp-e2e-opencode-"));
     isoHome = mkdtempSync(join(tmpdir(), "fp-e2e-opencode-home-"));
-    if (existsSync(DEDUP_DIR)) rmSync(DEDUP_DIR, { recursive: true, force: true });
   });
 
   afterEach(() => {

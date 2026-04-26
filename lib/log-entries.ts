@@ -1307,10 +1307,8 @@ async function parseOpencodeDbSession(sessionId: string): Promise<ParseFileResul
   try {
     if (process.env.VITEST) return null;
     // bun:sqlite is only available in Bun runtime; gracefully returns null in Node/tests
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const bunSqliteSpecifier = `bun${":sqlite"}`;
     const mod = await import(bunSqliteSpecifier as unknown as string) as any;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const db: any = new mod.Database(dbPath, { readonly: true });
     try {
       const rows = db.query(`

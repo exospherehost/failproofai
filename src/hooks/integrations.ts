@@ -1356,9 +1356,8 @@ export const FailproofAIPlugin = (ctx: any) => {
       syncSession(input.sessionID);
     },
     "session.idle": async (input: any) => {
-      try { 
+      try {
         callcli("session.idle", { session_id: input.sessionID });
-        callcli("SessionEnd", { session_id: input.sessionID }); 
       } catch {}
     },
   };
@@ -1507,16 +1506,6 @@ export default function (pi: ExtensionAPI) {
         return undefined;
       }
     };
-
-    // DEBUG: Log available session values
-    const debugInfo = {
-      ctx_sessionId: ctx?.sessionId,
-      ctx_session_id: ctx?.session?.id,
-      pi_session_id: pi.session?.id,
-      pi_sessionId: pi.sessionId,
-      projectName,
-    };
-    try { (pi as any).log?.(\`[FailproofAI Debug] Session ID sources: \${JSON.stringify(debugInfo)}\`); } catch {}
 
     const sessionId =
       ctx?.sessionId ||

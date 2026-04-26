@@ -559,7 +559,12 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
 
   // Helper for safe integration retrieval
   const getInteg = (type: IntegrationType) => {
-    try { return getIntegration(type); } catch { return getIntegration("claude-code"); }
+    try {
+      return getIntegration(type);
+    } catch (e) {
+      hookLogWarn(`unknown integration "${type}", falling back to claude-code: ${e instanceof Error ? e.message : String(e)}`);
+      return getIntegration("claude-code");
+    }
   };
 
   const integ = getInteg(integrationType);
