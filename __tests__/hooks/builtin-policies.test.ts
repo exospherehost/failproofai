@@ -39,8 +39,8 @@ describe("hooks/builtin-policies", () => {
   });
 
   describe("BUILTIN_POLICIES", () => {
-    it("has 31 built-in policies", () => {
-      expect(BUILTIN_POLICIES).toHaveLength(31);
+    it("has 32 built-in policies", () => {
+      expect(BUILTIN_POLICIES).toHaveLength(32);
     });
 
     it("has 11 default-enabled policies", () => {
@@ -2004,12 +2004,13 @@ describe("hooks/builtin-policies", () => {
   describe("workflow policy metadata", () => {
     const workflowPolicies = BUILTIN_POLICIES.filter((p) => p.category === "Workflow");
 
-    it("all 4 workflow policies exist", () => {
-      expect(workflowPolicies).toHaveLength(4);
+    it("all 5 workflow policies exist", () => {
+      expect(workflowPolicies).toHaveLength(5);
       const names = workflowPolicies.map((p) => p.name).sort();
       expect(names).toEqual([
         "require-ci-green-before-stop",
         "require-commit-before-stop",
+        "require-no-conflicts-before-stop",
         "require-pr-before-stop",
         "require-push-before-stop",
       ]);
@@ -2033,11 +2034,15 @@ describe("hooks/builtin-policies", () => {
       }
     });
 
-    it("require-push-before-stop and require-pr-before-stop have params schemas", () => {
+    it("require-push-before-stop, require-pr-before-stop, and require-no-conflicts-before-stop have params schemas", () => {
       const withParams = workflowPolicies.filter((p) => p.params);
-      expect(withParams).toHaveLength(2);
+      expect(withParams).toHaveLength(3);
       const names = withParams.map((p) => p.name).sort();
-      expect(names).toEqual(["require-pr-before-stop", "require-push-before-stop"]);
+      expect(names).toEqual([
+        "require-no-conflicts-before-stop",
+        "require-pr-before-stop",
+        "require-push-before-stop",
+      ]);
 
       const pushPolicy = withParams.find((p) => p.name === "require-push-before-stop")!;
       expect(pushPolicy.params!.remote).toBeDefined();
@@ -2048,6 +2053,10 @@ describe("hooks/builtin-policies", () => {
       const prPolicy = withParams.find((p) => p.name === "require-pr-before-stop")!;
       expect(prPolicy.params!.baseBranch).toBeDefined();
       expect(prPolicy.params!.baseBranch.default).toBe("main");
+
+      const conflictsPolicy = withParams.find((p) => p.name === "require-no-conflicts-before-stop")!;
+      expect(conflictsPolicy.params!.baseBranch).toBeDefined();
+      expect(conflictsPolicy.params!.baseBranch.default).toBe("main");
     });
   });
 

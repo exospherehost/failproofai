@@ -8,6 +8,10 @@
 - Populate `permissionMode` in activity entries for all CLIs: Codex reads `approval_policy` from its session transcript, Cursor/Copilot/Gemini walk the `/proc` ancestor tree to parse mode flags (checking both `argv[0]` and `argv[1]` to support Node.js-wrapped binaries), all CLIs fall back to `"default"` when no explicit mode is detected
 - Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
 - Add native transcript/session support across non-Claude CLIs in dashboard parsing: OpenCode sessions now load from `~/.local/share/opencode/opencode.db`, Gemini/Pi native transcript discovery is expanded, and Gemini chat discovery now targets real chat files (`.jsonl`/`.json`) while ignoring tool-call sidecar artifacts.
+- Add `require-no-conflicts-before-stop` builtin workflow policy that denies Stop until the current branch merges cleanly with the base branch. Runs a local `git merge-tree` probe (names the conflicted files) and an optional `gh pr view --json mergeable` probe that catches conflicts a stale local `origin/<base>` would miss (#176)
+
+### Docs
+- Add demo GIF to README (#178)
 
 ### Fixes
 - Fix Cursor/Gemini e2e tests to use isolated temp HOME (isoHome) per test, preventing real `~/.failproofai` mutation and parallel flakes
