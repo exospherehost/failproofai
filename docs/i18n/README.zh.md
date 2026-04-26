@@ -21,23 +21,27 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/exospherehost/failproofai/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/exospherehost/failproofai/actions)
 [![Slack](https://img.shields.io/badge/Slack-join%20us-4A154B?style=flat-square&logo=slack)](https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ)
 
-**翻译版本**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
+**其他语言版本**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-管理策略的最简方式，让你的 AI 智能体保持可靠、专注任务、自主运行——适用于 **Claude Code** 与 **Agents SDK**。
+管理策略的最简方式，让你的 AI 智能体保持可靠、专注任务、自主运行——适用于 **Claude Code** 和 **Agents SDK**。
 
-- **30 条内置策略** - 开箱即用，覆盖常见智能体故障模式。拦截破坏性命令、防止密钥泄露、将智能体限制在项目边界内、检测循环，以及更多功能。
-- **自定义策略** - 用 JavaScript 编写你自己的可靠性规则。使用 `allow`/`deny`/`instruct` API 来强制执行约定、防止偏差、管控操作，或与外部系统集成。
-- **简易配置** - 无需编写代码即可调整任何策略。可按项目或全局设置白名单、受保护分支、阈值等。三级配置自动合并。
-- **智能体监控面板** - 查看你离开时智能体的所有操作。浏览会话、检查每次工具调用，以及精确回溯策略触发的位置。
+<p align="center">
+  <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
+</p>
 
-所有功能均在本地运行——数据不会离开你的设备。
+- **30 条内置策略** - 开箱即用，捕获常见的智能体故障模式。阻止破坏性命令、防止密钥泄露、将智能体限制在项目范围内、检测死循环等。
+- **自定义策略** - 用 JavaScript 编写你自己的可靠性规则。使用 `allow`/`deny`/`instruct` API 强制执行约定、防止偏移、门控操作，或与外部系统集成。
+- **简单配置** - 无需编写代码即可调整任意策略。按项目或全局设置白名单、受保护分支、阈值。三级配置范围自动合并。
+- **智能体监控** - 查看智能体在你离开时的所有操作。浏览会话、检查每次工具调用，并精确回顾策略触发的位置。
+
+一切本地运行——数据不会离开你的机器。
 
 ---
 
-## 环境要求
+## 系统要求
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0（可选——仅在开发或从源码构建时需要）
+- Bun >= 1.3.0（可选——仅在开发/从源码构建时需要）
 
 ---
 
@@ -59,9 +63,9 @@ bun add -g failproofai
 failproofai policies --install
 ```
 
-将 hook 配置写入 `~/.claude/settings.json`。此后 Claude Code 将在每次工具调用前后自动触发 failproofai。
+将 hook 条目写入 `~/.claude/settings.json`。Claude Code 现在将在每次工具调用前后触发 failproofai。
 
-### 2. 启动控制面板
+### 2. 启动控制台
 
 ```bash
 failproofai
@@ -79,15 +83,15 @@ failproofai policies
 
 ## 策略安装
 
-### 作用域
+### 范围
 
-| 作用域 | 命令 | 写入位置 |
-|--------|------|----------|
+| 范围 | 命令 | 写入位置 |
+|-------|---------|-----------------|
 | 全局（默认） | `failproofai policies --install` | `~/.claude/settings.json` |
 | 项目 | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | 本地 | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
-### 安装特定策略
+### 安装指定策略
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
@@ -97,7 +101,7 @@ failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 
 ```bash
 failproofai policies --uninstall
-# 或指定作用域：
+# 或指定范围：
 failproofai policies --uninstall --scope project
 ```
 
@@ -105,7 +109,7 @@ failproofai policies --uninstall --scope project
 
 ## 配置
 
-策略配置存放于 `~/.failproofai/policies-config.json`（全局）或项目目录下的 `.failproofai/policies-config.json`（按项目）。
+策略配置存放在 `~/.failproofai/policies-config.json`（全局）或项目中的 `.failproofai/policies-config.json`（按项目）。
 
 ```json
 {
@@ -138,42 +142,42 @@ failproofai policies --uninstall --scope project
 }
 ```
 
-**三级配置作用域**会自动合并（项目 → 本地 → 全局）。完整的合并规则请参阅 [docs/configuration.mdx](docs/configuration.mdx)。
+**三级配置范围**自动合并（项目 → 本地 → 全局）。完整合并规则请参阅 [docs/configuration.mdx](docs/configuration.mdx)。
 
 ---
 
 ## 内置策略
 
 | 策略 | 描述 | 可配置项 |
-|------|------|:--------:|
-| `block-sudo` | 阻止智能体执行特权系统命令 | `allowPatterns` |
-| `block-rm-rf` | 防止误操作递归删除文件 | `allowPaths` |
-| `block-curl-pipe-sh` | 阻止智能体将不可信脚本通过管道传入 shell 执行 | |
+|--------|-------------|:---:|
+| `block-sudo` | 防止智能体运行特权系统命令 | `allowPatterns` |
+| `block-rm-rf` | 防止意外的递归文件删除 | `allowPaths` |
+| `block-curl-pipe-sh` | 防止智能体将不受信任的脚本通过管道传递给 shell | |
 | `block-failproofai-commands` | 防止自我卸载 | |
-| `sanitize-jwt` | 阻止 JWT 令牌泄露到智能体上下文 | |
-| `sanitize-api-keys` | 阻止 API 密钥泄露到智能体上下文 | `additionalPatterns` |
-| `sanitize-connection-strings` | 阻止数据库凭据泄露到智能体上下文 | |
-| `sanitize-private-key-content` | 从输出中脱敏 PEM 私钥块 | |
-| `sanitize-bearer-tokens` | 从输出中脱敏 Authorization Bearer 令牌 | |
-| `block-env-files` | 阻止智能体读取 .env 文件 | |
-| `protect-env-vars` | 阻止智能体打印环境变量 | |
-| `block-read-outside-cwd` | 将智能体限制在项目边界内 | `allowPaths` |
-| `block-secrets-write` | 阻止向私钥和证书文件写入内容 | `additionalPatterns` |
-| `block-push-master` | 防止误推送至 main/master 分支 | `protectedBranches` |
-| `block-work-on-main` | 阻止智能体在受保护分支上工作 | `protectedBranches` |
-| `block-force-push` | 阻止 `git push --force` | |
-| `warn-git-amend` | 在修改提交前提醒智能体 | |
-| `warn-git-stash-drop` | 在丢弃暂存前提醒智能体 | |
-| `warn-all-files-staged` | 捕获误操作的 `git add -A` | |
+| `sanitize-jwt` | 阻止 JWT 令牌泄露到智能体上下文中 | |
+| `sanitize-api-keys` | 阻止 API 密钥泄露到智能体上下文中 | `additionalPatterns` |
+| `sanitize-connection-strings` | 阻止数据库凭据泄露到智能体上下文中 | |
+| `sanitize-private-key-content` | 从输出中编辑 PEM 私钥块 | |
+| `sanitize-bearer-tokens` | 从输出中编辑 Authorization Bearer 令牌 | |
+| `block-env-files` | 防止智能体读取 .env 文件 | |
+| `protect-env-vars` | 防止智能体打印环境变量 | |
+| `block-read-outside-cwd` | 将智能体限制在项目范围内 | `allowPaths` |
+| `block-secrets-write` | 防止向私钥和证书文件写入内容 | `additionalPatterns` |
+| `block-push-master` | 防止意外推送到 main/master 分支 | `protectedBranches` |
+| `block-work-on-main` | 禁止智能体在受保护分支上工作 | `protectedBranches` |
+| `block-force-push` | 防止 `git push --force` | |
+| `warn-git-amend` | 在智能体修改提交前提醒 | |
+| `warn-git-stash-drop` | 在智能体丢弃暂存前提醒 | |
+| `warn-all-files-staged` | 捕获意外的 `git add -A` | |
 | `warn-destructive-sql` | 在执行前捕获 DROP/DELETE SQL | |
 | `warn-schema-alteration` | 在执行前捕获 ALTER TABLE | |
 | `warn-large-file-write` | 捕获意外的大文件写入 | `thresholdKb` |
 | `warn-package-publish` | 捕获意外的 `npm publish` | |
-| `warn-background-process` | 捕获意外的后台进程启动 | |
-| `warn-global-package-install` | 捕获意外的全局包安装 | |
-| ……以及更多 | | |
+| `warn-background-process` | 捕获非预期的后台进程启动 | |
+| `warn-global-package-install` | 捕获非预期的全局包安装 | |
+| …以及更多 | | |
 
-完整策略说明及参数参考：[docs/built-in-policies.mdx](docs/built-in-policies.mdx)
+完整的策略详情和参数参考：[docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
 ---
 
@@ -197,7 +201,7 @@ customPolicies.add({
 });
 ```
 
-安装方式：
+通过以下命令安装：
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -206,16 +210,16 @@ failproofai policies --install --custom ./my-policies.js
 ### 决策辅助函数
 
 | 函数 | 效果 |
-|------|------|
+|----------|--------|
 | `allow()` | 允许该操作 |
 | `allow(message)` | 允许操作，并向 Claude 发送信息性上下文 |
-| `deny(message)` | 阻止操作；消息显示给 Claude |
-| `instruct(message)` | 向 Claude 的提示词中添加上下文；不会阻止操作 |
+| `deny(message)` | 阻止操作；向 Claude 显示消息 |
+| `instruct(message)` | 向 Claude 的提示词中添加上下文；不阻止操作 |
 
 ### 上下文对象（`ctx`）
 
 | 字段 | 类型 | 描述 |
-|------|------|------|
+|-------|------|-------------|
 | `eventType` | `string` | `"PreToolUse"`、`"PostToolUse"`、`"Notification"`、`"Stop"` |
 | `toolName` | `string` | 被调用的工具（`"Bash"`、`"Write"`、`"Read"`……） |
 | `toolInput` | `object` | 工具的输入参数 |
@@ -224,11 +228,11 @@ failproofai policies --install --custom ./my-policies.js
 | `session.sessionId` | `string` | 会话标识符 |
 | `session.transcriptPath` | `string` | 会话记录文件的路径 |
 
-自定义 hook 支持传递式本地导入、async/await，以及访问 `process.env`。发生错误时采用失败开放策略（日志写入 `~/.failproofai/hook.log`，内置策略继续运行）。完整指南请参阅 [docs/custom-hooks.mdx](docs/custom-hooks.mdx)。
+自定义 hook 支持传递性本地导入、async/await，以及访问 `process.env`。错误为故障开放模式（记录到 `~/.failproofai/hook.log`，内置策略继续运行）。完整指南请参阅 [docs/custom-hooks.mdx](docs/custom-hooks.mdx)。
 
 ### 基于约定的策略
 
-将 `*policies.{js,mjs,ts}` 文件放入 `.failproofai/policies/` 目录，它们会被自动加载——无需任何参数或配置变更。将该目录提交到 git，团队所有成员即可自动获得相同的质量标准。
+将 `*policies.{js,mjs,ts}` 文件放入 `.failproofai/policies/` 目录，它们将自动加载——无需任何标志或配置更改。将该目录提交到 git，团队所有成员将自动获得相同的质量标准。
 
 ```text
 # 项目级别——提交到 git，与团队共享
@@ -239,13 +243,13 @@ failproofai policies --install --custom ./my-policies.js
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-两个级别的策略会同时加载（取并集）。每个目录内的文件按字母顺序加载。可添加 `01-`、`02-` 等前缀来控制加载顺序。每当团队发现新的故障模式，添加一条策略并推送——所有人下次拉取后即可获得更新。可参考 [examples/convention-policies/](examples/convention-policies/) 中的即用示例。
+两个级别均会加载（取并集）。文件在各自目录内按字母顺序加载。使用 `01-`、`02-` 等前缀控制加载顺序。当团队发现新的故障模式时，添加一条策略并推送——所有人在下次拉取时即可获得更新。现成可用的示例请参阅 [examples/convention-policies/](examples/convention-policies/)。
 
 ---
 
 ## 遥测
 
-Failproof AI 通过 PostHog 收集匿名使用遥测数据，以了解功能使用情况。任何会话内容、文件名、工具输入或个人信息均不会被发送。
+Failproof AI 通过 PostHog 收集匿名使用遥测数据，以了解功能使用情况。我们绝不发送任何会话内容、文件名、工具输入或个人信息。
 
 禁用遥测：
 
@@ -258,23 +262,23 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 ## 文档
 
 | 指南 | 描述 |
-|------|------|
-| [快速入门](docs/getting-started.mdx) | 安装与初始步骤 |
-| [内置策略](docs/built-in-policies.mdx) | 全部 30 条内置策略及参数说明 |
+|-------|-------------|
+| [快速入门](docs/getting-started.mdx) | 安装与初步使用 |
+| [内置策略](docs/built-in-policies.mdx) | 全部 30 条内置策略及其参数 |
 | [自定义策略](docs/custom-policies.mdx) | 编写你自己的策略 |
-| [配置](docs/configuration.mdx) | 配置文件格式与作用域合并规则 |
-| [控制面板](docs/dashboard.mdx) | 监控会话与审查策略活动 |
+| [配置](docs/configuration.mdx) | 配置文件格式与范围合并 |
+| [控制台](docs/dashboard.mdx) | 监控会话并查看策略活动 |
 | [架构](docs/architecture.mdx) | hook 系统的工作原理 |
 | [测试](docs/testing.mdx) | 运行测试与编写新测试 |
 
-### 本地运行文档
+### 在本地运行文档
 
 ```bash
 docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-在 `http://localhost:3000` 打开 Mintlify 文档站点。如果挂载 docs 目录，容器会监听文件变更：
+在 `http://localhost:3000` 打开 Mintlify 文档站点。挂载 docs 目录后，容器将监听变更：
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -282,17 +286,17 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
-## failproofai 贡献者须知
+## 致 failproofai 贡献者的说明
 
-本仓库的 `.claude/settings.json` 使用 `bun ./bin/failproofai.mjs --hook <EventType>` 而非标准的 `npx -y failproofai` 命令。这是因为在 failproofai 项目内部运行 `npx -y failproofai` 会产生自引用冲突。
+本仓库的 `.claude/settings.json` 使用 `bun ./bin/failproofai.mjs --hook <EventType>` 而非标准的 `npx -y failproofai` 命令。这是因为在 failproofai 项目自身内部运行 `npx -y failproofai` 会产生自引用冲突。
 
-对于其他所有仓库，推荐使用 `npx -y failproofai`，通过以下方式安装：
+对于其他所有仓库，推荐的方式是使用 `npx -y failproofai`，通过以下命令安装：
 
 ```bash
 failproofai policies --install --scope project
 ```
 
-## 参与贡献
+## 贡献
 
 请参阅 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
@@ -304,4 +308,4 @@ failproofai policies --install --scope project
 
 ---
 
-由 **ExosphereHost：智能体可靠性研究实验室** 构建与维护。我们通过自主研发的智能体、软件和专业知识，帮助企业和初创公司提升 AI 智能体的可靠性。了解更多请访问 [exosphere.host](https://exosphere.host)。
+由 **ExosphereHost：面向智能体的可靠性研究实验室** 构建与维护。我们通过自研智能体、软件和专业经验，帮助企业和初创公司提升 AI 智能体的可靠性。欲了解更多，请访问 [exosphere.host](https://exosphere.host)。

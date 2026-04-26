@@ -2707,6 +2707,238 @@ describe("hooks/builtin-policies", () => {
     });
   });
 
+  describe("require-no-conflicts-before-stop", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "require-no-conflicts-before-stop")!;
+
+    afterEach(() => {
+      vi.mocked(execSync).mockReset();
+      vi.mocked(execFileSync).mockReset();
+      clearGitBranchCache();
+    });
+
+    /**
+     * Mock helper: sets up execSync (for getCurrentBranch + gh commands) and
+     * execFileSync (for git rev-parse, git log, git merge-tree) around the
+     * common scenarios this policy handles.
+     */
+    function mockConflictsScenario(opts: {
+      branch?: string;
+      baseRefExists?: boolean;
+      commitsAhead?: string;
+      mergeTreeStatus?: 0 | 1 | "error";
+      mergeTreeStdout?: string;
+      ghInstalled?: boolean;
+      prResult?: { mergeable: string; number: number; url: string } | null | "invalid-json";
+    }) {
+      const branch = opts.branch ?? "feat/branch";
+      const ghInstalled = opts.ghInstalled ?? true;
+
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) {
+          return `${branch}\n`;
+        }
+        if (typeof cmd === "string" && cmd.includes("gh --version")) {
+          if (!ghInstalled) throw new Error("not found");
+          return "/usr/bin/gh\n";
+        }
+        if (typeof cmd === "string" && cmd.includes("gh pr view")) {
+          if (opts.prResult === null || opts.prResult === undefined) {
+            throw new Error("no pull requests found");
+          }
+          if (opts.prResult === "invalid-json") return "not-json";
+          return JSON.stringify(opts.prResult);
+        }
+        return "";
+      });
+
+      vi.mocked(execFileSync).mockImplementation((_cmd: string, args?: readonly string[]) => {
+        const joined = args?.join(" ") ?? "";
+        if (joined.includes("rev-parse") && joined.includes("--verify")) {
+          if (opts.baseRefExists === false) throw new Error("unknown revision");
+          return "";
+        }
+        if (joined.includes("log") && joined.includes("..HEAD")) {
+          return opts.commitsAhead ?? "abc123 commit\n";
+        }
+        if (joined.includes("merge-tree")) {
+          if (opts.mergeTreeStatus === 1) {
+            const err = new Error("conflict") as Error & { status: number; stdout: string };
+            err.status = 1;
+            err.stdout = opts.mergeTreeStdout ?? "treeoid\na.ts\nb.ts\n\nCONFLICT (content): Merge conflict in a.ts\n";
+            throw err;
+          }
+          if (opts.mergeTreeStatus === "error") {
+            const err = new Error("merge-tree failed") as Error & { status: number };
+            err.status = 128;
+            throw err;
+          }
+          return "treeoid\n";
+        }
+        return "";
+      });
+    }
+
+    it("allows when session.cwd is missing", async () => {
+      const ctx = makeCtx({ eventType: "Stop", session: {} });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("No working directory");
+    });
+
+    it("allows on detached HEAD", async () => {
+      vi.mocked(execSync).mockImplementation((cmd: string) => {
+        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "HEAD\n";
+        return "";
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("Detached HEAD");
+    });
+
+    it("allows when on base branch", async () => {
+      mockConflictsScenario({ branch: "main" });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain('On base branch "main"');
+    });
+
+    it("denies with conflict file list when merge-tree exits 1", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 1,
+        mergeTreeStdout: "treeoid123\nsrc/app.ts\nsrc/lib.ts\n\nCONFLICT (content): ...\n",
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain('"feat/branch"');
+      expect(result.reason).toContain("src/app.ts, src/lib.ts");
+      expect(result.reason).toContain("Rebase or merge origin/main");
+    });
+
+    it("deny reason falls back to \"one or more files\" when stdout parse yields no files", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 1,
+        mergeTreeStdout: "treeoid-only-no-newline",
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("one or more files");
+    });
+
+    it("custom baseBranch param is honored", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 1,
+        mergeTreeStdout: "treeoid\nfoo.ts\n\n",
+      });
+      const ctx = makeCtx({
+        eventType: "Stop",
+        session: { cwd: "/repo" },
+        params: { baseBranch: "develop" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("conflicts with develop");
+      expect(result.reason).toContain("origin/develop");
+    });
+
+    it("allows with MERGEABLE message when Layer 1 clean and gh reports MERGEABLE", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 0,
+        prResult: { mergeable: "MERGEABLE", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("PR #42");
+      expect(result.reason).toContain("merges cleanly per GitHub");
+    });
+
+    it("denies when Layer 1 clean but gh reports CONFLICTING (catches stale-origin case)", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 0,
+        prResult: { mergeable: "CONFLICTING", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("PR #42");
+      expect(result.reason).toContain("conflicts per GitHub");
+      expect(result.reason).toContain("https://github.com/org/repo/pull/42");
+    });
+
+    it("denies with wait+retry when gh reports UNKNOWN", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 0,
+        prResult: { mergeable: "UNKNOWN", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("still computing mergeability");
+      expect(result.reason).toContain("Wait");
+      expect(result.reason).toContain("gh pr view --json mergeable");
+    });
+
+    it("allows with local+no-gh message when Layer 1 clean and gh not installed", async () => {
+      mockConflictsScenario({ mergeTreeStatus: 0, ghInstalled: false });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("merges cleanly with main locally");
+      expect(result.reason).toContain("gh CLI not installed");
+    });
+
+    it("allows with local+no-PR message when Layer 1 clean and no PR exists", async () => {
+      mockConflictsScenario({ mergeTreeStatus: 0, prResult: null });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("merges cleanly with main locally");
+      expect(result.reason).toContain("no PR to verify");
+    });
+
+    it("falls through to Layer 2 when origin/main ref missing; denies if gh reports CONFLICTING", async () => {
+      mockConflictsScenario({
+        baseRefExists: false,
+        prResult: { mergeable: "CONFLICTING", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("conflicts per GitHub");
+    });
+
+    it("falls through to Layer 2 when branch has no commits ahead; allows if gh reports MERGEABLE", async () => {
+      mockConflictsScenario({
+        commitsAhead: "",
+        prResult: { mergeable: "MERGEABLE", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("PR #42");
+    });
+
+    it("fails open when Layer 1 fails (exit != 0/1), then allows if both layers skipped", async () => {
+      mockConflictsScenario({ mergeTreeStatus: "error", ghInstalled: false });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("skipping conflict check");
+    });
+
+    it("allows when gh pr view returns invalid JSON (fail-open)", async () => {
+      mockConflictsScenario({ mergeTreeStatus: 0, prResult: "invalid-json" });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("Could not parse gh pr view output");
+    });
+  });
+
   describe("require-ci-green-before-stop", () => {
     const policy = BUILTIN_POLICIES.find((p) => p.name === "require-ci-green-before-stop")!;
 
