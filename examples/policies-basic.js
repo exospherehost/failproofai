@@ -11,19 +11,33 @@
  *   - Run `curl ... | bash` → deny
  *   - Anything else → allow
  */
-import { customPolicies, allow, deny, instruct } from "failproofai";
+import { customPolicies, allow, deny, instruct, isBashTool } from "failproofai";
 
 // 1. Block writes to production config files
 customPolicies.add({
   name: "block-production-writes",
-  description: "Prevent writes to files with 'production' or 'prod.' in their path",
+  description: "Prevent writes to files with 'production' or 'prod.' in their path or command",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
-    if (ctx.toolName !== "Write") return allow();
-    const path = String(ctx.toolInput?.file_path ?? "");
-    if (/production|prod\./i.test(path)) {
-      return deny(`Writing to production config is blocked: ${path}`);
+    const PROD_RE = /production|prod\./i;
+
+    // Write tool (Claude Code, Gemini WriteFile→Write, etc.)
+    if (ctx.toolName === "Write") {
+      const path = String(ctx.toolInput?.file_path ?? "");
+      if (PROD_RE.test(path)) {
+        return deny(`Writing to production file is blocked: ${path}`);
+      }
+      return allow();
     }
+
+    // Bash-based file writes: echo >> file, tee, cat >, cp to production paths
+    if (isBashTool(ctx.toolName)) {
+      const cmd = String(ctx.toolInput?.command ?? "");
+      if (PROD_RE.test(cmd)) {
+        return deny(`Shell command targeting a production path is blocked: ${cmd}`);
+      }
+    }
+
     return allow();
   },
 });
@@ -34,7 +48,7 @@ customPolicies.add({
   description: "Block git push --force with a team-specific message",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
-    if (ctx.toolName !== "Bash") return allow();
+    if (!isBashTool(ctx.toolName)) return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
     if (/git\s+push\b.*\s(-f|--force)\b/.test(cmd)) {
       return deny("Force-push is prohibited — open a PR and request a branch reset instead");
@@ -49,7 +63,7 @@ customPolicies.add({
   description: "Remind Claude to verify lockfile consistency before npm install",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
-    if (ctx.toolName !== "Bash") return allow();
+    if (!isBashTool(ctx.toolName)) return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
     if (/\bnpm\s+install\b/.test(cmd) && !/\bnpm\s+install\s+\S/.test(cmd)) {
       return instruct(
@@ -67,7 +81,7 @@ customPolicies.add({
   description: "Block curl|sh and wget|bash remote code execution patterns",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
-    if (ctx.toolName !== "Bash") return allow();
+    if (!isBashTool(ctx.toolName)) return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
     if (/\bcurl\b.*\|\s*(ba)?sh\b/.test(cmd) || /\bwget\b.*\|\s*(ba)?sh\b/.test(cmd)) {
       return deny("Piping remote content into a shell is blocked — download the script first and inspect it");

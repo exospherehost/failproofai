@@ -176,7 +176,7 @@ function mapActivityEntryToLogEntry(e: any): LogEntry {
 
   const baseDetails = {
     _source: source,
-    uuid: (e.sessionId || "") + (e.timestamp || ""),
+    uuid: `${e.sessionId || ""}-${e.timestamp || ""}-${e.eventType || ""}-${e.toolName || ""}`,
     parentUuid: null,
     timestamp,
     timestampMs: e.timestamp,
@@ -186,12 +186,8 @@ function mapActivityEntryToLogEntry(e: any): LogEntry {
   const lowEvent = (e.eventType || "").toLowerCase();
 
   // 1. User Prompts (Claude, Cursor, Gemini, Copilot, Codex, OpenCode, Pi)
-  const isUserEvent =
-    lowEvent.includes("prompt") ||
-    lowEvent.includes("submit") ||
-    lowEvent.includes("message") ||
-    lowEvent.includes("chat") ||
-    lowEvent.includes("input");
+  const userEvents = ["userpromptsubmit", "userchat", "userinput", "message_sent", "chat_message", "promptsuggestionselected"];
+  const isUserEvent = userEvents.includes(lowEvent);
 
   if (isUserEvent) {
     const ti = e.toolInput as Record<string, unknown> | string | undefined;
@@ -446,7 +442,9 @@ function mergeMirroredAndActivityEntries(
   const nonDuplicateActivityEntries = activityEntries.filter((entry) => {
     const sig = getEntrySignature(entry);
     const bucket = Math.floor(entry.timestampMs / BUCKET_MS);
-    return !seen.has(`${sig}|${bucket}`);
+    if (seen.has(`${sig}|${bucket}`)) return false;
+    markSeen(entry); // Mark it so subsequent activity entries with same sig are dropped
+    return true;
   });
 
   const allEntries = [...mirroredEntries, ...nonDuplicateActivityEntries];
@@ -847,6 +845,7 @@ function parseCopilotEventsFile(content: string, source: LogSource): ParseFileRe
   }
 
   const entries: LogEntry[] = [];
+  const seenPrompts = new Set<string>(); // Added to deduplicate user.message vs hook.start
 
   for (const obj of allObjects) {
     const type = obj.type as string;
@@ -865,7 +864,12 @@ function parseCopilotEventsFile(content: string, source: LogSource): ParseFileRe
       const data = obj.data as Record<string, unknown> | undefined;
       const text = stringifyStructured(data?.content ?? data?.message ?? data?.text ?? "") ?? "";
       if (text) {
-        entries.push({ type: "user", ...base, message: { role: "user", content: text } } as UserEntry);
+        // Use bucketed timestamp to catch simultaneous events
+        const promptKey = `${Math.floor(date.getTime() / 2000)}:${text}`;
+        if (!seenPrompts.has(promptKey)) {
+          entries.push({ type: "user", ...base, message: { role: "user", content: text } } as UserEntry);
+          seenPrompts.add(promptKey);
+        }
       }
       continue;
     }
@@ -876,7 +880,11 @@ function parseCopilotEventsFile(content: string, source: LogSource): ParseFileRe
         const input = data.input as Record<string, unknown> | undefined;
         const text = stringifyStructured(input?.prompt ?? input?.content ?? "") ?? "";
         if (text) {
-          entries.push({ type: "user", ...base, message: { role: "user", content: text } } as UserEntry);
+          const promptKey = `${Math.floor(date.getTime() / 2000)}:${text}`;
+          if (!seenPrompts.has(promptKey)) {
+            entries.push({ type: "user", ...base, message: { role: "user", content: text } } as UserEntry);
+            seenPrompts.add(promptKey);
+          }
         }
       }
       continue;
@@ -1723,7 +1731,10 @@ export async function parseSessionLog(
       // Try mirrored JSONL (has proper pre/post tool pairing via writeVirtualLogEntry sidecar)
       let mirroredEntries: LogEntry[] = [];
       let usedMirrored = false;
-      const mirroredPath = join(resolveProjectPath(sid), `${sessionId}.jsonl`);
+      const firstActivity = matching[0];
+      const { encodeCwd } = await import("./paths");
+      const encodedCwd = firstActivity.cwd ? encodeCwd(firstActivity.cwd) : sid;
+      const mirroredPath = join(getClaudeProjectsPath(), encodedCwd, `${sessionId}.jsonl`);
       try {
         const mirroredContent = await readFile(mirroredPath, "utf-8");
         const parsed = await parseFileContent(mirroredContent, "session");
@@ -1759,7 +1770,7 @@ export async function parseSessionLog(
     const cwd = decodeFolderName(projectName);
     void cwd; // used implicitly through tryKnownNativeTranscriptPaths above
     const allActivity = getAllHookActivityEntries();
-    const VIRTUAL_INTEGRATIONS = INTEGRATION_TYPES as unknown as string[];
+    const VIRTUAL_INTEGRATIONS = INTEGRATION_TYPES.filter((t) => t !== "claude-code") as unknown as string[];
     const matchingEntries = allActivity.filter(
       (entry) =>
         entry.sessionId === sessionId &&
@@ -1776,7 +1787,10 @@ export async function parseSessionLog(
       // Try mirrored JSONL (has proper pre/post tool pairing via writeVirtualLogEntry sidecar)
       let mirroredEntries: LogEntry[] = [];
       let usedMirrored = false;
-      const mirroredPath = join(resolveProjectPath(projectName), `${sessionId}.jsonl`);
+      const firstActivity = matchingEntries[0];
+      const { encodeCwd } = await import("./paths");
+      const encodedCwd = firstActivity.cwd ? encodeCwd(firstActivity.cwd) : projectName;
+      const mirroredPath = join(getClaudeProjectsPath(), encodedCwd, `${sessionId}.jsonl`);
       try {
         const mirroredContent = await readFile(mirroredPath, "utf-8");
         const parsed = await parseFileContent(mirroredContent, "session");
@@ -1865,7 +1879,17 @@ export async function parseSessionLog(
   // Sort combined entries by timestamp
   allEntries.sort((a, b) => a.timestampMs - b.timestampMs);
 
-  return { entries: allEntries, rawLines: allRawLines, subagentIds, sourceMode: "native", sourceDetail: sourcePathUsed };
+  // Final deduplication by UUID to prevent React key collisions
+  const uniqueEntries: LogEntry[] = [];
+  const seenUuids = new Set<string>();
+  for (const entry of allEntries) {
+    if (!entry.uuid || !seenUuids.has(entry.uuid)) {
+      uniqueEntries.push(entry);
+      if (entry.uuid) seenUuids.add(entry.uuid);
+    }
+  }
+
+  return { entries: uniqueEntries, rawLines: allRawLines, subagentIds, sourceMode: "native", sourceDetail: sourcePathUsed };
 }
 
 export const getCachedSessionLog = runtimeCache(

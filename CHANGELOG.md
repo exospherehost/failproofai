@@ -4,6 +4,8 @@
 
 ### Features
 - Add per-CLI policy configuration UI to dashboard: Switch between Global and specific CLI tabs (Claude Code, Cursor, etc.) to apply 3-state overrides (Inherit/ON/OFF) and per-CLI policy parameters. Fixes terminal TUI prompt hijacking when installing hooks from the web dashboard.
+- Add tool name canonicalization: Multi-agent tool names (e.g., Gemini's `WriteFile` or Cursor's `run_terminal_command`) are now mapped to standard canonical names (`Write`, `Bash`, `Read`) before policies fire. This enables custom policies to work cross-CLI without agent-specific string matching logic.
+- Export `isBashTool` helper: Custom policy authors can now use the same robust shell-detection logic as built-in policies via `import { isBashTool } from 'failproofai'`.
 - Add per-CLI policy scoping: `--uninstall <policy> --cli <X>` now disables only for that CLI (writes to `cli[X].disabledPolicies`), leaving all other CLIs unaffected. Per-CLI `policyParams` and `customPoliciesPath` overrides are also supported. `listHooks` shows per-CLI suppressions and CLI-only additions inline.
 - Populate `permissionMode` in activity entries for all CLIs: Codex reads `approval_policy` from its session transcript, Cursor/Copilot/Gemini walk the `/proc` ancestor tree to parse mode flags (checking both `argv[0]` and `argv[1]` to support Node.js-wrapped binaries), all CLIs fall back to `"default"` when no explicit mode is detected
 - Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
@@ -23,6 +25,7 @@
 - Fix `isOpencodeSessionMerged` to compare session CWD against virtual folder names (encoded CWD) instead of always returning true
 - Fix `resolveAnyProjectPath` unreachable `"virtual"` branch: now uses `existsSync` to distinguish real Claude project directories from activity-store-only virtual projects
 - Fix `session.idle` in OpenCode plugin to not double-emit `SessionEnd` (idle is not a session close)
+- Fix Pi integration `SessionStart` session ID: defers the event until the first real session UUID is available (from tool_call or Pi's context), preventing the fallback `pi-<project>-<ts>` ID from being locked in before Pi assigns the real UUID
 - Remove debug logging of Pi session ID sources from `integrations.ts`
 - Fix `getFilePath` in builtin policies to use `findNestedStringByKeys` for nested payload lookup, matching `getCommand` behaviour
 - Fix silent fallback in `getInteg` handler to log a warning before falling back to `claude-code`

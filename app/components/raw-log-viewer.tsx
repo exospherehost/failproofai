@@ -350,7 +350,7 @@ function VirtualizedEntryList({ entries, entriesBySource, projectName, sessionId
           const isTarget = !!highlightedUuid && entry.uuid === (parentUuidForSubagent ?? highlightedUuid);
           return (
             <div
-              key={entry.type === "queue-operation" ? getSegmentId(entry) : (entry.uuid || entry.timestamp)}
+              key={(entry.type === "queue-operation" ? getSegmentId(entry) : (entry.uuid || entry.timestamp)) + "-" + virtualRow.index}
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
               style={{

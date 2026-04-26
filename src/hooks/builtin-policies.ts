@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { execSync, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
-import { allow, deny, instruct } from "./policy-helpers";
+import { allow, deny, instruct, isBashTool } from "./policy-helpers";
 import { registerPolicy } from "./policy-registry";
 import { hookLogWarn } from "./hook-logger";
 
@@ -20,19 +20,6 @@ function isClaudeSettingsFile(resolved: string): boolean {
   return /[\\/]\.claude[\\/]settings(?:\.[^/\\]+)?\.json$/.test(resolved);
 }
 
-function isBashTool(toolName: string | undefined): boolean {
-  if (!toolName) return true; // Assume shell if tool name is missing
-  const lower = toolName.toLowerCase();
-  return (
-    lower === "bash" ||
-    lower === "shell" ||
-    lower === "terminal" ||
-    lower === "console" ||
-    lower.includes("command") ||
-    lower === "run_terminal_command" ||
-    lower === "sh"
-  );
-}
 
 const SHELL_TOOL_NAMES = [
   "Bash",
@@ -203,7 +190,7 @@ const CMD_ECHO_ENV_RE = /echo\s+%[A-Za-z_]/i;
 
 // blockEnvFiles
 const ENV_FILE_PATH_RE = /(?:^|[\\/])(?:\.env(?!\w)|env_\w*)/i;
-const ENV_CMD_RE = /(?:\.env(?!\w)|env_\w*)/i;
+const ENV_CMD_RE = /(?:^|[\s/\\\\])\.env(?!rc\b)[a-z0-9._-]*\b/i;
 
 // blockSudo
 const SUDO_RE = /(?:^|;|&&|\|\|)\s*sudo\s/;
@@ -211,6 +198,7 @@ const PS_ELEVATION_RE = /Start-Process\s+.*-Verb\s+RunAs/i;
 const RUNAS_RE = /(?:^|;|&&|\|\|)\s*runas\s/i;
 
 // blockCurlPipeSh
+const REMOTE_DOWNLOAD_RE = /\b(curl|wget)\b.*?\s-(O|o|L|f|S|s|J|g|-output|-remote-name)\b/i;
 const CURL_PIPE_SH_RE = /(?:curl|wget)\s.*\|\s*(?:sh|bash|zsh|dash|ksh|csh|tcsh|fish|ash)\b/;
 const REMOTE_SCRIPT_DOWNLOAD_RE = /(?:^|;|&&|\|\|)\s*(?:curl|wget)\b[^\n]*https?:\/\/[^\s"'`]+\.sh(?:[?#][^\s"'`]*)?(?:\s|$)/i;
 const PS_WEB_PIPE_RE = /(?:Invoke-WebRequest|iwr|Invoke-RestMethod|irm)\s+.*\|\s*(?:Invoke-Expression|iex)/i;
@@ -494,8 +482,8 @@ function getToolOutputText(ctx: PolicyContext): string {
 }
 
 function looksLikeFailproofStopMessage(text: string): boolean {
-  return text.includes("MANDATORY ACTION REQUIRED from FailproofAI (policy:")
-    || text.includes("[FailproofAI Security Stop] Policy:");
+  return /\[failproofai security stop\] policy:/i.test(text)
+    || /\b(stop|denied):/i.test(text);
 }
 
 function safeStringify(value: unknown): string {
@@ -1485,10 +1473,9 @@ function sessionHadToolUse(ctx: PolicyContext): boolean {
       try {
         const entry = JSON.parse(line) as Record<string, unknown>;
         const content = (entry.message as Record<string, unknown> | undefined)?.content;
-        if (Array.isArray(content)) {
-          for (const block of content as Record<string, unknown>[]) {
-            if (block.type === "tool_use") return true;
-          }
+        const blocks = Array.isArray(content) ? content : (typeof entry.content === "object" ? [entry.content] : []);
+        for (const block of blocks as Record<string, unknown>[]) {
+          if (block?.type === "tool_use" || block?.tool_use) return true;
         }
       } catch { /* skip malformed lines */ }
     }

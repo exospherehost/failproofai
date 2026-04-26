@@ -9,7 +9,7 @@ export {
   getCustomHooks,
   clearCustomHooks,
 } from "./hooks/custom-hooks-registry";
-export { allow, deny, instruct } from "./hooks/policy-helpers";
+export { allow, deny, instruct, isBashTool } from "./hooks/policy-helpers";
 export type {
   PolicyContext,
   PolicyResult,

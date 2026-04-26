@@ -57,7 +57,7 @@ async function loadSingleFile(absPath: string, opts?: { strict?: boolean }): Pro
     tmpFiles = await rewriteFileTree(absPath, distUrl, distIndex);
 
     const entryTmp = absPath + TMP_SUFFIX;
-    const fileUrl = pathToFileURL(entryTmp).href;
+    const fileUrl = pathToFileURL(entryTmp).href + `?t=${Date.now()}`;
     await import(/* webpackIgnore: true */ fileUrl);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

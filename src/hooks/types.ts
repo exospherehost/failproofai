@@ -14,6 +14,7 @@ export const HOOK_EVENT_TYPES = [
   "SessionStart",
   "SessionEnd",
   "UserPromptSubmit",
+  "AssistantResponse",
   "PreToolUse",
   "PermissionRequest",
   "PermissionDenied",

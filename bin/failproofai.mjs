@@ -365,6 +365,13 @@ EXAMPLES
       const consumedIdxs = new Set();
       if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
       
+      const customIdx = subArgs.includes("--custom") ? subArgs.indexOf("--custom")
+                      : subArgs.includes("-c")        ? subArgs.indexOf("-c")
+                      : -1;
+      if (customIdx >= 0 && subArgs[customIdx + 1] && !subArgs[customIdx + 1].startsWith("-")) {
+        consumedIdxs.add(customIdx + 1);
+      }
+      
       const cliIdx = subArgs.indexOf("--cli");
       if (cliIdx >= 0) {
         for (let i = cliIdx + 1; i < subArgs.length && !subArgs[i].startsWith("-"); i++) {

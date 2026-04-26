@@ -262,6 +262,17 @@ export async function installHooks(
       continue;
     }
 
+    // Prevent duplicate-scope installations to avoid double execution
+    const otherScopes = deduplicateScopes(integ, integ.scopes, cwd).filter((s) => s !== scope);
+    const duplicates = otherScopes.filter((s) => integ.hooksInstalledInSettings(s as any, cwd));
+    if (duplicates.length > 0) {
+      const scopeList = duplicates.map((s) => `${s} (${scopeLabel(integ, s, cwd)})`).join(", ");
+      console.log(`\n\x1B[33mNotice: Failproof AI hooks are already active at ${scopeList} for ${integ.displayName}.\x1B[0m`);
+      console.log(`Skipping installation in ${scope} scope to prevent duplicate policy evaluation.`);
+      console.log(`If you want to move the installation to ${scope}, uninstall from the other scope(s) first.`);
+      continue;
+    }
+
     const settingsPath = integ.getSettingsPath(scope as any, cwd);
     const settings = integ.readSettings(settingsPath) as ClaudeSettings;
     integ.writeHookEntries(settings, binaryPath, scope);
@@ -309,17 +320,6 @@ export async function installHooks(
       console.log(`This file can be committed to git — no machine-specific paths.`);
     } else {
       console.log(`Binary:   ${binaryPath}`);
-    }
-
-    // Warn about duplicate-scope installations
-    const otherScopes = deduplicateScopes(integ, integ.scopes, cwd).filter((s) => s !== scope);
-    const duplicates = otherScopes.filter((s) => integ.hooksInstalledInSettings(s as any, cwd));
-    if (duplicates.length > 0) {
-      const scopeList = duplicates.map((s) => `${s} (${scopeLabel(integ, s, cwd)})`).join(", ");
-      console.log();
-      console.log(`\x1B[33mWarning: Failproof AI hooks are also installed at ${scopeList} for ${integ.displayName}.\x1B[0m`);
-      console.log(`Having hooks in multiple scopes may cause duplicate policy evaluation.`);
-      console.log(`Use \`failproofai policies --uninstall --scope ${duplicates[0]} --cli ${integId}\` to remove the other installation.`);
     }
   }
 }
@@ -536,8 +536,7 @@ export async function listHooks(
   integration: IntegrationType = "claude-code",
 ): Promise<void> {
   const integ = getIntegration(integration);
-  // Multi-scope config is merged for listing (no CLI filter \u2014 show global view)
-  const config = readMergedHooksConfig(cwd);
+  const config = readMergedHooksConfig(cwd, integration);
   const enabledSet = new Set(config.enabledPolicies);
 
   const uniqueScopes = deduplicateScopes(integ, integ.scopes, cwd);
@@ -594,55 +593,26 @@ export async function listHooks(
 
   const statusCol = installedScopes.length > 1 ? installedScopes.length * 9 : 8;
 
+  console.log(`\nFailproof AI Hook Policies \u2014 Profile: ${integ.displayName}\n`);
+  console.log(`  ${"Status".padEnd(8)}${"Name".padEnd(nameColWidth)}Description`);
+  console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
+
+  for (const p of regularPolicies) {
+    const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
+    printPolicyLine(p, mark);
+  }
+
+  if (betaPolicies.length > 0) {
+    console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
+    for (const p of betaPolicies) {
+      const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
+      printPolicyLine(p, mark);
+    }
+  }
+
   if (installedScopes.length === 0) {
-    console.log(`  ${"Status".padEnd(8)}${"Name".padEnd(nameColWidth)}Description`);
-    console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
-
-    for (const p of regularPolicies) {
-      const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-      printPolicyLine(p, mark);
-    }
-
-    if (betaPolicies.length > 0) {
-      console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
-      for (const p of betaPolicies) {
-        const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-        printPolicyLine(p, mark);
-      }
-    }
     console.log(`\n  Run \`failproofai policies --install --cli ${integration}\` to activate hooks for ${integ.displayName}.`);
-  } else if (installedScopes.length === 1) {
-    console.log(`\nFailproof AI Hook Policies\n`);
-    console.log(`  ${"Status".padEnd(8)}${"Name".padEnd(nameColWidth)}Description`);
-    console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
-
-    for (const p of regularPolicies) {
-      const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-      printPolicyLine(p, mark);
-    }
-    if (betaPolicies.length > 0) {
-      console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
-      for (const p of betaPolicies) {
-        const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-        printPolicyLine(p, mark);
-      }
-    }
   } else {
-    console.log(`\nFailproof AI Hook Policies\n`);
-    console.log(`  ${"Status".padEnd(8)}${"Name".padEnd(nameColWidth)}Description`);
-    console.log(`  ${"\u2500".repeat(6)}  ${"\u2500".repeat(nameColWidth - 2)}  ${"\u2500".repeat(38)}`);
-
-    for (const p of regularPolicies) {
-      const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-      printPolicyLine(p, mark);
-    }
-    if (betaPolicies.length > 0) {
-      console.log(`\n  \x1B[2m\u2500\u2500 Beta \u2500\u2500\x1B[0m`);
-      for (const p of betaPolicies) {
-        const mark = enabledSet.has(p.name) ? `\x1B[32m\u2713\x1B[0m` : " ";
-        printPolicyLine(p, mark);
-      }
-    }
     console.log(`\n  Hooks active in scopes: ${installedScopes.join(", ")}`);
   }
 
@@ -718,10 +688,19 @@ export async function listHooks(
     const hooksInstalled = unique.some((s) => i.hooksInstalledInSettings(s as any, cwd));
     const binaryInstalled = i.detectInstalled();
     
+    // Get policy count for this specific CLI
+    const cliConfig = readMergedHooksConfig(cwd, integId);
+    const pCount = cliConfig.enabledPolicies.length;
+    const hasCustom = !!cliConfig.customPoliciesPath;
+
     let status = "";
-    if (hooksInstalled) status = "\x1B[32mhooks active\x1B[0m";
-    else if (binaryInstalled) status = "\x1B[33mCLI detected; hooks inactive\x1B[0m";
-    else status = "\x1B[2mCLI not detected\x1B[0m";
+    if (hooksInstalled) {
+      status = `\x1B[32mhooks active\x1B[0m (${pCount} policies${hasCustom ? " + custom" : ""})`;
+    } else if (binaryInstalled) {
+      status = "\x1B[33mCLI detected; hooks inactive\x1B[0m";
+    } else {
+      status = "\x1B[2mCLI not detected\x1B[0m";
+    }
 
     const mark = hooksInstalled ? `\x1B[32m\u2713\x1B[0m` : (binaryInstalled ? `\x1B[33m?\x1B[0m` : `\x1B[31m\u2717\x1B[0m`);
     console.log(`  ${mark} ${i.displayName.padEnd(15)} (${status})`);

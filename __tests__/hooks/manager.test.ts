@@ -82,7 +82,7 @@ describe("hooks/manager", () => {
   });
 
   describe("installHooks", () => {
-    it("installs hooks for all 26 event types into empty settings", async () => {
+    it("installs hooks for all 27 event types into empty settings", async () => {
       vi.mocked(existsSync).mockReturnValue(true);
       vi.mocked(readFileSync).mockReturnValue("{}");
 
@@ -94,7 +94,7 @@ describe("hooks/manager", () => {
       expect(path).toBe(USER_SETTINGS_PATH);
 
       const written = JSON.parse(content as string);
-      expect(Object.keys(written.hooks)).toHaveLength(26);
+      expect(Object.keys(written.hooks)).toHaveLength(27);
 
       for (const [eventType, matchers] of Object.entries(written.hooks)) {
         expect(matchers).toHaveLength(1);
@@ -227,7 +227,13 @@ describe("hooks/manager", () => {
           ],
         },
       };
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(existingSettings));
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        if (p === USER_SETTINGS_PATH) return JSON.stringify(existingSettings);
+        return "{}";
+      });
+      vi.mocked(existsSync).mockImplementation((p) => {
+        return p === USER_SETTINGS_PATH || String(p).includes("failproofai.mjs");
+      });
 
       const { installHooks } = await import("../../src/hooks/manager");
       await installHooks();
@@ -250,7 +256,7 @@ describe("hooks/manager", () => {
       expect(writeFileSync).toHaveBeenCalledOnce();
       const [, content] = vi.mocked(writeFileSync).mock.calls[0];
       const written = JSON.parse(content as string);
-      expect(Object.keys(written.hooks)).toHaveLength(26);
+      expect(Object.keys(written.hooks)).toHaveLength(27);
     });
 
     it("resolves binary from FAILPROOFAI_DIST_PATH", async () => {
@@ -350,7 +356,13 @@ describe("hooks/manager", () => {
           ],
         },
       };
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify(existingSettings));
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        if (p === PROJECT_SETTINGS_PATH) return JSON.stringify(existingSettings);
+        return "{}";
+      });
+      vi.mocked(existsSync).mockImplementation((p) => {
+        return p === PROJECT_SETTINGS_PATH || String(p).includes("failproofai.mjs");
+      });
 
       const { installHooks } = await import("../../src/hooks/manager");
       await installHooks(["all"], "project");
@@ -439,7 +451,7 @@ describe("hooks/manager", () => {
       expect(path).toBe(USER_SETTINGS_PATH);
     });
 
-    it("warns when hooks exist in another scope", async () => {
+    it("skips installation when hooks exist in another scope to avoid double execution", async () => {
       // Mock: project scope has existing hooks, installing to user scope
       vi.mocked(existsSync).mockImplementation((p) => {
         return p === PROJECT_SETTINGS_PATH || p === USER_SETTINGS_PATH;
@@ -460,8 +472,13 @@ describe("hooks/manager", () => {
       await installHooks(["all"], "user");
 
       expect(console.log).toHaveBeenCalledWith(
-        expect.stringContaining("Warning: Failproof AI hooks are also installed"),
+        expect.stringContaining("Notice: Failproof AI hooks are already active"),
       );
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining("Skipping installation in user scope"),
+      );
+      // writeHookEntries should NOT have been called for user scope
+      expect(writeFileSync).not.toHaveBeenCalled();
     });
 
     it("fires hooks_installed telemetry with correct properties", async () => {

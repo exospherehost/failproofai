@@ -182,7 +182,7 @@ describe("E2E: Copilot Integration", () => {
           eventType: "PreToolUse",
           integration: "copilot",
           sessionId: COPILOT_SESSION_ID,
-          toolName: "bash",
+          toolName: "Bash",
           transcriptPath: join(HOME_DIR, ".copilot", "session-state", COPILOT_SESSION_ID, "events.jsonl"),
         }),
       ]),

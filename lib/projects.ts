@@ -14,7 +14,7 @@ import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
 import { logWarn, logError } from "./logger";
 import { formatDate } from "./utils";
-import { IntegrationType } from "@/src/hooks/types";
+import { type IntegrationType, INTEGRATION_TYPES } from "@/src/hooks/types";
 
 export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;
@@ -100,29 +100,31 @@ async function readOpencodeDbEntries(): Promise<ProjectFolder[]> {
     const bunSqliteSpecifier = `bun${":sqlite"}`;
     const mod = await import(bunSqliteSpecifier as unknown as string) as any;
     const db = new mod.Database(OPENCODE_DB_PATH, { readonly: true });
-    const rows: Array<{ id: string; directory: string; time_created: number }> = db.query(
-      "SELECT id, directory, time_created FROM session ORDER BY time_created DESC"
-    ).all();
-    db.close();
-    return rows.map((row) => {
-      const lastModified = new Date(row.time_created);
-      return {
-        name: row.id,
-        path: `${OPENCODE_DB_SESSION_PREFIX}${row.id}`,
-        isDirectory: false,
-        lastModified,
-        lastModifiedFormatted: formatDate(lastModified),
-        source: "opencode" as const,
-        sources: ["opencode" as const],
-        cwd: row.directory,
-      } as ProjectFolder;
-    });
+    try {
+      const rows: Array<{ id: string; directory: string; time_created: number }> = db.query(
+        "SELECT id, directory, time_created FROM session ORDER BY time_created DESC"
+      ).all();
+      return rows.map((row) => {
+        const lastModified = new Date(row.time_created);
+        return {
+          name: row.id,
+          path: `${OPENCODE_DB_SESSION_PREFIX}${row.id}`,
+          isDirectory: false,
+          lastModified,
+          lastModifiedFormatted: formatDate(lastModified),
+          source: "opencode" as const,
+          sources: ["opencode" as const],
+          cwd: row.directory,
+        } as ProjectFolder;
+      });
+    } finally {
+      db.close();
+    }
   } catch {
     return [];
   }
 }
 
-import { INTEGRATION_TYPES } from "@/src/hooks/types";
 const VIRTUAL_INTEGRATIONS = INTEGRATION_TYPES as unknown as string[];
 
 async function getVirtualProjectsFromActivityStore(): Promise<ProjectFolder[]> {
@@ -165,20 +167,23 @@ async function getOpencodeDbSessionsForCwd(cwd: string): Promise<SessionFile[]> 
     const bunSqliteSpecifier = `bun${":sqlite"}`;
     const mod = await import(bunSqliteSpecifier as unknown as string) as any;
     const db = new mod.Database(OPENCODE_DB_PATH, { readonly: true });
-    const rows: Array<{ id: string; time_created: number }> = db.query(
-      "SELECT id, time_created FROM session WHERE directory = ? ORDER BY time_created DESC"
-    ).all(cwd);
-    db.close();
-    return rows.map((row) => {
-      const lastModified = new Date(row.time_created);
-      return {
-        name: row.id,
-        path: `${OPENCODE_DB_SESSION_PREFIX}${row.id}`,
-        lastModified,
-        lastModifiedFormatted: formatDate(lastModified),
-        sessionId: row.id,
-      } as SessionFile;
-    });
+    try {
+      const rows: Array<{ id: string; time_created: number }> = db.query(
+        "SELECT id, time_created FROM session WHERE directory = ? ORDER BY time_created DESC"
+      ).all(cwd);
+      return rows.map((row) => {
+        const lastModified = new Date(row.time_created);
+        return {
+          name: row.id,
+          path: `${OPENCODE_DB_SESSION_PREFIX}${row.id}`,
+          lastModified,
+          lastModifiedFormatted: formatDate(lastModified),
+          sessionId: row.id,
+        } as SessionFile;
+      });
+    } finally {
+      db.close();
+    }
   } catch {
     return [];
   }
@@ -228,7 +233,7 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
       } else {
         projectMap.set(folder.name, {
           ...folder,
-          sources: folder.source ? [folder.source] : [],
+          sources: folder.sources ? [...folder.sources] : (folder.source ? [folder.source] : []),
         });
       }
     }

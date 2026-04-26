@@ -19,7 +19,12 @@ import { trackHookEvent } from "./hook-telemetry";
 import { getInstanceId } from "../../lib/telemetry-id";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 import { resolvePermissionMode } from "./resolve-permission-mode";
-import { getIntegration, INTEGRATIONS } from "./integrations";
+import {
+  getIntegration,
+  INTEGRATIONS,
+  canonicalizeToolName,
+  type Integration,
+} from "./integrations";
 import { getClaudeProjectsPath, encodeCwd } from "../../lib/paths";
 import type { HookActivityEntry } from "./hook-activity-store";
 
@@ -352,7 +357,7 @@ function tryAcquireFiringLock(integration: string | undefined, eventType: string
     return true;
   } catch (e) {
     if ((e as any).code === "EEXIST") return false;
-    return false;
+    throw e;
   }
 }
 
@@ -387,7 +392,7 @@ export function writeVirtualLogEntry(
     const toolInput = parsed.tool_input as Record<string, unknown> | string | undefined;
     const prompt = (
       typeof toolInput === "string" ? toolInput
-        : ((toolInput?.user_prompt ?? toolInput?.prompt ?? parsed.prompt ?? "") as string)
+        : ((toolInput?.user_prompt ?? toolInput?.prompt ?? parsed.user_prompt ?? parsed.prompt ?? "") as string)
     ).trim();
     if (!prompt) return;
 
@@ -443,6 +448,32 @@ export function writeVirtualLogEntry(
       },
     });
     state.lastUuid = newUuid;
+
+  } else if (eventType === "AssistantResponse") {
+    const content = (parsed.assistant_response ?? parsed.content ?? "") as string;
+    if (!content) return;
+
+    logLine = JSON.stringify({
+      type: "assistant",
+      uuid: newUuid,
+      parentUuid: state.lastUuid,
+      timestamp,
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: content }],
+      },
+    });
+    state.lastUuid = newUuid;
+
+  } else if (eventType === "SessionStart") {
+    logLine = JSON.stringify({
+      type: "system",
+      uuid: newUuid,
+      parentUuid: state.lastUuid,
+      timestamp,
+      message: { role: "system", content: "Session started" },
+    });
+    state.lastUuid = newUuid;
   }
 
   if (logLine) {
@@ -485,10 +516,10 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
       });
       process.stdin.on("end", () => resolve(chunks.join("")));
 
-      // Handle the case where stdin is not a pipe or is empty
-      setTimeout(() => {
-        if (chunks.length === 0) resolve("");
-      }, 500); // 500ms timeout for slow pipes
+      if (process.stdin.isTTY) {
+        resolve("");
+        return;
+      }
 
       process.stdin.on("error", reject);
       if (process.stdin.readableEnded) resolve("");
@@ -569,6 +600,10 @@ export async function handleHookEvent(eventType: string, cliOverride?: string): 
 
   const integ = getInteg(integrationType);
   integ.normalizePayload(parsed);
+  // Canonicalize tool name so custom and builtin policies work cross-CLI.
+  if (typeof parsed.tool_name === "string") {
+    parsed.tool_name = canonicalizeToolName(parsed.tool_name);
+  }
   const canonicalEventName = integ.getCanonicalEventName(parsed, rawEventType);
 
   // Gemini BeforeToolSelection is advisory-only per spec (no deny/continue/systemMessage).

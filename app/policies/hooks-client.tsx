@@ -32,6 +32,7 @@ import { pageToParam, paramToPage } from "@/lib/url-filter-serializers";
 import { formatRelativeTime } from "@/lib/format-duration";
 import { Button } from "@/components/ui/button";
 import { IntegrationBadge } from "@/components/integration-badge";
+import { INTEGRATION_TYPES } from "@/src/hooks/types";
 
 function formatAbsoluteTime(ts: number): string {
   return new Date(ts).toLocaleString(undefined, {
@@ -433,13 +434,11 @@ function ActivityTab({
             className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
           >
             <option value="">All Integrations</option>
-            <option value="claude-code">Claude Code</option>
-            <option value="cursor">Cursor</option>
-            <option value="gemini">Gemini</option>
-            <option value="copilot">Copilot</option>
-            <option value="codex">Codex</option>
-            <option value="opencode">OpenCode</option>
-            <option value="pi">Pi Agent</option>
+            {INTEGRATION_TYPES.map((id) => (
+              <option key={id} value={id}>
+                {id.split("-").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" ")}
+              </option>
+            ))}
           </select>
           <div className="relative">
             <input
@@ -569,7 +568,7 @@ function ActivityTab({
                           )}
                         </td>
                          <td className="px-3 py-2">
-                          <IntegrationBadge integration={item.integration as any} />
+                          <IntegrationBadge integration={item.integration} />
                         </td>
                         <td
                           className="px-3 py-2 text-right text-muted-foreground whitespace-nowrap"
@@ -865,6 +864,16 @@ function IntegrationSelectModal({
     });
   };
 
+  const handleSelectAll = () => {
+    if (!integrations) return;
+    const allIds = integrations.map(i => i.id);
+    if (selected.size === allIds.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(allIds));
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
@@ -880,7 +889,16 @@ function IntegrationSelectModal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="px-4 py-3 space-y-1">
+        <div className="flex items-center justify-between px-4 py-2 bg-muted/10 border-b border-border/50">
+          <span className="text-[0.65rem] text-muted-foreground font-medium uppercase tracking-wider">Integrations</span>
+          <button
+            onClick={handleSelectAll}
+            className="text-[0.65rem] text-primary hover:underline font-medium"
+          >
+            {integrations && selected.size === integrations.length ? "Deselect All" : "Select All"}
+          </button>
+        </div>
+        <div className="px-4 py-3 space-y-1 overflow-y-auto max-h-64">
           {integrations === null ? (
             <p className="text-xs text-muted-foreground py-4 text-center">Loading…</p>
           ) : (
@@ -1105,7 +1123,9 @@ function PoliciesTab({ onHooksInstallChange }: { onHooksInstallChange?: (install
   const handleInstall = () => {
     setIntegrationsList(null);
     setShowIntegrationModal(true);
-    getIntegrationsStatusAction().then(setIntegrationsList);
+    getIntegrationsStatusAction()
+      .then(setIntegrationsList)
+      .catch((e) => setActionError(e instanceof Error ? e.message : "Failed to load integrations status."));
   };
 
   const handleInstallWithIntegrations = (integrations: string[]) => {

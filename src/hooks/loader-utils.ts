@@ -35,19 +35,26 @@ export async function fileExists(path: string): Promise<boolean> {
 }
 
 export async function findDistIndex(): Promise<string | null> {
-  // Env var set by scripts/dev.ts, scripts/start.ts, bin/failproofai.mjs
   const distPath = process.env.FAILPROOFAI_DIST_PATH;
   if (distPath) {
-    const candidate = resolve(distPath, "index.js");
-    if (await fileExists(candidate)) return candidate;
+    // Check both distPath and distPath/dist
+    const candidates = [
+      resolve(distPath, "index.js"),
+      resolve(distPath, "dist", "index.js"),
+    ];
+    for (const c of candidates) {
+      if (await fileExists(c)) return c;
+    }
   }
 
   // Fallback: check common locations
   const candidates = [
+    // Repo root dist (if process.cwd is repo root)
+    resolve(process.cwd(), "dist", "index.js"),
+    // In node_modules
+    resolve(process.cwd(), "node_modules", "failproofai", "dist", "index.js"),
     // Packaged binary: dist is bundled at {binaryDir}/../assets/dist/
     resolve(dirname(process.execPath), "..", "assets", "dist", "index.js"),
-    resolve(process.cwd(), "dist", "index.js"),
-    resolve(process.cwd(), "node_modules", "failproofai", "dist", "index.js"),
   ];
   for (const c of candidates) {
     if (await fileExists(c)) return c;
@@ -84,13 +91,15 @@ export async function createEsmShim(
   // multiple hook subprocesses load custom policies in parallel.
   const shimPath = `${distIndex}.__failproofai_esm_shim__.${process.pid}.${randomUUID()}.mjs`;
   const shimCode = [
-    `import _cjs from '${distUrl}';`,
+    `import _m from '${distUrl}';`,
+    `const _cjs = (_m && _m.__esModule && _m.default) ? _m.default : (_m.default || _m);`,
     `export const customPolicies = _cjs.customPolicies;`,
     `export const getCustomHooks = _cjs.getCustomHooks;`,
     `export const clearCustomHooks = _cjs.clearCustomHooks;`,
     `export const allow = _cjs.allow;`,
     `export const deny = _cjs.deny;`,
     `export const instruct = _cjs.instruct;`,
+    `export const isBashTool = _cjs.isBashTool;`,
     `export default _cjs;`,
   ].join("\n");
   await writeFile(shimPath, shimCode, "utf-8");

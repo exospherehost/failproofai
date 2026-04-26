@@ -27,6 +27,15 @@ describe("E2E: Gemini Integration", () => {
 
   const baseEnv = () => ({ ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), HOME: isoHome });
 
+  const runHook = (eventName: string, payload: Record<string, unknown>) => {
+    return spawnSync("bun", [BINARY_PATH, "--hook", eventName, "--cli", "gemini"], {
+      input: JSON.stringify(payload),
+      cwd: PROJECT_DIR,
+      env: { ...baseEnv(), FAILPROOFAI_LOG_LEVEL: "info", FAILPROOFAI_SKIP_KILL: "true" },
+      encoding: "utf8",
+    });
+  };
+
   it("denies sudo via Gemini BeforeTool hook with deny decision", () => {
     // 1. Install block-sudo
     execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli gemini --scope project`, {
@@ -37,18 +46,11 @@ describe("E2E: Gemini Integration", () => {
     // 2. Trigger the hook
     const payload = GeminiPayloads.beforeTool.bash("sudo rm -rf /", PROJECT_DIR);
 
-    // We pass --cli gemini to ensure it doesn't fallback to claude-code
-    const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--cli", "gemini"], {
-      input: JSON.stringify(payload),
-      cwd: PROJECT_DIR,
-      env: { ...baseEnv(), FAILPROOFAI_LOG_LEVEL: "info", FAILPROOFAI_SKIP_KILL: "true" },
-      encoding: "utf8",
-    });
+    const { status, stdout, stderr } = runHook("BeforeTool", payload);
     console.log("Gemini STDOUT:", stdout);
     console.log("Gemini STDERR:", stderr);
 
     // Gemini expects Exit 0 for a protocol-compliant JSON denial.
-    // If we exit with 2, it may "fail open" and proceed with the action.
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim());
     expect(parsed.decision).toBe("deny");
@@ -66,13 +68,9 @@ describe("E2E: Gemini Integration", () => {
     });
 
     const payload = GeminiPayloads.beforeTool.bash("ls", PROJECT_DIR);
-    const output = execSync(`bun ${BINARY_PATH} --hook BeforeTool --cli gemini`, {
-      input: JSON.stringify(payload),
-      cwd: PROJECT_DIR,
-      env: { ...baseEnv(), FAILPROOFAI_SKIP_KILL: "true" },
-    }).toString();
+    const { stdout } = runHook("BeforeTool", payload);
 
-    expect(JSON.parse(output.trim())).toEqual({ decision: "allow" });
+    expect(JSON.parse(stdout.trim())).toEqual({ decision: "allow" });
   });
 
   it("denies sudo from stringified Gemini toolArgs payloads", () => {
@@ -81,20 +79,9 @@ describe("E2E: Gemini Integration", () => {
       env: baseEnv(),
     });
 
-    const payload = {
-      session_id: "test-session-gemini-json-001",
-      cwd: PROJECT_DIR,
-      hook_event_name: "BeforeTool",
-      toolName: "Shell",
-      toolArgs: "{\"command\":\"sudo apt-get update\",\"cwd\":\"" + PROJECT_DIR.replace(/\\/g, "\\\\") + "\"}",
-    };
+    const payload = GeminiPayloads.beforeTool.bashViaToolArgs("sudo apt-get update", PROJECT_DIR);
 
-    const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--cli", "gemini"], {
-      input: JSON.stringify(payload),
-      cwd: PROJECT_DIR,
-      env: { ...baseEnv(), FAILPROOFAI_SKIP_KILL: "true" },
-      encoding: "utf8",
-    });
+    const { status, stdout, stderr } = runHook("BeforeTool", payload);
 
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim());
@@ -112,20 +99,9 @@ describe("E2E: Gemini Integration", () => {
       env: baseEnv(),
     });
 
-    const payload = {
-      session_id: "test-session-e2e-001",
-      cwd: PROJECT_DIR,
-      hook_event_name: "BeforeTool",
-      tool_name: "Shell",
-      tool_input: "env",
-    };
+    const payload = GeminiPayloads.beforeTool.bash("env", PROJECT_DIR);
 
-    const { status, stdout, stderr } = spawnSync("bun", [BINARY_PATH, "--hook", "BeforeTool", "--cli", "gemini"], {
-      input: JSON.stringify(payload),
-      cwd: PROJECT_DIR,
-      env: { ...baseEnv(), FAILPROOFAI_SKIP_KILL: "true" },
-      encoding: "utf8",
-    });
+    const { status, stdout, stderr } = runHook("BeforeTool", payload);
 
     expect(status).toBe(0);
     const parsed = JSON.parse(stdout.trim());
@@ -135,5 +111,40 @@ describe("E2E: Gemini Integration", () => {
     expect(parsed.reason).toContain("policy: protect-env-vars");
     expect(stderr).toContain("MANDATORY ACTION REQUIRED");
     expect(stderr).toContain("environment variables");
+  });
+
+  it("denies production writes on Gemini WriteFile tool via canonicalization", () => {
+    // 1. Create a custom policy file
+    const policyPath = resolve(PROJECT_DIR, "prod-policy.js");
+    writeFileSync(policyPath, `
+      import { customPolicies, allow, deny, isBashTool } from "failproofai";
+      customPolicies.add({
+        name: "block-production-writes",
+        match: { events: ["PreToolUse"] },
+        fn: async (ctx) => {
+          if (ctx.toolName === "Write") {
+             if (ctx.toolInput?.file_path?.includes("production")) {
+                return deny("Production write blocked");
+             }
+          }
+          return allow();
+        }
+      });
+    `);
+
+    // 2. Install with custom path
+    execSync(`bun ${BINARY_PATH} policies --install --custom ${policyPath} --cli gemini --scope project`, {
+      cwd: PROJECT_DIR,
+      env: baseEnv(),
+    });
+
+    // 3. Trigger with WriteFile (should be canonicalized to Write)
+    const payload = GeminiPayloads.beforeTool.writeFile("/etc/production.conf", PROJECT_DIR);
+    const { status, stdout } = runHook("BeforeTool", payload);
+
+    expect(status).toBe(0);
+    const parsed = JSON.parse(stdout.trim());
+    expect(parsed.decision).toBe("deny");
+    expect(parsed.reason).toContain("Production write blocked");
   });
 });

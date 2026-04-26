@@ -200,7 +200,7 @@ describe("hooks/handler", () => {
     expect(evaluatePolicies).toHaveBeenCalledWith(
       "PreToolUse",
       expect.objectContaining({
-        tool_name: "Shell",
+        tool_name: "Bash",
         tool_input: { command: "sudo apt-get update", cwd: "/repo/subdir" },
         cwd: "/repo/subdir",
       }),
@@ -672,7 +672,7 @@ describe("hooks/handler", () => {
         "PreToolUse",
         expect.objectContaining({
           session_id: "cop-toolargs-1",
-          tool_name: "bash",
+          tool_name: "Bash",
           tool_input: { command: "sudo ls", cwd: "/repo/copilot-app/subdir" },
         }),
         expect.objectContaining({
@@ -1068,9 +1068,29 @@ describe("hooks/handler", () => {
 
     it("skips Stop and other non-conversation events", () => {
       writeVirtualLogEntry(logPath, "Stop", {});
-      writeVirtualLogEntry(logPath, "SessionStart", {});
 
       expect(fs.existsSync(logPath)).toBe(false);
+    });
+
+    it("logs SessionStart as a system message", () => {
+      writeVirtualLogEntry(logPath, "SessionStart", {});
+
+      expect(fs.existsSync(logPath)).toBe(true);
+      const entry = JSON.parse(fs.readFileSync(logPath, "utf-8"));
+      expect(entry.type).toBe("system");
+      expect(entry.message.content).toBe("Session started");
+    });
+
+    it("logs AssistantResponse as an assistant message", () => {
+      writeVirtualLogEntry(logPath, "AssistantResponse", {
+        assistant_response: "Hello user!",
+      });
+
+      expect(fs.existsSync(logPath)).toBe(true);
+      const entry = JSON.parse(fs.readFileSync(logPath, "utf-8"));
+      expect(entry.type).toBe("assistant");
+      expect(entry.message.role).toBe("assistant");
+      expect(entry.message.content[0].text).toBe("Hello user!");
     });
 
     it("skips PostToolUse with no matching PreToolUse", () => {

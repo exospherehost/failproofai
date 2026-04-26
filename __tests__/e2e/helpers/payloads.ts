@@ -162,6 +162,24 @@ export const GeminiPayloads = {
         tool_input: { command },
       };
     },
+    bashViaToolArgs(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: SESSION_ID,
+        cwd,
+        hook_event_name: "BeforeTool",
+        toolName: "Shell",
+        toolArgs: JSON.stringify({ command, cwd }),
+      };
+    },
+    writeFile(filePath: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: SESSION_ID,
+        cwd,
+        hook_event_name: "BeforeTool",
+        tool_name: "WriteFile",
+        tool_input: { file_path: filePath },
+      };
+    },
   },
   afterAgent(cwd: string): Record<string, unknown> {
     return {
