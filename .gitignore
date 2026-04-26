@@ -73,3 +73,5 @@ packages/*/assets/
 
 # scratch / planning files
 HOOKS_MINDMAP.md
+debug.mjs
+debug2.mjs
