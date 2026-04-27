@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 
@@ -9,6 +9,9 @@ vi.mock("node:fs", () => ({
   writeFileSync: vi.fn(),
   existsSync: vi.fn(),
   mkdirSync: vi.fn(),
+  statSync: vi.fn(() => {
+    throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+  }),
 }));
 
 const CONFIG_PATH = resolve(homedir(), ".failproofai", "policies-config.json");
@@ -76,19 +79,7 @@ describe("hooks/hooks-config", () => {
     const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
 
     function mockFiles(files: Record<string, object>): void {
-      // Also report parent dirs as existing — the walk-up resolver checks
-      // `.failproofai/` directory existence to find the project root.
-      const dirs = new Set<string>();
-      for (const p of Object.keys(files)) {
-        let d = dirname(p);
-        while (d && d !== dirname(d)) {
-          dirs.add(d);
-          d = dirname(d);
-        }
-      }
-      vi.mocked(existsSync).mockImplementation(
-        (p) => String(p) in files || dirs.has(String(p)),
-      );
+      vi.mocked(existsSync).mockImplementation((p) => String(p) in files);
       vi.mocked(readFileSync).mockImplementation((p) => {
         const key = String(p);
         if (key in files) return JSON.stringify(files[key]);
@@ -205,22 +196,31 @@ describe("hooks/hooks-config", () => {
   });
 
   describe("walk-up resolution (#200)", () => {
+    /**
+     * Mock files-on-disk + the `.failproofai` directory markers that the walk-up
+     * resolver looks for. For each file path, infer its containing `.failproofai`
+     * dir and report it as a directory via statSync.
+     */
     function mockFilesWithDirs(files: Record<string, object>): void {
-      const dirs = new Set<string>();
+      const failproofaiDirs = new Set<string>();
       for (const p of Object.keys(files)) {
         let d = dirname(p);
         while (d && d !== dirname(d)) {
-          dirs.add(d);
+          if (d.endsWith("/.failproofai")) failproofaiDirs.add(d);
           d = dirname(d);
         }
       }
-      vi.mocked(existsSync).mockImplementation(
-        (p) => String(p) in files || dirs.has(String(p)),
-      );
+      vi.mocked(existsSync).mockImplementation((p) => String(p) in files);
       vi.mocked(readFileSync).mockImplementation((p) => {
         const key = String(p);
         if (key in files) return JSON.stringify(files[key]);
         throw new Error("ENOENT");
+      });
+      vi.mocked(statSync).mockImplementation((p) => {
+        if (failproofaiDirs.has(String(p))) {
+          return { isDirectory: () => true } as ReturnType<typeof statSync>;
+        }
+        throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
       });
     }
 
@@ -314,6 +314,28 @@ describe("hooks/hooks-config", () => {
       expect(getConfigPathForScope("local", "/tmp/proj/a/b")).toBe(
         resolve("/tmp/proj", ".failproofai", "policies-config.local.json"),
       );
+    });
+
+    it("rejects a `.failproofai` file (non-directory) as a project marker", async () => {
+      const projectPath = resolve("/tmp/proj", ".failproofai", "policies-config.json");
+      const strayFile = resolve("/tmp/A", ".failproofai");
+      // /tmp/A/.failproofai is a regular file (not a directory). Walk should
+      // skip it and continue up to /tmp/proj.
+      mockFilesWithDirs({ [projectPath]: { enabledPolicies: ["block-sudo"] } });
+      vi.mocked(statSync).mockImplementation((p) => {
+        const s = String(p);
+        if (s === resolve("/tmp/proj", ".failproofai")) {
+          return { isDirectory: () => true } as ReturnType<typeof statSync>;
+        }
+        if (s === strayFile) {
+          return { isDirectory: () => false } as ReturnType<typeof statSync>;
+        }
+        throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+      });
+      const { findProjectConfigDir } = await import("../../src/hooks/hooks-config");
+      // Walk from /tmp/A/sub: must skip the stray file at /tmp/A/.failproofai
+      // and not return /tmp/A. With nothing else above, walks to root and returns start.
+      expect(findProjectConfigDir("/tmp/A/sub")).toBe("/tmp/A/sub");
     });
   });
 

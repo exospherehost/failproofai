@@ -1,7 +1,7 @@
 /**
  * Read/write the hooks configuration file at ~/.failproofai/policies-config.json.
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import type { HooksConfig } from "./policy-types";
@@ -33,7 +33,12 @@ export function findProjectConfigDir(start: string): string {
   const home = homedir();
   let dir = resolve(start);
   while (dir !== home) {
-    if (existsSync(resolve(dir, ".failproofai"))) return dir;
+    const marker = resolve(dir, ".failproofai");
+    try {
+      if (statSync(marker).isDirectory()) return dir;
+    } catch {
+      // not present or unreadable — keep walking
+    }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
