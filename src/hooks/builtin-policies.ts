@@ -159,6 +159,21 @@ const TMUX_DETACH_RE = /\btmux\s+(?:new-session|new)\b[^|&;]*-d\b/;
 const DISOWN_RE = /\bdisown\b/;
 const BACKGROUND_AMPERSAND_RE = /(?<![&|])\s?&\s*(?:$|#|;)/;
 
+// Infra Commands — leading-token detection across shell separators.
+// Each regex matches the CLI name only when it appears as the first token of a
+// command segment (start-of-string or after ; && || |). Trailing \s prevents
+// false matches on names like "kubectlx" or "awsctl".
+const KUBECTL_RE = /(?:^|[;\n]|&&|\|\|?|&)\s*kubectl(?:\s|$)/;
+const TERRAFORM_RE = /(?:^|[;\n]|&&|\|\|?|&)\s*(?:terraform|tofu)(?:\s|$)/;
+const AWS_CLI_RE = /(?:^|[;\n]|&&|\|\|?|&)\s*aws(?:\s|$)/;
+const GCLOUD_RE = /(?:^|[;\n]|&&|\|\|?|&)\s*gcloud(?:\s|$)/;
+const AZ_CLI_RE = /(?:^|[;\n]|&&|\|\|?|&)\s*az(?:\s|$)/;
+const HELM_RE = /(?:^|[;\n]|&&|\|\|?|&)\s*helm(?:\s|$)/;
+// gh: only mutating / pipeline-trigger subcommands. Read-only forms
+// (gh pr view, gh run list, gh api ...) are intentionally allowed because
+// failproofai's own workflow policies depend on them.
+const GH_PIPELINE_RE = /(?:^|[;\n]|&&|\|\|?|&)\s*gh\s+(?:workflow\s+(?:run|enable|disable)|run\s+(?:rerun|cancel)|pr\s+merge|release\s+(?:create|delete)|cache\s+delete|secret\s+(?:set|delete))\b/;
+
 // Caches the current branch per cwd to avoid repeated execSync calls.
 // Trade-off: if the user switches branches externally mid-session, the cache serves
 // the stale value until the process restarts. This is acceptable since branch switches
@@ -768,6 +783,48 @@ function blockFailproofaiCommands(ctx: PolicyContext): PolicyResult {
   }
 
   return allow();
+}
+
+// Shared CLI-blocker: deny any command whose argv begins with the matched CLI,
+// unless an entry in `allowPatterns` matches via `matchesAllowedPattern` (which
+// already defends against shell-operator injection).
+function blockInfraCli(ctx: PolicyContext, re: RegExp, denyMsg: string): PolicyResult {
+  if (ctx.toolName !== "Bash") return allow();
+  const cmd = getCommand(ctx);
+  if (!re.test(cmd)) return allow();
+  const allowPatterns = ((ctx.params?.allowPatterns ?? []) as string[]);
+  if (allowPatterns.some((p) => matchesAllowedPattern(cmd, p))) return allow();
+  return deny(denyMsg);
+}
+
+function blockKubectl(ctx: PolicyContext): PolicyResult {
+  return blockInfraCli(ctx, KUBECTL_RE, "kubectl commands are blocked");
+}
+
+function blockTerraform(ctx: PolicyContext): PolicyResult {
+  return blockInfraCli(ctx, TERRAFORM_RE, "terraform/tofu commands are blocked");
+}
+
+function blockAwsCli(ctx: PolicyContext): PolicyResult {
+  return blockInfraCli(ctx, AWS_CLI_RE, "aws CLI commands are blocked");
+}
+
+function blockGcloud(ctx: PolicyContext): PolicyResult {
+  return blockInfraCli(ctx, GCLOUD_RE, "gcloud commands are blocked");
+}
+
+function blockAzCli(ctx: PolicyContext): PolicyResult {
+  return blockInfraCli(ctx, AZ_CLI_RE, "az (Azure) CLI commands are blocked");
+}
+
+function blockHelm(ctx: PolicyContext): PolicyResult {
+  return blockInfraCli(ctx, HELM_RE, "helm commands are blocked");
+}
+
+// gh-pipeline only fires on mutating subcommands; allowPatterns are still
+// supported in case a user wants to permit a specific scripted invocation.
+function blockGhPipeline(ctx: PolicyContext): PolicyResult {
+  return blockInfraCli(ctx, GH_PIPELINE_RE, "gh pipeline-trigger commands are blocked");
 }
 
 // Maximum size of the per-session tool-call sidecar before we stop updating it.
@@ -1484,6 +1541,111 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
     match: { events: ["PreToolUse"], toolNames: ["Bash"] },
     defaultEnabled: true,
     category: "Dangerous Commands",
+  },
+  {
+    name: "block-kubectl",
+    description: "Block kubectl commands (Kubernetes cluster mutations)",
+    fn: blockKubectl,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Infra Commands",
+    params: {
+      allowPatterns: {
+        type: "string[]",
+        description: "kubectl command patterns to allow, matched token-by-token (e.g. 'kubectl get *', 'kubectl describe *')",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-terraform",
+    description: "Block terraform and tofu (OpenTofu) commands",
+    fn: blockTerraform,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Infra Commands",
+    params: {
+      allowPatterns: {
+        type: "string[]",
+        description: "terraform/tofu command patterns to allow (e.g. 'terraform plan', 'terraform validate')",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-aws-cli",
+    description: "Block aws CLI commands",
+    fn: blockAwsCli,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Infra Commands",
+    params: {
+      allowPatterns: {
+        type: "string[]",
+        description: "aws CLI command patterns to allow (e.g. 'aws s3 ls *', 'aws sts get-caller-identity')",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-gcloud",
+    description: "Block gcloud (Google Cloud) CLI commands",
+    fn: blockGcloud,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Infra Commands",
+    params: {
+      allowPatterns: {
+        type: "string[]",
+        description: "gcloud command patterns to allow (e.g. 'gcloud auth list', 'gcloud config list')",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-az-cli",
+    description: "Block az (Azure) CLI commands",
+    fn: blockAzCli,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Infra Commands",
+    params: {
+      allowPatterns: {
+        type: "string[]",
+        description: "az CLI command patterns to allow (e.g. 'az account show', 'az group list')",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-helm",
+    description: "Block helm commands",
+    fn: blockHelm,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Infra Commands",
+    params: {
+      allowPatterns: {
+        type: "string[]",
+        description: "helm command patterns to allow (e.g. 'helm list', 'helm status *')",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
+  },
+  {
+    name: "block-gh-pipeline",
+    description: "Block gh CLI pipeline-trigger subcommands (workflow run, run rerun/cancel, pr merge, release create/delete, cache delete, secret set/delete)",
+    fn: blockGhPipeline,
+    match: { events: ["PreToolUse"], toolNames: ["Bash"] },
+    defaultEnabled: false,
+    category: "Infra Commands",
+    params: {
+      allowPatterns: {
+        type: "string[]",
+        description: "gh pipeline command patterns to allow (e.g. specific scripted invocations); read-only gh subcommands like 'gh pr view' and 'gh run list' are not matched by this policy",
+        default: [],
+      },
+    } satisfies PolicyParamsSchema,
   },
   {
     name: "block-secrets-write",

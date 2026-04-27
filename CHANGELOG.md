@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.0.7 — 2026-04-27
+
+### Features
+- Add `Infra Commands` category with seven opt-in policies: `block-kubectl`, `block-terraform`, `block-aws-cli`, `block-gcloud`, `block-az-cli`, `block-helm`, and `block-gh-pipeline`. Each denies invocations of its CLI by default and supports an `allowPatterns` param so users can carve out read-only subcommands (e.g. `kubectl get *`, `terraform plan`, `aws s3 ls *`). `block-gh-pipeline` only matches mutating subcommands (`workflow run`, `pr merge`, `release create`, etc.) so read-only `gh` calls used by other policies continue to work (#202).
+
 ### Fixes
 - Skip `require-no-conflicts-before-stop` entirely when no OPEN PR exists for the current branch (or when `gh` CLI is unavailable to check). The policy no longer runs Layer 1's local `git merge-tree` probe in those cases — without a confirmable merge target there is nothing to enforce (#198).
 - Resolve project policy config (`.failproofai/`) by walking up from the live CWD to find the nearest project root, instead of looking only at the exact session cwd. Stop-gating policies (`require-pr-before-stop`, `block-read-outside-cwd`, etc.) no longer silently disable when Claude `cd`s into a subdirectory. Also covers `customPoliciesPath` and project convention discovery in `custom-hooks-loader.ts` (#200).
