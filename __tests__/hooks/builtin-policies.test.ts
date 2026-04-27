@@ -2688,44 +2688,37 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("gh pr create");
     });
 
-    it("denies when PR is merged and file changes exist after fetch", async () => {
+    it("allows when PR is merged regardless of local diff state (squash merge / auto-bumped main)", async () => {
+      // Regression for the bug where the policy ran local git log/diff probes
+      // to verify a merged PR had shipped — but those probes never converge
+      // for squash-merged PRs (orphaned branch commit) or when main is
+      // modified post-merge (e.g. release-workflow auto-bump). The policy now
+      // trusts GitHub's MERGED state directly.
+      mockPrScenario({
+        prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" },
+        commitsAhead: "f4bb7cf orphaned squash branch commit\n",
+        fileDiff: " package.json | 2 +-\n 1 file changed\n",
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("PR #42");
+      expect(result.reason).toContain("was merged");
+      expect(result.reason).toContain("https://github.com/org/repo/pull/42");
+    });
+
+    it("merged-PR allow message hints to switch off the branch", async () => {
       mockPrScenario({ prResult: { number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" } });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
-      expect(result.reason).toContain("merged");
-    });
-
-    it("allows when PR is merged and branch is up to date after fetch (regular merge)", async () => {
-      let fetched = false;
-      vi.mocked(execSync).mockImplementation((cmd: string) => {
-        if (typeof cmd === "string" && cmd.includes("gh --version")) return "/usr/bin/gh\n";
-        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
-        if (typeof cmd === "string" && cmd.includes("gh pr view")) {
-          return JSON.stringify({ number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" });
-        }
-        return "";
-      });
-      vi.mocked(execFileSync).mockImplementation((_cmd: string, args?: readonly string[]) => {
-        const joined = args?.join(" ") ?? "";
-        if (joined.includes("fetch")) { fetched = true; return ""; }
-        if (joined.includes("log") && joined.includes("..HEAD")) {
-          return fetched ? "" : "abc123 some commit\n";
-        }
-        if (joined.includes("diff") && joined.includes("--stat")) {
-          return fetched ? "" : " src/index.ts | 2 +-\n 1 file changed\n";
-        }
-        return "";
-      });
-      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
-      const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("was merged");
-      expect(result.reason).toContain("up to date");
+      expect(result.reason).toContain("git checkout main");
     });
 
-    it("allows when PR is merged and no file diff after fetch (squash merge)", async () => {
-      let fetched = false;
+    it("does not invoke git fetch / log / diff when PR is MERGED", async () => {
+      // The policy used to fetch + run local probes on MERGED PRs. After the
+      // fix it short-circuits to allow without touching local refs.
+      const fileCalls: string[] = [];
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("gh --version")) return "/usr/bin/gh\n";
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
@@ -2736,42 +2729,20 @@ describe("hooks/builtin-policies", () => {
       });
       vi.mocked(execFileSync).mockImplementation((_cmd: string, args?: readonly string[]) => {
         const joined = args?.join(" ") ?? "";
-        if (joined.includes("fetch")) { fetched = true; return ""; }
-        if (joined.includes("log") && joined.includes("..HEAD")) {
-          return "abc123 old squash commit\n";
-        }
-        if (joined.includes("diff") && joined.includes("--stat")) {
-          return fetched ? "" : " src/index.ts | 2 +-\n 1 file changed\n";
-        }
-        return "";
-      });
-      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
-      const result = await policy.fn(ctx);
-      expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("was merged");
-      expect(result.reason).toContain("no file changes");
-    });
-
-    it("falls through to deny when fetch fails on merged PR", async () => {
-      vi.mocked(execSync).mockImplementation((cmd: string) => {
-        if (typeof cmd === "string" && cmd.includes("gh --version")) return "/usr/bin/gh\n";
-        if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return "feat/branch\n";
-        if (typeof cmd === "string" && cmd.includes("gh pr view")) {
-          return JSON.stringify({ number: 42, url: "https://github.com/org/repo/pull/42", state: "MERGED" });
-        }
-        return "";
-      });
-      vi.mocked(execFileSync).mockImplementation((_cmd: string, args?: readonly string[]) => {
-        const joined = args?.join(" ") ?? "";
-        if (joined.includes("fetch")) throw new Error("network error");
+        fileCalls.push(joined);
+        // Pre-PR-view "branch caught up" precheck still uses log/diff —
+        // make it fall through (return commits ahead + diff) so we exercise
+        // the gh pr view branch.
         if (joined.includes("log") && joined.includes("..HEAD")) return "abc123 commit\n";
-        if (joined.includes("diff") && joined.includes("--stat")) return " src/index.ts | 2 +-\n";
+        if (joined.includes("diff") && joined.includes("--stat")) return " a | 1 +\n";
         return "";
       });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
-      expect(result.decision).toBe("deny");
-      expect(result.reason).toContain("merged");
+      expect(result.decision).toBe("allow");
+      // Only the precheck log + diff should run. No fetch should be invoked
+      // anywhere in the merged-PR codepath.
+      expect(fileCalls.some((c) => c.includes("fetch"))).toBe(false);
     });
 
     it("allows with reason when gh is not installed", async () => {

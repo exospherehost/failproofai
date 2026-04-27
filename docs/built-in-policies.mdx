@@ -745,7 +745,7 @@ No parameters.
 ### `require-pr-before-stop`
 
 **Event:** Stop  
-**Default:** Denies stopping when no pull request exists for the current branch, or when the existing PR is closed/merged. Instructs Claude to create a PR with `gh pr create`.
+**Default:** Denies stopping when no pull request exists for the current branch, or when the existing PR is closed without merging. Instructs Claude to create a PR with `gh pr create`. When the PR is **merged**, the policy allows (the work has shipped) and the message hints to switch off the branch (`git checkout main && git pull`).
 
 No parameters.
 
