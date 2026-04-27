@@ -1197,8 +1197,37 @@ function requireNoConflictsBeforeStop(ctx: PolicyContext): PolicyResult {
     return allow(`On base branch "${baseBranch}", skipping conflict check.`);
   }
 
+  // -- Precheck: only enforce when an OPEN PR exists on GitHub. Without a
+  // confirmable merge target there is nothing to enforce, so we skip both
+  // the local merge-tree probe and the GitHub mergeability probe.
+  try {
+    execSync("gh --version", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 3000 });
+  } catch {
+    return allow("gh CLI not installed, skipping conflict check.");
+  }
+
+  let prJson: string;
+  try {
+    prJson = execSync("gh pr view --json mergeable,number,url,state", {
+      cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 15000,
+    }).trim();
+  } catch {
+    return allow("No pull request found for branch, skipping conflict check.");
+  }
+
+  let pr: { mergeable: string; number: number; url: string; state: string };
+  try {
+    pr = JSON.parse(prJson);
+  } catch {
+    return allow("Could not parse gh pr view output, skipping conflict check.");
+  }
+
+  // GitHub stops computing mergeability for non-OPEN PRs (returns UNKNOWN forever).
+  if (pr.state !== "OPEN") {
+    return allow(`PR #${pr.number} is ${pr.state.toLowerCase()}; skipping conflict check.`);
+  }
+
   // -- Layer 1: local git merge-tree --
-  let localSkipped = false;
   try {
     execFileSync("git", ["rev-parse", "--verify", `origin/${baseBranch}`], {
       cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 3000,
@@ -1209,17 +1238,14 @@ function requireNoConflictsBeforeStop(ctx: PolicyContext): PolicyResult {
       { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
     ).trim();
 
-    if (!ahead) {
-      // Nothing ahead of base — Layer 1 doesn't apply, fall through to Layer 2.
-      localSkipped = true;
-    } else {
+    if (ahead) {
       execFileSync(
         "git",
         ["merge-tree", "--write-tree", "--name-only", `origin/${baseBranch}`, "HEAD"],
         { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 10000 },
       );
-      // exit 0 → clean merge, fall through to Layer 2
     }
+    // !ahead or merge-tree exit 0 → fall through to Layer 2
   } catch (err) {
     const e = err as { status?: number; stdout?: string | Buffer };
     if (e.status === 1) {
@@ -1238,46 +1264,10 @@ function requireNoConflictsBeforeStop(ctx: PolicyContext): PolicyResult {
         `Rebase or merge origin/${baseBranch} now and resolve the conflicts.`,
       );
     }
-    localSkipped = true;
+    // any other failure (e.g. missing origin/<base>, log failure) → fall through
   }
 
-  // -- Layer 2: GitHub PR mergeability --
-  try {
-    execSync("gh --version", { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 3000 });
-  } catch {
-    return allow(
-      localSkipped
-        ? "Local conflict check skipped and gh CLI not installed, skipping conflict check."
-        : `Branch "${branch}" merges cleanly with ${baseBranch} locally (gh CLI not installed, PR mergeability not verified).`,
-    );
-  }
-
-  let prJson: string;
-  try {
-    prJson = execSync("gh pr view --json mergeable,number,url,state", {
-      cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 15000,
-    }).trim();
-  } catch {
-    return allow(
-      localSkipped
-        ? "No pull request found for branch, skipping conflict check."
-        : `Branch "${branch}" merges cleanly with ${baseBranch} locally (no PR to verify against).`,
-    );
-  }
-
-  let pr: { mergeable: string; number: number; url: string; state: string };
-  try {
-    pr = JSON.parse(prJson);
-  } catch {
-    return allow("Could not parse gh pr view output, skipping PR mergeability check.");
-  }
-
-  // GitHub stops computing mergeability for non-OPEN PRs (returns UNKNOWN forever).
-  // Skip the check entirely so a merged or closed PR doesn't trap Stop in a wait loop.
-  if (pr.state !== "OPEN") {
-    return allow(`PR #${pr.number} is ${pr.state.toLowerCase()}; skipping conflict check.`);
-  }
-
+  // -- Layer 2: GitHub PR mergeability (reuses pr from precheck) --
   if (pr.mergeable === "CONFLICTING") {
     return deny(
       `PR #${pr.number} has merge conflicts per GitHub (${pr.url}). ` +

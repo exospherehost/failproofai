@@ -2670,11 +2670,12 @@ describe("hooks/builtin-policies", () => {
           return "/usr/bin/gh\n";
         }
         if (typeof cmd === "string" && cmd.includes("gh pr view")) {
-          if (opts.prResult === null || opts.prResult === undefined) {
+          if (opts.prResult === null) {
             throw new Error("no pull requests found");
           }
           if (opts.prResult === "invalid-json") return "not-json";
-          return JSON.stringify({ state: "OPEN", ...opts.prResult });
+          const prData = opts.prResult ?? { mergeable: "MERGEABLE", number: 1, url: "https://github.com/org/repo/pull/1" };
+          return JSON.stringify({ state: "OPEN", ...prData });
         }
         return "";
       });
@@ -2836,22 +2837,22 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("skipping conflict check");
     });
 
-    it("allows with local+no-gh message when Layer 1 clean and gh not installed", async () => {
-      mockConflictsScenario({ mergeTreeStatus: 0, ghInstalled: false });
+    it("skips entirely when gh is not installed (no Layer 1 even if local would conflict)", async () => {
+      mockConflictsScenario({ mergeTreeStatus: 1, ghInstalled: false });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("merges cleanly with main locally");
       expect(result.reason).toContain("gh CLI not installed");
+      expect(result.reason).toContain("skipping conflict check");
     });
 
-    it("allows with local+no-PR message when Layer 1 clean and no PR exists", async () => {
-      mockConflictsScenario({ mergeTreeStatus: 0, prResult: null });
+    it("skips entirely when no PR exists (no Layer 1 even if local would conflict)", async () => {
+      mockConflictsScenario({ mergeTreeStatus: 1, prResult: null });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
-      expect(result.reason).toContain("merges cleanly with main locally");
-      expect(result.reason).toContain("no PR to verify");
+      expect(result.reason).toContain("No pull request found for branch");
+      expect(result.reason).toContain("skipping conflict check");
     });
 
     it("falls through to Layer 2 when origin/main ref missing; denies if gh reports CONFLICTING", async () => {
@@ -2876,11 +2877,28 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("PR #42");
     });
 
-    it("fails open when Layer 1 fails (exit != 0/1), then allows if both layers skipped", async () => {
-      mockConflictsScenario({ mergeTreeStatus: "error", ghInstalled: false });
+    it("Layer 1 non-conflict failures fall through to Layer 2 using the cached PR data", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: "error",
+        prResult: { mergeable: "MERGEABLE", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
       const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("PR #42");
+      expect(result.reason).toContain("merges cleanly per GitHub");
+    });
+
+    it("skips Layer 1 when PR exists but is CLOSED (even if local would conflict)", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 1,
+        prResult: { mergeable: "UNKNOWN", state: "CLOSED", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("PR #42");
+      expect(result.reason).toContain("closed");
       expect(result.reason).toContain("skipping conflict check");
     });
 
