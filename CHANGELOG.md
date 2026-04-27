@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixes
+- Skip `require-no-conflicts-before-stop` entirely when no OPEN PR exists for the current branch (or when `gh` CLI is unavailable to check). The policy no longer runs Layer 1's local `git merge-tree` probe in those cases — without a confirmable merge target there is nothing to enforce (#198).
+
 ## 0.0.6 — 2026-04-27
 
 ### Features
