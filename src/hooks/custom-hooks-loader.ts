@@ -17,6 +17,7 @@ import { homedir } from "node:os";
 import { hookLogWarn, hookLogError, hookLogInfo } from "./hook-logger";
 import { getCustomHooks, clearCustomHooks } from "./custom-hooks-registry";
 import { findDistIndex, rewriteFileTree, TMP_SUFFIX, cleanupTmpFiles } from "./loader-utils";
+import { findProjectConfigDir } from "./hooks-config";
 import type { CustomHook } from "./policy-types";
 
 const LOADING_KEY = "__FAILPROOFAI_LOADING_HOOKS__";
@@ -126,11 +127,13 @@ export async function loadAllCustomHooks(
 
   const conventionSources: ConventionSource[] = [];
 
+  const projectRoot = findProjectConfigDir(opts?.sessionCwd ?? process.cwd());
+
   // 1. Explicit customPoliciesPath (existing behavior)
   if (customPoliciesPath) {
     const absPath = isAbsolute(customPoliciesPath)
       ? customPoliciesPath
-      : resolve(opts?.sessionCwd ?? process.cwd(), customPoliciesPath);
+      : resolve(projectRoot, customPoliciesPath);
     if (existsSync(absPath)) {
       await loadSingleFile(absPath);
     } else {
@@ -140,8 +143,8 @@ export async function loadAllCustomHooks(
 
   const hooksBeforeConvention = getCustomHooks().length;
 
-  // 2. Project convention: {cwd}/.failproofai/policies/*policies.{js,mjs,ts}
-  const projectDir = resolve(opts?.sessionCwd ?? process.cwd(), ".failproofai", "policies");
+  // 2. Project convention: {projectRoot}/.failproofai/policies/*policies.{js,mjs,ts}
+  const projectDir = resolve(projectRoot, ".failproofai", "policies");
   const projectFiles = discoverPolicyFiles(projectDir);
   for (const file of projectFiles) {
     const hooksBefore = getCustomHooks().length;

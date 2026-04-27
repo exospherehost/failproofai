@@ -1,7 +1,7 @@
 /**
  * Read/write the hooks configuration file at ~/.failproofai/policies-config.json.
  */
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import type { HooksConfig } from "./policy-types";
@@ -20,6 +20,33 @@ function readConfigAt(path: string): Partial<HooksConfig> {
 }
 
 /**
+ * Walk up from `start` until a `.failproofai/` directory is found, and return that
+ * dir as the project root. Stops at homedir (the global `~/.failproofai/` is not a
+ * project root) or filesystem root. If no marker is found, returns the original
+ * `start` so callers fall through to the global-only config merge.
+ *
+ * Fixes #200: when Claude Code's Bash tool drifts CWD into a subdirectory, the
+ * project policy config was silently missed because we resolved it at the exact
+ * cwd instead of walking up.
+ */
+export function findProjectConfigDir(start: string): string {
+  const home = homedir();
+  let dir = resolve(start);
+  while (dir !== home) {
+    const marker = resolve(dir, ".failproofai");
+    try {
+      if (statSync(marker).isDirectory()) return dir;
+    } catch {
+      // not present or unreadable — keep walking
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return resolve(start);
+}
+
+/**
  * Read and merge hooks config from three scopes in priority order:
  *   1. {cwd}/.failproofai/policies-config.json        (project)
  *   2. {cwd}/.failproofai/policies-config.local.json  (local)
@@ -32,7 +59,7 @@ function readConfigAt(path: string): Partial<HooksConfig> {
  *   llm:            first scope that defines it wins
  */
 export function readMergedHooksConfig(cwd?: string): HooksConfig {
-  const base = cwd ? resolve(cwd) : process.cwd();
+  const base = findProjectConfigDir(cwd ?? process.cwd());
   const projectPath = resolve(base, ".failproofai", "policies-config.json");
   const localPath = resolve(base, ".failproofai", "policies-config.local.json");
   const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
@@ -105,14 +132,13 @@ export function writeHooksConfig(config: HooksConfig): void {
  * Resolve the policies-config path for a specific scope.
  */
 export function getConfigPathForScope(scope: HookScope, cwd?: string): string {
-  const base = cwd ? resolve(cwd) : process.cwd();
   switch (scope) {
     case "user":
       return resolve(homedir(), ".failproofai", "policies-config.json");
     case "project":
-      return resolve(base, ".failproofai", "policies-config.json");
+      return resolve(findProjectConfigDir(cwd ?? process.cwd()), ".failproofai", "policies-config.json");
     case "local":
-      return resolve(base, ".failproofai", "policies-config.local.json");
+      return resolve(findProjectConfigDir(cwd ?? process.cwd()), ".failproofai", "policies-config.local.json");
   }
 }
 
