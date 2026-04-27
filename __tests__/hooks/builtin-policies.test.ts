@@ -452,6 +452,56 @@ describe("hooks/builtin-policies", () => {
       const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo ${HOME}/bin" } });
       expect((await policy.fn(ctx)).decision).toBe("deny");
     });
+
+    it("blocks bash -c \"env\" (env inside quoted -c argument)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: 'bash -c "env"' } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks sh -c 'printenv' (printenv inside quoted -c argument)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "sh -c 'printenv'" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks printf \"%s\\n\" \"$HOME\" (printf with env var)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: 'printf "%s\\n" "$HOME"' } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks printf \"%s=%s\\n\" \"$v\" \"${!v}\" (printf with indirect expansion)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: 'printf "%s=%s\\n" "$v" "${!v}"' } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks compgen -v (enumerates all variable names)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "for v in $(compgen -v); do echo $v; done" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks compgen -v standalone (isolated from other patterns)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "compgen -v | sort" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks declare -p (dumps all variable values)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "declare -p" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks declare -x (dumps exported variables)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "declare -x" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks ${!var} indirect expansion", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: 'echo "${!API_KEY}"' } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows printf without env vars (e.g. printf 'hello')", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "printf 'hello world\\n'" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
   });
 
   describe("block-env-files", () => {

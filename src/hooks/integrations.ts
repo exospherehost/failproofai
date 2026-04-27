@@ -1513,6 +1513,7 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 export default function (pi: ExtensionAPI) {
   let currentSessionId: string | undefined = undefined;
   let pendingSessionStart: { ctx: any } | undefined = undefined;
+  let pendingPromptSubmit: { text: string; ctx: any } | undefined = undefined;
   const reportedSessions = new Set<string>();
   const projectName = process.cwd().split("/").pop() || "failproofai";
   const fallbackSessionId = \`pi-\${projectName}-\${Date.now()}\`;
@@ -1526,9 +1527,11 @@ export default function (pi: ExtensionAPI) {
         const workspaceName = '--' + encodedPath + '--';
         const sessionsDir = join(homedir(), '.pi', 'agent', 'sessions', workspaceName);
         if (!existsSync(sessionsDir)) return undefined;
+        const now = Date.now();
         const files = readdirSync(sessionsDir)
           .filter((f: string) => f.endsWith('.jsonl'))
           .map((f: string) => ({ name: f, mtime: statSync(join(sessionsDir, f)).mtimeMs }))
+          .filter((f: any) => now - f.mtime < 60_000)
           .sort((a: any, b: any) => b.mtime - a.mtime);
         if (files.length === 0) return undefined;
         
@@ -1552,16 +1555,24 @@ export default function (pi: ExtensionAPI) {
         ctx?.session?.id ||
         pi.session?.id ||
         pi.sessionId ||
-        process.env.PI_SESSION_ID ||
+        // PI_SESSION_ID env var is intentionally omitted: it holds the previous session's
+        // stale ID at the time session_start/input fire, causing wrong attribution.
         getSessionIdFromFile();
 
       if (foundId && foundId !== fallbackSessionId) {
         const wasOnFallback = !currentSessionId || currentSessionId === fallbackSessionId;
         currentSessionId = foundId;
-        if (wasOnFallback && pendingSessionStart) {
-          const ps = pendingSessionStart;
-          pendingSessionStart = undefined;
-          callcli("SessionStart", {}, ps.ctx);
+        if (wasOnFallback) {
+          if (pendingSessionStart) {
+            const ps = pendingSessionStart;
+            pendingSessionStart = undefined;
+            callcli("SessionStart", {}, ps.ctx);
+          }
+          if (pendingPromptSubmit) {
+            const pp = pendingPromptSubmit;
+            pendingPromptSubmit = undefined;
+            callcli("UserPromptSubmit", { user_prompt: pp.text }, pp.ctx);
+          }
         }
       } else if (!currentSessionId) {
         currentSessionId = fallbackSessionId;
@@ -1599,6 +1610,12 @@ export default function (pi: ExtensionAPI) {
 
   pi.on("session_start", (event, ctx) => {
     try {
+      // Reset state for the new session — currentSessionId from a previous session
+      // must not carry over into the new one (Pi reuses the same process across sessions).
+      currentSessionId = undefined;
+      pendingSessionStart = undefined;
+      pendingPromptSubmit = undefined;
+
       const id = event?.sessionId || event?.session_id || event?.session?.id || ctx?.sessionId || ctx?.session?.id || pi.session?.id || pi.sessionId;
       if (id) {
         callcli("SessionStart", { session_id: id }, ctx);
@@ -1643,9 +1660,15 @@ export default function (pi: ExtensionAPI) {
       const text = event.text || event.input || event.content || (typeof event === "string" ? event : "");
       if (text) {
         if (text === "/failproofai-status") return;
-        callcli("UserPromptSubmit", { 
+        const eventSessionId = event?.sessionId || event?.session_id || event?.session?.id;
+        if (!eventSessionId && (!currentSessionId || currentSessionId === fallbackSessionId)) {
+          // Pi doesn't include session ID in input events; defer until tool_call provides it
+          pendingPromptSubmit = { text, ctx };
+          return;
+        }
+        callcli("UserPromptSubmit", {
           user_prompt: text,
-          session_id: event?.sessionId || event?.session_id || event?.session?.id
+          session_id: eventSessionId
         }, ctx);
       }
     } catch {}

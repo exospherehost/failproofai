@@ -2,9 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execSync, spawnSync } from "node:child_process";
 import { readFileSync, existsSync, mkdtempSync, mkdirSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 
 const BINARY_PATH = resolve(__dirname, "../../../bin/failproofai.mjs");
+const REAL_ACTIVITY_STORE = join(homedir(), ".failproofai", "cache", "hook-activity");
 
 describe("E2E: OpenCode Integration", () => {
   let projectDir: string;
@@ -20,7 +21,7 @@ describe("E2E: OpenCode Integration", () => {
     if (existsSync(isoHome)) rmSync(isoHome, { recursive: true, force: true });
   });
 
-  const baseEnv = () => ({ ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true" });
+  const baseEnv = () => ({ ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true", FAILPROOFAI_ACTIVITY_STORE_DIR: REAL_ACTIVITY_STORE });
 
   it("denies sudo via tool.execute.before event (exit 2 + stderr message)", () => {
     execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli opencode --scope project`, {

@@ -180,13 +180,21 @@ const SCHEMA_ALTER_RE = /\bALTER\s+TABLE\b[\s\S]*\b(?:DROP\s+COLUMN|ADD\s+COLUMN
 const PUBLISH_CMD_RE = /(?:npm\s+publish|bun\s+publish|pnpm\s+publish|yarn\s+npm\s+publish|twine\s+upload|poetry\s+publish|cargo\s+publish|gem\s+push)\b/;
 
 // protectEnvVars
-const ENV_PRINTENV_RE = /(?:^|[;\|&!])\s*(?:env|printenv)(?:\s|$|[;\|&!])/;
-const ECHO_ENV_RE = /echo\s+.*\$\{?[A-Za-z_]/;
+// Include quotes/backtick as boundaries so `bash -c "env"` is also caught
+const ENV_PRINTENV_RE = /(?:^|[;|&!"'`])\s*(?:env|printenv)(?:\s|$|[;|&!"'`])/;
+// Cover printf as well as echo (printf "%s\n" "$HOME" is a common bypass)
+const ECHO_ENV_RE = /(?:echo|printf)\s+.*\$\{?[A-Za-z_]/;
 const EXPORT_RE = /(?:^|\s|;|&&|\|\|)export\s+\w+/;
 const PS_ENV_VAR_RE = /\$env:[A-Za-z_]/i;
 const PS_CHILDITEM_ENV_RE = /(?:Get-ChildItem|dir|gci|ls)\s+Env:/i;
 const DOTNET_GETENV_RE = /\[Environment\]::GetEnvironment/i;
 const CMD_ECHO_ENV_RE = /echo\s+%[A-Za-z_]/i;
+// compgen -v enumerates all shell variable names (used to loop over env)
+const COMPGEN_V_RE = /\bcompgen\s+-[a-zA-Z]*v/;
+// declare -p / declare -x prints variable values / exported variables
+const DECLARE_ENV_RE = /\bdeclare\s+-[a-zA-Z]*[px]/;
+// ${!var} indirect expansion dereferences a variable whose name is in another variable
+const INDIRECT_EXPANSION_RE = /\$\{![A-Za-z_]/;
 
 // blockEnvFiles
 const ENV_FILE_PATH_RE = /(?:^|[\\/])(?:\.env(?!\w)|env_\w*)/i;
@@ -570,6 +578,18 @@ function protectEnvVars(ctx: PolicyContext): PolicyResult {
   if (CMD_ECHO_ENV_RE.test(cmd)) {
     return deny("Action blocked: command attempted to echo environment variables via cmd.");
   }
+  // compgen -v enumerates variable names, enabling full env dump via loops
+  if (COMPGEN_V_RE.test(cmd)) {
+    return deny("Action blocked: command attempted to enumerate shell variables via compgen.");
+  }
+  // declare -p / declare -x prints variable values
+  if (DECLARE_ENV_RE.test(cmd)) {
+    return deny("Action blocked: command attempted to dump environment variables via declare.");
+  }
+  // ${!var} indirect expansion reads any variable by name — often used after compgen -v
+  if (INDIRECT_EXPANSION_RE.test(cmd)) {
+    return deny("Action blocked: command attempted to read environment variables via indirect expansion.");
+  }
   return allow();
 }
 
@@ -816,6 +836,53 @@ function extractAbsolutePaths(command: string): string[] {
   return paths;
 }
 
+/**
+ * Extract relative traversal paths (starting with ..) from a Bash command.
+ * Catches patterns like `../..`, `../../foo`, or quoted `"../bar"`.
+ * These are resolved against CWD in the caller to detect out-of-tree access.
+ */
+function extractRelativeTraversals(command: string): string[] {
+  const paths: string[] = [];
+  // Matches tokens that start with .. — optionally followed by /more/segments
+  const traversalRe = /(?<![a-zA-Z0-9_./])(\.\.(?:\/[^\s;|&"'()\[\]{}]*)?)/g;
+
+  function addTraversals(s: string): void {
+    traversalRe.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = traversalRe.exec(s)) !== null) {
+      paths.push(m[1]);
+    }
+  }
+
+  // Find the first bare pipe to limit quoted-string extraction to the first segment.
+  let firstBarePipe = command.length;
+  let inDouble = false, inSingle = false;
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i];
+    if (c === '"' && !inSingle) inDouble = !inDouble;
+    else if (c === "'" && !inDouble) inSingle = !inSingle;
+    else if (c === "|" && !inDouble && !inSingle) { firstBarePipe = i; break; }
+  }
+
+  // Check inside quoted strings in the first segment (skip glob/regex patterns).
+  const firstSegment = command.slice(0, firstBarePipe);
+  const quotedRe = /"([^"]*)"|'([^']*)'/g;
+  let qm: RegExpExecArray | null;
+  while ((qm = quotedRe.exec(firstSegment)) !== null) {
+    const content = qm[1] ?? qm[2] ?? "";
+    if (/[*?\[\]^$+()\\]/.test(content)) continue;
+    addTraversals(content);
+  }
+
+  // Check unquoted portions of the whole command.
+  const stripped = command
+    .replace(/"[^"]*"/g, (m) => " ".repeat(m.length))
+    .replace(/'[^']*'/g, (m) => " ".repeat(m.length));
+  addTraversals(stripped);
+
+  return paths;
+}
+
 function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
   // Prefer $CLAUDE_PROJECT_DIR (stable project root) over ctx.session.cwd,
   // which tracks the live shell CWD and drifts when Claude `cd`s into a subdir.
@@ -829,7 +896,7 @@ function blockReadOutsideCwd(ctx: PolicyContext): PolicyResult {
     const cmd = getCommand(ctx);
     if (!READ_LIKE_CMDS.test(cmd)) return allow();
 
-    const paths = extractAbsolutePaths(cmd);
+    const paths = [...extractAbsolutePaths(cmd), ...extractRelativeTraversals(cmd)];
     const cwdWithSep = cwd.endsWith("/") ? cwd : cwd + "/";
     for (const p of paths) {
       const resolved = resolve(cwd, p);

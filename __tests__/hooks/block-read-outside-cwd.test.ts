@@ -555,4 +555,69 @@ describe("block-read-outside-cwd policy", () => {
     const result = await policy.fn(ctx);
     expect(result.decision).toBe("allow");
   });
+
+  describe("relative path traversal via Bash", () => {
+    it("blocks ls ../.. (relative traversal two levels up)", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "ls ../.." },
+        session: { cwd: "/home/user/project" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("/home");
+    });
+
+    it("blocks ls ../../fp/failproofai (deep relative traversal)", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "ls ../../fp/failproofai" },
+        session: { cwd: "/home/user/project/subdir" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+    });
+
+    it("blocks cat ../../secrets.txt", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "cat ../../secrets.txt" },
+        session: { cwd: "/home/user/project" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+    });
+
+    it("allows ls .. when .. still resolves inside cwd parent that is cwd (single level stays within tree)", async () => {
+      // ../subdir from /home/user/project/subdir resolves to /home/user/project — still inside project
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "ls ../sibling" },
+        session: { cwd: "/home/user/project" },
+      });
+      const result = await policy.fn(ctx);
+      // /home/user/project/../sibling = /home/user/sibling — outside project, must be denied
+      expect(result.decision).toBe("deny");
+    });
+
+    it("allows ls ./subdir (relative path that stays inside cwd)", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "ls ./src" },
+        session: { cwd: "/home/user/project" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+    });
+
+    it("blocks quoted relative traversal: ls \"../..\"", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: 'ls "../.."' },
+        session: { cwd: "/home/user/project" },
+      });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+    });
+  });
 });

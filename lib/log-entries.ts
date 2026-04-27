@@ -742,9 +742,10 @@ function parseCursorFile(content: string, source: LogSource, fileDate: Date): Pa
         .map((b) => b.text as string)
         .join("\n")
         .trim();
-      // Strip <user_query> wrapper tags that Cursor sometimes injects
-      if (textContent.startsWith("<user_query>")) {
-        textContent = textContent.replace(/^<user_query>\s*/, "").replace(/\s*<\/user_query>$/, "");
+      // Strip <user_query> wrapper (Cursor sometimes prepends <timestamp>...</timestamp> before it)
+      const userQueryMatch = textContent.match(/<user_query>([\s\S]*?)<\/user_query>/);
+      if (userQueryMatch) {
+        textContent = userQueryMatch[1].trim();
       }
       if (textContent) {
         entries.push({ type: "user", ...base, message: { role: "user", content: textContent } } as UserEntry);
@@ -1082,6 +1083,22 @@ function parseCodexFile(content: string, source: LogSource): ParseFileResult {
     toolResultMap.set(callId, { content: resultText, timestamp: date.toISOString(), timestampMs: date.getTime() });
   }
 
+  // Pre-scan: collect all response_item/assistant texts so event_msg/agent_message duplicates can be
+  // skipped regardless of whether they appear before or after the response_item in the JSONL.
+  const responseItemTexts = new Set<string>();
+  for (const obj of allObjects) {
+    if (obj.type !== "response_item") continue;
+    const p = obj.payload as Record<string, unknown> | undefined;
+    if (!p || p.type !== "message" || p.role !== "assistant") continue;
+    const contentArr = Array.isArray(p.content) ? (p.content as Array<Record<string, unknown>>) : [];
+    const text = contentArr
+      .filter((c) => c.type === "output_text" || c.type === "text")
+      .map((c) => c.text as string)
+      .join("\n")
+      .trim();
+    if (text) responseItemTexts.add(text);
+  }
+
   const entries: LogEntry[] = [];
   let counter = 0;
 
@@ -1173,7 +1190,7 @@ function parseCodexFile(content: string, source: LogSource): ParseFileResult {
 
     if (type === "event_msg" && (payload.type as string) === "agent_message") {
       const text = (payload.message as string) || "";
-      if (text.trim()) {
+      if (text.trim() && !responseItemTexts.has(text.trim())) {
         entries.push({ type: "assistant", ...base, message: { role: "assistant", content: [{ type: "text", text }] } } as AssistantEntry);
       }
       continue;

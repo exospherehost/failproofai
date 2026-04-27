@@ -94,7 +94,7 @@ describe("hooks/manager", () => {
       expect(path).toBe(USER_SETTINGS_PATH);
 
       const written = JSON.parse(content as string);
-      expect(Object.keys(written.hooks)).toHaveLength(27);
+      expect(Object.keys(written.hooks)).toHaveLength(26);
 
       for (const [eventType, matchers] of Object.entries(written.hooks)) {
         expect(matchers).toHaveLength(1);
@@ -256,7 +256,7 @@ describe("hooks/manager", () => {
       expect(writeFileSync).toHaveBeenCalledOnce();
       const [, content] = vi.mocked(writeFileSync).mock.calls[0];
       const written = JSON.parse(content as string);
-      expect(Object.keys(written.hooks)).toHaveLength(27);
+      expect(Object.keys(written.hooks)).toHaveLength(26);
     });
 
     it("resolves binary from FAILPROOFAI_DIST_PATH", async () => {

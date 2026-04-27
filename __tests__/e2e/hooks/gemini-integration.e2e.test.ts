@@ -2,10 +2,11 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { execSync, spawnSync } from "node:child_process";
 import { writeFileSync, readFileSync, existsSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { resolve, join } from "node:path";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { GeminiPayloads } from "../helpers/payloads";
 
 const BINARY_PATH = resolve(__dirname, "../../../bin/failproofai.mjs");
+const REAL_ACTIVITY_STORE = join(homedir(), ".failproofai", "cache", "hook-activity");
 
 describe("E2E: Gemini Integration", () => {
   let PROJECT_DIR: string;
@@ -25,7 +26,7 @@ describe("E2E: Gemini Integration", () => {
     if (existsSync(isoHome)) rmSync(isoHome, { recursive: true, force: true });
   });
 
-  const baseEnv = () => ({ ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), HOME: isoHome });
+  const baseEnv = () => ({ ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), HOME: isoHome, FAILPROOFAI_ACTIVITY_STORE_DIR: REAL_ACTIVITY_STORE });
 
   const runHook = (eventName: string, payload: Record<string, unknown>) => {
     return spawnSync("bun", [BINARY_PATH, "--hook", eventName, "--cli", "gemini"], {

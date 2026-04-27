@@ -8,6 +8,7 @@ import { Payloads } from "../helpers/payloads";
 
 const BINARY_PATH = resolve(__dirname, "../../../bin/failproofai.mjs");
 const DEDUP_DIR = resolve(homedir(), ".failproofai", "cache", "dedup");
+const REAL_ACTIVITY_STORE = resolve(homedir(), ".failproofai", "cache", "hook-activity");
 
 describe("E2E: Claude Code Integration", () => {
   let projectDir: string;
@@ -26,7 +27,7 @@ describe("E2E: Claude Code Integration", () => {
     if (existsSync(isoHome)) rmSync(isoHome, { recursive: true, force: true });
   });
 
-  const baseEnv = () => ({ ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true" });
+  const baseEnv = () => ({ ...process.env, FAILPROOFAI_DIST_PATH: process.cwd(), FAILPROOFAI_SKIP_KILL: "true", FAILPROOFAI_ACTIVITY_STORE_DIR: REAL_ACTIVITY_STORE });
 
   it("denies sudo via PreToolUse hook (exit 2 + stderr message)", () => {
     execSync(`bun ${BINARY_PATH} policies --install block-sudo --cli claude-code --scope project`, {

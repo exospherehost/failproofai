@@ -213,6 +213,7 @@ function DecisionPills({
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}
+          suppressHydrationWarning
           className={`px-2.5 py-1 text-[0.65rem] font-medium rounded transition-all ${
             value === opt.value
               ? opt.value === "deny"
@@ -418,6 +419,7 @@ function ActivityTab({
           <select
             value={filterEventType}
             onChange={(e) => setFilterEventType(e.target.value)}
+            suppressHydrationWarning
             className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
           >
             <option value="">All Events</option>
@@ -431,6 +433,7 @@ function ActivityTab({
           <select
             value={filterIntegration}
             onChange={(e) => setFilterIntegration(e.target.value)}
+            suppressHydrationWarning
             className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
           >
             <option value="">All Integrations</option>
@@ -446,6 +449,7 @@ function ActivityTab({
               value={filterPolicy}
               onChange={(e) => setFilterPolicy(e.target.value)}
               placeholder="Filter by policy\u2026"
+              suppressHydrationWarning
               className="h-7 rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground w-44 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
             />
           </div>
@@ -455,6 +459,7 @@ function ActivityTab({
               value={filterSessionId}
               onChange={(e) => setFilterSessionId(e.target.value)}
               placeholder="Filter by session…"
+              suppressHydrationWarning
               className="h-7 rounded-md border border-border bg-background px-2.5 text-xs text-foreground placeholder:text-muted-foreground w-44 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
             />
           </div>

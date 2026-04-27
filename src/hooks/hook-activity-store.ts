@@ -36,7 +36,7 @@ const STATS_FILE = "stats.json";
 const LOCK_FILE = "current.lock";  // advisory lock for concurrent hook processes
 const LOCK_STALE_MS = 2000;        // steal lock if older than 2 s (covers crashed processes)
 
-let storeDir = DEFAULT_STORE_DIR;
+let storeDir = process.env.FAILPROOFAI_ACTIVITY_STORE_DIR ?? DEFAULT_STORE_DIR;
 let rotateSeq = 0;
 
 // ── Types ──
