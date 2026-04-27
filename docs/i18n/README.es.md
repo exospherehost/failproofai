@@ -29,7 +29,7 @@ La forma más sencilla de gestionar políticas que mantienen a tus agentes de IA
   <img src="failproofai-hq.gif" alt="Failproof AI en acción" width="800" />
 </p>
 
-- **32 Políticas integradas** - Detecta los modos de fallo más comunes de los agentes desde el primer momento. Bloquea comandos destructivos, evita la filtración de secretos, mantiene a los agentes dentro de los límites del proyecto, detecta bucles y mucho más.
+- **39 Políticas integradas** - Detecta los modos de fallo más comunes de los agentes desde el primer momento. Bloquea comandos destructivos, evita la filtración de secretos, mantiene a los agentes dentro de los límites del proyecto, detecta bucles y mucho más.
 - **Políticas personalizadas** - Escribe tus propias reglas de fiabilidad en JavaScript. Usa la API `allow`/`deny`/`instruct` para aplicar convenciones, prevenir desviaciones, controlar operaciones o integrarte con sistemas externos.
 - **Configuración sencilla** - Ajusta cualquier política sin escribir código. Define listas de permitidos, ramas protegidas y umbrales por proyecto o de forma global. Las tres configuraciones de ámbito se fusionan automáticamente.
 - **Monitor de agentes** - Descubre qué hicieron tus agentes mientras no estabas. Navega por sesiones, inspecciona cada llamada a herramientas y revisa exactamente dónde se activaron las políticas.
@@ -264,7 +264,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Guía | Descripción |
 |------|-------------|
 | [Primeros pasos](docs/getting-started.mdx) | Instalación y primeros pasos |
-| [Políticas integradas](docs/built-in-policies.mdx) | Las 32 políticas integradas con sus parámetros |
+| [Políticas integradas](docs/built-in-policies.mdx) | Las 39 políticas integradas con sus parámetros |
 | [Políticas personalizadas](docs/custom-policies.mdx) | Escribe tus propias políticas |
 | [Configuración](docs/configuration.mdx) | Formato del archivo de configuración y fusión de ámbitos |
 | [Panel de control](docs/dashboard.mdx) | Monitoriza sesiones y revisa la actividad de las políticas |

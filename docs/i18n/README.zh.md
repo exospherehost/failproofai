@@ -29,7 +29,7 @@
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-- **32 条内置策略** - 开箱即用，捕获常见的智能体故障模式。阻止破坏性命令、防止密钥泄露、将智能体限制在项目边界内、检测循环等。
+- **39 条内置策略** - 开箱即用，捕获常见的智能体故障模式。阻止破坏性命令、防止密钥泄露、将智能体限制在项目边界内、检测循环等。
 - **自定义策略** - 用 JavaScript 编写你自己的可靠性规则。使用 `allow`/`deny`/`instruct` API 强制执行规范、防止偏移、管控操作，或与外部系统集成。
 - **简易配置** - 无需编写代码即可调整任意策略。可按项目或全局设置允许列表、受保护分支、阈值。三级配置作用域自动合并。
 - **智能体监控** - 查看智能体在你离开期间的所有操作。浏览会话、检查每次工具调用，精确回顾策略触发位置。
@@ -264,7 +264,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | 指南 | 描述 |
 |-------|-------------|
 | [快速入门](docs/getting-started.mdx) | 安装与初始步骤 |
-| [内置策略](docs/built-in-policies.mdx) | 全部 32 条内置策略及参数说明 |
+| [内置策略](docs/built-in-policies.mdx) | 全部 39 条内置策略及参数说明 |
 | [自定义策略](docs/custom-policies.mdx) | 编写你自己的策略 |
 | [配置](docs/configuration.mdx) | 配置文件格式与作用域合并规则 |
 | [仪表板](docs/dashboard.mdx) | 监控会话并回顾策略活动 |
