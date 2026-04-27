@@ -2,14 +2,19 @@
 
 ## Unreleased
 
+## 0.0.6 — 2026-04-27
+
 ### Features
 - Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
 - Add `require-no-conflicts-before-stop` builtin workflow policy that denies Stop until the current branch merges cleanly with the base branch. Runs a local `git merge-tree` probe (names the conflicted files) and an optional `gh pr view --json mergeable` probe that catches conflicts a stale local `origin/<base>` would miss (#176)
+- Add policy namespace support. Built-in policies now live under the `exospherehost/` namespace; flat names in user configs (e.g. `"sanitize-jwt"`) auto-resolve to the default namespace, so existing configs keep working unchanged. Custom and third-party policies can declare their own namespace (e.g. `myorg/foo`) without colliding with builtins (#196)
 
 ### Docs
 - Add demo GIF to README (#178)
+- Document the policy namespace concept and update built-in policy count from 30 to 32 (#196)
 
 ### Fixes
+- Fix `require-no-conflicts-before-stop` falsely denying when the PR is already merged or closed: GitHub returns `mergeable=UNKNOWN` for non-OPEN PRs, which the policy was treating as "still computing → wait and retry". The policy now requests `state` and short-circuits to allow when the PR is not OPEN (#196)
 - Stop stderr leakage from workflow policies (`require-push-before-stop`, `require-pr-before-stop`, `require-ci-green-before-stop`, etc.): git probes that are expected to sometimes fail no longer leak "fatal: Needed a single revision" or similar messages to the user's terminal (#132)
 - `block-read-outside-cwd` now uses `CLAUDE_PROJECT_DIR` (the stable project root) instead of the live hook `cwd`, which drifts when Claude `cd`s into a subdirectory. Reads at the project root are no longer wrongly denied after a `cd`. Falls back to `ctx.session.cwd` when that variable is unset (#134)
 - Shrink the npm package by excluding sharp from the Next.js standalone build (unused — image optimization is disabled) and stripping docs, tests, and sourcemaps from the bundled `node_modules`. Tarball drops from ~20 MB to under a few MB (#136)

@@ -23,7 +23,7 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-- **30 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
+- **32 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
 - **Custom Policies** - Write your own reliability rules in JavaScript. Use the `allow`/`deny`/`instruct` API to enforce conventions, prevent drift, gate operations, or integrate with external systems.
 - **Easy Configuration** - Tune any policy without writing code. Set allowlists, protected branches, thresholds per-project or globally. Three-scope config merges automatically.
 - **Agent Monitor** - See what your agents did while you were away. Browse sessions, inspect every tool call, and review exactly where policies fired.
@@ -258,7 +258,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](docs/getting-started.mdx) | Installation and first steps |
-| [Built-in Policies](docs/built-in-policies.mdx) | All 30 built-in policies with parameters |
+| [Built-in Policies](docs/built-in-policies.mdx) | All 32 built-in policies with parameters |
 | [Custom Policies](docs/custom-policies.mdx) | Write your own policies |
 | [Configuration](docs/configuration.mdx) | Config file format and scope merging |
 | [Dashboard](docs/dashboard.mdx) | Monitor sessions and review policy activity |

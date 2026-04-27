@@ -5,7 +5,7 @@
 import type { HookEventType, SessionMetadata } from "./types";
 import type { PolicyContext, HooksConfig } from "./policy-types";
 import { BUILTIN_POLICIES } from "./builtin-policies";
-import { getPoliciesForEvent } from "./policy-registry";
+import { DEFAULT_POLICY_NAMESPACE, getPoliciesForEvent, normalizePolicyName } from "./policy-registry";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
 function appendHint(baseReason: string, hint: unknown): string {
@@ -26,10 +26,32 @@ export interface EvaluationResult {
   decision: "allow" | "deny" | "instruct";
 }
 
-// Build a map from policy name to its params schema (for injecting defaults)
+// Build a map from canonical policy name to its params schema (for injecting defaults).
+// Keyed by canonical name because registered policies always carry the canonical form.
 const POLICY_PARAMS_MAP = new Map(
-  BUILTIN_POLICIES.filter((p) => p.params).map((p) => [p.name, p.params!]),
+  BUILTIN_POLICIES.filter((p) => p.params).map((p) => [normalizePolicyName(p.name), p.params!]),
 );
+
+/**
+ * Look up policy params for a canonical policy name in the user config,
+ * tolerating either flat ("block-force-push") or qualified
+ * ("exospherehost/block-force-push") config keys for built-in policies.
+ *
+ * The flat-key fallback is intentionally limited to the default namespace
+ * so namespace isolation is preserved: `policyParams.foo` only matches
+ * `exospherehost/foo`, never `myorg/foo` or `custom/foo`.
+ */
+function getConfigParamsFor(
+  config: HooksConfig | undefined,
+  canonicalName: string,
+): Record<string, unknown> | undefined {
+  if (!config?.policyParams) return undefined;
+  const canonicalParams = config.policyParams[canonicalName];
+  if (canonicalParams) return canonicalParams;
+  const defaultPrefix = `${DEFAULT_POLICY_NAMESPACE}/`;
+  if (!canonicalName.startsWith(defaultPrefix)) return undefined;
+  return config.policyParams[canonicalName.slice(defaultPrefix.length)];
+}
 
 export async function evaluatePolicies(
   eventType: HookEventType,
@@ -63,11 +85,13 @@ export async function evaluatePolicies(
   const allowEntries: Array<{ policyName: string; reason: string }> = [];
 
   for (const policy of policies) {
-    // Inject params: merge policyParams[policy.name] over schema defaults
+    // Inject params: merge policyParams[policy.name] over schema defaults.
+    // policy.name is canonical (e.g. "exospherehost/block-force-push"); user
+    // config keys may be flat or canonical — getConfigParamsFor accepts both.
     const schema = POLICY_PARAMS_MAP.get(policy.name);
     let ctx: PolicyContext;
     if (schema) {
-      const userParams = config?.policyParams?.[policy.name] ?? {};
+      const userParams = getConfigParamsFor(config, policy.name) ?? {};
       const resolvedParams: Record<string, unknown> = {};
       for (const [key, spec] of Object.entries(schema)) {
         resolvedParams[key] = key in userParams ? userParams[key] : spec.default;
@@ -89,7 +113,7 @@ export async function evaluatePolicies(
     if (result.decision === "deny") {
       const reason = appendHint(
         result.reason ?? `Blocked by policy: ${policy.name}`,
-        config?.policyParams?.[policy.name]?.hint,
+        getConfigParamsFor(config, policy.name)?.hint,
       );
       hookLogInfo(`deny by "${policy.name}": ${reason}`);
 
@@ -156,7 +180,7 @@ export async function evaluatePolicies(
     if (result.decision === "instruct") {
       const reason = appendHint(
         result.reason ?? `Instruction from policy: ${policy.name}`,
-        config?.policyParams?.[policy.name]?.hint,
+        getConfigParamsFor(config, policy.name)?.hint,
       );
       instructEntries.push({ policyName: policy.name, reason });
       hookLogInfo(`instruct by "${policy.name}": ${reason}`);

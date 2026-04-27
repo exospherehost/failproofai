@@ -45,11 +45,30 @@ describe("hooks/builtin-policies", () => {
   });
 
   describe("registerBuiltinPolicies", () => {
-    it("registers only specified policies", () => {
+    it("registers only specified policies (canonicalized to default namespace)", () => {
       registerBuiltinPolicies(["block-sudo", "block-rm-rf"]);
       const policies = getPoliciesForEvent("PreToolUse", "Bash");
       expect(policies).toHaveLength(2);
-      expect(policies.map((p) => p.name).sort()).toEqual(["block-rm-rf", "block-sudo"]);
+      expect(policies.map((p) => p.name).sort()).toEqual([
+        "exospherehost/block-rm-rf",
+        "exospherehost/block-sudo",
+      ]);
+    });
+
+    it("accepts qualified names in enabledPolicies (forward compat)", () => {
+      registerBuiltinPolicies(["exospherehost/block-sudo", "exospherehost/block-rm-rf"]);
+      const policies = getPoliciesForEvent("PreToolUse", "Bash");
+      expect(policies).toHaveLength(2);
+      expect(policies.map((p) => p.name).sort()).toEqual([
+        "exospherehost/block-rm-rf",
+        "exospherehost/block-sudo",
+      ]);
+    });
+
+    it("treats flat and qualified names as equivalent (mixed config works)", () => {
+      registerBuiltinPolicies(["block-sudo", "exospherehost/block-rm-rf"]);
+      const policies = getPoliciesForEvent("PreToolUse", "Bash");
+      expect(policies).toHaveLength(2);
     });
 
     it("registers nothing for empty array", () => {
@@ -2637,7 +2656,7 @@ describe("hooks/builtin-policies", () => {
       mergeTreeStatus?: 0 | 1 | "error";
       mergeTreeStdout?: string;
       ghInstalled?: boolean;
-      prResult?: { mergeable: string; number: number; url: string } | null | "invalid-json";
+      prResult?: { mergeable: string; number: number; url: string; state?: string } | null | "invalid-json";
     }) {
       const branch = opts.branch ?? "feat/branch";
       const ghInstalled = opts.ghInstalled ?? true;
@@ -2655,7 +2674,7 @@ describe("hooks/builtin-policies", () => {
             throw new Error("no pull requests found");
           }
           if (opts.prResult === "invalid-json") return "not-json";
-          return JSON.stringify(opts.prResult);
+          return JSON.stringify({ state: "OPEN", ...opts.prResult });
         }
         return "";
       });
@@ -2789,6 +2808,32 @@ describe("hooks/builtin-policies", () => {
       expect(result.reason).toContain("still computing mergeability");
       expect(result.reason).toContain("Wait");
       expect(result.reason).toContain("gh pr view --json mergeable");
+    });
+
+    it("allows when PR state is MERGED even if mergeable is UNKNOWN", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 0,
+        prResult: { mergeable: "UNKNOWN", state: "MERGED", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("PR #42");
+      expect(result.reason).toContain("merged");
+      expect(result.reason).toContain("skipping conflict check");
+    });
+
+    it("allows when PR state is CLOSED even if mergeable is UNKNOWN", async () => {
+      mockConflictsScenario({
+        mergeTreeStatus: 0,
+        prResult: { mergeable: "UNKNOWN", state: "CLOSED", number: 42, url: "https://github.com/org/repo/pull/42" },
+      });
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("PR #42");
+      expect(result.reason).toContain("closed");
+      expect(result.reason).toContain("skipping conflict check");
     });
 
     it("allows with local+no-gh message when Layer 1 clean and gh not installed", async () => {

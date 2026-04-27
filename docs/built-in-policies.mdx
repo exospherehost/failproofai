@@ -1,10 +1,10 @@
 ---
 title: Built-in Policies
-description: "All 30 built-in policies that catch common agent failure modes"
+description: "All 32 built-in policies that catch common agent failure modes"
 icon: shield
 ---
 
-failproofai ships with 30 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Nine policies accept parameters that let you tune their behavior without writing code. Four workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
+failproofai ships with 32 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Twelve policies accept parameters that let you tune their behavior without writing code. Five workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
 
 ---
 
@@ -27,6 +27,29 @@ Policies are grouped into categories:
 - **`block-`** — stop the agent from proceeding.
 - **`warn-`** — give the agent additional context so it can self-correct.
 - **`sanitize-`** — scrub sensitive data from tool output before the agent sees it.
+
+### Namespaces
+
+Every policy lives in a `<namespace>/<name>` slot. Built-in policies belong to the
+**`exospherehost/`** namespace — for example, `exospherehost/sanitize-jwt`. The
+namespace prevents collisions when you also load custom or third-party policies
+with similar short names.
+
+In your config you can refer to a built-in by either its short name or its
+qualified name; both forms resolve to the same policy:
+
+```json
+{
+  "enabledPolicies": [
+    "sanitize-jwt",
+    "exospherehost/block-rm-rf"
+  ]
+}
+```
+
+If a name has no `/`, failproofai treats it as belonging to the default
+namespace `exospherehost`. Names that already contain a `/` (e.g. `myorg/foo`,
+`custom/my-hook`) are kept as-is.
 - **`require-`** — block the Stop event until conditions are met.
 
 ---
@@ -547,9 +570,9 @@ pull requests. If `gh` is not installed or not authenticated, the policy fails o
 **Default:** Denies stopping when the current branch cannot cleanly merge into the base branch. Runs two independent probes:
 
 1. **Local** — `git merge-tree --write-tree --name-only origin/<baseBranch> HEAD`. On conflict, the deny message names the conflicted files so Claude knows exactly what to resolve.
-2. **GitHub** — `gh pr view --json mergeable`. Catches conflicts that a stale local `origin/<baseBranch>` would miss (e.g. someone landed a conflicting PR on `main` since the last fetch). A `CONFLICTING` result denies. An `UNKNOWN` result (GitHub still computing) also denies and instructs Claude to wait ~10 seconds and re-check before attempting to stop again — this prevents false negatives while GitHub recomputes.
+2. **GitHub** — `gh pr view --json mergeable,state`. Catches conflicts that a stale local `origin/<baseBranch>` would miss (e.g. someone landed a conflicting PR on `main` since the last fetch). A `CONFLICTING` result denies. An `UNKNOWN` result on an `OPEN` PR (GitHub still computing) also denies and instructs Claude to wait ~10 seconds and re-check before attempting to stop again — this prevents false negatives while GitHub recomputes. The check is skipped entirely for any PR whose state is not `OPEN` (e.g. `MERGED`, `CLOSED`), since GitHub stops computing mergeability for non-open PRs.
 
-Fails open when `origin/<baseBranch>` is missing locally, when no commits are ahead of base, when `gh` is not installed, or when no PR exists for the branch.
+Fails open when `origin/<baseBranch>` is missing locally, when no commits are ahead of base, when `gh` is not installed, when no PR exists for the branch, or when the PR is not OPEN.
 
 **Parameters:**
 

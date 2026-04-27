@@ -11,6 +11,22 @@ import type { PolicyFunction, PolicyMatcher, RegisteredPolicy } from "./policy-t
 const REGISTRY_KEY = "__FAILPROOFAI_POLICY_REGISTRY__";
 const INDEX_CACHE_KEY = "__FAILPROOFAI_POLICY_INDEX_CACHE__";
 
+/**
+ * The default namespace applied to any policy name registered without a
+ * `<namespace>/` prefix. Builtins live under this namespace; custom hooks
+ * loaded by the handler get their own prefixes (e.g. `custom/foo`).
+ */
+export const DEFAULT_POLICY_NAMESPACE = "exospherehost";
+
+/**
+ * Canonicalize a policy name. If the name already contains a `/`, it is
+ * treated as already-namespaced and returned unchanged. Otherwise the
+ * default namespace is prepended.
+ */
+export function normalizePolicyName(name: string): string {
+  return name.includes("/") ? name : `${DEFAULT_POLICY_NAMESPACE}/${name}`;
+}
+
 interface GlobalWithRegistry {
   [REGISTRY_KEY]?: RegisteredPolicy[];
 }
@@ -42,9 +58,10 @@ export function registerPolicy(
   match: PolicyMatcher,
   priority: number = 0,
 ): void {
+  const canonical = normalizePolicyName(name);
   const registry = getRegistry();
-  const idx = registry.findIndex((p) => p.name === name);
-  const entry: RegisteredPolicy = { name, description, fn, match, priority };
+  const idx = registry.findIndex((p) => p.name === canonical);
+  const entry: RegisteredPolicy = { name: canonical, description, fn, match, priority };
   if (idx >= 0) {
     registry[idx] = entry;
   } else {

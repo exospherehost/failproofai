@@ -7,7 +7,7 @@ import { execSync, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
 import { allow, deny, instruct } from "./policy-helpers";
-import { registerPolicy } from "./policy-registry";
+import { normalizePolicyName, registerPolicy } from "./policy-registry";
 import { hookLogWarn } from "./hook-logger";
 
 function isClaudeInternalPath(resolved: string): boolean {
@@ -1254,7 +1254,7 @@ function requireNoConflictsBeforeStop(ctx: PolicyContext): PolicyResult {
 
   let prJson: string;
   try {
-    prJson = execSync("gh pr view --json mergeable,number,url", {
+    prJson = execSync("gh pr view --json mergeable,number,url,state", {
       cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 15000,
     }).trim();
   } catch {
@@ -1265,11 +1265,17 @@ function requireNoConflictsBeforeStop(ctx: PolicyContext): PolicyResult {
     );
   }
 
-  let pr: { mergeable: string; number: number; url: string };
+  let pr: { mergeable: string; number: number; url: string; state: string };
   try {
     pr = JSON.parse(prJson);
   } catch {
     return allow("Could not parse gh pr view output, skipping PR mergeability check.");
+  }
+
+  // GitHub stops computing mergeability for non-OPEN PRs (returns UNKNOWN forever).
+  // Skip the check entirely so a merged or closed PR doesn't trap Stop in a wait loop.
+  if (pr.state !== "OPEN") {
+    return allow(`PR #${pr.number} is ${pr.state.toLowerCase()}; skipping conflict check.`);
   }
 
   if (pr.mergeable === "CONFLICTING") {
@@ -1718,9 +1724,11 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
 ];
 
 export function registerBuiltinPolicies(enabledNames: string[]): void {
-  const enabledSet = new Set(enabledNames);
+  // Tolerate both flat ("sanitize-jwt") and qualified ("exospherehost/sanitize-jwt")
+  // forms in the user's enabledPolicies config — canonicalize both sides.
+  const enabledSet = new Set(enabledNames.map(normalizePolicyName));
   for (const policy of BUILTIN_POLICIES) {
-    if (enabledSet.has(policy.name)) {
+    if (enabledSet.has(normalizePolicyName(policy.name))) {
       registerPolicy(policy.name, policy.description, policy.fn, policy.match);
     }
   }
