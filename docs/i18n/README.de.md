@@ -29,7 +29,7 @@ Der einfachste Weg, Richtlinien zu verwalten, die Ihre KI-Agenten zuverlässig, 
   <img src="failproofai-hq.gif" alt="Failproof AI in Aktion" width="800" />
 </p>
 
-- **32 eingebaute Richtlinien** – Häufige Ausfallmuster von Agenten werden sofort abgefangen. Destruktive Befehle blockieren, Secret-Leaks verhindern, Agenten innerhalb der Projektgrenzen halten, Schleifen erkennen und vieles mehr.
+- **39 eingebaute Richtlinien** – Häufige Ausfallmuster von Agenten werden sofort abgefangen. Destruktive Befehle blockieren, Secret-Leaks verhindern, Agenten innerhalb der Projektgrenzen halten, Schleifen erkennen und vieles mehr.
 - **Benutzerdefinierte Richtlinien** – Schreiben Sie eigene Zuverlässigkeitsregeln in JavaScript. Nutzen Sie die `allow`/`deny`/`instruct`-API, um Konventionen durchzusetzen, Abweichungen zu verhindern, Operationen abzusichern oder externe Systeme einzubinden.
 - **Einfache Konfiguration** – Jede Richtlinie lässt sich ohne Code-Änderungen anpassen. Allowlists, geschützte Branches und Schwellenwerte können pro Projekt oder global festgelegt werden. Drei Konfigurationsebenen werden automatisch zusammengeführt.
 - **Agent Monitor** – Sehen Sie, was Ihre Agenten während Ihrer Abwesenheit getan haben. Sitzungen durchsuchen, jeden Tool-Aufruf inspizieren und genau nachvollziehen, wo Richtlinien ausgelöst wurden.
@@ -264,7 +264,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Leitfaden | Beschreibung |
 |-----------|-------------|
 | [Erste Schritte](docs/getting-started.mdx) | Installation und erster Einstieg |
-| [Eingebaute Richtlinien](docs/built-in-policies.mdx) | Alle 32 eingebauten Richtlinien mit Parametern |
+| [Eingebaute Richtlinien](docs/built-in-policies.mdx) | Alle 39 eingebauten Richtlinien mit Parametern |
 | [Benutzerdefinierte Richtlinien](docs/custom-policies.mdx) | Eigene Richtlinien schreiben |
 | [Konfiguration](docs/configuration.mdx) | Konfigurationsdateiformat und Bereichs-Merging |
 | [Dashboard](docs/dashboard.mdx) | Sitzungen überwachen und Richtlinienaktivität überprüfen |

@@ -29,7 +29,7 @@ A maneira mais fácil de gerenciar políticas que mantêm seus agentes de IA con
   <img src="failproofai-hq.gif" alt="Failproof AI em ação" width="800" />
 </p>
 
-- **32 Políticas Integradas** - Detecte falhas comuns de agentes logo de cara. Bloqueie comandos destrutivos, impeça o vazamento de segredos, mantenha agentes dentro dos limites do projeto, detecte loops e muito mais.
+- **39 Políticas Integradas** - Detecte falhas comuns de agentes logo de cara. Bloqueie comandos destrutivos, impeça o vazamento de segredos, mantenha agentes dentro dos limites do projeto, detecte loops e muito mais.
 - **Políticas Personalizadas** - Escreva suas próprias regras de confiabilidade em JavaScript. Use a API `allow`/`deny`/`instruct` para impor convenções, evitar desvios, controlar operações ou integrar com sistemas externos.
 - **Configuração Simples** - Ajuste qualquer política sem escrever código. Defina listas de permissões, branches protegidos e limites por projeto ou de forma global. Três escopos de configuração são mesclados automaticamente.
 - **Monitor de Agentes** - Veja o que seus agentes fizeram enquanto você estava ausente. Navegue pelas sessões, inspecione cada chamada de ferramenta e revise exatamente onde as políticas foram acionadas.
@@ -264,7 +264,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Guia | Descrição |
 |------|-----------|
 | [Primeiros Passos](docs/getting-started.mdx) | Instalação e primeiros passos |
-| [Políticas Integradas](docs/built-in-policies.mdx) | Todas as 32 políticas integradas com parâmetros |
+| [Políticas Integradas](docs/built-in-policies.mdx) | Todas as 39 políticas integradas com parâmetros |
 | [Políticas Personalizadas](docs/custom-policies.mdx) | Escreva suas próprias políticas |
 | [Configuração](docs/configuration.mdx) | Formato do arquivo de configuração e mesclagem de escopos |
 | [Painel](docs/dashboard.mdx) | Monitore sessões e revise a atividade das políticas |

@@ -29,7 +29,7 @@ Il modo più semplice per gestire le policy che mantengono i tuoi agenti AI affi
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-- **32 Policy Integrate** - Cattura le modalità di errore comuni degli agenti direttamente. Blocca i comandi distruttivi, previeni le fughe di segreti, mantieni gli agenti all'interno dei confini del progetto, rileva i loop, e molto altro.
+- **39 Policy Integrate** - Cattura le modalità di errore comuni degli agenti direttamente. Blocca i comandi distruttivi, previeni le fughe di segreti, mantieni gli agenti all'interno dei confini del progetto, rileva i loop, e molto altro.
 - **Policy Personalizzate** - Scrivi le tue regole di affidabilità in JavaScript. Usa l'API `allow`/`deny`/`instruct` per applicare convenzioni, prevenire derive, controllare le operazioni, o integrarsi con sistemi esterni.
 - **Configurazione Semplice** - Regola qualsiasi policy senza scrivere codice. Imposta liste di permessi, rami protetti, soglie per progetto o globalmente. Tre scope di configurazione si uniscono automaticamente.
 - **Agent Monitor** - Vedi cosa hanno fatto i tuoi agenti mentre eri via. Sfoglia le sessioni, ispeziona ogni tool call, e verifica esattamente dove le policy si sono attivate.
@@ -264,7 +264,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Guida | Descrizione |
 |-------|-------------|
 | [Getting Started](docs/getting-started.mdx) | Installazione e primi passi |
-| [Built-in Policies](docs/built-in-policies.mdx) | Tutte le 32 policy integrate con parametri |
+| [Built-in Policies](docs/built-in-policies.mdx) | Tutte le 39 policy integrate con parametri |
 | [Custom Policies](docs/custom-policies.mdx) | Scrivi le tue policy |
 | [Configuration](docs/configuration.mdx) | Formato del file di configurazione e unione degli scope |
 | [Dashboard](docs/dashboard.mdx) | Monitora le sessioni e esamina l'attività delle policy |

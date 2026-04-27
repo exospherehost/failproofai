@@ -29,7 +29,7 @@ AI ajanlarınızı güvenilir, odaklanmış ve otonom olarak çalıştıran poli
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-- **32 Yerleşik Politika** - Yaygın ajan başarısızlık modlarını hemen yakalayın. Yıkıcı komutları engelleyin, gizli bilgi sızıntısını önleyin, ajanları proje sınırları içinde tutun, döngüleri tespit edin ve daha fazlası.
+- **39 Yerleşik Politika** - Yaygın ajan başarısızlık modlarını hemen yakalayın. Yıkıcı komutları engelleyin, gizli bilgi sızıntısını önleyin, ajanları proje sınırları içinde tutun, döngüleri tespit edin ve daha fazlası.
 - **Özel Politikalar** - JavaScript'te kendi güvenilirlik kurallarınızı yazın. `allow`/`deny`/`instruct` API'sını kullanarak kuralları zorlaştırın, sapmaları önleyin, işlemleri kontrol edin veya harici sistemlerle entegre olun.
 - **Kolay Yapılandırma** - Herhangi bir politikayı kod yazmadan ayarlayın. İzin listelerini, korumalı şubeleri, eşikleri proje başına veya genel olarak ayarlayın. Üç kapsamlı yapılandırma otomatik olarak birleşir.
 - **Ajan İzleyicisi** - Ajanlarınız işiniz bittiğinde neler yaptığını görün. Oturumları göz atın, her araç çağrısını inceleyin ve politikaların tam olarak nerede harekete geçtiğini gözden geçirin.
@@ -264,7 +264,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Rehber | Açıklama |
 |--------|----------|
 | [Başlangıç](docs/getting-started.mdx) | Yükleme ve ilk adımlar |
-| [Yerleşik Politikalar](docs/built-in-policies.mdx) | 32 yerleşik politika ve parametreleri |
+| [Yerleşik Politikalar](docs/built-in-policies.mdx) | 39 yerleşik politika ve parametreleri |
 | [Özel Politikalar](docs/custom-policies.mdx) | Kendi politikalarınızı yazın |
 | [Yapılandırma](docs/configuration.mdx) | Yapılandırma dosyası biçimi ve kapsam birleştirme |
 | [Pano](docs/dashboard.mdx) | Oturumları izleyin ve politika etkinliğini gözden geçirin |

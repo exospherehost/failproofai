@@ -29,7 +29,7 @@ La solution la plus simple pour gérer les politiques qui maintiennent vos agent
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-- **32 politiques intégrées** — Détectez les modes de défaillance courants des agents dès l'installation. Bloquez les commandes destructives, prévenez les fuites de secrets, maintenez les agents dans les limites du projet, détectez les boucles, et bien plus encore.
+- **39 politiques intégrées** — Détectez les modes de défaillance courants des agents dès l'installation. Bloquez les commandes destructives, prévenez les fuites de secrets, maintenez les agents dans les limites du projet, détectez les boucles, et bien plus encore.
 - **Politiques personnalisées** — Rédigez vos propres règles de fiabilité en JavaScript. Utilisez l'API `allow`/`deny`/`instruct` pour appliquer des conventions, prévenir les dérives, contrôler les opérations ou vous intégrer à des systèmes externes.
 - **Configuration simplifiée** — Ajustez n'importe quelle politique sans écrire de code. Définissez des listes blanches, des branches protégées et des seuils par projet ou globalement. La configuration à trois niveaux est fusionnée automatiquement.
 - **Moniteur d'agents** — Voyez ce que vos agents ont fait pendant votre absence. Parcourez les sessions, inspectez chaque appel d'outil et examinez précisément où les politiques ont été déclenchées.
@@ -264,7 +264,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Guide | Description |
 |-------|-------------|
 | [Démarrage](docs/getting-started.mdx) | Installation et premiers pas |
-| [Politiques intégrées](docs/built-in-policies.mdx) | Les 32 politiques intégrées avec leurs paramètres |
+| [Politiques intégrées](docs/built-in-policies.mdx) | Les 39 politiques intégrées avec leurs paramètres |
 | [Politiques personnalisées](docs/custom-policies.mdx) | Rédigez vos propres politiques |
 | [Configuration](docs/configuration.mdx) | Format des fichiers de configuration et fusion des niveaux |
 | [Tableau de bord](docs/dashboard.mdx) | Surveiller les sessions et examiner l'activité des politiques |

@@ -29,7 +29,7 @@
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-- **32種類の組み込みポリシー** - よくあるエージェントの障害パターンをすぐに検出。破壊的なコマンドのブロック、シークレットの漏洩防止、エージェントをプロジェクト境界内に制限、ループ検出など多数。
+- **39種類の組み込みポリシー** - よくあるエージェントの障害パターンをすぐに検出。破壊的なコマンドのブロック、シークレットの漏洩防止、エージェントをプロジェクト境界内に制限、ループ検出など多数。
 - **カスタムポリシー** - JavaScriptで独自の信頼性ルールを記述。`allow`/`deny`/`instruct` APIを使用して規約を強制したり、ドリフトを防いだり、操作をゲートしたり、外部システムと連携したりできます。
 - **簡単な設定** - コードを書かずにポリシーを調整。許可リスト、保護ブランチ、しきい値をプロジェクト単位またはグローバルに設定可能。3段階のスコープ設定が自動的にマージされます。
 - **エージェントモニター** - 離席中にエージェントが何をしたか確認できます。セッションの閲覧、すべてのツール呼び出しの検査、ポリシーが発動した箇所の詳細レビューが可能。
@@ -264,7 +264,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | ガイド | 説明 |
 |-------|-------------|
 | [Getting Started](docs/getting-started.mdx) | インストールと最初のステップ |
-| [Built-in Policies](docs/built-in-policies.mdx) | 32種類の組み込みポリシーとパラメーター |
+| [Built-in Policies](docs/built-in-policies.mdx) | 39種類の組み込みポリシーとパラメーター |
 | [Custom Policies](docs/custom-policies.mdx) | 独自ポリシーの記述方法 |
 | [Configuration](docs/configuration.mdx) | 設定ファイルの形式とスコープのマージ |
 | [Dashboard](docs/dashboard.mdx) | セッションの監視とポリシーアクティビティのレビュー |

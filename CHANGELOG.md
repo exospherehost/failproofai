@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Docs
+- Bump built-in policy count from 32 to 39 in `README.md` and the 14 translated `docs/i18n/README.*.md` files to reflect the seven Infra Commands policies added in #202. The reference doc (`docs/built-in-policies.mdx` and its localized counterparts) was already correct (#207).
+
 ## 0.0.8 — 2026-04-27
 
 ### Fixes
