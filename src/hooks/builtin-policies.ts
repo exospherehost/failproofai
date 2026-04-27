@@ -1254,7 +1254,7 @@ function requireNoConflictsBeforeStop(ctx: PolicyContext): PolicyResult {
 
   let prJson: string;
   try {
-    prJson = execSync("gh pr view --json mergeable,number,url", {
+    prJson = execSync("gh pr view --json mergeable,number,url,state", {
       cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 15000,
     }).trim();
   } catch {
@@ -1265,11 +1265,17 @@ function requireNoConflictsBeforeStop(ctx: PolicyContext): PolicyResult {
     );
   }
 
-  let pr: { mergeable: string; number: number; url: string };
+  let pr: { mergeable: string; number: number; url: string; state: string };
   try {
     pr = JSON.parse(prJson);
   } catch {
     return allow("Could not parse gh pr view output, skipping PR mergeability check.");
+  }
+
+  // GitHub stops computing mergeability for non-OPEN PRs (returns UNKNOWN forever).
+  // Skip the check entirely so a merged or closed PR doesn't trap Stop in a wait loop.
+  if (pr.state !== "OPEN") {
+    return allow(`PR #${pr.number} is ${pr.state.toLowerCase()}; skipping conflict check.`);
   }
 
   if (pr.mergeable === "CONFLICTING") {
