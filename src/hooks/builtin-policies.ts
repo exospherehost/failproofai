@@ -1204,36 +1204,19 @@ function requirePrBeforeStop(ctx: PolicyContext): PolicyResult {
       return allow(`PR #${pr.number} exists: ${pr.url}`);
     }
 
-    // PR is merged/closed. The earlier origin/{baseBranch} checks may have
-    // used a stale ref. Fetch and re-verify before denying.
+    // Trust GitHub's authoritative state. Local-ref reconciliation can never
+    // converge after squash-merge or rebase-merge (the original branch commit
+    // is orphaned, never an ancestor of base) or when base is auto-modified
+    // post-merge (e.g. release-workflow version bumps). The PR being MERGED
+    // is itself the proof that the work shipped.
     if (pr.state === "MERGED") {
-      try {
-        execFileSync("git", ["fetch", "origin", `+refs/heads/${baseBranch}:refs/remotes/origin/${baseBranch}`], {
-          cwd,
-          encoding: "utf8", stdio: ["pipe", "pipe", "pipe"],
-          timeout: 10000,
-        });
-        const freshAhead = execFileSync(
-          "git",
-          ["log", `origin/${baseBranch}..HEAD`, "--oneline"],
-          { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
-        ).trim();
-        if (!freshAhead) {
-          return allow(`PR #${pr.number} was merged; branch is up to date with ${baseBranch}.`);
-        }
-        const freshDiff = execFileSync(
-          "git",
-          ["diff", "--stat", `origin/${baseBranch}`, "HEAD"],
-          { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 5000 },
-        ).trim();
-        if (!freshDiff) {
-          return allow(`PR #${pr.number} was merged; no file changes vs ${baseBranch}.`);
-        }
-      } catch {
-        // Fetch or git command failed — fall through to deny
-      }
+      return allow(
+        `PR #${pr.number} was merged: ${pr.url}. ` +
+        `Switch off this branch (e.g. 'git checkout ${baseBranch} && git pull') before stopping again.`,
+      );
     }
 
+    // Reaches here only for CLOSED-without-merge — PR was rejected.
     return deny(
       `Pull request for branch "${branch}" is ${pr.state.toLowerCase()}. Run now: gh pr create`,
     );
