@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.8 — 2026-04-27
+
 ### Fixes
 - Fix `require-pr-before-stop` falsely denying after a squash-merge or rebase-merge: GitHub creates a new commit on the base branch with rewritten parentage, so the original branch commit is never an ancestor of `main` and the post-merge `git log` / `git diff` reconciliation never converges. The policy now short-circuits to `allow` when `gh pr view --json state` returns `MERGED`, mirroring the fix shape from #196 for `require-no-conflicts-before-stop`. Also surfaces whenever `main` is auto-modified after merge — e.g. release workflows that auto-bump versions (#204).
 
