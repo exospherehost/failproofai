@@ -34,8 +34,8 @@ describe("hooks/builtin-policies", () => {
   });
 
   describe("BUILTIN_POLICIES", () => {
-    it("has 32 built-in policies", () => {
-      expect(BUILTIN_POLICIES).toHaveLength(32);
+    it("has 39 built-in policies", () => {
+      expect(BUILTIN_POLICIES).toHaveLength(39);
     });
 
     it("has 11 default-enabled policies", () => {
@@ -1035,6 +1035,277 @@ describe("hooks/builtin-policies", () => {
 
     it("allows non-Bash tools", async () => {
       const ctx = makeCtx({ toolName: "Read", toolInput: { command: "failproofai --remove-policies" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+  });
+
+  describe("block-kubectl", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "block-kubectl")!;
+
+    it("blocks kubectl apply", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "kubectl apply -f deploy.yaml" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks kubectl delete", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "kubectl delete pod my-pod" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks kubectl after && chain", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo hi && kubectl apply -f x.yaml" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows unrelated commands", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo hello" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("does not match commands that merely contain 'kubectl' as a substring", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo kubectlx is not a real binary" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows kubectl get with allowPatterns", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "kubectl get pods" },
+        params: { allowPatterns: ["kubectl get *"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("blocks shell-injection bypass via ; even when allowPattern would match prefix", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "kubectl get pods; rm -rf /" },
+        params: { allowPatterns: ["kubectl get *"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows non-Bash tools", async () => {
+      const ctx = makeCtx({ toolName: "Read", toolInput: { command: "kubectl apply -f x.yaml" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+  });
+
+  describe("block-terraform", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "block-terraform")!;
+
+    it("blocks terraform apply", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "terraform apply -auto-approve" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks terraform destroy", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "terraform destroy" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("also blocks tofu (OpenTofu)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "tofu apply" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows terraform plan with allowPatterns", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "terraform plan" },
+        params: { allowPatterns: ["terraform plan", "terraform validate"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows unrelated commands", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "ls -la" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+  });
+
+  describe("block-aws-cli", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "block-aws-cli")!;
+
+    it("blocks aws s3 cp", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "aws s3 cp ./local s3://bucket/" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks aws ec2 terminate-instances", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "aws ec2 terminate-instances --instance-ids i-123" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows aws sts get-caller-identity with allowPatterns", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "aws sts get-caller-identity" },
+        params: { allowPatterns: ["aws sts get-caller-identity"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("does not match 'awscli' or 'awsctl'", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo awscli" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+  });
+
+  describe("block-gcloud", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "block-gcloud")!;
+
+    it("blocks gcloud compute instances delete", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gcloud compute instances delete my-vm" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows gcloud auth list with allowPatterns", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "gcloud auth list" },
+        params: { allowPatterns: ["gcloud auth list", "gcloud config list"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows unrelated commands", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo hi" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+  });
+
+  describe("block-az-cli", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "block-az-cli")!;
+
+    it("blocks az group delete", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "az group delete --name my-rg --yes" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows az account show with allowPatterns", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "az account show" },
+        params: { allowPatterns: ["az account show"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("does not match commands beginning with another 'az'-prefixed binary", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "azure-cli list" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+  });
+
+  describe("block-helm", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "block-helm")!;
+
+    it("blocks helm install", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "helm install my-release ./chart" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks helm upgrade", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "helm upgrade my-release ./chart" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows helm list with allowPatterns", async () => {
+      const ctx = makeCtx({
+        toolName: "Bash",
+        toolInput: { command: "helm list" },
+        params: { allowPatterns: ["helm list", "helm status *"] },
+      });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+  });
+
+  describe("block-gh-pipeline", () => {
+    const policy = BUILTIN_POLICIES.find((p) => p.name === "block-gh-pipeline")!;
+
+    it("blocks gh workflow run", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh workflow run deploy.yml" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh workflow enable", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh workflow enable deploy.yml" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh run rerun", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh run rerun 12345" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh run cancel", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh run cancel 12345" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh pr merge", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh pr merge 42 --squash" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh release create", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh release create v1.0.0" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh release delete", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh release delete v1.0.0 --yes" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh cache delete", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh cache delete 12345" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh secret set", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh secret set MY_SECRET --body xyz" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh secret delete", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh secret delete MY_SECRET" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("blocks gh workflow run after && chain", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "echo deploying && gh workflow run deploy.yml" } });
+      expect((await policy.fn(ctx)).decision).toBe("deny");
+    });
+
+    it("allows gh pr view (read-only)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh pr view 42" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows gh pr list (read-only)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh pr list --head my-branch" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows gh run list (read-only)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh run list --limit 5" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows gh api repos/.../check-runs (read-only)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh api repos/owner/repo/commits/abc/check-runs" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows gh release view (read-only)", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "gh release view v1.0.0" } });
+      expect((await policy.fn(ctx)).decision).toBe("allow");
+    });
+
+    it("allows unrelated commands", async () => {
+      const ctx = makeCtx({ toolName: "Bash", toolInput: { command: "git status" } });
       expect((await policy.fn(ctx)).decision).toBe("allow");
     });
   });

@@ -1,10 +1,10 @@
 ---
 title: Built-in Policies
-description: "All 32 built-in policies that catch common agent failure modes"
+description: "All 39 built-in policies that catch common agent failure modes"
 icon: shield
 ---
 
-failproofai ships with 32 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Twelve policies accept parameters that let you tune their behavior without writing code. Five workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
+failproofai ships with 39 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Nineteen policies accept parameters that let you tune their behavior without writing code. Five workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
 
 ---
 
@@ -15,6 +15,7 @@ Policies are grouped into categories:
 | Category | Policies | Hook type |
 |----------|----------|-----------|
 | [Dangerous commands](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
+| [Infra commands](#infra-commands) | block-kubectl, block-terraform, block-aws-cli, block-gcloud, block-az-cli, block-helm, block-gh-pipeline | PreToolUse |
 | [Secrets (sanitizers)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
 | [Environment](#environment) | block-env-files, protect-env-vars | PreToolUse |
 | [File access](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
@@ -137,6 +138,198 @@ No parameters.
 **Default:** Denies commands that would uninstall or disable failproofai itself (e.g. `npm uninstall failproofai`, `failproofai policies --uninstall`).
 
 No parameters.
+
+---
+
+## Infra commands
+
+Stop coding agents from running infrastructure CLIs or triggering CI/CD pipelines. All policies in this category are **opt-in** (`defaultEnabled: false`) — agents that legitimately need to call `kubectl`, `terraform`, etc. will not be disrupted unless you enable the policy. When enabled, every invocation of the matched CLI is denied unless the command matches an entry in `allowPatterns`.
+
+The pattern grammar is the same as [`block-sudo`](#block-sudo): tokens are matched against parsed argv, `*` is a wildcard for one token, and any command containing a standalone shell operator (`&&`, `||`, `|`, `;`) or a token with embedded shell metacharacters is rejected before allowlist matching to prevent injection bypasses.
+
+### `block-kubectl`
+
+**Event:** PreToolUse (Bash)  
+**Default:** Denies any `kubectl` invocation.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowPatterns` | `string[]` | `[]` | kubectl command prefixes that are permitted. |
+
+**Example:**
+
+```json
+{
+  "policyParams": {
+    "block-kubectl": {
+      "allowPatterns": ["kubectl get *", "kubectl describe *", "kubectl logs *"]
+    }
+  }
+}
+```
+
+With this config, `kubectl get pods` is allowed but `kubectl apply -f deploy.yaml` is denied.
+
+---
+
+### `block-terraform`
+
+**Event:** PreToolUse (Bash)  
+**Default:** Denies any `terraform` or `tofu` (OpenTofu) invocation.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowPatterns` | `string[]` | `[]` | terraform/tofu command prefixes that are permitted. |
+
+**Example:**
+
+```json
+{
+  "policyParams": {
+    "block-terraform": {
+      "allowPatterns": ["terraform plan", "terraform validate", "terraform show *"]
+    }
+  }
+}
+```
+
+---
+
+### `block-aws-cli`
+
+**Event:** PreToolUse (Bash)  
+**Default:** Denies any `aws` CLI invocation.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowPatterns` | `string[]` | `[]` | aws CLI command prefixes that are permitted. |
+
+**Example:**
+
+```json
+{
+  "policyParams": {
+    "block-aws-cli": {
+      "allowPatterns": ["aws s3 ls *", "aws sts get-caller-identity"]
+    }
+  }
+}
+```
+
+---
+
+### `block-gcloud`
+
+**Event:** PreToolUse (Bash)  
+**Default:** Denies any `gcloud` (Google Cloud) CLI invocation.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowPatterns` | `string[]` | `[]` | gcloud command prefixes that are permitted. |
+
+**Example:**
+
+```json
+{
+  "policyParams": {
+    "block-gcloud": {
+      "allowPatterns": ["gcloud auth list", "gcloud config list"]
+    }
+  }
+}
+```
+
+---
+
+### `block-az-cli`
+
+**Event:** PreToolUse (Bash)  
+**Default:** Denies any `az` (Azure) CLI invocation.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowPatterns` | `string[]` | `[]` | az CLI command prefixes that are permitted. |
+
+**Example:**
+
+```json
+{
+  "policyParams": {
+    "block-az-cli": {
+      "allowPatterns": ["az account show", "az group list"]
+    }
+  }
+}
+```
+
+---
+
+### `block-helm`
+
+**Event:** PreToolUse (Bash)  
+**Default:** Denies any `helm` invocation.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowPatterns` | `string[]` | `[]` | helm command prefixes that are permitted. |
+
+**Example:**
+
+```json
+{
+  "policyParams": {
+    "block-helm": {
+      "allowPatterns": ["helm list", "helm status *"]
+    }
+  }
+}
+```
+
+---
+
+### `block-gh-pipeline`
+
+**Event:** PreToolUse (Bash)  
+**Default:** Denies the following `gh` CLI subcommands that mutate state or trigger pipelines:
+
+- `gh workflow run`, `gh workflow enable`, `gh workflow disable`
+- `gh run rerun`, `gh run cancel`
+- `gh pr merge`
+- `gh release create`, `gh release delete`
+- `gh cache delete`
+- `gh secret set`, `gh secret delete`
+
+Read-only `gh` subcommands such as `gh pr view`, `gh pr list`, `gh run list`, `gh release view`, and `gh api repos/.../...` are **not** matched by this policy — they are routinely needed for workflow checks (including failproofai's own `require-ci-green-before-stop`).
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `allowPatterns` | `string[]` | `[]` | Specific scripted invocations to allow even though they would otherwise be denied. |
+
+**Example:**
+
+```json
+{
+  "policyParams": {
+    "block-gh-pipeline": {
+      "allowPatterns": ["gh run rerun *"]
+    }
+  }
+}
+```
 
 ---
 
