@@ -5,7 +5,7 @@
 import type { HookEventType, SessionMetadata } from "./types";
 import type { PolicyContext, HooksConfig } from "./policy-types";
 import { BUILTIN_POLICIES } from "./builtin-policies";
-import { getPoliciesForEvent, normalizePolicyName } from "./policy-registry";
+import { DEFAULT_POLICY_NAMESPACE, getPoliciesForEvent, normalizePolicyName } from "./policy-registry";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
 function appendHint(baseReason: string, hint: unknown): string {
@@ -35,7 +35,11 @@ const POLICY_PARAMS_MAP = new Map(
 /**
  * Look up policy params for a canonical policy name in the user config,
  * tolerating either flat ("block-force-push") or qualified
- * ("exospherehost/block-force-push") config keys.
+ * ("exospherehost/block-force-push") config keys for built-in policies.
+ *
+ * The flat-key fallback is intentionally limited to the default namespace
+ * so namespace isolation is preserved: `policyParams.foo` only matches
+ * `exospherehost/foo`, never `myorg/foo` or `custom/foo`.
  */
 function getConfigParamsFor(
   config: HooksConfig | undefined,
@@ -44,11 +48,9 @@ function getConfigParamsFor(
   if (!config?.policyParams) return undefined;
   const canonicalParams = config.policyParams[canonicalName];
   if (canonicalParams) return canonicalParams;
-  // Fall back to flat name (strip default-namespace prefix if present)
-  const slash = canonicalName.indexOf("/");
-  if (slash < 0) return undefined;
-  const shortName = canonicalName.slice(slash + 1);
-  return config.policyParams[shortName];
+  const defaultPrefix = `${DEFAULT_POLICY_NAMESPACE}/`;
+  if (!canonicalName.startsWith(defaultPrefix)) return undefined;
+  return config.policyParams[canonicalName.slice(defaultPrefix.length)];
 }
 
 export async function evaluatePolicies(

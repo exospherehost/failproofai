@@ -23,7 +23,7 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-- **30 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
+- **32 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
 - **Custom Policies** - Write your own reliability rules in JavaScript. Use the `allow`/`deny`/`instruct` API to enforce conventions, prevent drift, gate operations, or integrate with external systems.
 - **Easy Configuration** - Tune any policy without writing code. Set allowlists, protected branches, thresholds per-project or globally. Three-scope config merges automatically.
 - **Agent Monitor** - See what your agents did while you were away. Browse sessions, inspect every tool call, and review exactly where policies fired.

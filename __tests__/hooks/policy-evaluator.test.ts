@@ -327,6 +327,28 @@ describe("hooks/policy-evaluator", () => {
       ).resolves.not.toThrow();
     });
 
+    it("flat policyParams key only matches default-namespace policies (not custom/myorg)", async () => {
+      // A custom hook registered with a third-party namespace must NOT pick up
+      // params keyed by the bare short name — that key belongs to the
+      // exospherehost/<short> builtin slot, not myorg/<short>.
+      let capturedHint: unknown = null;
+      registerPolicy("myorg/foo", "desc", () => ({
+        decision: "deny",
+        reason: "denied by myorg/foo",
+      }), { events: ["PreToolUse"] });
+
+      const config = {
+        enabledPolicies: ["myorg/foo"],
+        policyParams: { foo: { hint: "should NOT leak across namespaces" } },
+      };
+      const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" }, undefined, config);
+      expect(result.decision).toBe("deny");
+      // Reason must not include the hint from the unrelated default-namespace key
+      expect(result.reason).toBe("denied by myorg/foo");
+      capturedHint = result.reason?.includes("should NOT leak");
+      expect(capturedHint).toBe(false);
+    });
+
     it("custom hooks registered with custom/ prefix receive empty params", async () => {
       let capturedParams: unknown = undefined;
       registerPolicy("custom/my-hook", "custom", async (ctx) => {
