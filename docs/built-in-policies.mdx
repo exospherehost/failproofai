@@ -547,9 +547,9 @@ pull requests. If `gh` is not installed or not authenticated, the policy fails o
 **Default:** Denies stopping when the current branch cannot cleanly merge into the base branch. Runs two independent probes:
 
 1. **Local** — `git merge-tree --write-tree --name-only origin/<baseBranch> HEAD`. On conflict, the deny message names the conflicted files so Claude knows exactly what to resolve.
-2. **GitHub** — `gh pr view --json mergeable`. Catches conflicts that a stale local `origin/<baseBranch>` would miss (e.g. someone landed a conflicting PR on `main` since the last fetch). A `CONFLICTING` result denies. An `UNKNOWN` result (GitHub still computing) also denies and instructs Claude to wait ~10 seconds and re-check before attempting to stop again — this prevents false negatives while GitHub recomputes.
+2. **GitHub** — `gh pr view --json mergeable,state`. Catches conflicts that a stale local `origin/<baseBranch>` would miss (e.g. someone landed a conflicting PR on `main` since the last fetch). A `CONFLICTING` result denies. An `UNKNOWN` result on an `OPEN` PR (GitHub still computing) also denies and instructs Claude to wait ~10 seconds and re-check before attempting to stop again — this prevents false negatives while GitHub recomputes. The check is skipped entirely for any PR whose state is not `OPEN` (e.g. `MERGED`, `CLOSED`), since GitHub stops computing mergeability for non-open PRs.
 
-Fails open when `origin/<baseBranch>` is missing locally, when no commits are ahead of base, when `gh` is not installed, or when no PR exists for the branch.
+Fails open when `origin/<baseBranch>` is missing locally, when no commits are ahead of base, when `gh` is not installed, when no PR exists for the branch, or when the PR is not OPEN.
 
 **Parameters:**
 
