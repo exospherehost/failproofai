@@ -2,12 +2,16 @@
 
 ## Unreleased
 
+## 0.0.6 — 2026-04-27
+
 ### Features
 - Add cloud platform client: `login`, `logout`, `whoami`, `relay start|stop|status`, and `sync` subcommands. Hook events are appended to a local queue and streamed to the failproofai cloud server via a background relay daemon that lazy-starts from the hook handler and survives reboots (#132)
 - Add `require-no-conflicts-before-stop` builtin workflow policy that denies Stop until the current branch merges cleanly with the base branch. Runs a local `git merge-tree` probe (names the conflicted files) and an optional `gh pr view --json mergeable` probe that catches conflicts a stale local `origin/<base>` would miss (#176)
+- Add policy namespace support. Built-in policies now live under the `exospherehost/` namespace; flat names in user configs (e.g. `"sanitize-jwt"`) auto-resolve to the default namespace, so existing configs keep working unchanged. Custom and third-party policies can declare their own namespace (e.g. `myorg/foo`) without colliding with builtins (#196)
 
 ### Docs
 - Add demo GIF to README (#178)
+- Document the policy namespace concept and update built-in policy count from 30 to 32 (#196)
 
 ### Fixes
 - Fix `require-no-conflicts-before-stop` falsely denying when the PR is already merged or closed: GitHub returns `mergeable=UNKNOWN` for non-OPEN PRs, which the policy was treating as "still computing → wait and retry". The policy now requests `state` and short-circuits to allow when the PR is not OPEN (#196)

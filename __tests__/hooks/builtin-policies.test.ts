@@ -45,11 +45,30 @@ describe("hooks/builtin-policies", () => {
   });
 
   describe("registerBuiltinPolicies", () => {
-    it("registers only specified policies", () => {
+    it("registers only specified policies (canonicalized to default namespace)", () => {
       registerBuiltinPolicies(["block-sudo", "block-rm-rf"]);
       const policies = getPoliciesForEvent("PreToolUse", "Bash");
       expect(policies).toHaveLength(2);
-      expect(policies.map((p) => p.name).sort()).toEqual(["block-rm-rf", "block-sudo"]);
+      expect(policies.map((p) => p.name).sort()).toEqual([
+        "exospherehost/block-rm-rf",
+        "exospherehost/block-sudo",
+      ]);
+    });
+
+    it("accepts qualified names in enabledPolicies (forward compat)", () => {
+      registerBuiltinPolicies(["exospherehost/block-sudo", "exospherehost/block-rm-rf"]);
+      const policies = getPoliciesForEvent("PreToolUse", "Bash");
+      expect(policies).toHaveLength(2);
+      expect(policies.map((p) => p.name).sort()).toEqual([
+        "exospherehost/block-rm-rf",
+        "exospherehost/block-sudo",
+      ]);
+    });
+
+    it("treats flat and qualified names as equivalent (mixed config works)", () => {
+      registerBuiltinPolicies(["block-sudo", "exospherehost/block-rm-rf"]);
+      const policies = getPoliciesForEvent("PreToolUse", "Bash");
+      expect(policies).toHaveLength(2);
     });
 
     it("registers nothing for empty array", () => {

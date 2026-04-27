@@ -258,7 +258,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | Guide | Description |
 |-------|-------------|
 | [Getting Started](docs/getting-started.mdx) | Installation and first steps |
-| [Built-in Policies](docs/built-in-policies.mdx) | All 30 built-in policies with parameters |
+| [Built-in Policies](docs/built-in-policies.mdx) | All 32 built-in policies with parameters |
 | [Custom Policies](docs/custom-policies.mdx) | Write your own policies |
 | [Configuration](docs/configuration.mdx) | Config file format and scope merging |
 | [Dashboard](docs/dashboard.mdx) | Monitor sessions and review policy activity |

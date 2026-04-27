@@ -4,6 +4,8 @@ import {
   registerPolicy,
   getPoliciesForEvent,
   clearPolicies,
+  normalizePolicyName,
+  DEFAULT_POLICY_NAMESPACE,
 } from "../../src/hooks/policy-registry";
 
 describe("hooks/policy-registry", () => {
@@ -11,11 +13,11 @@ describe("hooks/policy-registry", () => {
     clearPolicies();
   });
 
-  it("registers and retrieves a policy", () => {
+  it("registers and retrieves a policy (canonicalizes flat name to default namespace)", () => {
     registerPolicy("test", "desc", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
     const policies = getPoliciesForEvent("PreToolUse");
     expect(policies).toHaveLength(1);
-    expect(policies[0].name).toBe("test");
+    expect(policies[0].name).toBe("exospherehost/test");
   });
 
   it("upserts by name", () => {
@@ -31,9 +33,9 @@ describe("hooks/policy-registry", () => {
     registerPolicy("post", "desc", () => ({ decision: "allow" }), { events: ["PostToolUse"] });
 
     expect(getPoliciesForEvent("PreToolUse")).toHaveLength(1);
-    expect(getPoliciesForEvent("PreToolUse")[0].name).toBe("pre");
+    expect(getPoliciesForEvent("PreToolUse")[0].name).toBe("exospherehost/pre");
     expect(getPoliciesForEvent("PostToolUse")).toHaveLength(1);
-    expect(getPoliciesForEvent("PostToolUse")[0].name).toBe("post");
+    expect(getPoliciesForEvent("PostToolUse")[0].name).toBe("exospherehost/post");
   });
 
   it("filters by tool name", () => {
@@ -50,7 +52,7 @@ describe("hooks/policy-registry", () => {
 
     const readPolicies = getPoliciesForEvent("PreToolUse", "Read");
     expect(readPolicies).toHaveLength(1);
-    expect(readPolicies[0].name).toBe("any-tool");
+    expect(readPolicies[0].name).toBe("exospherehost/any-tool");
   });
 
   it("sorts by priority (higher first)", () => {
@@ -59,7 +61,11 @@ describe("hooks/policy-registry", () => {
     registerPolicy("mid", "desc", () => ({ decision: "allow" }), { events: ["PreToolUse"] }, 5);
 
     const policies = getPoliciesForEvent("PreToolUse");
-    expect(policies.map((p) => p.name)).toEqual(["high", "mid", "low"]);
+    expect(policies.map((p) => p.name)).toEqual([
+      "exospherehost/high",
+      "exospherehost/mid",
+      "exospherehost/low",
+    ]);
   });
 
   it("clearPolicies removes all entries", () => {
@@ -81,5 +87,38 @@ describe("hooks/policy-registry", () => {
     expect(getPoliciesForEvent("PreToolUse", "Bash")).toHaveLength(1);
     expect(getPoliciesForEvent("PostToolUse", "Read")).toHaveLength(1);
     expect(getPoliciesForEvent("SessionStart")).toHaveLength(1);
+  });
+
+  describe("namespace canonicalization", () => {
+    it("DEFAULT_POLICY_NAMESPACE is exospherehost", () => {
+      expect(DEFAULT_POLICY_NAMESPACE).toBe("exospherehost");
+    });
+
+    it("normalizePolicyName prepends default namespace to flat names", () => {
+      expect(normalizePolicyName("foo")).toBe("exospherehost/foo");
+      expect(normalizePolicyName("sanitize-jwt")).toBe("exospherehost/sanitize-jwt");
+    });
+
+    it("normalizePolicyName leaves already-namespaced names untouched", () => {
+      expect(normalizePolicyName("exospherehost/foo")).toBe("exospherehost/foo");
+      expect(normalizePolicyName("myorg/bar")).toBe("myorg/bar");
+      expect(normalizePolicyName("custom/hook")).toBe("custom/hook");
+    });
+
+    it("registering a flat name and a qualified name for the same policy upserts (not duplicates)", () => {
+      registerPolicy("dup", "first", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
+      registerPolicy("exospherehost/dup", "second", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
+      const policies = getPoliciesForEvent("PreToolUse");
+      expect(policies).toHaveLength(1);
+      expect(policies[0].name).toBe("exospherehost/dup");
+      expect(policies[0].description).toBe("second");
+    });
+
+    it("custom-namespace policies coexist with same short-name builtins", () => {
+      registerPolicy("foo", "builtin", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
+      registerPolicy("myorg/foo", "custom", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
+      const policies = getPoliciesForEvent("PreToolUse");
+      expect(policies.map((p) => p.name).sort()).toEqual(["exospherehost/foo", "myorg/foo"]);
+    });
   });
 });

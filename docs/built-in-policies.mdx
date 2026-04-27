@@ -1,10 +1,10 @@
 ---
 title: Built-in Policies
-description: "All 30 built-in policies that catch common agent failure modes"
+description: "All 32 built-in policies that catch common agent failure modes"
 icon: shield
 ---
 
-failproofai ships with 30 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Nine policies accept parameters that let you tune their behavior without writing code. Four workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
+failproofai ships with 32 built-in policies that catch common agent failure modes. Each policy fires on a specific hook event type and tool name. Nine policies accept parameters that let you tune their behavior without writing code. Four workflow policies enforce a commit → push → PR → CI pipeline before Claude stops.
 
 ---
 
@@ -27,6 +27,29 @@ Policies are grouped into categories:
 - **`block-`** — stop the agent from proceeding.
 - **`warn-`** — give the agent additional context so it can self-correct.
 - **`sanitize-`** — scrub sensitive data from tool output before the agent sees it.
+
+### Namespaces
+
+Every policy lives in a `<namespace>/<name>` slot. Built-in policies belong to the
+**`exospherehost/`** namespace — for example, `exospherehost/sanitize-jwt`. The
+namespace prevents collisions when you also load custom or third-party policies
+with similar short names.
+
+In your config you can refer to a built-in by either its short name or its
+qualified name; both forms resolve to the same policy:
+
+```json
+{
+  "enabledPolicies": [
+    "sanitize-jwt",
+    "exospherehost/block-rm-rf"
+  ]
+}
+```
+
+If a name has no `/`, failproofai treats it as belonging to the default
+namespace `exospherehost`. Names that already contain a `/` (e.g. `myorg/foo`,
+`custom/my-hook`) are kept as-is.
 - **`require-`** — block the Stop event until conditions are met.
 
 ---

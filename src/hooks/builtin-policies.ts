@@ -7,7 +7,7 @@ import { execSync, execFileSync } from "node:child_process";
 import { homedir } from "node:os";
 import type { BuiltinPolicyDefinition, PolicyContext, PolicyResult, PolicyParamsSchema } from "./policy-types";
 import { allow, deny, instruct } from "./policy-helpers";
-import { registerPolicy } from "./policy-registry";
+import { normalizePolicyName, registerPolicy } from "./policy-registry";
 import { hookLogWarn } from "./hook-logger";
 
 function isClaudeInternalPath(resolved: string): boolean {
@@ -1724,9 +1724,11 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
 ];
 
 export function registerBuiltinPolicies(enabledNames: string[]): void {
-  const enabledSet = new Set(enabledNames);
+  // Tolerate both flat ("sanitize-jwt") and qualified ("exospherehost/sanitize-jwt")
+  // forms in the user's enabledPolicies config — canonicalize both sides.
+  const enabledSet = new Set(enabledNames.map(normalizePolicyName));
   for (const policy of BUILTIN_POLICIES) {
-    if (enabledSet.has(policy.name)) {
+    if (enabledSet.has(normalizePolicyName(policy.name))) {
       registerPolicy(policy.name, policy.description, policy.fn, policy.match);
     }
   }
