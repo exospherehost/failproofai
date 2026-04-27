@@ -4,6 +4,7 @@
 
 ### Fixes
 - Skip `require-no-conflicts-before-stop` entirely when no OPEN PR exists for the current branch (or when `gh` CLI is unavailable to check). The policy no longer runs Layer 1's local `git merge-tree` probe in those cases — without a confirmable merge target there is nothing to enforce (#198).
+- Resolve project policy config (`.failproofai/`) by walking up from the live CWD to find the nearest project root, instead of looking only at the exact session cwd. Stop-gating policies (`require-pr-before-stop`, `block-read-outside-cwd`, etc.) no longer silently disable when Claude `cd`s into a subdirectory. Also covers `customPoliciesPath` and project convention discovery in `custom-hooks-loader.ts` (#200).
 
 ## 0.0.6 — 2026-04-27
 

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 
 vi.mock("node:fs", () => ({
@@ -76,7 +76,19 @@ describe("hooks/hooks-config", () => {
     const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
 
     function mockFiles(files: Record<string, object>): void {
-      vi.mocked(existsSync).mockImplementation((p) => String(p) in files);
+      // Also report parent dirs as existing — the walk-up resolver checks
+      // `.failproofai/` directory existence to find the project root.
+      const dirs = new Set<string>();
+      for (const p of Object.keys(files)) {
+        let d = dirname(p);
+        while (d && d !== dirname(d)) {
+          dirs.add(d);
+          d = dirname(d);
+        }
+      }
+      vi.mocked(existsSync).mockImplementation(
+        (p) => String(p) in files || dirs.has(String(p)),
+      );
       vi.mocked(readFileSync).mockImplementation((p) => {
         const key = String(p);
         if (key in files) return JSON.stringify(files[key]);
@@ -189,6 +201,119 @@ describe("hooks/hooks-config", () => {
       const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
       const config = readMergedHooksConfig(CWD);
       expect(config.policyParams).toBeUndefined();
+    });
+  });
+
+  describe("walk-up resolution (#200)", () => {
+    function mockFilesWithDirs(files: Record<string, object>): void {
+      const dirs = new Set<string>();
+      for (const p of Object.keys(files)) {
+        let d = dirname(p);
+        while (d && d !== dirname(d)) {
+          dirs.add(d);
+          d = dirname(d);
+        }
+      }
+      vi.mocked(existsSync).mockImplementation(
+        (p) => String(p) in files || dirs.has(String(p)),
+      );
+      vi.mocked(readFileSync).mockImplementation((p) => {
+        const key = String(p);
+        if (key in files) return JSON.stringify(files[key]);
+        throw new Error("ENOENT");
+      });
+    }
+
+    it("finds project config when CWD is in an immediate subdir", async () => {
+      const projectPath = resolve("/tmp/proj", ".failproofai", "policies-config.json");
+      mockFilesWithDirs({
+        [projectPath]: { enabledPolicies: ["block-sudo"] },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig("/tmp/proj/sub");
+      expect(config.enabledPolicies).toEqual(["block-sudo"]);
+    });
+
+    it("finds project config when CWD is a deep subdir", async () => {
+      const projectPath = resolve("/tmp/proj", ".failproofai", "policies-config.json");
+      mockFilesWithDirs({
+        [projectPath]: { enabledPolicies: ["sanitize-jwt"] },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig("/tmp/proj/a/b/c/d");
+      expect(config.enabledPolicies).toEqual(["sanitize-jwt"]);
+    });
+
+    it("falls through to global when no .failproofai exists in any parent", async () => {
+      const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
+      mockFilesWithDirs({
+        [globalPath]: { enabledPolicies: ["block-rm-rf"] },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      // /tmp/orphan and parents don't have .failproofai
+      const config = readMergedHooksConfig("/tmp/orphan/sub");
+      expect(config.enabledPolicies).toEqual(["block-rm-rf"]);
+    });
+
+    it("does not pick up ~/.failproofai (the global dir) as a project root", async () => {
+      const globalPath = resolve(homedir(), ".failproofai", "policies-config.json");
+      mockFilesWithDirs({
+        [globalPath]: { enabledPolicies: ["sanitize-jwt"] },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      // CWD is under home but no project-level .failproofai exists.
+      // Walk must NOT treat ~/.failproofai as the project root.
+      const config = readMergedHooksConfig(resolve(homedir(), "some-proj/sub"));
+      // If walk had wrongly picked up ~ as project root, it would have read
+      // ~/.failproofai/policies-config.json as a "project" config — same enabled
+      // policies but `customPoliciesPath` would resolve relative to ~ which the
+      // user never asked for. The merge result is still the global config; this
+      // test mainly asserts no crash and that we read globalPath via the
+      // global-fallback path.
+      expect(config.enabledPolicies).toEqual(["sanitize-jwt"]);
+    });
+
+    it("first match wins — does not escape into a parent project", async () => {
+      const innerPath = resolve("/tmp/A", ".failproofai", "policies-config.json");
+      const outerPath = resolve("/tmp", ".failproofai", "policies-config.json");
+      mockFilesWithDirs({
+        [innerPath]: { enabledPolicies: ["inner-policy"] },
+        [outerPath]: { enabledPolicies: ["outer-policy"] },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig("/tmp/A/sub");
+      expect(config.enabledPolicies).toContain("inner-policy");
+      expect(config.enabledPolicies).not.toContain("outer-policy");
+    });
+
+    it("local-only config (no policies-config.json) is found via the .failproofai dir marker", async () => {
+      const localPath = resolve("/tmp/proj", ".failproofai", "policies-config.local.json");
+      mockFilesWithDirs({
+        [localPath]: { enabledPolicies: ["block-push-master"] },
+      });
+      const { readMergedHooksConfig } = await import("../../src/hooks/hooks-config");
+      const config = readMergedHooksConfig("/tmp/proj/sub");
+      expect(config.enabledPolicies).toEqual(["block-push-master"]);
+    });
+
+    it("getConfigPathForScope walks up for project scope", async () => {
+      const projectPath = resolve("/tmp/proj", ".failproofai", "policies-config.json");
+      mockFilesWithDirs({
+        [projectPath]: { enabledPolicies: [] },
+      });
+      const { getConfigPathForScope } = await import("../../src/hooks/hooks-config");
+      expect(getConfigPathForScope("project", "/tmp/proj/sub")).toBe(projectPath);
+    });
+
+    it("getConfigPathForScope walks up for local scope", async () => {
+      const projectPath = resolve("/tmp/proj", ".failproofai", "policies-config.json");
+      mockFilesWithDirs({
+        [projectPath]: { enabledPolicies: [] },
+      });
+      const { getConfigPathForScope } = await import("../../src/hooks/hooks-config");
+      expect(getConfigPathForScope("local", "/tmp/proj/a/b")).toBe(
+        resolve("/tmp/proj", ".failproofai", "policies-config.local.json"),
+      );
     });
   });
 
