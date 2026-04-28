@@ -17,11 +17,23 @@
 
 **Translations**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-The easiest way to manage policies that keep your AI agents reliable, on-task, and running autonomously - for **Claude Code** & the **Agents SDK**.
+The easiest way to manage policies that keep your AI agents reliable, on-task, and running autonomously - for **Claude Code**, **OpenAI Codex** & the **Agents SDK**.
 
 <p align="center">
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
+
+### Supported agent CLIs
+
+<p align="center">
+  <a href="https://claude.com/claude-code"><img src="https://img.shields.io/badge/Claude%20Code-supported-D97757?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code"/></a>
+  &nbsp;
+  <a href="https://developers.openai.com/codex"><img src="https://img.shields.io/badge/OpenAI%20Codex-supported-412991?style=flat-square&logo=openai&logoColor=white" alt="OpenAI Codex"/></a>
+  &nbsp;
+  <img src="https://img.shields.io/badge/More%20CLIs-coming%20soon-6e6e6e?style=flat-square" alt="More agent CLIs coming soon"/>
+</p>
+
+> Install hooks for one or both: `failproofai policies --install --cli codex` (or `--cli claude-code,codex`). Omit `--cli` to auto-detect installed CLIs and prompt.
 
 - **39 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
 - **Custom Policies** - Write your own reliability rules in JavaScript. Use the `allow`/`deny`/`instruct` API to enforce conventions, prevent drift, gate operations, or integrate with external systems.

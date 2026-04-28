@@ -76,6 +76,7 @@ export async function evaluatePolicies(
     toolName,
     toolInput,
     session,
+    cli: session?.cli,
   };
 
   // Track all instruct results (accumulated, does not short-circuit)
@@ -125,6 +126,28 @@ export async function evaluatePolicies(
             hookEventName: eventType,
             permissionDecision: "deny",
             permissionDecisionReason: `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`,
+          },
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(response),
+          stderr: "",
+          policyName: policy.name,
+          reason,
+          decision: "deny",
+        };
+      }
+
+      if (eventType === "PermissionRequest") {
+        // Codex-only: hookSpecificOutput.decision.behavior = "allow" | "deny"
+        // (per https://developers.openai.com/codex/hooks#permissionrequest).
+        const response = {
+          hookSpecificOutput: {
+            hookEventName: eventType,
+            decision: {
+              behavior: "deny",
+              message: `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`,
+            },
           },
         };
         return {
@@ -235,7 +258,11 @@ export async function evaluatePolicies(
   if (allowEntries.length > 0) {
     const combined = allowEntries.map((e) => e.reason).join("\n");
     const policyNames = allowEntries.map((e) => e.policyName);
-    const supportsHookSpecificOutput = eventType === "PreToolUse" || eventType === "PostToolUse" || eventType === "UserPromptSubmit";
+    const supportsHookSpecificOutput =
+      eventType === "PreToolUse" ||
+      eventType === "PostToolUse" ||
+      eventType === "UserPromptSubmit" ||
+      eventType === "PermissionRequest";
     const response = supportsHookSpecificOutput
       ? { hookSpecificOutput: { hookEventName: eventType, additionalContext: `Note from failproofai: ${combined}` } }
       : { reason: combined };

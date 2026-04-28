@@ -101,3 +101,79 @@ export const Payloads = {
     };
   },
 };
+
+/**
+ * Codex-accurate payload factories. Codex sends snake_case `hook_event_name`
+ * (pre_tool_use, post_tool_use, …); the failproofai handler canonicalizes to
+ * PascalCase for internal lookup. Otherwise the shape mirrors Claude.
+ */
+const CODEX_SESSION_ID = "test-session-codex-001";
+
+export const CodexPayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: CODEX_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "pre_tool_use",
+        tool_name: "Bash",
+        tool_input: { command },
+      };
+    },
+    write(filePath: string, content: string, cwd: string): Record<string, unknown> {
+      // Codex aliases Edit/Write → apply_patch in matchers, so policies that
+      // filter on toolNames: ["Write"] continue to fire for Codex.
+      return {
+        session_id: CODEX_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "pre_tool_use",
+        tool_name: "Write",
+        tool_input: { file_path: filePath, content },
+      };
+    },
+  },
+  postToolUse: {
+    bash(command: string, output: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: CODEX_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "post_tool_use",
+        tool_name: "Bash",
+        tool_input: { command },
+        tool_response: output,
+      };
+    },
+  },
+  permissionRequest: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: CODEX_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "permission_request",
+        tool_name: "Bash",
+        tool_input: { command, description: "Run shell command outside sandbox" },
+      };
+    },
+  },
+  stop(cwd: string): Record<string, unknown> {
+    return {
+      session_id: CODEX_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "stop",
+    };
+  },
+  userPromptSubmit(prompt: string, cwd: string): Record<string, unknown> {
+    return {
+      session_id: CODEX_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "user_prompt_submit",
+      prompt,
+    };
+  },
+};

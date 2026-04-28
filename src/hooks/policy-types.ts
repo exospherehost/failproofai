@@ -1,7 +1,7 @@
 /**
  * Types for the hook policy system.
  */
-import type { HookEventType, SessionMetadata } from "./types";
+import type { HookEventType, IntegrationType, SessionMetadata } from "./types";
 
 export type PolicyDecision = "allow" | "deny" | "instruct";
 
@@ -12,6 +12,8 @@ export interface PolicyContext {
   toolInput?: Record<string, unknown>;
   session?: SessionMetadata;
   params?: Record<string, unknown>;
+  /** Which agent CLI fired this hook. Mirrors session.cli; exposed at the top level for ergonomics. */
+  cli?: IntegrationType;
 }
 
 export interface PolicyResult {

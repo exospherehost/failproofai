@@ -192,6 +192,7 @@ describe("hooks/handler", () => {
         "hook_policy_triggered",
         {
           event_type: "PreToolUse",
+          cli: "claude-code",
           tool_name: "Bash",
           policy_name: "block-sudo",
           decision: "deny",
@@ -224,6 +225,7 @@ describe("hooks/handler", () => {
         "hook_policy_triggered",
         {
           event_type: "PreToolUse",
+          cli: "claude-code",
           tool_name: "Read",
           policy_name: "warn-repeated-tool-calls",
           decision: "instruct",
@@ -365,6 +367,7 @@ describe("hooks/handler", () => {
         "test-instance-id",
         "custom_hooks_loaded",
         {
+          cli: "claude-code",
           custom_hooks_count: 2,
           custom_hook_names: ["hook-a", "hook-b"],
           event_types_covered: expect.arrayContaining(["PreToolUse", "Stop"]),
@@ -407,7 +410,7 @@ describe("hooks/handler", () => {
       expect(trackHookEvent).toHaveBeenCalledWith(
         "test-instance-id",
         "custom_hook_error",
-        { hook_name: "bad-hook", error_type: "exception", event_type: "PreToolUse", is_convention_policy: false, convention_scope: null },
+        { hook_name: "bad-hook", error_type: "exception", event_type: "PreToolUse", cli: "claude-code", is_convention_policy: false, convention_scope: null },
       );
     });
 
@@ -436,7 +439,7 @@ describe("hooks/handler", () => {
       expect(trackHookEvent).toHaveBeenCalledWith(
         "test-instance-id",
         "custom_hook_error",
-        { hook_name: "slow-hook", error_type: "timeout", event_type: "PreToolUse", is_convention_policy: false, convention_scope: null },
+        { hook_name: "slow-hook", error_type: "timeout", event_type: "PreToolUse", cli: "claude-code", is_convention_policy: false, convention_scope: null },
       );
     });
 
@@ -496,8 +499,10 @@ describe("hooks/handler", () => {
         sessionId: undefined,
         transcriptPath: undefined,
         cwd: undefined,
-        permissionMode: undefined,
+        // resolvePermissionMode returns "default" for claude-code with no permission_mode in stdin
+        permissionMode: "default",
         hookEventName: undefined,
+        integration: "claude-code",
       }),
     );
   });

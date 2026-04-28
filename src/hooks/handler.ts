@@ -5,7 +5,8 @@
  * ~/.failproofai/policies-config.json, evaluates matching policies, persists
  * activity to disk, and returns the appropriate exit code + stdout response.
  */
-import type { HookEventType, SessionMetadata } from "./types";
+import type { HookEventType, IntegrationType, SessionMetadata, CodexHookEventType } from "./types";
+import { CODEX_EVENT_MAP } from "./types";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
 import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
@@ -15,10 +16,28 @@ import { loadAllCustomHooks } from "./custom-hooks-loader";
 import type { CustomHook } from "./policy-types";
 import { persistHookActivity } from "./hook-activity-store";
 import { trackHookEvent } from "./hook-telemetry";
+import { resolvePermissionMode } from "./resolve-permission-mode";
 import { getInstanceId } from "../../lib/telemetry-id";
 import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
-export async function handleHookEvent(eventType: string): Promise<number> {
+/**
+ * Canonicalize an event name to PascalCase. Codex sends snake_case event names
+ * on stdin and as the --hook arg; Claude Code sends PascalCase. The internal
+ * registry, builtin policies, and policy.match.events all key on PascalCase.
+ */
+function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType {
+  if (cli === "codex") {
+    const mapped = CODEX_EVENT_MAP[raw as CodexHookEventType];
+    if (mapped) return mapped;
+  }
+  // Already PascalCase or unknown — pass through; HOOK_EVENT_TYPES type-checks downstream.
+  return raw as HookEventType;
+}
+
+export async function handleHookEvent(
+  eventType: string,
+  cli: IntegrationType = "claude-code",
+): Promise<number> {
   const startTime = performance.now();
 
   // Read stdin payload (Claude passes JSON)
@@ -57,13 +76,18 @@ export async function handleHookEvent(eventType: string): Promise<number> {
     }
   }
 
+  // Canonicalize event name (Codex sends snake_case; internals expect PascalCase)
+  const canonicalEventType = canonicalizeEventType(eventType, cli);
+
   // Extract session metadata from payload
+  const sessionId = parsed.session_id as string | undefined;
   const session: SessionMetadata = {
-    sessionId: parsed.session_id as string | undefined,
+    sessionId,
     transcriptPath: parsed.transcript_path as string | undefined,
     cwd: parsed.cwd as string | undefined,
-    permissionMode: parsed.permission_mode as string | undefined,
+    permissionMode: resolvePermissionMode(cli, parsed, sessionId),
     hookEventName: parsed.hook_event_name as string | undefined,
+    cli,
   };
 
   // Load enabled policies (merge across project/local/global scopes)
@@ -98,6 +122,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
           hook_name: hookName,
           error_type: isTimeout ? "timeout" : "exception",
           event_type: eventType,
+          cli,
           is_convention_policy: isConvention,
           convention_scope: conventionScope ?? null,
         });
@@ -116,6 +141,7 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   // Fire telemetry once per invocation for custom hook loads
   if (customHooksList.length > 0) {
     void trackHookEvent(getInstanceId(), "custom_hooks_loaded", {
+      cli,
       custom_hooks_count: customHooksList.length,
       custom_hook_names: customHooksList.map((h) => h.name),
       event_types_covered: [...new Set(customHooksList.flatMap((h) => h.match?.events ?? []))],
@@ -125,7 +151,8 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   // Fire telemetry for convention-based policy discovery
   if (loadResult.conventionSources.length > 0) {
     void trackHookEvent(getInstanceId(), "convention_policies_loaded", {
-      event_type: eventType,
+      event_type: canonicalEventType,
+      cli,
       project_file_count: loadResult.conventionSources.filter((s) => s.scope === "project").length,
       user_file_count: loadResult.conventionSources.filter((s) => s.scope === "user").length,
       convention_hook_count: conventionHookNames.size,
@@ -133,10 +160,10 @@ export async function handleHookEvent(eventType: string): Promise<number> {
     });
   }
 
-  hookLogInfo(`event=${eventType} policies=${config.enabledPolicies.length} custom=${customHooksList.length} convention=${conventionHookNames.size}`);
+  hookLogInfo(`event=${canonicalEventType} cli=${cli} policies=${config.enabledPolicies.length} custom=${customHooksList.length} convention=${conventionHookNames.size}`);
 
-  // Evaluate policies
-  const result = await evaluatePolicies(eventType as HookEventType, parsed, session, config);
+  // Evaluate policies (use canonical PascalCase event type)
+  const result = await evaluatePolicies(canonicalEventType, parsed, session, config);
   const durationMs = Math.round(performance.now() - startTime);
   hookLogInfo(`result=${result.decision} policy=${result.policyName ?? "none"} duration=${durationMs}ms`);
 
@@ -150,7 +177,8 @@ export async function handleHookEvent(eventType: string): Promise<number> {
   // Persist activity to disk (visible in /policies activity tab)
   const activityEntry = {
     timestamp: Date.now(),
-    eventType,
+    eventType: canonicalEventType,
+    integration: cli,
     toolName: (parsed.tool_name as string) ?? null,
     policyName: result.policyName,
     policyNames: result.policyNames,
@@ -203,7 +231,8 @@ export async function handleHookEvent(eventType: string): Promise<number> {
         : [];
       const distinctId = getInstanceId();
       await trackHookEvent(distinctId, "hook_policy_triggered", {
-        event_type: eventType,
+        event_type: canonicalEventType,
+        cli,
         tool_name: (parsed.tool_name as string) ?? null,
         policy_name: result.policyName,
         decision: result.decision,
