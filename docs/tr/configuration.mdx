@@ -1,11 +1,11 @@
 ---
 ---
 title: Yapılandırma
-description: "Yapılandırma dosyası formatı, üç kapsamlı sistem ve birleştirme kuralları"
+description: "Yapılandırma dosyası biçimi, üç kapsamlı sistem ve birleştirme kuralları"
 icon: gear
 ---
 
-failproofai, hangi politikaların aktif olduğunu, nasıl davrandığını ve özel politikaların nereden yüklendiğini kontrol etmek için JSON yapılandırma dosyalarını kullanır. Yapılandırma, takımınızla kolayca paylaşılmak üzere tasarlanmıştır - deponuza commit edin ve her geliştirici aynı ajan güvenlik ağını alır.
+failproofai, hangi politikaların etkin olduğunu, nasıl davrandığını ve özel politikaların nereden yüklendiğini kontrol etmek için JSON yapılandırma dosyalarını kullanır. Yapılandırma, takımınızla paylaşmak için tasarlanmıştır - deponuza aktarın ve her geliştirici aynı ajan güvenlik ağını alır.
 
 ---
 
@@ -15,48 +15,48 @@ failproofai, hangi politikaların aktif olduğunu, nasıl davrandığını ve ö
 
 | Kapsam | Dosya yolu | Amaç |
 |--------|-----------|------|
-| **project** | `.failproofai/policies-config.json` | Depo başına ayarlar, sürüm kontrolüne commit edilir |
-| **local** | `.failproofai/policies-config.local.json` | Kişisel depo başına geçersiz kılmalar, gitignored |
-| **global** | `~/.failproofai/policies-config.json` | Tüm projeler arasında kullanıcı düzeyinde varsayılanlar |
+| **proje** | `.failproofai/policies-config.json` | Repo başına ayarlar, sürüm kontrolüne aktarılır |
+| **yerel** | `.failproofai/policies-config.local.json` | Kişisel repo başına geçersiz kılmalar, gitignore ile |
+| **genel** | `~/.failproofai/policies-config.json` | Tüm projeler arasında kullanıcı düzeyinde varsayılanlar |
 
-failproofai bir hook olayı aldığında, geçerli çalışma dizini için var olan tüm üç dosyayı yükler ve birleştirir.
+failproofai bir hook olayı aldığında, mevcut çalışma dizini için var olan üç dosyanın tamamını yükler ve birleştirir.
 
 ### Birleştirme kuralları
 
-**`enabledPolicies`** - üç kapsamın birleşimi. Herhangi bir düzeyde etkinleştirilen bir politika aktiftir.
+**`enabledPolicies`** - üç kapsamın birleşimi. Herhangi bir seviyede etkinleştirilen bir politika etkindir.
 
 ```text
 project:  ["block-sudo"]
 local:    ["block-rm-rf"]
 global:   ["block-sudo", "sanitize-api-keys"]
 
-resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← deduplicated union
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← tekrardan arındırılmış birleşim
 ```
 
-**`policyParams`** - belirli bir politika için parametreleri tanımlayan ilk kapsam tamamen kazanır. Bir politikanın parametreleri içindeki değerlerde derin birleştirme yoktur.
+**`policyParams`** - belirli bir politika için parametreleri tanımlayan ilk kapsam tamamen kazanır. Bir politikanın parametreleri içinde derin birleştirme yoktur.
 
 ```text
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo apt-get update"] }   ← project kazanır, global yoksayılır
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← proje kazanır, genel göz ardı edilir
 ```
 
 ```text
-project:  (no block-sudo entry)
-local:    (no block-sudo entry)
+project:  (block-sudo girdisi yok)
+local:    (block-sudo girdisi yok)
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo systemctl status"] }  ← global'e düşer
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← genel kapsamına düşer
 ```
 
-**`customPoliciesPath`** - onu tanımlayan ilk kapsam kazanır.
+**`customPoliciesPath`** - tanımlayan ilk kapsam kazanır.
 
-**`llm`** - onu tanımlayan ilk kapsam kazanır.
+**`llm`** - tanımlayan ilk kapsam kazanır.
 
 ---
 
-## Yapılandırma dosyası formatı
+## Yapılandırma dosyası biçimi
 
 ```json
 {
@@ -97,33 +97,33 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← global'e düşer
 
 ---
 
-## Alan referansı
+## Alan başvurusu
 
 ### `enabledPolicies`
 
 Tür: `string[]`
 
-Etkinleştirilecek politika adlarının listesi. Adlar, `failproofai policies` tarafından gösterilen politika tanımlayıcılarıyla tam olarak eşleşmelidir. Tam liste için [Built-in Policies](/tr/built-in-policies) bölümüne bakın.
+Etkinleştirilecek politika adlarının listesi. Adlar `failproofai policies` tarafından gösterilen politika tanımlayıcılarıyla tam olarak eşleşmelidir. Tam liste için [Built-in Policies](/tr/built-in-policies) bölümüne bakın.
 
-`enabledPolicies` içinde olmayan politikalar, `policyParams` içinde girişleri olsa bile inaktiftir.
+`enabledPolicies` içinde olmayan politikalar, `policyParams` içinde girdileri olsa bile etkin değildir.
 
 ### `policyParams`
 
 Tür: `Record<string, Record<string, unknown>>`
 
-Politika başına parametre geçersiz kılmaları. Dış anahtar politika adıdır; iç anahtarlar politikaya özgüdür. Her politika, [Built-in Policies](/tr/built-in-policies) bölümünde mevcut parametrelerini belgelendirir.
+Politika başına parametre geçersiz kılmaları. Dış anahtar politika adıdır; iç anahtarlar politikaya özgüdür. Her politika, [Built-in Policies](/tr/built-in-policies) içinde kullanılabilir parametrelerini belgeler.
 
-Bir politikanın parametreleri varsa ancak bunları belirtmezseniz, politikanın yerleşik varsayılanları kullanılır. `policyParams` hiç yapılandırmayan kullanıcılar önceki sürümlerle aynı davranışı alır.
+Bir politikanın parametreleri varsa ancak bunları belirtmezseniz, politikanın yerleşik varsayılanları kullanılır. `policyParams` öğesini hiç yapılandırmayan kullanıcılar önceki sürümlerle aynı davranışı alırlar.
 
-Bir politikanın parametreleri bloğunun içindeki bilinmeyen anahtarlar, hook tetiklenme zamanında sessizce yoksayılır ancak `failproofai policies` çalıştırdığınızda uyarı olarak işaretlenir.
+Bir politikanın parametreleri bloğu içindeki bilinmeyen anahtarlar, hook tetiklenme zamanında sessizce yok sayılır ancak `failproofai policies` çalıştırdığınızda uyarı olarak işaretlenir.
 
-#### `hint` (kesişen)
+#### `hint` (enine kesit)
 
 Tür: `string` (isteğe bağlı)
 
-Bir politika `deny` veya `instruct` döndürdüğünde nedene eklenen bir ileti. Bunu, politikanın kendisini değiştirmeden Claude'a eylem alınabilir rehberlik sağlamak için kullanın.
+Bir politika `deny` veya `instruct` döndürdüğünde nedene eklenen bir ileti. Politikanın kendisini değiştirmeden Claude'a işlem yapılabilir rehberlik vermek için kullanın.
 
-Herhangi bir politika türü ile çalışır — yerleşik, özel (`custom/`), proje kuralı (`.failproofai-project/`) veya kullanıcı kuralı (`.failproofai-user/`).
+Herhangi bir politika türüyle çalışır — yerleşik, özel (`custom/`), proje kuralı (`.failproofai-project/`), veya kullanıcı kuralı (`.failproofai-user/`).
 
 ```json
 {
@@ -133,7 +133,7 @@ Herhangi bir politika türü ile çalışır — yerleşik, özel (`custom/`), p
     },
     "block-sudo": {
       "allowPatterns": ["sudo apt-get"],
-      "hint": "Sudo olmadan apt-get'i doğrudan kullanın."
+      "hint": "sudo olmadan doğrudan apt-get kullanın."
     },
     "custom/my-policy": {
       "hint": "Önce kullanıcıdan onay isteyin."
@@ -142,32 +142,32 @@ Herhangi bir politika türü ile çalışır — yerleşik, özel (`custom/`), p
 }
 ```
 
-`block-force-push` reddettiğinde, Claude görür: *"Force-push bloklanmıştır. Bunun yerine yeni bir dal oluşturmayı deneyin."*
+`block-force-push` reddettiğinde, Claude şunu görür: *"Force-pushing engellendi. Bunun yerine yeni bir dal oluşturmayı deneyin."*
 
-Dize olmayan değerler ve boş dizeler sessizce yoksayılır. `hint` ayarlanmamışsa davranış değişmez (geriye dönük uyumlu).
+String olmayan değerler ve boş dizeler sessizce yok sayılır. Eğer `hint` ayarlanmamışsa, davranış değişmez (geriye dönük uyumlu).
 
 ### `customPoliciesPath`
 
 Tür: `string` (mutlak yol)
 
-Özel hook politikaları içeren bir JavaScript dosyasının yolu. Bu, `failproofai policies --install --custom <path>` tarafından otomatik olarak ayarlanır (yol saklanmadan önce mutlak olarak çözülür).
+Özel hook politikaları içeren bir JavaScript dosyasının yolu. Bu, `failproofai policies --install --custom <path>` tarafından otomatik olarak ayarlanır (yol depolanmadan önce mutlak olarak çözümlenir).
 
-Dosya, her hook olayında yeni yüklenir - önbellekleme yoktur. Yazma ayrıntıları için [Custom Policies](/tr/custom-policies) bölümüne bakın.
+Dosya, her hook olayında yeni yüklenir - önbelleğe alma yoktur. Yazma ayrıntıları için [Custom Policies](/tr/custom-policies) bölümüne bakın.
 
-### Kural tabanlı politikalar
+### Kurala dayalı politikalar
 
-Açık `customPoliciesPath`'a ek olarak, failproofai `.failproofai/policies/` dizinlerinden otomatik olarak politika dosyalarını keşfeder ve yükler:
+Açık `customPoliciesPath` öğesine ek olarak, failproofai `.failproofai/policies/` dizinlerinden politika dosyalarını otomatik olarak bulur ve yükler:
 
-| Düzey | Dizin | Kapsam |
-|-------|-------|--------|
-| Proje | `.failproofai/policies/` | Sürüm kontrolü aracılığıyla takımla paylaşılır |
-| Kullanıcı | `~/.failproofai/policies/` | Kişisel, tüm projelere uygulanır |
+| Seviye | Dizin | Kapsam |
+|--------|-------|--------|
+| Proje | `.failproofai/policies/` | Takımla sürüm kontrolü aracılığıyla paylaşılır |
+| Kullanıcı | `~/.failproofai/policies/` | Kişisel, tüm projeler için geçerlidir |
 
-**Dosya eşleştirmesi:** Yalnızca `*policies.{js,mjs,ts}` ile eşleşen dosyalar yüklenir (örn. `security-policies.mjs`, `workflow-policies.js`). Dizindeki diğer dosyalar yoksayılır.
+**Dosya eşleştirmesi:** Yalnızca `*policies.{js,mjs,ts}` ile eşleşen dosyalar yüklenir (örneğin `security-policies.mjs`, `workflow-policies.js`). Dizindeki diğer dosyalar yok sayılır.
 
-**Yapılandırma gerekmez:** Kural politikaları `policies-config.json` içinde girişe ihtiyaç duymaz. Dosyaları dizine bırakın ve bunlar sonraki hook olayında alınır.
+**Yapılandırma gerekmez:** Kural politikaları `policies-config.json` içinde giriş gerektirmez. Dosyaları dizine bırakın ve bir sonraki hook olayında alınırlar.
 
-**Birleştirme yükleme:** Hem proje hem de kullanıcı kural dizinleri taranır. Her iki düzeyden eşleşen tüm dosyalar yüklenir (`customPoliciesPath` ilk kapsamı kazanır kuralını kullanır).
+**Birleşim yükleme:** Hem proje hem de kullanıcı kural dizinleri taranır. Her iki seviyedeki tüm eşleşen dosyalar yüklenir (`customPoliciesPath` ilk kapsam kazanır farklı olarak).
 
 Daha fazla ayrıntı ve örnek için [Custom Policies](/tr/custom-policies) bölümüne bakın.
 
@@ -175,7 +175,7 @@ Daha fazla ayrıntı ve örnek için [Custom Policies](/tr/custom-policies) böl
 
 Tür: `object` (isteğe bağlı)
 
-AI çağrısı yapan politikalar için LLM istemci yapılandırması. Çoğu kurulum için gerekli değildir.
+Yapay zeka çağrıları yapan politikalar için LLM istemci yapılandırması. Çoğu kurulum için gerekli değildir.
 
 ```json
 {
@@ -190,34 +190,34 @@ AI çağrısı yapan politikalar için LLM istemci yapılandırması. Çoğu kur
 
 ## CLI'den yapılandırmayı yönetme
 
-`policies --install` ve `policies --uninstall` komutları ajan CLI'nizin hook ayarları dosyasına (hook giriş noktaları) yazarken, `policies-config.json` doğrudan yönettiğiniz dosyadır. İkisi ayrıdır:
+`policies --install` ve `policies --uninstall` komutları, ajan CLI'nizin hook ayarları dosyasına (hook giriş noktaları) yazarken, `policies-config.json` doğrudan yönettiğiniz dosyadır. İkisi ayrıdır:
 
-- **Agent CLI ayarları** — ajana her araç kullanımında `failproofai --hook <event>` çağrısını söyler:
+- **Ajan CLI ayarları** — ajana her araç kullanımında `failproofai --hook <event>` çağrısını yapmasını söyler:
   - **Claude Code**: `~/.claude/settings.json` (kullanıcı), `<cwd>/.claude/settings.json` (proje), `<cwd>/.claude/settings.local.json` (yerel)
-  - **OpenAI Codex**: `~/.codex/hooks.json` (kullanıcı), `<cwd>/.codex/hooks.json` (proje) — Codex'in `local` kapsamı yok
+  - **OpenAI Codex**: `~/.codex/hooks.json` (kullanıcı), `<cwd>/.codex/hooks.json` (proje) — Codex'in yerel kapsamı yok
 - **`policies-config.json`** — failproofai'ye hangi politikaları değerlendireceğini ve hangi parametrelerle değerlendireceğini söyler (tüm ajan CLI'leri arasında paylaşılır)
 
-Belirli bir ajana hedeflemek için `--cli claude|codex` iletin (boşlukla ayrılmış veya her ikisi için tekrarlanmış):
+Belirli bir ajana hedef almak için `--cli claude|codex` parametresini geçin (boşlukla ayrılmış veya her ikisi için tekrarlanmış):
 
 ```bash
 failproofai policies --install --cli codex --scope project
 failproofai policies --install --cli claude codex
 ```
 
-`--cli` atlandığında, `failproofai` hangi ajan CLI'lerinin kurulu olduğunu algılar (`which claude` / `which codex`):
+`--cli` atıldığında, `failproofai` hangi ajan CLI'lerinin yüklü olduğunu algılar (`which claude` / `which codex`):
 
-- **Bir CLI algılandı** — sızıltı olmaksızın o CLI'yi otomatik olarak seçer.
-- **Her iki CLI algılandı** etkileşimli terminalde — tek tuş istemini gösterir: [B]oth (varsayılan), [C]laude sadece veya co[D]ex sadece için kurun.
-- **Her iki CLI algılandı** etkileşimli olmayan çalıştırmada (CI, TTY yok) — sızıltı olmaksızın her ikisi için kurar.
-- **CLI algılanmadı** — `claude`'a geri döner ve PATH'da ajan ikili bulunamadığına dair uyarı gösterir; hook komutu yine de yazılır, böylece birini kurduğunuz an etkinleşir.
+- **Bir CLI algılandı** — sormadan bu CLI'yi otomatik olarak seçer.
+- **Her iki CLI algılandı** etkileşimli terminalde — ok tuşu tek seçim istemi gösterir: `Both`, `Claude Code only`, veya `OpenAI Codex only` seçin (↑↓ hareket etmek, Enter seçmek, ^C çıkış yapmak için).
+- **Her iki CLI algılandı** etkileşimli olmayan çalıştırmada (CI, TTY yok) — sormadan her ikisi için yükler.
+- **CLI algılanmadı** — `claude` için geri döner, PATH'te ajan ikili dosyası bulunamadığına dair uyarı; hook komutu yine de yazılır, böylece birini yükler yüklemez etkinleşir.
 
-İstediğiniz zaman `policies-config.json` dosyasını doğrudan düzenleyebilirsiniz; değişiklikler yeniden başlatmaya gerek kalmadan sonraki hook olayında hemen etkinleşir.
+`policies-config.json` dosyasını istediğiniz zaman doğrudan düzenleyebilirsiniz; değişiklikler yeniden başlatmaya gerek kalmadan bir sonraki hook olayında hemen etkili olur.
 
 ---
 
-## Örnek: takım varsayılanları ile proje düzeyinde yapılandırma
+## Örnek: takım varsayılanlarıyla proje düzeyinde yapılandırma
 
-`.failproofai/policies-config.json` dosyasını deponuza commit edin:
+`.failproofai/policies-config.json` dosyasını deponuza aktarın:
 
 ```json
 {
@@ -236,4 +236,4 @@ failproofai policies --install --cli claude codex
 }
 ```
 
-Her geliştirici daha sonra kişisel geçersiz kılmalar için `.failproofai/policies-config.local.json` (gitignored) oluşturabilir ve bunu yaparken takım arkadaşlarını etkilemez.
+Her geliştirici daha sonra `.failproofai/policies-config.local.json` (gitignore ile) oluşturabilir ve takım arkadaşlarını etkilemeden kişisel geçersiz kılmalar yapabilir.
