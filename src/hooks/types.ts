@@ -32,6 +32,8 @@ export const HOOK_EVENT_TYPES = [
   "PostCompact",
   "Elicitation",
   "ElicitationResult",
+  "UserPromptExpansion",
+  "PostToolBatch",
 ] as const;
 
 export type HookEventType = (typeof HOOK_EVENT_TYPES)[number];
