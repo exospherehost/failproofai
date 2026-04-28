@@ -31,7 +31,10 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://developers.openai.com/codex" title="OpenAI Codex">
-    <img src="assets/logos/openai.svg" alt="OpenAI Codex" width="64" height="64" />
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/openai-dark.svg" />
+      <img src="assets/logos/openai-light.svg" alt="OpenAI Codex" width="64" height="64" />
+    </picture>
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <strong>+ more coming soon</strong>
