@@ -23,25 +23,44 @@
 
 **번역**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-AI 에이전트를 안정적으로 유지하고, 작업에 집중시키며, 자율적으로 실행할 수 있도록 정책을 관리하는 가장 쉬운 방법 — **Claude Code** 및 **Agents SDK** 지원.
+AI 에이전트를 안정적으로 유지하고, 맡은 작업에 집중하며, 자율적으로 실행되도록 하는 정책을 가장 쉽게 관리하는 도구 - **Claude Code**, **OpenAI Codex** 및 **Agents SDK** 지원.
 
 <p align="center">
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-- **39가지 기본 제공 정책** - 흔한 에이전트 오류 패턴을 즉시 감지합니다. 파괴적인 명령 차단, 시크릿 유출 방지, 에이전트를 프로젝트 경계 안에 제한, 루프 감지 등을 제공합니다.
-- **커스텀 정책** - JavaScript로 나만의 신뢰성 규칙을 작성하세요. `allow`/`deny`/`instruct` API를 활용해 컨벤션을 적용하고, 드리프트를 방지하며, 작업을 승인하거나 외부 시스템과 연동할 수 있습니다.
-- **간편한 설정** - 코드 작성 없이 모든 정책을 조정하세요. 프로젝트별 또는 전역으로 허용 목록, 보호 브랜치, 임계값을 설정할 수 있습니다. 세 가지 범위의 설정이 자동으로 병합됩니다.
-- **에이전트 모니터** - 자리를 비운 동안 에이전트가 무엇을 했는지 확인하세요. 세션을 탐색하고, 모든 툴 호출을 검사하며, 정책이 적용된 정확한 위치를 확인할 수 있습니다.
+## 지원되는 에이전트 CLI
 
-모든 처리는 로컬에서 이루어집니다 — 어떤 데이터도 외부로 전송되지 않습니다.
+<p align="center">
+  <a href="https://claude.com/claude-code" title="Claude Code">
+    <img src="assets/logos/claude.svg" alt="Claude Code" width="64" height="64" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://developers.openai.com/codex" title="OpenAI Codex">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/openai-dark.svg" />
+      <img src="assets/logos/openai-light.svg" alt="OpenAI Codex" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <strong>+ 추가 지원 예정</strong>
+</p>
+
+> 하나 또는 둘 모두에 훅을 설치하세요: `failproofai policies --install --cli codex` (또는 `--cli claude codex`). `--cli`를 생략하면 설치된 CLI를 자동 감지하여 안내합니다.
+
+- **39가지 기본 제공 정책** - 흔히 발생하는 에이전트 오류 패턴을 즉시 감지합니다. 파괴적인 명령 차단, 시크릿 유출 방지, 에이전트를 프로젝트 경계 내에 유지, 루프 감지 등 다양한 기능을 제공합니다.
+- **커스텀 정책** - JavaScript로 나만의 신뢰성 규칙을 작성하세요. `allow`/`deny`/`instruct` API를 활용해 컨벤션을 적용하고, 드리프트를 방지하며, 작업을 제어하거나 외부 시스템과 연동할 수 있습니다.
+- **간편한 설정** - 코드 없이 모든 정책을 세밀하게 조정하세요. 프로젝트별 또는 전역으로 허용 목록, 보호 브랜치, 임계값을 설정하고 세 가지 범위의 설정이 자동으로 병합됩니다.
+- **에이전트 모니터** - 자리를 비운 사이 에이전트가 무엇을 했는지 확인하세요. 세션을 탐색하고, 모든 도구 호출을 검사하며, 정책이 발동된 정확한 위치를 검토할 수 있습니다.
+
+모든 것이 로컬에서 실행되며 데이터가 외부로 전송되지 않습니다.
 
 ---
 
 ## 요구 사항
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0 (선택 사항 - 개발 또는 소스 빌드 시에만 필요)
+- Bun >= 1.3.0 (선택 사항 - 개발 또는 소스에서 빌드할 때만 필요)
 
 ---
 
@@ -63,7 +82,7 @@ bun add -g failproofai
 failproofai policies --install
 ```
 
-`~/.claude/settings.json`에 훅 항목을 작성합니다. 이후 Claude Code는 각 툴 호출 전후로 failproofai를 실행합니다.
+`~/.claude/settings.json`에 훅 항목을 작성합니다. 이후 Claude Code는 각 도구 호출 전후에 failproofai를 호출합니다.
 
 ### 2. 대시보드 실행
 
@@ -71,7 +90,7 @@ failproofai policies --install
 failproofai
 ```
 
-`http://localhost:8020`을 열어 세션 탐색, 로그 검사, 정책 관리를 할 수 있습니다.
+`http://localhost:8020`을 열어 세션을 탐색하고, 로그를 검사하며, 정책을 관리합니다.
 
 ### 3. 활성 정책 확인
 
@@ -85,8 +104,8 @@ failproofai policies
 
 ### 범위
 
-| 범위 | 명령어 | 저장 위치 |
-|-------|---------|-----------------|
+| 범위 | 명령어 | 작성 위치 |
+|------|--------|-----------|
 | 전역 (기본값) | `failproofai policies --install` | `~/.claude/settings.json` |
 | 프로젝트 | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | 로컬 | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
@@ -101,7 +120,7 @@ failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 
 ```bash
 failproofai policies --uninstall
-# 또는 특정 범위에서 제거:
+# 또는 특정 범위에 대해:
 failproofai policies --uninstall --scope project
 ```
 
@@ -109,7 +128,7 @@ failproofai policies --uninstall --scope project
 
 ## 설정
 
-정책 설정은 `~/.failproofai/policies-config.json` (전역) 또는 프로젝트 내 `.failproofai/policies-config.json` (프로젝트별)에 저장됩니다.
+정책 설정은 `~/.failproofai/policies-config.json`(전역) 또는 프로젝트 내 `.failproofai/policies-config.json`(프로젝트별)에 저장됩니다.
 
 ```json
 {
@@ -142,48 +161,48 @@ failproofai policies --uninstall --scope project
 }
 ```
 
-**세 가지 설정 범위**는 자동으로 병합됩니다 (프로젝트 → 로컬 → 전역). 전체 병합 규칙은 [docs/configuration.mdx](docs/configuration.mdx)를 참조하세요.
+**세 가지 설정 범위**는 자동으로 병합됩니다(프로젝트 → 로컬 → 전역). 전체 병합 규칙은 [docs/configuration.mdx](docs/configuration.mdx)를 참조하세요.
 
 ---
 
 ## 기본 제공 정책
 
 | 정책 | 설명 | 설정 가능 |
-|--------|-------------|:---:|
-| `block-sudo` | 에이전트의 권한 있는 시스템 명령 실행 방지 | `allowPatterns` |
+|------|------|:---------:|
+| `block-sudo` | 에이전트가 권한 있는 시스템 명령을 실행하지 못하도록 방지 | `allowPatterns` |
 | `block-rm-rf` | 실수로 인한 재귀적 파일 삭제 방지 | `allowPaths` |
-| `block-curl-pipe-sh` | 에이전트가 신뢰할 수 없는 스크립트를 쉘로 파이프하는 것 방지 | |
-| `block-failproofai-commands` | 자가 제거 방지 | |
-| `sanitize-jwt` | JWT 토큰이 에이전트 컨텍스트로 유출되는 것 방지 | |
-| `sanitize-api-keys` | API 키가 에이전트 컨텍스트로 유출되는 것 방지 | `additionalPatterns` |
-| `sanitize-connection-strings` | 데이터베이스 자격증명이 에이전트 컨텍스트로 유출되는 것 방지 | |
+| `block-curl-pipe-sh` | 에이전트가 신뢰할 수 없는 스크립트를 쉘에 파이프하지 못하도록 방지 | |
+| `block-failproofai-commands` | 자체 제거 방지 | |
+| `sanitize-jwt` | JWT 토큰이 에이전트 컨텍스트로 유출되는 것을 방지 | |
+| `sanitize-api-keys` | API 키가 에이전트 컨텍스트로 유출되는 것을 방지 | `additionalPatterns` |
+| `sanitize-connection-strings` | 데이터베이스 자격 증명이 에이전트 컨텍스트로 유출되는 것을 방지 | |
 | `sanitize-private-key-content` | 출력에서 PEM 개인 키 블록 제거 | |
 | `sanitize-bearer-tokens` | 출력에서 Authorization Bearer 토큰 제거 | |
 | `block-env-files` | 에이전트가 .env 파일을 읽지 못하도록 방지 | |
 | `protect-env-vars` | 에이전트가 환경 변수를 출력하지 못하도록 방지 | |
-| `block-read-outside-cwd` | 에이전트를 프로젝트 경계 안에 제한 | `allowPaths` |
-| `block-secrets-write` | 개인 키 및 인증서 파일에 쓰기 방지 | `additionalPatterns` |
-| `block-push-master` | main/master에 실수로 푸시하는 것 방지 | `protectedBranches` |
+| `block-read-outside-cwd` | 에이전트를 프로젝트 경계 내에 유지 | `allowPaths` |
+| `block-secrets-write` | 개인 키 및 인증서 파일에 대한 쓰기 방지 | `additionalPatterns` |
+| `block-push-master` | main/master에 실수로 푸시하는 것을 방지 | `protectedBranches` |
 | `block-work-on-main` | 에이전트가 보호된 브랜치에서 작업하지 못하도록 방지 | `protectedBranches` |
 | `block-force-push` | `git push --force` 방지 | |
 | `warn-git-amend` | 커밋 수정 전 에이전트에게 알림 | |
 | `warn-git-stash-drop` | 스태시 삭제 전 에이전트에게 알림 | |
-| `warn-all-files-staged` | 실수로 인한 `git add -A` 감지 | |
+| `warn-all-files-staged` | 실수로 `git add -A`하는 경우 감지 | |
 | `warn-destructive-sql` | 실행 전 DROP/DELETE SQL 감지 | |
 | `warn-schema-alteration` | 실행 전 ALTER TABLE 감지 | |
 | `warn-large-file-write` | 예상치 못하게 큰 파일 쓰기 감지 | `thresholdKb` |
-| `warn-package-publish` | 실수로 인한 `npm publish` 감지 | |
+| `warn-package-publish` | 실수로 `npm publish`하는 경우 감지 | |
 | `warn-background-process` | 의도치 않은 백그라운드 프로세스 실행 감지 | |
 | `warn-global-package-install` | 의도치 않은 전역 패키지 설치 감지 | |
 | …그 외 더 많은 정책 | | |
 
-전체 정책 세부 정보 및 파라미터 참조: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
+전체 정책 상세 내용 및 파라미터 레퍼런스: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
 ---
 
 ## 커스텀 정책
 
-에이전트를 안정적이고 작업에 집중하도록 유지하는 나만의 정책을 작성하세요:
+에이전트를 안정적이고 작업에 집중하게 유지하는 나만의 정책을 작성하세요:
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
@@ -201,7 +220,7 @@ customPolicies.add({
 });
 ```
 
-다음 명령으로 설치하세요:
+다음 명령으로 설치:
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -209,30 +228,30 @@ failproofai policies --install --custom ./my-policies.js
 
 ### 결정 헬퍼
 
-| 함수 | 동작 |
-|----------|--------|
+| 함수 | 효과 |
+|------|------|
 | `allow()` | 작업 허용 |
-| `allow(message)` | 허용하고 Claude에 정보성 컨텍스트 전달 |
-| `deny(message)` | 작업 차단; 메시지가 Claude에 표시됨 |
+| `allow(message)` | 허용하고 Claude에게 정보성 컨텍스트 전송 |
+| `deny(message)` | 작업 차단; 메시지가 Claude에게 표시됨 |
 | `instruct(message)` | Claude의 프롬프트에 컨텍스트 추가; 차단하지 않음 |
 
 ### 컨텍스트 객체 (`ctx`)
 
 | 필드 | 타입 | 설명 |
-|-------|------|-------------|
+|------|------|------|
 | `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
-| `toolName` | `string` | 호출되는 툴 (`"Bash"`, `"Write"`, `"Read"`, …) |
-| `toolInput` | `object` | 툴의 입력 파라미터 |
+| `toolName` | `string` | 호출되는 도구 (`"Bash"`, `"Write"`, `"Read"`, …) |
+| `toolInput` | `object` | 도구의 입력 파라미터 |
 | `payload` | `object` | 전체 원시 이벤트 페이로드 |
-| `session.cwd` | `string` | Claude Code 세션의 작업 디렉터리 |
+| `session.cwd` | `string` | Claude Code 세션의 작업 디렉토리 |
 | `session.sessionId` | `string` | 세션 식별자 |
 | `session.transcriptPath` | `string` | 세션 트랜스크립트 파일 경로 |
 
-커스텀 훅은 전이적 로컬 임포트, async/await, `process.env` 접근을 지원합니다. 오류가 발생해도 실패 시 허용(fail-open) 방식으로 처리됩니다 (`~/.failproofai/hook.log`에 기록되며 기본 제공 정책은 계속 실행됩니다). 전체 가이드는 [docs/custom-hooks.mdx](docs/custom-hooks.mdx)를 참조하세요.
+커스텀 훅은 로컬 임포트 전이적 사용, async/await, `process.env` 접근을 지원합니다. 오류는 fail-open 방식으로 처리됩니다(`~/.failproofai/hook.log`에 기록되며 기본 제공 정책은 계속 실행됨). 전체 가이드는 [docs/custom-hooks.mdx](docs/custom-hooks.mdx)를 참조하세요.
 
 ### 컨벤션 기반 정책
 
-`.failproofai/policies/` 디렉터리에 `*policies.{js,mjs,ts}` 파일을 넣으면 자동으로 로드됩니다 — 플래그나 설정 변경이 필요하지 않습니다. 해당 디렉터리를 git에 커밋하면 팀 모든 구성원이 동일한 품질 기준을 자동으로 적용받습니다.
+`.failproofai/policies/` 디렉토리에 `*policies.{js,mjs,ts}` 파일을 넣으면 자동으로 로드됩니다 — 별도 플래그나 설정 변경이 필요 없습니다. 이 디렉토리를 git에 커밋하면 팀원 모두가 자동으로 동일한 품질 기준을 적용받습니다.
 
 ```text
 # 프로젝트 수준 — git에 커밋되어 팀과 공유됨
@@ -243,15 +262,15 @@ failproofai policies --install --custom ./my-policies.js
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-두 수준 모두 로드됩니다 (합집합). 파일은 각 디렉터리 내에서 알파벳순으로 로드됩니다. 순서를 제어하려면 `01-`, `02-` 등의 접두사를 사용하세요. 팀이 새로운 오류 패턴을 발견할 때마다 정책을 추가하고 푸시하면 — 다음 풀 시 모든 팀원이 업데이트를 받게 됩니다. 바로 사용할 수 있는 예시는 [examples/convention-policies/](examples/convention-policies/)를 참조하세요.
+두 수준 모두 로드됩니다(합집합). 각 디렉토리 내에서 파일은 알파벳 순으로 로드됩니다. 순서를 제어하려면 `01-`, `02-` 등의 접두사를 사용하세요. 팀에서 새로운 오류 패턴을 발견하면 정책을 추가하고 푸시하세요 — 모든 팀원이 다음 풀 시 업데이트를 받습니다. 바로 사용 가능한 예시는 [examples/convention-policies/](examples/convention-policies/)를 참조하세요.
 
 ---
 
 ## 텔레메트리
 
-Failproof AI는 기능 사용 현황 파악을 위해 PostHog를 통해 익명 사용 텔레메트리를 수집합니다. 세션 내용, 파일명, 툴 입력, 개인 정보는 절대 전송되지 않습니다.
+Failproof AI는 기능 사용 현황을 파악하기 위해 PostHog를 통해 익명 사용 텔레메트리를 수집합니다. 세션 내용, 파일 이름, 도구 입력값, 개인 정보는 절대 전송되지 않습니다.
 
-비활성화하려면:
+비활성화 방법:
 
 ```bash
 FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
@@ -262,14 +281,14 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 ## 문서
 
 | 가이드 | 설명 |
-|-------|-------------|
+|--------|------|
 | [시작하기](docs/getting-started.mdx) | 설치 및 첫 번째 단계 |
-| [기본 제공 정책](docs/built-in-policies.mdx) | 파라미터를 포함한 39가지 기본 제공 정책 전체 |
-| [커스텀 정책](docs/custom-policies.mdx) | 나만의 정책 작성 |
+| [기본 제공 정책](docs/built-in-policies.mdx) | 파라미터를 포함한 39가지 기본 정책 전체 목록 |
+| [커스텀 정책](docs/custom-policies.mdx) | 나만의 정책 작성 방법 |
 | [설정](docs/configuration.mdx) | 설정 파일 형식 및 범위 병합 |
 | [대시보드](docs/dashboard.mdx) | 세션 모니터링 및 정책 활동 검토 |
-| [아키텍처](docs/architecture.mdx) | 훅 시스템의 동작 원리 |
-| [테스팅](docs/testing.mdx) | 테스트 실행 및 새 테스트 작성 |
+| [아키텍처](docs/architecture.mdx) | 훅 시스템 동작 원리 |
+| [테스트](docs/testing.mdx) | 테스트 실행 및 새 테스트 작성 방법 |
 
 ### 로컬에서 문서 실행
 
@@ -278,7 +297,7 @@ docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-`http://localhost:3000`에서 Mintlify 문서 사이트를 엽니다. docs 디렉터리를 마운트하면 컨테이너가 변경 사항을 감지합니다:
+`http://localhost:3000`에서 Mintlify 문서 사이트를 엽니다. docs 디렉토리를 마운트하면 변경 사항을 실시간으로 반영합니다:
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -286,17 +305,17 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
-## failproofai 기여자를 위한 참고사항
+## failproofai 기여자를 위한 참고 사항
 
 이 저장소의 `.claude/settings.json`은 표준 `npx -y failproofai` 명령 대신 `bun ./bin/failproofai.mjs --hook <EventType>`을 사용합니다. 이는 failproofai 프로젝트 내에서 `npx -y failproofai`를 실행하면 자기 참조 충돌이 발생하기 때문입니다.
 
-다른 모든 저장소에서는 `npx -y failproofai`를 권장하며, 다음 명령으로 설치할 수 있습니다:
+다른 모든 저장소에서는 다음 명령으로 설치하는 `npx -y failproofai` 방식을 권장합니다:
 
 ```bash
 failproofai policies --install --scope project
 ```
 
-## 기여
+## 기여하기
 
 [CONTRIBUTING.md](CONTRIBUTING.md)를 참조하세요.
 
@@ -308,4 +327,4 @@ failproofai policies --install --scope project
 
 ---
 
-**ExosphereHost: Reliability Research Lab for Your Agents**가 개발 및 유지 관리합니다. 저희는 자체 에이전트, 소프트웨어, 전문 지식을 통해 기업과 스타트업이 AI 에이전트의 신뢰성을 향상할 수 있도록 지원합니다. 자세한 내용은 [exosphere.host](https://exosphere.host)에서 확인하세요.
+**ExosphereHost: Reliability Research Lab for Your Agents**가 구축하고 유지관리합니다. 저희는 자체 에이전트, 소프트웨어, 전문 지식을 통해 기업과 스타트업이 AI 에이전트의 신뢰성을 향상시킬 수 있도록 지원합니다. [exosphere.host](https://exosphere.host)에서 자세히 알아보세요.

@@ -1,38 +1,39 @@
 ---
+---
 title: Cấu hình
 description: "Định dạng tệp cấu hình, hệ thống ba phạm vi và quy tắc hợp nhất"
 icon: gear
 ---
 
-failproofai sử dụng các tệp cấu hình JSON để kiểm soát những chính sách nào đang hoạt động, cách chúng hoạt động và nơi các chính sách tùy chỉnh được tải. Cấu hình được thiết kế để dễ dàng chia sẻ với đội của bạn - cam kết nó vào kho của bạn và mỗi nhà phát triển sẽ nhận được cùng một lưới bảo mạng cho agent.
+failproofai sử dụng các tệp cấu hình JSON để kiểm soát những chính sách nào được kích hoạt, cách chúng hoạt động và nơi tải các chính sách tùy chỉnh. Cấu hình được thiết kế để dễ dàng chia sẻ với nhóm của bạn - commit nó vào kho lưu trữ của bạn và mỗi nhà phát triển đều nhận được cùng một lưới bảo vệ agent.
 
 ---
 
-## Phạm vi cấu hình
+## Các phạm vi cấu hình
 
 Có ba phạm vi cấu hình, được đánh giá theo thứ tự ưu tiên:
 
 | Phạm vi | Đường dẫn tệp | Mục đích |
 |-------|-----------|---------|
-| **project** | `.failproofai/policies-config.json` | Cài đặt cho mỗi kho, được cam kết vào kiểm soát phiên bản |
-| **local** | `.failproofai/policies-config.local.json` | Ghi đè cá nhân cho mỗi kho, được gitignore |
-| **global** | `~/.failproofai/policies-config.json` | Mặc định cấp người dùng trên tất cả các dự án |
+| **dự án** | `.failproofai/policies-config.json` | Cài đặt theo repo, được commit vào kiểm soát phiên bản |
+| **cục bộ** | `.failproofai/policies-config.local.json` | Ghi đè cục bộ theo repo, được gitignore |
+| **toàn cầu** | `~/.failproofai/policies-config.json` | Giá trị mặc định cấp người dùng trên tất cả các dự án |
 
-Khi failproofai nhận được sự kiện hook, nó tải và hợp nhất tất cả ba tệp tồn tại cho thư mục làm việc hiện tại.
+Khi failproofai nhận một sự kiện hook, nó tải và hợp nhất tất cả ba tệp tồn tại cho thư mục làm việc hiện tại.
 
 ### Quy tắc hợp nhất
 
-**`enabledPolicies`** - hợp nhất của tất cả ba phạm vi. Một chính sách được bật ở bất kỳ cấp độ nào là hoạt động.
+**`enabledPolicies`** - hợp nhất của tất cả ba phạm vi. Một chính sách được kích hoạt ở bất kỳ cấp nào đều hoạt động.
 
 ```text
 project:  ["block-sudo"]
 local:    ["block-rm-rf"]
 global:   ["block-sudo", "sanitize-api-keys"]
 
-resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← hợp nhất, loại bỏ trùng lặp
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← loại bỏ trùng lặp
 ```
 
-**`policyParams`** - phạm vi đầu tiên xác định các tham số cho một chính sách cụ thể sẽ thắng hoàn toàn. Không có hợp nhất sâu các giá trị trong các tham số của một chính sách.
+**`policyParams`** - phạm vi đầu tiên xác định tham số cho một chính sách nhất định sẽ thắng hoàn toàn. Không có hợp nhất sâu các giá trị trong tham số của một chính sách.
 
 ```text
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
@@ -96,31 +97,31 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← rơi xuống global
 
 ---
 
-## Tham chiếu trường
+## Tham khảo trường
 
 ### `enabledPolicies`
 
 Loại: `string[]`
 
-Danh sách tên chính sách để bật. Tên phải khớp chính xác với các định danh chính sách được hiển thị bởi `failproofai policies`. Xem [Built-in Policies](/vi/built-in-policies) để có danh sách đầy đủ.
+Danh sách các tên chính sách để kích hoạt. Tên phải khớp chính xác với các định danh chính sách hiển thị bằng `failproofai policies`. Xem [Built-in Policies](/vi/built-in-policies) để biết danh sách đầy đủ.
 
-Các chính sách không có trong `enabledPolicies` không hoạt động, ngay cả khi chúng có các mục trong `policyParams`.
+Các chính sách không có trong `enabledPolicies` không hoạt động, ngay cả khi chúng có mục nhập trong `policyParams`.
 
 ### `policyParams`
 
 Loại: `Record<string, Record<string, unknown>>`
 
-Ghi đè tham số cho mỗi chính sách. Khóa bên ngoài là tên chính sách; các khóa bên trong là dành riêng cho chính sách. Mỗi chính sách ghi lại các tham số có sẵn của nó trong [Built-in Policies](/vi/built-in-policies).
+Ghi đè tham số cho mỗi chính sách. Khóa bên ngoài là tên chính sách; các khóa bên trong là cụ thể từng chính sách. Mỗi chính sách ghi lại các tham số sẵn có của nó trong [Built-in Policies](/vi/built-in-policies).
 
-Nếu một chính sách có các tham số nhưng bạn không chỉ định chúng, các mặc định tích hợp của chính sách sẽ được sử dụng. Những người dùng không cấu hình `policyParams` sẽ nhận được hành vi giống hệt như các phiên bản trước đó.
+Nếu một chính sách có tham số nhưng bạn không chỉ định chúng, các giá trị mặc định tích hợp của chính sách sẽ được sử dụng. Những người dùng không cấu hình `policyParams` sẽ nhận được hành vi giống hệt như các phiên bản trước đó.
 
-Các khóa không xác định bên trong khối tham số của một chính sách được bỏ qua âm thầm khi hook kích hoạt nhưng được gắn cờ là cảnh báo khi bạn chạy `failproofai policies`.
+Các khóa không xác định bên trong khối tham số của một chính sách bị bỏ qua im lặng tại thời điểm hook-fire nhưng được gắn cờ là cảnh báo khi bạn chạy `failproofai policies`.
 
-#### `hint` (xuyên suốt)
+#### `hint` (giao cắt)
 
 Loại: `string` (tùy chọn)
 
-Một tin nhắn được nối thêm vào lý do khi một chính sách trả về `deny` hoặc `instruct`. Sử dụng nó để cung cấp hướng dẫn hành động cho Claude mà không cần sửa đổi chính sách.
+Một tin nhắn được thêm vào lý do khi một chính sách trả về `deny` hoặc `instruct`. Sử dụng nó để cung cấp cho Claude hướng dẫn có thể thực hiện được mà không cần sửa đổi chính sách.
 
 Hoạt động với bất kỳ loại chính sách nào — tích hợp sẵn, tùy chỉnh (`custom/`), quy ước dự án (`.failproofai-project/`), hoặc quy ước người dùng (`.failproofai-user/`).
 
@@ -143,7 +144,7 @@ Hoạt động với bất kỳ loại chính sách nào — tích hợp sẵn, 
 
 Khi `block-force-push` từ chối, Claude sẽ thấy: *"Force-pushing bị chặn. Hãy thử tạo một nhánh mới thay vào đó."*
 
-Các giá trị không phải chuỗi và chuỗi trống bị bỏ qua âm thầm. Nếu `hint` không được đặt, hành vi không thay đổi (tương thích ngược).
+Các giá trị không phải chuỗi và chuỗi rỗng bị bỏ qua im lặng. Nếu `hint` không được đặt, hành vi không thay đổi (tương thích ngược).
 
 ### `customPoliciesPath`
 
@@ -157,16 +158,16 @@ Tệp được tải lại trên mỗi sự kiện hook - không có bộ nhớ 
 
 Ngoài `customPoliciesPath` rõ ràng, failproofai tự động khám phá và tải các tệp chính sách từ các thư mục `.failproofai/policies/`:
 
-| Cấp độ | Thư mục | Phạm vi |
+| Cấp | Thư mục | Phạm vi |
 |-------|-----------|-------|
-| Dự án | `.failproofai/policies/` | Được chia sẻ với đội thông qua kiểm soát phiên bản |
+| Dự án | `.failproofai/policies/` | Được chia sẻ với nhóm qua kiểm soát phiên bản |
 | Người dùng | `~/.failproofai/policies/` | Cá nhân, áp dụng cho tất cả các dự án |
 
-**Khớp tệp:** Chỉ các tệp khớp với `*policies.{js,mjs,ts}` được tải (ví dụ `security-policies.mjs`, `workflow-policies.js`). Các tệp khác trong thư mục bị bỏ qua.
+**Khớp tệp:** Chỉ các tệp khớp `*policies.{js,mjs,ts}` được tải (ví dụ: `security-policies.mjs`, `workflow-policies.js`). Các tệp khác trong thư mục bị bỏ qua.
 
-**Không cần cấu hình:** Các chính sách quy ước không yêu cầu các mục trong `policies-config.json`. Chỉ cần thả các tệp vào thư mục và chúng sẽ được chọn lên trên sự kiện hook tiếp theo.
+**Không cần cấu hình:** Các chính sách quy ước không yêu cầu mục nhập trong `policies-config.json`. Chỉ cần thả các tệp vào thư mục và chúng sẽ được nhận trên sự kiện hook tiếp theo.
 
-**Tải union:** Cả hai thư mục quy ước dự án và người dùng đều được quét. Tất cả các tệp phù hợp từ cả hai cấp độ được tải (không giống như `customPoliciesPath` sử dụng first-scope-wins).
+**Tải hợp nhất:** Cả hai thư mục quy ước dự án và người dùng được quét. Tất cả các tệp phù hợp từ cả hai cấp được tải (không giống như `customPoliciesPath` sử dụng phạm vi-đầu-tiên-thắng).
 
 Xem [Custom Policies](/vi/custom-policies) để biết thêm chi tiết và ví dụ.
 
@@ -174,7 +175,7 @@ Xem [Custom Policies](/vi/custom-policies) để biết thêm chi tiết và ví
 
 Loại: `object` (tùy chọn)
 
-Cấu hình máy khách LLM cho các chính sách thực hiện các lệnh gọi AI. Không bắt buộc cho hầu hết các thiết lập.
+Cấu hình máy khách LLM cho các chính sách thực hiện cuộc gọi AI. Không bắt buộc cho hầu hết các thiết lập.
 
 ```json
 {
@@ -189,18 +190,34 @@ Cấu hình máy khách LLM cho các chính sách thực hiện các lệnh gọ
 
 ## Quản lý cấu hình từ CLI
 
-Các lệnh `policies --install` và `policies --uninstall` ghi vào `settings.json` của Claude Code (các điểm nhập hook), trong khi `policies-config.json` là tệp bạn quản lý trực tiếp. Hai tệp này là riêng biệt:
+Các lệnh `policies --install` và `policies --uninstall` ghi vào tệp cài đặt hook của agent CLI của bạn (các điểm vào hook), trong khi `policies-config.json` là tệp bạn quản lý trực tiếp. Hai tệp này là riêng biệt:
 
-- **`settings.json`** - yêu cầu Claude Code gọi `failproofai --hook <event>` trên mỗi lần sử dụng công cụ
-- **`policies-config.json`** - yêu cầu failproofai đánh giá những chính sách nào và với những tham số nào
+- **Cài đặt Agent CLI** — yêu cầu agent gọi `failproofai --hook <event>` trên mỗi lần sử dụng công cụ:
+  - **Claude Code**: `~/.claude/settings.json` (người dùng), `<cwd>/.claude/settings.json` (dự án), `<cwd>/.claude/settings.local.json` (cục bộ)
+  - **OpenAI Codex**: `~/.codex/hooks.json` (người dùng), `<cwd>/.codex/hooks.json` (dự án) — Codex không có phạm vi `local`
+- **`policies-config.json`** — yêu cầu failproofai đánh giá những chính sách nào và với những tham số nào (được chia sẻ trên tất cả các agent CLI)
 
-Bạn có thể chỉnh sửa `policies-config.json` trực tiếp bất kỳ lúc nào; những thay đổi có hiệu lực ngay lập tức trên sự kiện hook tiếp theo mà không cần khởi động lại.
+Chuyển `--cli claude|codex` để nhắm mục tiêu một agent cụ thể (cách nhau bằng dấu cách hoặc lặp lại cho cả hai):
+
+```bash
+failproofai policies --install --cli codex --scope project
+failproofai policies --install --cli claude codex
+```
+
+Khi `--cli` bị bỏ qua, `failproofai` sẽ phát hiện những agent CLI nào được cài đặt (`which claude` / `which codex`):
+
+- **Một CLI được phát hiện** — tự động chọn CLI đó mà không cần nhắc.
+- **Cả hai CLI được phát hiện** trong terminal tương tác — hiển thị một lời nhắc nhấn phím đơn: cài đặt cho [B]oth (mặc định), [C]laude chỉ, hoặc co[D]ex chỉ.
+- **Cả hai CLI được phát hiện** trong lần chạy không tương tác (CI, không TTY) — cài đặt cho cả hai mà không cần nhắc.
+- **Không phát hiện CLI nào** — quay lại `claude`, với cảnh báo rằng không tìm thấy nhị phân agent nào trong PATH; lệnh hook vẫn được ghi vào để nó kích hoạt ngay khi bạn cài đặt một lệnh.
+
+Bạn có thể chỉnh sửa `policies-config.json` trực tiếp bất cứ lúc nào; các thay đổi có hiệu lực ngay trên sự kiện hook tiếp theo mà không cần khởi động lại.
 
 ---
 
-## Ví dụ: cấu hình cấp dự án với mặc định đội
+## Ví dụ: cấu hình cấp dự án với giá trị mặc định nhóm
 
-Cam kết `.failproofai/policies-config.json` vào kho của bạn:
+Commit `.failproofai/policies-config.json` vào kho lưu trữ của bạn:
 
 ```json
 {
@@ -219,4 +236,4 @@ Cam kết `.failproofai/policies-config.json` vào kho của bạn:
 }
 ```
 
-Sau đó, mỗi nhà phát triển có thể tạo `.failproofai/policies-config.local.json` (được gitignore) cho các ghi đè cá nhân mà không ảnh hưởng đến đồng đội.
+Mỗi nhà phát triển có thể sau đó tạo `.failproofai/policies-config.local.json` (được gitignore) để ghi đè cá nhân mà không ảnh hưởng đến các đồng nghiệp.

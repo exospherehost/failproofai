@@ -1,41 +1,42 @@
 ---
+---
 title:  Failproof AI
-description: "हुकस और पॉलिसीज़ को प्रबंधित करें जो आपके AI एजेंटों को विश्वसनीय और स्वायत्त रूप से चलाते रहते हैं"
+description: "अपने AI agents को विश्वसनीय और स्वायत्त रूप से चलाने वाले hooks और policies को प्रबंधित करें"
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-हुकस और पॉलिसीज़ जो आपके AI एजेंटों को विश्वसनीय रखते हैं और स्वायत्त रूप से चलाते हैं - **Claude Code** और **Agents SDK** के लिए।
+Hooks और policies जो आपके AI agents को विश्वसनीय और स्वायत्त रूप से चलाते रहते हैं - **Claude Code**, **OpenAI Codex**, और **Agents SDK** के लिए।
 
-AI एजेंट अनुमानित तरीकों से विफल होते हैं। वे विनाशकारी कमांड चलाते हैं, राज़ सिकोड़ते हैं, कार्य से भटकते हैं, लूप में फंसते हैं, या सीधे मुख्य शाखा में पुश करते हैं। अनुचर छोड़ने पर, छोटी विफलताएं बड़ी हो जाती हैं।
+AI agents अनुमानित तरीकों से विफल हो जाते हैं। वे विनाशकारी commands चलाते हैं, secrets को leak करते हैं, कार्य से भटक जाते हैं, loops में फंस जाते हैं, या सीधे main में push कर देते हैं। बिना निरीक्षण के, छोटी विफलताएं बढ़ जाती हैं।
 
-Failproof AI इसे **पॉलिसीज़** के साथ हल करता है - नियम जो प्रत्येक एजेंट टूल कॉल में हुक करते हैं और **विफलताओं का पता लगा** सकते हैं, **उन्हें कम कर** सकते हैं (ब्लॉक करना, निर्देश देना, साफ़ करना), और **आपको सतर्क कर** सकते हैं जब कुछ ध्यान की जरूरत हो। एक स्थानीय डैशबोर्ड आपको बाद में सब कुछ समीक्षा करने देता है।
+Failproof AI इसे **policies** के साथ हल करता है - नियम जो हर agent tool call में hook करते हैं और **विफलताओं का पता लगा** सकते हैं, **उन्हें कम कर** सकते हैं (block करें, instruct दें, sanitize करें), और **जब कुछ ध्यान की जरूरत हो तो आपको alert** कर सकते हैं। एक local dashboard आपको बाद में सबकुछ review करने देता है।
 
-सब कुछ स्थानीय रूप से चलता है। कोई डेटा आपकी मशीन से बाहर नहीं जाता।
+सबकुछ locally चलता है। आपकी machine से कोई डेटा बाहर नहीं जाता।
 
 ## शुरुआत करें
 
 <CardGroup cols={2}>
 
-<Card title="26 निर्मित पॉलिसीज़" icon="shield" href="/hi/built-in-policies">
-  विनाशकारी कमांड को ब्लॉक करें, राज़ का रिसाव रोकें, एजेंटों को प्रोजेक्ट सीमाओं के अंदर रखें, और बहुत कुछ - तुरंत ही उपलब्ध।
+<Card title="26 built-in policies" icon="shield" href="/hi/built-in-policies">
+  विनाशकारी commands को block करें, secret leakage को रोकें, agents को project की सीमाओं के अंदर रखें, और बहुत कुछ - तुरंत उपलब्ध।
 </Card>
 
-<Card title="कस्टम पॉलिसीज़" icon="code" href="/hi/custom-policies">
-  JavaScript में अपने स्वयं के नियम लिखें एक सरल allow / deny / instruct API के साथ।
+<Card title="Custom policies" icon="code" href="/hi/custom-policies">
+  JavaScript में अपने खुद के नियम लिखें एक सरल allow / deny / instruct API के साथ।
 </Card>
 
-<Card title="एजेंट मॉनिटर" icon="chart-line" href="/hi/dashboard">
-  देखें कि आपके एजेंटों ने जब आप दूर थे तब क्या किया। सेशन ब्राउज़ करें, टूल कॉल की जांच करें, समीक्षा करें कि पॉलिसीज़ कहां सक्रिय हुईं।
+<Card title="Agent monitor" icon="chart-line" href="/hi/dashboard">
+  देखें कि आपके agents ने आपकी अनुपस्थिति में क्या किया। Sessions browse करें, tool calls inspect करें, देखें कि policies कहां fired हुई।
 </Card>
 
-<Card title="आसान कॉन्फ़िगरेशन" icon="gear" href="/hi/configuration">
-  किसी भी पॉलिसी को कोड के बिना ट्यून करें। अनुमतिसूचियां, संरक्षित शाखाएं, या प्रति-प्रोजेक्ट या वैश्विक रूप से सीमाएं सेट करें।
+<Card title="Easy configuration" icon="gear" href="/hi/configuration">
+  किसी भी policy को बिना code के tune करें। Allowlists, protected branches, या thresholds को per-project या globally सेट करें।
 </Card>
 
 </CardGroup>
 
-## त्वरित शुरुआत
+## क्विक स्टार्ट
 
 <CodeGroup>
 
@@ -50,8 +51,8 @@ bun add -g failproofai
 </CodeGroup>
 
 ```bash
-failproofai policies --install   # पॉलिसीज़ सक्षम करें
-failproofai                      # डैशबोर्ड लॉन्च करें
+failproofai policies --install   # enable policies
+failproofai                      # launch the dashboard
 ```
 
-पूर्ण विस्तृत मार्गदर्शन के लिए [शुरुआत करना](/hi/getting-started) गाइड देखें।
+पूरे walkthrough के लिए [Getting started](/hi/getting-started) guide देखें।

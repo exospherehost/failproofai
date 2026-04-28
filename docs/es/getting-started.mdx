@@ -31,16 +31,17 @@ bun add -g failproofai
 
 <Steps>
   <Step title="Activar las políticas">
-    Las políticas son reglas que se ejecutan antes y después de cada llamada a herramientas del agente. Detectan comandos destructivos, filtraciones de secretos y otros modos de fallo antes de que causen daños.
+    Las políticas son reglas que se ejecutan antes y después de cada llamada a una herramienta del agente. Detectan comandos destructivos, filtraciones de secretos y otros modos de fallo antes de que causen daño.
 
     ```bash
     failproofai policies --install
     ```
 
-    Esto escribe entradas de hook en el archivo `settings.json` de Claude Code. También puedes instalar para un solo proyecto o elegir políticas específicas:
+    Esto escribe entradas de hooks en los CLIs de agentes que tengas instalados (el archivo `~/.claude/settings.json` de Claude Code y/o el `~/.codex/hooks.json` de OpenAI Codex). Si ambos están presentes, se te pedirá que elijas; usa `--cli claude codex` para omitir ese paso.
 
     ```bash
     failproofai policies --install --scope project
+    failproofai policies --install --cli codex --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>
@@ -49,14 +50,14 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    Muestra todas las políticas, si están habilitadas y los parámetros configurados.
+    Muestra todas las políticas, si están activas y los parámetros configurados.
   </Step>
   <Step title="Abrir el panel de control">
     ```bash
     failproofai
     ```
 
-    Abre un panel de control local en `http://localhost:8020` donde puedes explorar sesiones, inspeccionar llamadas a herramientas y gestionar políticas.
+    Abre un panel local en `http://localhost:8020` donde puedes explorar sesiones, inspeccionar llamadas a herramientas y gestionar políticas.
   </Step>
   <Step title="Ejecutar tu agente">
     Inicia Claude Code como de costumbre. Si el agente intenta algo arriesgado, failproofai lo intercepta automáticamente. Déjalo correr sin supervisión y revisa lo que ocurrió en el panel de control.
@@ -67,7 +68,7 @@ bun add -g failproofai
 
 ## Cómo funcionan las políticas
 
-Cada vez que un agente ejecuta una herramienta, Claude Code invoca failproofai como subproceso:
+Cada vez que un agente ejecuta una herramienta, Claude Code llama a failproofai como un subproceso:
 
 ```text
 Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
@@ -78,16 +79,16 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 Cada política devuelve una de tres decisiones:
 
 - **allow** - el agente continúa con normalidad
-- **deny** - la acción es bloqueada y se le informa al agente el motivo
+- **deny** - la acción es bloqueada y se le indica al agente el motivo
 - **instruct** - se añade contexto adicional al prompt del agente
 
 <Note>
-Las políticas se ejecutan en tu proceso local. No se envía nada a un servicio remoto.
+Las políticas se ejecutan en tu proceso local. Nada se envía a un servicio remoto.
 </Note>
 
 ---
 
-## Configurar políticas de equipo con políticas basadas en convenciones
+## Configurar políticas de equipo con políticas basadas en convención
 
 La forma más rápida de establecer estándares de calidad en tu equipo es la convención `.failproofai/policies/`. Coloca archivos de políticas en este directorio y se cargan automáticamente — sin flags, sin cambios de configuración, sin comandos de instalación.
 
@@ -123,33 +124,33 @@ La forma más rápida de establecer estándares de calidad en tu equipo es la co
     });
     ```
   </Step>
-  <Step title="Hacer commit en git">
+  <Step title="Confirmar en git">
     ```bash
     git add .failproofai/policies/
     git commit -m "Add team quality policies"
     ```
 
-    Todos los miembros del equipo que tengan failproofai instalado adoptarán estas políticas automáticamente. No se necesita configuración por desarrollador.
+    Cada miembro del equipo que tenga failproofai instalado recibirá estas políticas automáticamente. No se requiere configuración individual por desarrollador.
   </Step>
 </Steps>
 
 <Tip>
-Haz commit de `.failproofai/policies/` en tu repositorio para que todo el equipo comparta los mismos estándares. A medida que el equipo descubra nuevos modos de fallo, añade políticas y haz push — todos recibirán la actualización en su próximo `git pull`. Con el tiempo, estas políticas se convierten en un estándar de calidad vivo que sigue mejorando.
+Sube `.failproofai/policies/` a tu repositorio para que todo el equipo comparta los mismos estándares. A medida que descubráis nuevos modos de fallo, añade políticas y haz push — todos recibirán la actualización en su próximo `git pull`. Con el tiempo, estas políticas se convierten en un estándar de calidad vivo que no deja de mejorar.
 </Tip>
 
 ---
 
 ## Almacenamiento de datos
 
-Toda la configuración y los registros se mantienen en tu máquina:
+Toda la configuración y los registros permanecen en tu máquina:
 
 | Ruta | Qué almacena |
 |------|--------------|
 | `~/.failproofai/policies-config.json` | Configuración global de políticas |
 | `~/.failproofai/hook-activity.jsonl` | Historial de ejecución de hooks |
 | `~/.failproofai/hook.log` | Registro de depuración para errores de hooks personalizados |
-| `.failproofai/policies-config.json` | Configuración por proyecto (en el repositorio) |
-| `.failproofai/policies-config.local.json` | Ajustes personales (en gitignore) |
+| `.failproofai/policies-config.json` | Configuración por proyecto (versionada) |
+| `.failproofai/policies-config.local.json` | Overrides personales (en gitignore) |
 
 ---
 
@@ -159,7 +160,7 @@ Toda la configuración y los registros se mantienen en tu máquina:
 failproofai policies --uninstall
 ```
 
-Elimina las entradas de hook del archivo `~/.claude/settings.json`. Los archivos de configuración en `~/.failproofai/` se conservan.
+Elimina las entradas de hooks de `~/.claude/settings.json`. Los archivos de configuración en `~/.failproofai/` se conservan.
 
 ---
 
@@ -168,7 +169,7 @@ Elimina las entradas de hook del archivo `~/.claude/settings.json`. Los archivos
 <CardGroup cols={2}>
 
 <Card title="Configuración" icon="gear" href="/es/configuration">
-  Ámbitos y formato de los archivos de configuración
+  Ámbitos y formato del archivo de configuración
 </Card>
 
 <Card title="Políticas integradas" icon="shield" href="/es/built-in-policies">
@@ -180,7 +181,7 @@ Elimina las entradas de hook del archivo `~/.claude/settings.json`. Los archivos
 </Card>
 
 <Card title="Monitor de agentes" icon="chart-line" href="/es/dashboard">
-  Monitorea sesiones y revisa la actividad de las políticas
+  Supervisa sesiones y revisa la actividad de las políticas
 </Card>
 
 </CardGroup>

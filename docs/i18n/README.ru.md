@@ -23,16 +23,35 @@
 
 **Переводы**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-Самый простой способ управлять политиками, которые делают ваших ИИ-агентов надёжными, сосредоточенными на задачах и работающими автономно — для **Claude Code** и **Agents SDK**.
+Простейший способ управления политиками, которые делают ваших AI агентов надёжными, сосредоточенными на задаче и способными работать автономно — для **Claude Code**, **OpenAI Codex** и **Agents SDK**.
 
 <p align="center">
   <img src="failproofai-hq.gif" alt="Failproof AI в действии" width="800" />
 </p>
 
-- **39 встроенных политик** — перехватывайте типовые ошибки агентов прямо из коробки. Блокируйте деструктивные команды, предотвращайте утечки секретов, держите агентов в границах проекта, обнаруживайте циклы и многое другое.
-- **Пользовательские политики** — пишите собственные правила надёжности на JavaScript. Используйте API `allow`/`deny`/`instruct` для обеспечения соглашений, предотвращения дрейфа, управления операциями или интеграции с внешними системами.
-- **Простая конфигурация** — настраивайте любую политику без написания кода. Устанавливайте разрешённые списки, защищённые ветки, пороги для отдельного проекта или глобально. Три области конфигурации автоматически объединяются.
-- **Монитор агентов** — смотрите, что делали ваши агенты, пока вас не было. Просматривайте сессии, проверяйте каждый вызов инструмента и анализируйте точные моменты срабатывания политик.
+## Поддерживаемые CLI агентов
+
+<p align="center">
+  <a href="https://claude.com/claude-code" title="Claude Code">
+    <img src="assets/logos/claude.svg" alt="Claude Code" width="64" height="64" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://developers.openai.com/codex" title="OpenAI Codex">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/openai-dark.svg" />
+      <img src="assets/logos/openai-light.svg" alt="OpenAI Codex" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <strong>+ ещё скоро</strong>
+</p>
+
+> Установите хуки для одного или обоих: `failproofai policies --install --cli codex` (или `--cli claude codex`). Опустите `--cli`, чтобы автоматически обнаружить установленные CLI и получить приглашение.
+
+- **39 встроенных политик** — перехватывайте распространённые режимы отказа агентов из коробки. Блокируйте деструктивные команды, предотвращайте утечку секретов, держите агентов в границах проекта, обнаруживайте циклы и многое другое.
+- **Пользовательские политики** — напишите собственные правила надёжности на JavaScript. Используйте API `allow`/`deny`/`instruct` для соблюдения соглашений, предотвращения дрейфа, контроля операций или интеграции с внешними системами.
+- **Простая конфигурация** — настраивайте любую политику без кода. Установите допустимые списки, защищённые ветки, пороги для проекта или глобально. Конфигурация с тремя областями автоматически объединяется.
+- **Монитор агентов** — посмотрите, что делали ваши агенты, пока вас не было. Просматривайте сеансы, проверяйте каждый вызов инструмента и видите, где срабатывали политики.
 
 Всё работает локально — никакие данные не покидают вашу машину.
 
@@ -63,17 +82,17 @@ bun add -g failproofai
 failproofai policies --install
 ```
 
-Записывает записи о хуках в `~/.claude/settings.json`. Claude Code будет вызывать failproofai до и после каждого вызова инструмента.
+Записывает записи хуков в `~/.claude/settings.json`. Claude Code теперь будет вызывать failproofai перед и после каждого вызова инструмента.
 
-### 2. Запустите панель управления
+### 2. Запустите приборную панель
 
 ```bash
 failproofai
 ```
 
-Открывает `http://localhost:8020` — просматривайте сессии, проверяйте логи, управляйте политиками.
+Открывает `http://localhost:8020` — просматривайте сеансы, проверяйте логи, управляйте политиками.
 
-### 3. Проверьте, какие политики активны
+### 3. Проверьте, что активно
 
 ```bash
 failproofai policies
@@ -85,8 +104,8 @@ failproofai policies
 
 ### Области
 
-| Область | Команда | Где записывает |
-|---------|---------|---|
+| Область | Команда | Где записывается |
+|---------|---------|------------------|
 | Глобальная (по умолчанию) | `failproofai policies --install` | `~/.claude/settings.json` |
 | Проект | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | Локальная | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
@@ -109,7 +128,7 @@ failproofai policies --uninstall --scope project
 
 ## Конфигурация
 
-Конфигурация политик находится в `~/.failproofai/policies-config.json` (глобально) или `.failproofai/policies-config.json` в вашем проекте (для каждого проекта).
+Конфигурация политики находится в `~/.failproofai/policies-config.json` (глобальная) или `.failproofai/policies-config.json` в вашем проекте (по проектам).
 
 ```json
 {
@@ -124,11 +143,11 @@ failproofai policies --uninstall --scope project
   "policyParams": {
     "block-sudo": {
       "allowPatterns": ["sudo systemctl status", "sudo journalctl"],
-      "hint": "Используйте apt-get напрямую без sudo."
+      "hint": "Use apt-get directly without sudo."
     },
     "block-push-master": {
       "protectedBranches": ["main", "release", "prod"],
-      "hint": "Попробуйте создать свежую ветку."
+      "hint": "Try creating a fresh branch instead."
     },
     "sanitize-api-keys": {
       "additionalPatterns": [
@@ -148,34 +167,34 @@ failproofai policies --uninstall --scope project
 
 ## Встроенные политики
 
-| Политика | Описание | Конфигурируемо |
-|----------|----------|:---:|
-| `block-sudo` | Предотвратить выполнение агентами команд с привилегиями | `allowPatterns` |
+| Политика | Описание | Настраивается |
+|----------|---------|:---:|
+| `block-sudo` | Предотвратить запуск агентами привилегированных системных команд | `allowPatterns` |
 | `block-rm-rf` | Предотвратить случайное рекурсивное удаление файлов | `allowPaths` |
-| `block-curl-pipe-sh` | Предотвратить передачу ненадёжных скриптов в shell | |
+| `block-curl-pipe-sh` | Предотвратить подачу агентами ненадёжных скриптов в оболочку | |
 | `block-failproofai-commands` | Предотвратить самоудаление | |
-| `sanitize-jwt` | Остановить утечку JWT-токенов в контекст агента | |
-| `sanitize-api-keys` | Остановить утечку API-ключей в контекст агента | `additionalPatterns` |
+| `sanitize-jwt` | Остановить утечку токенов JWT в контекст агента | |
+| `sanitize-api-keys` | Остановить утечку ключей API в контекст агента | `additionalPatterns` |
 | `sanitize-connection-strings` | Остановить утечку учётных данных БД в контекст агента | |
-| `sanitize-private-key-content` | Удалить блоки приватных ключей PEM из вывода | |
-| `sanitize-bearer-tokens` | Удалить Bearer-токены авторизации из вывода | |
-| `block-env-files` | Не позволяйте агентам читать .env файлы | |
-| `protect-env-vars` | Предотвратить вывод переменных окружения агентами | |
-| `block-read-outside-cwd` | Держите агентов в границах проекта | `allowPaths` |
+| `sanitize-private-key-content` | Скрыть блоки приватных ключей PEM из вывода | |
+| `sanitize-bearer-tokens` | Скрыть токены Authorization Bearer из вывода | |
+| `block-env-files` | Удержать агентов от чтения файлов .env | |
+| `protect-env-vars` | Предотвратить вывод переменных среды агентами | |
+| `block-read-outside-cwd` | Держать агентов в границах проекта | `allowPaths` |
 | `block-secrets-write` | Предотвратить запись в файлы приватных ключей и сертификатов | `additionalPatterns` |
-| `block-push-master` | Предотвратить случайные push на main/master | `protectedBranches` |
-| `block-work-on-main` | Не позволяйте агентам работать на защищённых ветках | `protectedBranches` |
+| `block-push-master` | Предотвратить случайные отправки на main/master | `protectedBranches` |
+| `block-work-on-main` | Удержать агентов от защищённых веток | `protectedBranches` |
 | `block-force-push` | Предотвратить `git push --force` | |
-| `warn-git-amend` | Напомните агентам перед изменением коммитов | |
-| `warn-git-stash-drop` | Напомните агентам перед удалением stash | |
-| `warn-all-files-staged` | Перехватите случайный `git add -A` | |
-| `warn-destructive-sql` | Перехватите DROP/DELETE SQL перед выполнением | |
-| `warn-schema-alteration` | Перехватите ALTER TABLE перед выполнением | |
-| `warn-large-file-write` | Перехватите неожиданно большие записи файлов | `thresholdKb` |
-| `warn-package-publish` | Перехватите случайный `npm publish` | |
-| `warn-background-process` | Перехватите непредусмотренные запуски фоновых процессов | |
-| `warn-global-package-install` | Перехватите непредусмотренные глобальные установки пакетов | |
-| …и другие | | |
+| `warn-git-amend` | Напомнить агентам перед изменением коммитов | |
+| `warn-git-stash-drop` | Напомнить агентам перед удалением stash | |
+| `warn-all-files-staged` | Поймать случайный `git add -A` | |
+| `warn-destructive-sql` | Поймать DROP/DELETE SQL перед выполнением | |
+| `warn-schema-alteration` | Поймать ALTER TABLE перед выполнением | |
+| `warn-large-file-write` | Поймать неожиданно большие записи файлов | `thresholdKb` |
+| `warn-package-publish` | Поймать случайный `npm publish` | |
+| `warn-background-process` | Поймать непреднамеренные запуски фоновых процессов | |
+| `warn-global-package-install` | Поймать непреднамеренные глобальные установки пакетов | |
+| …и др. | | |
 
 Полные детали политик и справочник параметров: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
@@ -183,19 +202,19 @@ failproofai policies --uninstall --scope project
 
 ## Пользовательские политики
 
-Пишите свои политики, чтобы агенты оставались надёжными и сосредоточенными на задачах:
+Напишите собственные политики, чтобы ваши агенты оставались надёжными и сосредоточенными на задаче:
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
 
 customPolicies.add({
   name: "no-production-writes",
-  description: "Блокировать запись в пути, содержащие 'production'",
+  description: "Block writes to paths containing 'production'",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
     const path = ctx.toolInput?.file_path ?? "";
-    if (path.includes("production")) return deny("Запись в пути production заблокирована");
+    if (path.includes("production")) return deny("Writes to production paths are blocked");
     return allow();
   },
 });
@@ -207,7 +226,7 @@ customPolicies.add({
 failproofai policies --install --custom ./my-policies.js
 ```
 
-### Вспомогательные функции решений
+### Помощники решений
 
 | Функция | Эффект |
 |---------|--------|
@@ -222,36 +241,36 @@ failproofai policies --install --custom ./my-policies.js
 |------|-----|---------|
 | `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
 | `toolName` | `string` | Вызываемый инструмент (`"Bash"`, `"Write"`, `"Read"`, …) |
-| `toolInput` | `object` | Входные параметры инструмента |
-| `payload` | `object` | Полный сырой payload события |
-| `session.cwd` | `string` | Рабочая директория сессии Claude Code |
-| `session.sessionId` | `string` | Идентификатор сессии |
-| `session.transcriptPath` | `string` | Путь к файлу стенограммы сессии |
+| `toolInput` | `object` | Параметры входа инструмента |
+| `payload` | `object` | Полная полезная нагрузка события |
+| `session.cwd` | `string` | Рабочий каталог сеанса Claude Code |
+| `session.sessionId` | `string` | Идентификатор сеанса |
+| `session.transcriptPath` | `string` | Путь к файлу транскрипта сеанса |
 
-Пользовательские хуки поддерживают транзитивные локальные импорты, async/await и доступ к `process.env`. Ошибки открыты (логируются в `~/.failproofai/hook.log`, встроенные политики продолжают работу). Полное руководство см. в [docs/custom-hooks.mdx](docs/custom-hooks.mdx).
+Пользовательские хуки поддерживают локальные импорты, async/await и доступ к `process.env`. Ошибки логируются как fail-open (в `~/.failproofai/hook.log`, встроенные политики продолжают работу). Полное руководство см. в [docs/custom-hooks.mdx](docs/custom-hooks.mdx).
 
 ### Политики на основе соглашений
 
-Поместите файлы `*policies.{js,mjs,ts}` в `.failproofai/policies/` и они будут загружены автоматически — никаких флагов или изменений конфигурации не требуется. Закоммитьте директорию в git и каждый член команды получит одинаковые стандарты качества автоматически.
+Поместите файлы `*policies.{js,mjs,ts}` в `.failproofai/policies/` и они автоматически загружаются — никаких флагов или изменений конфигурации не требуется. Закоммитьте каталог в git и все члены команды получат одинаковые стандарты качества автоматически.
 
 ```text
-# Уровень проекта — закоммичено в git, доступно команде
+# Уровень проекта — закоммичено в git, используется командой
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# Уровень пользователя — личные, применяются ко всем проектам
+# Уровень пользователя — личное, применяется ко всем проектам
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-Загружаются оба уровня (объединение). Файлы загружаются в алфавитном порядке в каждой директории. Префиксируйте с `01-`, `02-`, и т.д. для управления порядком. Когда ваша команда обнаружит новые ошибки, добавьте политику и push — все получат обновление при следующем pull. Готовые примеры см. в [examples/convention-policies/](examples/convention-policies/).
+Оба уровня загружаются (объединение). Файлы загружаются в алфавитном порядке в каждом каталоге. Префиксируйте с `01-`, `02-` и т. д., чтобы контролировать порядок. По мере открытия новых режимов отказа добавьте политику и отправьте — каждый получит обновление при следующем pull. Готовые примеры см. в [examples/convention-policies/](examples/convention-policies/).
 
 ---
 
 ## Телеметрия
 
-Failproof AI собирает анонимную телеметрию использования через PostHog для понимания использования функций. Содержимое сессий, имена файлов, входные данные инструментов или персональная информация никогда не отправляются.
+Failproof AI собирает анонимные данные телеметрии через PostHog для понимания использования функций. Содержимое сеанса, имена файлов, входные данные инструментов или личная информация никогда не отправляются.
 
-Отключите её:
+Отключите:
 
 ```bash
 FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
@@ -263,13 +282,13 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 
 | Руководство | Описание |
 |-------------|---------|
-| [Getting Started](docs/getting-started.mdx) | Установка и первые шаги |
-| [Built-in Policies](docs/built-in-policies.mdx) | Все 39 встроенных политик с параметрами |
-| [Custom Policies](docs/custom-policies.mdx) | Пишите свои политики |
-| [Configuration](docs/configuration.mdx) | Формат файла конфигурации и объединение областей |
-| [Dashboard](docs/dashboard.mdx) | Мониторьте сессии и просматривайте активность политик |
-| [Architecture](docs/architecture.mdx) | Как работает система хуков |
-| [Testing](docs/testing.mdx) | Запуск тестов и написание новых |
+| [Начало работы](docs/getting-started.mdx) | Установка и первые шаги |
+| [Встроенные политики](docs/built-in-policies.mdx) | Все 39 встроенных политик с параметрами |
+| [Пользовательские политики](docs/custom-policies.mdx) | Напишите собственные политики |
+| [Конфигурация](docs/configuration.mdx) | Формат файла конфигурации и объединение областей |
+| [Приборная панель](docs/dashboard.mdx) | Мониторинг сеансов и проверка активности политик |
+| [Архитектура](docs/architecture.mdx) | Как работает система хуков |
+| [Тестирование](docs/testing.mdx) | Запуск тестов и написание новых |
 
 ### Запустите документацию локально
 
@@ -278,7 +297,7 @@ docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-Открывает сайт документации Mintlify на `http://localhost:3000`. Контейнер следит за изменениями, если вы монтируете директорию docs:
+Открывает сайт документации Mintlify по адресу `http://localhost:3000`. Контейнер следит за изменениями, если вы смонтируете каталог документации:
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -288,24 +307,25 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ## Примечание для участников failproofai
 
-`.claude/settings.json` этого репозитория использует `bun ./bin/failproofai.mjs --hook <EventType>` вместо стандартной команды `npx -y failproofai`. Это связано с тем, что запуск `npx -y failproofai` внутри самого проекта failproofai создаёт конфликт с самоссылкой.
+`.claude/settings.json` этого репо использует `bun ./bin/failproofai.mjs --hook <EventType>` вместо стандартной команды `npx -y failproofai`. Это потому, что запуск `npx -y failproofai` внутри самого проекта failproofai создаёт конфликт самоссылки.
 
-Для всех остальных репозиториев рекомендуемый подход — `npx -y failproofai`, установленный через:
+Для всех остальных репо рекомендуемый подход — `npx -y failproofai`, установленный через:
 
 ```bash
 failproofai policies --install --scope project
 ```
 
-## Участие в разработке
+## Участие
 
-Смотрите [CONTRIBUTING.md](CONTRIBUTING.md).
+См. [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 ## Лицензия
 
-Смотрите [LICENSE](LICENSE).
+См. [LICENSE](LICENSE).
 
 ---
 
-Разработано и поддерживается **ExosphereHost: Reliability Research Lab for Your Agents**. Мы помогаем предприятиям и стартапам повысить надёжность своих ИИ-агентов через собственные агентов, программное обеспечение и опыт. Подробнее на [exosphere.host](https://exosphere.host).
+Разработано и поддерживается компанией **ExosphereHost: Reliability Research Lab for Your Agents**. Мы помогаем предприятиям и стартапам улучшить надёжность своих AI агентов благодаря нашим собственным агентам, программному обеспечению и опыту. Узнайте больше на [exosphere.host](https://exosphere.host).
+```

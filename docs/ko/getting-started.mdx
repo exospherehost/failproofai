@@ -7,7 +7,7 @@ icon: rocket
 ## 요구 사항
 
 - **Node.js** >= 20.9.0
-- **Bun** >= 1.3.0 (선택 사항 - 소스에서 직접 빌드할 때만 필요)
+- **Bun** >= 1.3.0 (선택 사항 - 소스에서 빌드할 때만 필요)
 
 ---
 
@@ -31,16 +31,17 @@ bun add -g failproofai
 
 <Steps>
   <Step title="정책 활성화">
-    정책은 에이전트의 모든 도구 호출 전후에 실행되는 규칙입니다. 파괴적인 명령, 비밀 정보 유출, 그 밖의 실패 패턴을 피해가 발생하기 전에 차단합니다.
+    정책은 에이전트의 모든 도구 호출 전후로 실행되는 규칙입니다. 파괴적인 명령, 시크릿 유출, 그 외 장애 유형이 실제 피해를 일으키기 전에 차단합니다.
 
     ```bash
     failproofai policies --install
     ```
 
-    이 명령은 Claude Code의 `settings.json`에 훅 항목을 작성합니다. 단일 프로젝트에만 설치하거나 특정 정책만 선택할 수도 있습니다:
+    이 명령은 설치된 에이전트 CLI(Claude Code의 `~/.claude/settings.json` 및/또는 OpenAI Codex의 `~/.codex/hooks.json`)에 훅 항목을 작성합니다. 둘 다 설치된 경우 선택을 묻는 프롬프트가 표시되며, `--cli claude codex`를 전달하면 프롬프트를 건너뜁니다.
 
     ```bash
     failproofai policies --install --scope project
+    failproofai policies --install --cli codex --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>
@@ -49,17 +50,17 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    모든 정책의 활성화 여부와 설정된 파라미터를 표시합니다.
+    모든 정책, 활성화 여부, 설정된 파라미터를 표시합니다.
   </Step>
   <Step title="대시보드 실행">
     ```bash
     failproofai
     ```
 
-    `http://localhost:8020`에 로컬 대시보드를 엽니다. 여기서 세션을 탐색하고, 도구 호출을 검사하며, 정책을 관리할 수 있습니다.
+    `http://localhost:8020`에 로컬 대시보드를 열어 세션 탐색, 도구 호출 검사, 정책 관리를 할 수 있습니다.
   </Step>
   <Step title="에이전트 실행">
-    평소처럼 Claude Code를 시작하세요. 에이전트가 위험한 작업을 시도하면 failproofai가 자동으로 가로챕니다. 에이전트를 무인 상태로 두고 대시보드에서 결과를 나중에 확인하세요.
+    평소처럼 Claude Code를 시작하세요. 에이전트가 위험한 작업을 시도하면 failproofai가 자동으로 가로챕니다. 무인 상태로 실행해 두고 대시보드에서 결과를 확인하세요.
   </Step>
 </Steps>
 
@@ -77,9 +78,9 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 
 각 정책은 다음 세 가지 결정 중 하나를 반환합니다:
 
-- **allow** - 에이전트가 정상적으로 진행됩니다
-- **deny** - 동작이 차단되고 에이전트에게 이유가 전달됩니다
-- **instruct** - 에이전트의 프롬프트에 추가 컨텍스트가 삽입됩니다
+- **allow** - 에이전트가 정상적으로 진행
+- **deny** - 작업이 차단되고 에이전트에게 이유가 전달됨
+- **instruct** - 에이전트의 프롬프트에 추가 컨텍스트가 삽입됨
 
 <Note>
 정책은 로컬 프로세스에서 실행됩니다. 원격 서비스로 전송되는 데이터는 없습니다.
@@ -89,7 +90,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 
 ## 컨벤션 기반 정책으로 팀 정책 설정하기
 
-팀 전체에 품질 기준을 빠르게 도입하는 방법은 `.failproofai/policies/` 컨벤션을 활용하는 것입니다. 이 디렉터리에 정책 파일을 넣기만 하면 자동으로 로드됩니다 — 별도의 플래그, 설정 변경, 설치 명령이 필요 없습니다.
+팀 전체에 품질 기준을 가장 빠르게 적용하는 방법은 `.failproofai/policies/` 컨벤션입니다. 이 디렉터리에 정책 파일을 추가하면 자동으로 로드됩니다 — 플래그, 설정 변경, 설치 명령 없이도 동작합니다.
 
 <Steps>
   <Step title="정책 디렉터리 생성">
@@ -98,7 +99,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
     ```
   </Step>
   <Step title="정책 파일 추가">
-    스타터 예제를 복사하거나 직접 작성하세요:
+    시작용 예제를 복사하거나 직접 작성하세요:
 
     ```bash
     cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
@@ -129,12 +130,12 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
     git commit -m "Add team quality policies"
     ```
 
-    failproofai가 설치된 팀원이라면 누구나 이 정책을 자동으로 적용받습니다. 개발자별 별도 설정이 필요 없습니다.
+    failproofai가 설치된 모든 팀원이 이 정책을 자동으로 적용받습니다. 개발자별 별도 설정은 필요 없습니다.
   </Step>
 </Steps>
 
 <Tip>
-`.failproofai/policies/`를 저장소에 커밋하면 팀 전체가 동일한 기준을 공유할 수 있습니다. 팀이 새로운 실패 패턴을 발견할 때마다 정책을 추가하고 푸시하면 — 모든 팀원이 다음 `git pull` 시 업데이트를 받게 됩니다. 시간이 지남에 따라 이 정책들은 지속적으로 발전하는 살아있는 품질 기준이 됩니다.
+`.failproofai/policies/`를 저장소에 커밋하면 팀 전체가 동일한 기준을 공유합니다. 팀에서 새로운 장애 유형을 발견할 때마다 정책을 추가하고 푸시하면 — 모든 팀원이 다음 `git pull` 시 업데이트를 받습니다. 시간이 지날수록 이 정책들은 계속 발전하는 살아있는 품질 기준이 됩니다.
 </Tip>
 
 ---
@@ -144,12 +145,12 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 모든 설정과 로그는 로컬 머신에 저장됩니다:
 
 | 경로 | 저장 내용 |
-|------|----------------|
+|------|-----------|
 | `~/.failproofai/policies-config.json` | 전역 정책 설정 |
 | `~/.failproofai/hook-activity.jsonl` | 훅 실행 이력 |
 | `~/.failproofai/hook.log` | 커스텀 훅 오류 디버그 로그 |
-| `.failproofai/policies-config.json` | 프로젝트별 설정 (커밋됨) |
-| `.failproofai/policies-config.local.json` | 개인 오버라이드 (gitignore 처리됨) |
+| `.failproofai/policies-config.json` | 프로젝트별 설정 (커밋 대상) |
+| `.failproofai/policies-config.local.json` | 개인 오버라이드 (gitignore 대상) |
 
 ---
 
