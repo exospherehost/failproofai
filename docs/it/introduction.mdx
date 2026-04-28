@@ -1,36 +1,36 @@
 ---
-title: Failproof AI
+title:  Failproof AI
 description: "Gestisci hook e policy che mantengono i tuoi agenti AI affidabili e in esecuzione autonoma"
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-Hook e policy che mantengono i tuoi agenti AI affidabili e in esecuzione autonoma - per **Claude Code** e **Agents SDK**.
+Hook e policy che mantengono i tuoi agenti AI affidabili e in esecuzione autonoma - per **Claude Code**, **OpenAI Codex** e **Agents SDK**.
 
-Gli agenti AI falliscono in modi prevedibili. Eseguono comandi distruttivi, perdono segreti, si allontanano dal compito assegnato, si bloccano in loop infiniti o spingono direttamente al ramo principale. Se lasciati incustoditi, i piccoli errori si moltiplicano a cascata.
+Gli agenti AI falliscono in modi prevedibili. Eseguono comandi distruttivi, perdono segreti, si allontanano dal compito assegnato, rimangono bloccati in loop, o eseguono il push direttamente al main. Se lasciati incustoditi, i piccoli errori si cascano.
 
-Failproof AI risolve questo problema con le **policy** - regole che si collegano ad ogni chiamata di strumento dell'agente e possono **rilevare i fallimenti**, **attenuarli** (bloccare, istruire, sanitizzare) e **avvisarti** quando qualcosa richiede attenzione. Una dashboard locale ti permette di controllare tutto in seguito.
+Failproof AI risolve questo con le **policy** - regole che si agganciano a ogni chiamata di strumento dell'agente e possono **rilevare gli errori**, **mitigarli** (bloccare, istruire, disinfettare) e **avvertirti** quando qualcosa ha bisogno di attenzione. Una dashboard locale ti permette di rivedere tutto successivamente.
 
-Tutto viene eseguito localmente. Nessun dato lascia la tua macchina.
+Tutto funziona localmente. Nessun dato lascia la tua macchina.
 
 ## Inizia
 
 <CardGroup cols={2}>
 
-<Card title="26 policy predefinite" icon="shield" href="/it/built-in-policies">
-  Blocca comandi distruttivi, previeni la perdita di segreti, mantieni gli agenti all'interno dei confini del progetto, e molto altro - pronto all'uso.
+<Card title="26 policy integrate" icon="shield" href="/it/built-in-policies">
+  Blocca comandi distruttivi, previeni perdite di segreti, mantieni gli agenti all'interno dei confini del progetto e altro ancora - subito disponibile.
 </Card>
 
 <Card title="Policy personalizzate" icon="code" href="/it/custom-policies">
   Scrivi le tue regole in JavaScript con una semplice API allow / deny / instruct.
 </Card>
 
-<Card title="Monitor agente" icon="chart-line" href="/it/dashboard">
-  Vedi cosa hanno fatto i tuoi agenti mentre eri via. Sfoglia le sessioni, ispeziona le chiamate ai tool, esamina dove le policy sono state applicate.
+<Card title="Agent monitor" icon="chart-line" href="/it/dashboard">
+  Vedi cosa hanno fatto i tuoi agenti mentre eri via. Sfoglia le sessioni, ispeziona le chiamate di strumento, rivedi dove le policy si sono attivate.
 </Card>
 
 <Card title="Configurazione semplice" icon="gear" href="/it/configuration">
-  Regola qualsiasi policy senza scrivere codice. Imposta liste consentite, rami protetti o soglie per progetto o globalmente.
+  Sintonizza qualsiasi policy senza codice. Imposta allowlist, rami protetti o soglie per-progetto o globalmente.
 </Card>
 
 </CardGroup>
@@ -54,4 +54,4 @@ failproofai policies --install   # abilita le policy
 failproofai                      # avvia la dashboard
 ```
 
-Consulta la guida [Inizia](/it/getting-started) per la procedura dettagliata completa.
+Vedi la guida [Inizia](/it/getting-started) per la procedura dettagliata completa.

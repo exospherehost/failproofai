@@ -1,28 +1,28 @@
 ---
 title: Konfiguration
-description: "Konfigurationsdateiformat, Drei-Ebenen-System und Zusammenführungsregeln"
+description: "Konfigurationsdateiformat, Drei-Scope-System und Zusammenführungsregeln"
 icon: gear
 ---
 
-failproofai verwendet JSON-Konfigurationsdateien, um festzulegen, welche Richtlinien aktiv sind, wie sie sich verhalten und woher benutzerdefinierte Richtlinien geladen werden. Die Konfiguration ist darauf ausgelegt, einfach mit dem Team geteilt zu werden – checke sie in dein Repository ein, und jeder Entwickler profitiert vom gleichen Sicherheitsnetz für den Agenten.
+failproofai verwendet JSON-Konfigurationsdateien, um zu steuern, welche Richtlinien aktiv sind, wie sie sich verhalten und woher benutzerdefinierte Richtlinien geladen werden. Die Konfiguration ist so gestaltet, dass sie sich leicht im Team teilen lässt – committe sie in dein Repository und jeder Entwickler erhält dasselbe Sicherheitsnetz für den Agenten.
 
 ---
 
-## Konfigurationsebenen
+## Konfigurationsscopes
 
-Es gibt drei Konfigurationsebenen, die in Prioritätsreihenfolge ausgewertet werden:
+Es gibt drei Konfigurationsscopes, die in Prioritätsreihenfolge ausgewertet werden:
 
-| Ebene | Dateipfad | Zweck |
+| Scope | Dateipfad | Zweck |
 |-------|-----------|-------|
-| **project** | `.failproofai/policies-config.json` | Repo-spezifische Einstellungen, in die Versionskontrolle eingecheckt |
-| **local** | `.failproofai/policies-config.local.json` | Persönliche Repo-spezifische Überschreibungen, via gitignore ausgeschlossen |
+| **project** | `.failproofai/policies-config.json` | Repository-spezifische Einstellungen, in die Versionskontrolle eingecheckt |
+| **local** | `.failproofai/policies-config.local.json` | Persönliche repository-spezifische Überschreibungen, per .gitignore ausgeschlossen |
 | **global** | `~/.failproofai/policies-config.json` | Benutzerweite Standardeinstellungen für alle Projekte |
 
-Wenn failproofai ein Hook-Ereignis empfängt, lädt und fügt es alle drei Dateien zusammen, die für das aktuelle Arbeitsverzeichnis vorhanden sind.
+Wenn failproofai ein Hook-Ereignis empfängt, lädt und führt es alle drei Dateien zusammen, die für das aktuelle Arbeitsverzeichnis vorhanden sind.
 
 ### Zusammenführungsregeln
 
-**`enabledPolicies`** – die Vereinigung aller drei Ebenen. Eine Richtlinie, die auf einer beliebigen Ebene aktiviert ist, ist aktiv.
+**`enabledPolicies`** – die Vereinigung aller drei Scopes. Eine Richtlinie, die auf irgendeiner Ebene aktiviert ist, ist aktiv.
 
 ```text
 project:  ["block-sudo"]
@@ -32,7 +32,7 @@ global:   ["block-sudo", "sanitize-api-keys"]
 resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← deduplizierte Vereinigung
 ```
 
-**`policyParams`** – die erste Ebene, die Parameter für eine bestimmte Richtlinie definiert, gewinnt vollständig. Es findet kein tiefes Zusammenführen von Werten innerhalb der Parameter einer Richtlinie statt.
+**`policyParams`** – der erste Scope, der Parameter für eine bestimmte Richtlinie definiert, gewinnt vollständig. Es findet kein tiefes Zusammenführen von Werten innerhalb der Parameter einer Richtlinie statt.
 
 ```text
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
@@ -49,9 +49,9 @@ global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 resolved: { allowPatterns: ["sudo systemctl status"] }  ← fällt auf global zurück
 ```
 
-**`customPoliciesPath`** – die erste Ebene, die diesen Wert definiert, gewinnt.
+**`customPoliciesPath`** – der erste Scope, der diesen Wert definiert, gewinnt.
 
-**`llm`** – die erste Ebene, die diesen Wert definiert, gewinnt.
+**`llm`** – der erste Scope, der diesen Wert definiert, gewinnt.
 
 ---
 
@@ -102,7 +102,7 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← fällt auf global zu
 
 Typ: `string[]`
 
-Liste der zu aktivierenden Richtliniennamen. Die Namen müssen exakt mit den Richtlinienbezeichnern übereinstimmen, die von `failproofai policies` angezeigt werden. Eine vollständige Liste findest du unter [Integrierte Richtlinien](/de/built-in-policies).
+Liste der zu aktivierenden Richtliniennamen. Die Namen müssen genau mit den Richtlinienbezeichnern übereinstimmen, die von `failproofai policies` angezeigt werden. Die vollständige Liste findest du unter [Integrierte Richtlinien](/de/built-in-policies).
 
 Richtlinien, die nicht in `enabledPolicies` aufgeführt sind, sind inaktiv – auch wenn sie Einträge in `policyParams` haben.
 
@@ -110,17 +110,17 @@ Richtlinien, die nicht in `enabledPolicies` aufgeführt sind, sind inaktiv – a
 
 Typ: `Record<string, Record<string, unknown>>`
 
-Richtlinienspezifische Parameterüberschreibungen. Der äußere Schlüssel ist der Richtlinienname, die inneren Schlüssel sind richtlinienspezifisch. Jede Richtlinie dokumentiert ihre verfügbaren Parameter unter [Integrierte Richtlinien](/de/built-in-policies).
+Richtlinienspezifische Parameterüberschreibungen. Der äußere Schlüssel ist der Richtlinienname; die inneren Schlüssel sind richtlinienspezifisch. Jede Richtlinie dokumentiert ihre verfügbaren Parameter unter [Integrierte Richtlinien](/de/built-in-policies).
 
-Wenn eine Richtlinie Parameter hat, du diese aber nicht angibst, werden die integrierten Standardwerte der Richtlinie verwendet. Benutzer, die `policyParams` gar nicht konfigurieren, erhalten identisches Verhalten wie in früheren Versionen.
+Wenn eine Richtlinie Parameter hat, du sie aber nicht angibst, werden die integrierten Standardwerte der Richtlinie verwendet. Benutzer, die `policyParams` überhaupt nicht konfigurieren, erhalten dasselbe Verhalten wie in früheren Versionen.
 
-Unbekannte Schlüssel innerhalb des Parameterblocks einer Richtlinie werden zum Zeitpunkt der Hook-Ausführung still ignoriert, aber als Warnungen ausgegeben, wenn du `failproofai policies` ausführst.
+Unbekannte Schlüssel innerhalb des Parameterblocks einer Richtlinie werden zum Zeitpunkt des Hook-Aufrufs stillschweigend ignoriert, aber als Warnungen ausgegeben, wenn du `failproofai policies` ausführst.
 
 #### `hint` (übergreifend)
 
 Typ: `string` (optional)
 
-Eine Nachricht, die dem Grund hinzugefügt wird, wenn eine Richtlinie `deny` oder `instruct` zurückgibt. Verwende sie, um Claude handlungsorientierte Hinweise zu geben, ohne die Richtlinie selbst zu ändern.
+Eine Nachricht, die an die Begründung angehängt wird, wenn eine Richtlinie `deny` oder `instruct` zurückgibt. Damit kannst du Claude handlungsrelevante Hinweise geben, ohne die Richtlinie selbst ändern zu müssen.
 
 Funktioniert mit jedem Richtlinientyp – integriert, benutzerdefiniert (`custom/`), Projektkonvention (`.failproofai-project/`) oder Benutzerkonvention (`.failproofai-user/`).
 
@@ -143,30 +143,30 @@ Funktioniert mit jedem Richtlinientyp – integriert, benutzerdefiniert (`custom
 
 Wenn `block-force-push` ablehnt, sieht Claude: *„Force-Pushing ist blockiert. Try creating a fresh branch instead."*
 
-Nicht-String-Werte und leere Zeichenfolgen werden still ignoriert. Wenn `hint` nicht gesetzt ist, bleibt das Verhalten unverändert (abwärtskompatibel).
+Nicht-String-Werte und leere Zeichenketten werden stillschweigend ignoriert. Wenn `hint` nicht gesetzt ist, bleibt das Verhalten unverändert (abwärtskompatibel).
 
 ### `customPoliciesPath`
 
 Typ: `string` (absoluter Pfad)
 
-Pfad zu einer JavaScript-Datei mit benutzerdefinierten Hook-Richtlinien. Dieser Wert wird automatisch durch `failproofai policies --install --custom <path>` gesetzt (der Pfad wird vor der Speicherung in einen absoluten Pfad aufgelöst).
+Pfad zu einer JavaScript-Datei, die benutzerdefinierte Hook-Richtlinien enthält. Dieser wird automatisch von `failproofai policies --install --custom <path>` gesetzt (der Pfad wird vor der Speicherung in einen absoluten Pfad aufgelöst).
 
-Die Datei wird bei jedem Hook-Ereignis neu geladen – es gibt kein Caching. Einzelheiten zur Erstellung findest du unter [Benutzerdefinierte Richtlinien](/de/custom-policies).
+Die Datei wird bei jedem Hook-Ereignis neu geladen – es findet kein Caching statt. Einzelheiten zur Erstellung findest du unter [Benutzerdefinierte Richtlinien](/de/custom-policies).
 
 ### Konventionsbasierte Richtlinien
 
 Zusätzlich zum expliziten `customPoliciesPath` erkennt und lädt failproofai automatisch Richtliniendateien aus `.failproofai/policies/`-Verzeichnissen:
 
-| Ebene | Verzeichnis | Geltungsbereich |
-|-------|-------------|-----------------|
-| Projekt | `.failproofai/policies/` | Gemeinsam mit dem Team über die Versionskontrolle |
+| Ebene | Verzeichnis | Scope |
+|-------|-------------|-------|
+| Projekt | `.failproofai/policies/` | Mit dem Team über die Versionskontrolle geteilt |
 | Benutzer | `~/.failproofai/policies/` | Persönlich, gilt für alle Projekte |
 
 **Dateiabgleich:** Es werden nur Dateien geladen, die dem Muster `*policies.{js,mjs,ts}` entsprechen (z. B. `security-policies.mjs`, `workflow-policies.js`). Andere Dateien im Verzeichnis werden ignoriert.
 
-**Keine Konfiguration nötig:** Konventionsrichtlinien benötigen keine Einträge in `policies-config.json`. Lege die Dateien einfach im Verzeichnis ab, und sie werden beim nächsten Hook-Ereignis aufgegriffen.
+**Keine Konfiguration erforderlich:** Konventionsrichtlinien benötigen keine Einträge in `policies-config.json`. Lege die Dateien einfach in das Verzeichnis und sie werden beim nächsten Hook-Ereignis erkannt.
 
-**Vereinigtes Laden:** Sowohl das Projekt- als auch das Benutzerkonventionsverzeichnis werden durchsucht. Alle übereinstimmenden Dateien aus beiden Ebenen werden geladen (im Gegensatz zu `customPoliciesPath`, das nach dem Prinzip „erste Ebene gewinnt" vorgeht).
+**Vereinigtes Laden:** Sowohl Projekt- als auch Benutzerkonventionsverzeichnisse werden durchsucht. Alle passenden Dateien aus beiden Ebenen werden geladen (im Gegensatz zu `customPoliciesPath`, das nach dem Prinzip „erster Scope gewinnt" funktioniert).
 
 Weitere Details und Beispiele findest du unter [Benutzerdefinierte Richtlinien](/de/custom-policies).
 
@@ -174,7 +174,7 @@ Weitere Details und Beispiele findest du unter [Benutzerdefinierte Richtlinien](
 
 Typ: `object` (optional)
 
-LLM-Client-Konfiguration für Richtlinien, die KI-Aufrufe durchführen. Für die meisten Setups nicht erforderlich.
+LLM-Client-Konfiguration für Richtlinien, die KI-Aufrufe tätigen. Für die meisten Setups nicht erforderlich.
 
 ```json
 {
@@ -189,10 +189,26 @@ LLM-Client-Konfiguration für Richtlinien, die KI-Aufrufe durchführen. Für die
 
 ## Konfiguration über die CLI verwalten
 
-Die Befehle `policies --install` und `policies --uninstall` schreiben in Claude Codes `settings.json` (die Hook-Einstiegspunkte), während `policies-config.json` die Datei ist, die du direkt verwaltest. Beide sind voneinander getrennt:
+Die Befehle `policies --install` und `policies --uninstall` schreiben in die Hook-Einstellungsdatei deiner Agenten-CLI (die Hook-Einstiegspunkte), während `policies-config.json` die Datei ist, die du direkt verwaltest. Beide sind voneinander getrennt:
 
-- **`settings.json`** – weist Claude Code an, bei jeder Tool-Nutzung `failproofai --hook <event>` aufzurufen
-- **`policies-config.json`** – weist failproofai an, welche Richtlinien mit welchen Parametern ausgewertet werden sollen
+- **Agenten-CLI-Einstellungen** – weist den Agenten an, bei jeder Toolnutzung `failproofai --hook <event>` aufzurufen:
+  - **Claude Code**: `~/.claude/settings.json` (Benutzer), `<cwd>/.claude/settings.json` (Projekt), `<cwd>/.claude/settings.local.json` (lokal)
+  - **OpenAI Codex**: `~/.codex/hooks.json` (Benutzer), `<cwd>/.codex/hooks.json` (Projekt) – Codex hat keinen `local`-Scope
+- **`policies-config.json`** – teilt failproofai mit, welche Richtlinien ausgewertet werden sollen und mit welchen Parametern (gilt für alle Agenten-CLIs)
+
+Übergib `--cli claude|codex`, um einen bestimmten Agenten anzusprechen (leerzeichen-getrennt oder mehrfach angegeben für beide):
+
+```bash
+failproofai policies --install --cli codex --scope project
+failproofai policies --install --cli claude codex
+```
+
+Wenn `--cli` weggelassen wird, erkennt `failproofai` automatisch, welche Agenten-CLIs installiert sind (`which claude` / `which codex`):
+
+- **Eine CLI erkannt** – wählt diese CLI automatisch ohne Nachfrage aus.
+- **Beide CLIs erkannt** in einem interaktiven Terminal – zeigt eine Einzel-Tastendruck-Abfrage: Installieren für [B]eide (Standard), nur [C]laude oder nur co[D]ex.
+- **Beide CLIs erkannt** in einem nicht-interaktiven Lauf (CI, kein TTY) – installiert für beide ohne Nachfrage.
+- **Keine CLI erkannt** – fällt auf `claude` zurück, mit einer Warnung, dass keine Agenten-Binärdatei im PATH gefunden wurde; der Hook-Befehl wird dennoch geschrieben, sodass er aktiviert wird, sobald du eine installierst.
 
 Du kannst `policies-config.json` jederzeit direkt bearbeiten; Änderungen treten beim nächsten Hook-Ereignis sofort in Kraft – kein Neustart erforderlich.
 
@@ -219,4 +235,4 @@ Checke `.failproofai/policies-config.json` in dein Repository ein:
 }
 ```
 
-Jeder Entwickler kann dann `.failproofai/policies-config.local.json` (via gitignore ausgeschlossen) für persönliche Überschreibungen erstellen, ohne die Teammitglieder zu beeinflussen.
+Jeder Entwickler kann dann `.failproofai/policies-config.local.json` (per .gitignore ausgeschlossen) für persönliche Überschreibungen erstellen, ohne die Einstellungen der Teammitglieder zu beeinflussen.
