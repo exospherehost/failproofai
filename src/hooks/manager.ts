@@ -186,7 +186,7 @@ export async function installHooks(
     );
   }
   writeScopedHooksConfig(configToWrite, scope, cwd);
-  console.log(`\nEnabled ${selectedPolicies.length} policy(ies): ${selectedPolicies.join(", ")}`);
+  console.log(`\nEnabled ${selectedPolicies.length} policy(ies): ${selectedPolicies.join(", ")}\n`);
   if (removeCustomHooks) {
     console.log("Custom hooks path cleared.");
   } else if (configToWrite.customPoliciesPath) {
