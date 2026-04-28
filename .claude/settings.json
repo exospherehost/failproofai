@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook SessionStart",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook SessionStart",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook SessionEnd",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook SessionEnd",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook UserPromptSubmit",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook UserPromptSubmit",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook PreToolUse",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook PreToolUse",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook PermissionRequest",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook PermissionRequest",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -65,7 +65,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook PermissionDenied",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook PermissionDenied",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -77,7 +77,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook PostToolUse",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook PostToolUse",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -89,7 +89,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook PostToolUseFailure",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook PostToolUseFailure",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -101,7 +101,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook Notification",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook Notification",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -113,7 +113,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook SubagentStart",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook SubagentStart",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -125,7 +125,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook SubagentStop",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook SubagentStop",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -137,7 +137,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook TaskCreated",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook TaskCreated",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -149,7 +149,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook TaskCompleted",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook TaskCompleted",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -161,7 +161,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook Stop",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook Stop",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -173,7 +173,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook StopFailure",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook StopFailure",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -185,7 +185,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook TeammateIdle",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook TeammateIdle",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -197,7 +197,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook InstructionsLoaded",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook InstructionsLoaded",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -209,7 +209,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook ConfigChange",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook ConfigChange",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -221,7 +221,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook CwdChanged",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook CwdChanged",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -233,7 +233,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook FileChanged",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook FileChanged",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -245,7 +245,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook WorktreeCreate",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook WorktreeCreate",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -257,7 +257,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook WorktreeRemove",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook WorktreeRemove",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -269,7 +269,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook PreCompact",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook PreCompact",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -281,7 +281,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook PostCompact",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook PostCompact",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -293,7 +293,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook Elicitation",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook Elicitation",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
@@ -305,7 +305,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun ./bin/failproofai.mjs --hook ElicitationResult",
+            "command": "bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook ElicitationResult",
             "timeout": 60000,
             "__failproofai_hook__": true
           }
