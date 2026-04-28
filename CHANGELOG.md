@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixes
+- Switch this repo's own `.claude/settings.json` hook commands from a relative `bun ./bin/failproofai.mjs --hook ...` to `bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook ...`. Claude Code spawns hooks with the live session CWD, which drifts whenever the agent `cd`s into a subdirectory, so the relative form failed with `Module not found "./bin/failproofai.mjs"` after any `cd subdir && …` Bash call. Mirrors the stable-root pattern already used by `block-read-outside-cwd` (`src/hooks/builtin-policies.ts`).
+- Fix `mintlify validate` failing on `docs/ar/built-in-policies.mdx` by re-wrapping `origin/<baseBranch>` in backticks. The Arabic translation dropped the surrounding inline-code markers in one paragraph, so MDX parsed `<baseBranch>` as an unclosed JSX tag and the docs CI job errored out.
+
 ### Docs
 - Bump built-in policy count from 32 to 39 in `README.md` and the 14 translated `docs/i18n/README.*.md` files to reflect the seven Infra Commands policies added in #202. The reference doc (`docs/built-in-policies.mdx` and its localized counterparts) was already correct (#207).
 

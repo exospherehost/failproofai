@@ -10,9 +10,14 @@
 
 ## Dev hooks (this repo only)
 
-This repo's `.claude/settings.json` uses `bun ./bin/failproofai.mjs --hook <EventType>`
+This repo's `.claude/settings.json` uses `bun $CLAUDE_PROJECT_DIR/bin/failproofai.mjs --hook <EventType>`
 instead of the standard `npx -y failproofai` command. This is because `npx -y failproofai`
 creates a self-referencing conflict when run inside the failproofai project itself.
+
+The path **must** start with `$CLAUDE_PROJECT_DIR` (not a relative `./bin/...`). Claude
+Code spawns hooks with the live session CWD, which drifts whenever the agent `cd`s into a
+subdirectory — a relative path then fails with `Module not found "./bin/failproofai.mjs"`.
+`$CLAUDE_PROJECT_DIR` is set once per session to the project root and never drifts.
 
 For all other repos, the recommended approach is `npx -y failproofai`, installed via:
 ```bash
