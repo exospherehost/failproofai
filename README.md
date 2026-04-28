@@ -23,7 +23,7 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-### Supported agent CLIs
+## Supported agent CLIs
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">

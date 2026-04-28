@@ -73,10 +73,21 @@ export async function resolveTargetClis(explicit?: IntegrationType[]): Promise<I
     readline.emitKeypressEvents(process.stdin);
     const wasRaw = process.stdin.isRaw;
     if (process.stdin.setRawMode) process.stdin.setRawMode(true);
-    const onKey = (str: string) => {
-      const ch = (str || "").toLowerCase();
+    const restore = () => {
       if (process.stdin.setRawMode) process.stdin.setRawMode(wasRaw ?? false);
       process.stdin.removeListener("keypress", onKey);
+    };
+    const onKey = (str: string, key: { ctrl?: boolean; name?: string } | undefined) => {
+      // Honor Ctrl+C / Ctrl+D as abort — restore terminal and exit, never
+      // silently install for both. Mirrors the keypress contract used by
+      // promptPolicySelection().
+      if (key && key.ctrl && (key.name === "c" || key.name === "d")) {
+        restore();
+        process.stdout.write("\n");
+        process.exit(130); // SIGINT-equivalent
+      }
+      const ch = (str || "").toLowerCase();
+      restore();
       process.stdout.write("\n");
       if (ch === "c") resolve(["claude"]);
       else if (ch === "d") resolve(["codex"]);

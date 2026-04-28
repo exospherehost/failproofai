@@ -28,5 +28,10 @@ export async function removeHooksWebAction(
   scope: HookScope | "all" = "user",
   cli?: IntegrationType[],
 ): Promise<void> {
-  await removeHooks(undefined, scope, undefined, { source: "web", cli });
+  // Mirror the install-side resolution: if the dashboard didn't pin a CLI,
+  // remove from every detected CLI so an uninstall doesn't silently leave
+  // hooks behind for the other agent.
+  const target = cli && cli.length > 0 ? cli : detectInstalledClis();
+  const finalCli: IntegrationType[] = target.length > 0 ? target : ["claude"];
+  await removeHooks(undefined, scope, undefined, { source: "web", cli: finalCli });
 }
