@@ -27,11 +27,11 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
-    <img src="https://cdn.simpleicons.org/claude/D97757" alt="Claude Code" height="48" />
+    <img src="https://api.iconify.design/logos/anthropic-icon.svg" alt="Claude Code" height="48" />
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://developers.openai.com/codex" title="OpenAI Codex">
-    <img src="https://cdn.simpleicons.org/openai/412991" alt="OpenAI Codex" height="48" />
+    <img src="https://api.iconify.design/logos/openai-icon.svg" alt="OpenAI Codex" height="48" />
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;
   <span><strong>+ more coming soon</strong></span>
