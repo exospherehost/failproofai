@@ -43,6 +43,10 @@ function scopeLabel(scope: HookScope): string {
 }
 
 function resolveFailproofaiBinary(): string {
+  // Test/CI override: lets E2E tests point at the in-tree bin/failproofai.mjs
+  // without requiring `npm install -g` or `bun link`.
+  const override = process.env.FAILPROOFAI_BINARY_OVERRIDE;
+  if (override && override.trim()) return override.trim();
   try {
     const cmd = process.platform === "win32" ? "where failproofai" : "which failproofai";
     const result = execSync(cmd, { encoding: "utf8" }).trim();

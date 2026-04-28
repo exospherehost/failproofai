@@ -172,7 +172,7 @@ describe("E2E: Codex integration — install/uninstall", () => {
     try {
       execSync(
         `bun ${BINARY_PATH} policies --install block-sudo --cli codex --scope project`,
-        { cwd: env.cwd, env: { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1" } },
+        { cwd: env.cwd, env: { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1", FAILPROOFAI_BINARY_OVERRIDE: BINARY_PATH } },
       );
       const hooksPath = resolve(env.cwd, ".codex", "hooks.json");
       expect(existsSync(hooksPath)).toBe(true);
@@ -216,7 +216,7 @@ describe("E2E: Codex integration — install/uninstall", () => {
   it("policies --uninstall --cli codex removes hooks from .codex/hooks.json", () => {
     const env = createCodexEnv();
     try {
-      const baseEnv = { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1" };
+      const baseEnv = { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1", FAILPROOFAI_BINARY_OVERRIDE: BINARY_PATH };
       execSync(
         `bun ${BINARY_PATH} policies --install block-sudo --cli codex --scope project`,
         { cwd: env.cwd, env: baseEnv },
