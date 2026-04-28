@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixes
+- Fix `mintlify validate` failing on `docs/ar/built-in-policies.mdx` by re-wrapping `origin/<baseBranch>` in backticks. The Arabic translation dropped the surrounding inline-code markers in one paragraph, so MDX parsed `<baseBranch>` as an unclosed JSX tag and the docs CI job errored out.
+
 ### Docs
 - Bump built-in policy count from 32 to 39 in `README.md` and the 14 translated `docs/i18n/README.*.md` files to reflect the seven Infra Commands policies added in #202. The reference doc (`docs/built-in-policies.mdx` and its localized counterparts) was already correct (#207).
 
