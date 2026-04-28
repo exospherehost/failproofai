@@ -189,10 +189,21 @@ LLM client configuration for policies that make AI calls. Not required for most 
 
 ## Managing configuration from the CLI
 
-The `policies --install` and `policies --uninstall` commands write to Claude Code's `settings.json` (the hook entry points), while `policies-config.json` is the file you manage directly. The two are separate:
+The `policies --install` and `policies --uninstall` commands write to your agent CLI's hook settings file (the hook entry points), while `policies-config.json` is the file you manage directly. The two are separate:
 
-- **`settings.json`** - tells Claude Code to call `failproofai --hook <event>` on each tool use
-- **`policies-config.json`** - tells failproofai which policies to evaluate and with what params
+- **Agent CLI settings** — tells the agent to call `failproofai --hook <event>` on each tool use:
+  - **Claude Code**: `~/.claude/settings.json` (user), `<cwd>/.claude/settings.json` (project), `<cwd>/.claude/settings.local.json` (local)
+  - **OpenAI Codex**: `~/.codex/hooks.json` (user), `<cwd>/.codex/hooks.json` (project) — Codex doesn't have a `local` scope
+- **`policies-config.json`** — tells failproofai which policies to evaluate and with what params (shared across all agent CLIs)
+
+Pass `--cli claude-code|codex` to target a specific agent (repeatable or comma-separated for both):
+
+```bash
+failproofai policies --install --cli codex --scope project
+failproofai policies --install --cli claude-code,codex
+```
+
+When `--cli` is omitted, `failproofai` detects which agent CLIs are installed (`which claude` / `which codex`). If only one is present it auto-selects; if both are present you'll be prompted.
 
 You can edit `policies-config.json` directly at any time; changes take effect immediately on the next hook event with no restart needed.
 
