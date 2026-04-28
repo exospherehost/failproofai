@@ -206,7 +206,7 @@ failproofai policies --install --cli claude codex
 When `--cli` is omitted, `failproofai` detects which agent CLIs are installed (`which claude` / `which codex`):
 
 - **One CLI detected** — auto-selects that CLI without prompting.
-- **Both CLIs detected** in an interactive terminal — shows a single-keypress prompt: install for [B]oth (default), [C]laude only, or co[D]ex only.
+- **Both CLIs detected** in an interactive terminal — shows an arrow-key single-select prompt: choose `Both`, `Claude Code only`, or `OpenAI Codex only` (↑↓ to move, Enter to select, ^C to quit).
 - **Both CLIs detected** in a non-interactive run (CI, no TTY) — installs for both without prompting.
 - **Neither CLI detected** — falls back to `claude`, with a warning that no agent binary was found in PATH; the hook command is still written so it activates as soon as you install one.
 

@@ -37,8 +37,8 @@ export interface PromptOptions {
  *   • If `explicit` is provided (from `--cli`), use it as-is.
  *   • Else, detect installed CLIs (PATH probe).
  *   • If exactly one detected → use just that one (no prompt).
- *   • If both detected and stdin is a TTY → ask single-keypress B/C/D.
- *   • Otherwise → default to ["claude"] for back-compat.
+ *   • If multiple detected and stdin is a TTY → arrow-key single-select.
+ *   • Otherwise → default to all detected (or ["claude"] when none).
  *
  * Returns the selected IntegrationType[] (always non-empty).
  */
@@ -61,38 +61,134 @@ export async function resolveTargetClis(explicit?: IntegrationType[]): Promise<I
     return detected;
   }
 
-  // Both detected. Prompt or default.
-  if (!process.stdin.isTTY) return detected; // non-interactive: install for both
+  // Multiple detected. Prompt or default.
+  if (!process.stdin.isTTY) return detected; // non-interactive: install for all detected
 
+  return promptCliTargetSelection(detected);
+}
+
+/**
+ * Interactive arrow-key single-select for "install for which CLI?" when
+ * multiple agent CLIs are detected. Visual style mirrors promptPolicySelection.
+ */
+async function promptCliTargetSelection(
+  detected: IntegrationType[],
+): Promise<IntegrationType[]> {
   const labels = detected.map((id) => getIntegration(id).displayName).join(" + ");
-  process.stdout.write(
-    `Detected ${labels}. Install for [B]oth (default), [C]laude Code only, or co[D]ex only? `,
-  );
+  const options: Array<{ label: string; description: string; value: IntegrationType[] }> = [
+    { label: "Both", description: labels, value: detected },
+    ...detected.map((id) => ({
+      label: `${getIntegration(id).displayName} only`,
+      description: "",
+      value: [id] as IntegrationType[],
+    })),
+  ];
+
+  let cursor = 0;
+  let lastLineCount = 0;
+  let cursorHidden = false;
+
+  function hideCursor(): void {
+    if (!cursorHidden) {
+      process.stdout.write("\x1B[?25l");
+      cursorHidden = true;
+    }
+  }
+  function showCursor(): void {
+    if (cursorHidden) {
+      process.stdout.write("\x1B[?25h");
+      cursorHidden = false;
+    }
+  }
+
+  function truncateLine(line: string, width: number): string {
+    let visual = 0;
+    let result = "";
+    let i = 0;
+    while (i < line.length) {
+      if (line[i] === "\x1B" && line[i + 1] === "[") {
+        let j = i + 2;
+        while (j < line.length && !/[A-Za-z]/.test(line[j])) j++;
+        j++;
+        result += line.slice(i, j);
+        i = j;
+      } else {
+        if (visual >= width) break;
+        result += line[i];
+        visual++;
+        i++;
+      }
+    }
+    return result;
+  }
+
+  function render(): void {
+    const cols = process.stdout.columns || 120;
+    hideCursor();
+
+    const lines: string[] = [];
+    lines.push("  Failproof AI — Install Hooks");
+    lines.push("");
+    lines.push(`  \x1B[2mDetected ${labels}. Choose where to install:\x1B[0m`);
+    lines.push("");
+
+    for (let i = 0; i < options.length; i++) {
+      const opt = options[i];
+      const isActive = i === cursor;
+      const pointer = isActive ? "\x1B[36m❯\x1B[0m" : " ";
+      const labelPart = isActive ? `\x1B[1;36m${opt.label}\x1B[0m` : opt.label;
+      const pad = opt.description ? " ".repeat(Math.max(2, 22 - opt.label.length)) : "";
+      const desc = opt.description ? `\x1B[2m${opt.description}\x1B[0m` : "";
+      lines.push(`  ${pointer} ${labelPart}${pad}${desc}`);
+    }
+
+    lines.push("");
+    lines.push("  \x1B[2m" + "─".repeat(Math.max(2, cols - 2)) + "\x1B[0m");
+    lines.push("  [↑↓] Move  [Enter] Select  [^C] Quit");
+
+    if (lastLineCount > 0) {
+      process.stdout.write(`\x1B[${lastLineCount}A\x1B[J`);
+    }
+    const output =
+      lines.map((l) => (l === "" ? l : truncateLine(l, cols))).join("\n") + "\n";
+    process.stdout.write(output);
+    lastLineCount = lines.length;
+  }
 
   return new Promise<IntegrationType[]>((resolve) => {
+    render();
     readline.emitKeypressEvents(process.stdin);
     const wasRaw = process.stdin.isRaw;
     if (process.stdin.setRawMode) process.stdin.setRawMode(true);
-    const restore = () => {
-      if (process.stdin.setRawMode) process.stdin.setRawMode(wasRaw ?? false);
+    process.stdin.resume();
+
+    function cleanup(): void {
+      showCursor();
       process.stdin.removeListener("keypress", onKey);
-    };
-    const onKey = (str: string, key: { ctrl?: boolean; name?: string } | undefined) => {
-      // Honor Ctrl+C / Ctrl+D as abort — restore terminal and exit, never
-      // silently install for both. Mirrors the keypress contract used by
-      // promptPolicySelection().
-      if (key && key.ctrl && (key.name === "c" || key.name === "d")) {
-        restore();
+      if (process.stdin.setRawMode) process.stdin.setRawMode(wasRaw ?? false);
+      process.stdin.pause();
+    }
+
+    function onKey(_str: string | undefined, key: readline.Key): void {
+      if (!key) return;
+      if (key.ctrl && (key.name === "c" || key.name === "d")) {
+        cleanup();
         process.stdout.write("\n");
         process.exit(130); // SIGINT-equivalent
       }
-      const ch = (str || "").toLowerCase();
-      restore();
-      process.stdout.write("\n");
-      if (ch === "c") resolve(["claude"]);
-      else if (ch === "d") resolve(["codex"]);
-      else resolve(detected); // Enter, B, anything else → both
-    };
+      if (key.name === "up") {
+        cursor = cursor > 0 ? cursor - 1 : options.length - 1;
+        render();
+      } else if (key.name === "down") {
+        cursor = cursor < options.length - 1 ? cursor + 1 : 0;
+        render();
+      } else if (key.name === "return" || key.name === "space") {
+        cleanup();
+        process.stdout.write("\n");
+        resolve(options[cursor].value);
+      }
+    }
+
     process.stdin.on("keypress", onKey);
   });
 }
