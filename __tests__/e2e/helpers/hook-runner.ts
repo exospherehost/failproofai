@@ -40,7 +40,7 @@ export interface HookRunResult {
 export function runHook(
   event: string,
   payload: Record<string, unknown>,
-  opts?: { homeDir?: string },
+  opts?: { homeDir?: string; cli?: "claude" | "codex" },
 ): HookRunResult {
   const binaryPath = getBinaryPath();
 
@@ -55,7 +55,9 @@ export function runHook(
     ...(opts?.homeDir ? { HOME: opts.homeDir } : {}),
   };
 
-  const result = spawnSync("bun", [binaryPath, "--hook", event], {
+  const args = [binaryPath, "--hook", event];
+  if (opts?.cli) args.push("--cli", opts.cli);
+  const result = spawnSync("bun", args, {
     input: JSON.stringify(payload),
     env,
     encoding: "utf8",
@@ -89,6 +91,14 @@ export function assertPreToolUseDeny(result: HookRunResult): void {
   expect(result.exitCode).toBe(0);
   const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
   expect(output?.permissionDecision).toBe("deny");
+}
+
+/** Codex PermissionRequest deny: hookSpecificOutput.decision.behavior === "deny". */
+export function assertPermissionRequestDeny(result: HookRunResult): void {
+  expect(result.exitCode).toBe(0);
+  const output = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
+  const decision = output?.decision as Record<string, unknown> | undefined;
+  expect(decision?.behavior).toBe("deny");
 }
 
 export function assertPostToolUseDeny(result: HookRunResult): void {

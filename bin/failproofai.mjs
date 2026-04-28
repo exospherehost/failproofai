@@ -37,18 +37,24 @@ const args = process.argv.slice(2);
 // Normalize 'p' → 'policies' (shorthand alias)
 if (args[0] === "p") args[0] = "policies";
 
-// --hook <event> — called by Claude Code hooks; fast path, outside runCli()
-// because it has its own exit code contract with Claude Code.
+// --hook <event> [--cli <name>] — called by an agent CLI hook; fast path, outside
+// runCli() because it has its own exit code contract with the calling agent.
 const hookIdx = args.indexOf("--hook");
 if (hookIdx >= 0) {
   if (!args[hookIdx + 1]) {
     console.error("Error: Missing event type after --hook");
-    console.error("Usage: failproofai --hook <event>  (e.g. PreToolUse, PostToolUse)");
+    console.error("Usage: failproofai --hook <event> [--cli <claude|codex>]");
     process.exit(1);
   }
+  const eventType = args[hookIdx + 1];
+  const cliIdx = args.indexOf("--cli");
+  const cliArg = cliIdx >= 0 ? args[cliIdx + 1] : undefined;
+  // Default cli=claude preserves back-compat for hooks installed before
+  // multi-CLI support landed.
+  const cli = cliArg && (cliArg === "claude" || cliArg === "codex") ? cliArg : "claude";
   try {
     const { handleHookEvent } = await import("../src/hooks/handler");
-    const exitCode = await handleHookEvent(args[hookIdx + 1]);
+    const exitCode = await handleHookEvent(eventType, cli);
     process.exit(exitCode);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -94,14 +100,19 @@ COMMANDS
   (no args)                      Launch the policy dashboard
 
   policies, p                    List all available policies and their status
-  policies --install, -i         Enable policies in Claude Code settings
+  policies --install, -i         Enable policies in agent CLI settings
     [names...]                     Specific policy names to enable
+    --cli claude|codex             Agent CLI(s) to install for; space-separated
+                                   (e.g. --cli claude codex) or repeated.
+                                   Default: detect installed CLIs and prompt.
     --scope user|project|local     Config scope to write to (default: user)
+                                   (Codex supports user|project only)
     --beta                         Include beta policies
     --custom, -c <path>            Path to a JS file of custom policies
 
   policies --uninstall, -u       Disable policies or remove hooks
     [names...]                     Specific policy names to disable
+    --cli claude|codex        Agent CLI(s) to uninstall from
     --scope user|project|local|all Config scope to remove from (default: user)
     --beta                         Remove only beta policies
     --custom, -c                   Clear the customPoliciesPath from config
@@ -126,9 +137,12 @@ EXAMPLES
   failproofai policies
   failproofai policies --install
   failproofai policies --install block-sudo sanitize-api-keys --scope project
+  failproofai policies --install --cli codex --scope project
+  failproofai policies --install --cli claude codex
   failproofai policies --install --custom ./my-policies.js
   failproofai policies -i -c ./my-policies.js
   failproofai policies --uninstall block-sudo
+  failproofai policies --uninstall --cli codex
   failproofai policies --uninstall --custom
 
 LINKS
@@ -167,13 +181,19 @@ USAGE
 
 OPTIONS (install)
   [names...]                     Specific policy names to enable (omit for interactive)
+  --cli claude|codex             Agent CLI(s) to install for; space-separated
+                                 (e.g. --cli claude codex) or repeated. Omit to
+                                 detect installed CLIs and prompt (or auto-pick
+                                 if only one is found).
   --scope user|project|local     Config scope to write to (default: user)
+                                 (Codex supports user|project only)
   --beta                         Include beta policies
   --custom, -c <path>            Path to a JS file of custom policies
                                  (skips interactive prompt; validates file first)
 
 OPTIONS (uninstall)
   [names...]                     Specific policy names to disable (omit to remove hooks)
+  --cli claude|codex        Agent CLI(s) to uninstall from
   --scope user|project|local|all Config scope to remove from (default: user)
   --beta                         Remove only beta policies
   --custom, -c                   Clear the customPoliciesPath from config
@@ -182,9 +202,12 @@ EXAMPLES
   failproofai policies
   failproofai policies --install
   failproofai policies --install block-sudo sanitize-api-keys
+  failproofai policies --install --cli codex --scope project
+  failproofai policies --install --cli claude codex
   failproofai policies --install --custom ./my-policies.js
   failproofai policies -i -c ./my-policies.js
   failproofai policies --uninstall block-sudo
+  failproofai policies --uninstall --cli codex
   failproofai policies -u
   failproofai policies --uninstall --custom
 `.trimStart());
@@ -193,6 +216,7 @@ EXAMPLES
 
     if (isInstall) {
       const { installHooks } = await import("../src/hooks/manager");
+      const { resolveTargetClis } = await import("../src/hooks/install-prompt");
 
       const scopeIdx = subArgs.indexOf("--scope");
       const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
@@ -211,15 +235,41 @@ EXAMPLES
         throw new CliError("Missing path after --custom/-c\nUsage: --custom <path>  (e.g. --custom ./my-policies.js)");
       }
 
+      // --cli accepts one or more space-separated values, optionally repeated:
+      //   --cli claude codex
+      //   --cli claude --cli codex
+      // Values are consumed greedily until the next flag or end of argv.
+      const VALID_CLIS = new Set(["claude", "codex"]);
+      const cliFlagValues = [];
+      const cliConsumedIdxs = new Set();
+      const cliFlagIdxs = subArgs.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
+      for (const idx of cliFlagIdxs) {
+        let consumed = 0;
+        for (let j = idx + 1; j < subArgs.length; j++) {
+          const v = subArgs[j];
+          if (v.startsWith("-")) break;
+          // Stop at the first non-CLI token so a policy name following --cli
+          // (e.g. `--cli claude block-sudo`) is not mis-consumed as a CLI.
+          if (!VALID_CLIS.has(v)) break;
+          cliFlagValues.push(v);
+          cliConsumedIdxs.add(j);
+          consumed++;
+        }
+        if (consumed === 0) {
+          throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex (or any subset)");
+        }
+      }
+
       const includeBeta = subArgs.includes("--beta");
 
       // Collect positional policy names — args that don't start with - and aren't
-      // values consumed by --scope or --custom/-c (tracked by index, not value,
+      // values consumed by --scope, --custom/-c, or --cli (tracked by index, not value,
       // so a policy named "user" isn't incorrectly dropped by the default scope).
       const consumedIdxs = new Set();
       if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
       if (customIdx >= 0) consumedIdxs.add(customIdx + 1);
-      const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c"]);
+      for (const i of cliConsumedIdxs) consumedIdxs.add(i);
+      const flags = new Set(["--install", "-i", "--scope", "--beta", "--custom", "-c", "--cli"]);
       const unknownInstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
       if (unknownInstallFlag) {
         throw new CliError(`Unknown flag: ${unknownInstallFlag}\nRun \`failproofai policies --help\` for usage.`);
@@ -237,6 +287,8 @@ EXAMPLES
         : customPoliciesPath !== undefined ? []
         : undefined;
 
+      const cli = await resolveTargetClis(cliFlagValues.length > 0 ? cliFlagValues : undefined);
+
       await installHooks(
         policyNames,
         scope,
@@ -244,12 +296,15 @@ EXAMPLES
         includeBeta,
         undefined,
         customPoliciesPath,
+        false,
+        cli,
       );
       process.exit(0);
     }
 
     if (isUninstall) {
       const { removeHooks } = await import("../src/hooks/manager");
+      const { resolveTargetClis } = await import("../src/hooks/install-prompt");
 
       const scopeIdx = subArgs.indexOf("--scope");
       const scope = scopeIdx >= 0 ? subArgs[scopeIdx + 1] : "user";
@@ -260,12 +315,35 @@ EXAMPLES
         throw new CliError(`Invalid scope: ${scope}. Valid values: user, project, local, all`);
       }
 
+      // --cli accepts one or more space-separated values; same parser as install.
+      const VALID_CLIS = new Set(["claude", "codex"]);
+      const cliFlagValues = [];
+      const cliConsumedIdxs = new Set();
+      const cliFlagIdxs = subArgs.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
+      for (const idx of cliFlagIdxs) {
+        let consumed = 0;
+        for (let j = idx + 1; j < subArgs.length; j++) {
+          const v = subArgs[j];
+          if (v.startsWith("-")) break;
+          // Stop at the first non-CLI token so a policy name following --cli
+          // (e.g. `--cli claude block-sudo`) is not mis-consumed as a CLI.
+          if (!VALID_CLIS.has(v)) break;
+          cliFlagValues.push(v);
+          cliConsumedIdxs.add(j);
+          consumed++;
+        }
+        if (consumed === 0) {
+          throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex (or any subset)");
+        }
+      }
+
       const betaOnly = subArgs.includes("--beta");
       const removeCustomHooks = subArgs.includes("--custom") || subArgs.includes("-c");
 
       const consumedIdxs = new Set();
       if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
-      const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c"]);
+      for (const i of cliConsumedIdxs) consumedIdxs.add(i);
+      const flags = new Set(["--uninstall", "-u", "--scope", "--beta", "--custom", "-c", "--cli"]);
       const unknownUninstallFlag = subArgs.find((a) => a.startsWith("-") && !flags.has(a));
       if (unknownUninstallFlag) {
         throw new CliError(`Unknown flag: ${unknownUninstallFlag}\nRun \`failproofai policies --help\` for usage.`);
@@ -275,11 +353,13 @@ EXAMPLES
         (a, idx) => !a.startsWith("-") && !consumedIdxs.has(idx)
       );
 
+      const cli = await resolveTargetClis(cliFlagValues.length > 0 ? cliFlagValues : undefined);
+
       await removeHooks(
         policyNames.length > 0 ? policyNames : undefined,
         scope,
         undefined,
-        { betaOnly, removeCustomHooks },
+        { betaOnly, removeCustomHooks, cli },
       );
       process.exit(0);
     }

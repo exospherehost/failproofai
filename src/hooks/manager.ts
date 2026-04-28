@@ -1,19 +1,20 @@
 /**
- * Install/remove/list failproofai hooks in Claude Code's settings.
+ * Install/remove/list failproofai hooks for one or more agent CLIs.
+ *
+ * Per-CLI path resolution and settings I/O live in `./integrations` (one
+ * `Integration` impl per CLI). This module orchestrates: validation, policy
+ * selection, telemetry, multi-scope warnings, and console output.
  */
 import { execSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
-import { resolve, dirname, basename } from "node:path";
+import { existsSync } from "node:fs";
+import { resolve, basename } from "node:path";
 import { homedir, platform, arch, release, hostname } from "node:os";
 import {
-  HOOK_EVENT_TYPES,
   HOOK_SCOPES,
-  FAILPROOFAI_HOOK_MARKER,
   type HookScope,
-  type ClaudeHookEntry,
-  type ClaudeHookMatcher,
-  type ClaudeSettings,
+  type IntegrationType,
 } from "./types";
+import { claudeCode, getIntegration } from "./integrations";
 import { promptPolicySelection } from "./install-prompt";
 import { readMergedHooksConfig, readScopedHooksConfig, writeScopedHooksConfig } from "./hooks-config";
 import type { HooksConfig } from "./policy-types";
@@ -25,16 +26,9 @@ import { CliError } from "../cli-error";
 
 const VALID_POLICY_NAMES = new Set(BUILTIN_POLICIES.map((p) => p.name));
 
+/** Settings path for the Claude Code integration. Kept as a public export for `app/actions/get-hooks-config.ts`. */
 export function getSettingsPath(scope: HookScope, cwd?: string): string {
-  const base = cwd ? resolve(cwd) : process.cwd();
-  switch (scope) {
-    case "user":
-      return resolve(homedir(), ".claude", "settings.json");
-    case "project":
-      return resolve(base, ".claude", "settings.json");
-    case "local":
-      return resolve(base, ".claude", "settings.local.json");
-  }
+  return claudeCode.getSettingsPath(scope, cwd);
 }
 
 function scopeLabel(scope: HookScope): string {
@@ -48,20 +42,11 @@ function scopeLabel(scope: HookScope): string {
   }
 }
 
-function readSettings(settingsPath: string): ClaudeSettings {
-  if (!existsSync(settingsPath)) {
-    return {};
-  }
-  const raw = readFileSync(settingsPath, "utf8");
-  return JSON.parse(raw) as ClaudeSettings;
-}
-
-function writeSettings(settingsPath: string, settings: ClaudeSettings): void {
-  mkdirSync(dirname(settingsPath), { recursive: true });
-  writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf8");
-}
-
 function resolveFailproofaiBinary(): string {
+  // Test/CI override: lets E2E tests point at the in-tree bin/failproofai.mjs
+  // without requiring `npm install -g` or `bun link`.
+  const override = process.env.FAILPROOFAI_BINARY_OVERRIDE;
+  if (override && override.trim()) return override.trim();
   try {
     const cmd = process.platform === "win32" ? "where failproofai" : "which failproofai";
     const result = execSync(cmd, { encoding: "utf8" }).trim();
@@ -73,13 +58,6 @@ function resolveFailproofaiBinary(): string {
       "Install it globally first: npm install -g failproofai"
     );
   }
-}
-
-function isFailproofaiHook(hook: Record<string, unknown>): boolean {
-  if (hook[FAILPROOFAI_HOOK_MARKER] === true) return true;
-  // Fallback for legacy installs that predate the marker
-  const cmd = typeof hook.command === "string" ? hook.command : "";
-  return cmd.includes("failproofai") && cmd.includes("--hook");
 }
 
 function validatePolicyNames(names: string[]): void {
@@ -105,67 +83,7 @@ function deduplicateScopes(scopes: readonly HookScope[], cwd?: string): HookScop
 }
 
 export function hooksInstalledInSettings(scope: HookScope, cwd?: string): boolean {
-  const settingsPath = getSettingsPath(scope, cwd);
-  if (!existsSync(settingsPath)) return false;
-  try {
-    const settings = readSettings(settingsPath);
-    if (!settings.hooks) return false;
-    for (const matchers of Object.values(settings.hooks)) {
-      if (!Array.isArray(matchers)) continue;
-      for (const matcher of matchers) {
-        if (!matcher.hooks) continue;
-        if (matcher.hooks.some((h) => isFailproofaiHook(h as Record<string, unknown>))) {
-          return true;
-        }
-      }
-    }
-  } catch {
-    // Corrupted settings — treat as not installed
-  }
-  return false;
-}
-
-
-function removeHooksFromSettingsFile(settingsPath: string): number {
-  const settings = readSettings(settingsPath);
-
-  if (!settings.hooks) return 0;
-
-  let removed = 0;
-
-  for (const eventType of Object.keys(settings.hooks)) {
-    const matchers = settings.hooks[eventType];
-    if (!Array.isArray(matchers)) continue;
-
-    for (let i = matchers.length - 1; i >= 0; i--) {
-      const matcher = matchers[i];
-      if (!matcher.hooks) continue;
-
-      const before = matcher.hooks.length;
-      matcher.hooks = matcher.hooks.filter(
-        (h) => !isFailproofaiHook(h as Record<string, unknown>)
-      );
-      removed += before - matcher.hooks.length;
-
-      // Remove empty matchers
-      if (matcher.hooks.length === 0) {
-        matchers.splice(i, 1);
-      }
-    }
-
-    // Remove empty event type arrays
-    if (matchers.length === 0) {
-      delete settings.hooks[eventType];
-    }
-  }
-
-  // Remove empty hooks object
-  if (Object.keys(settings.hooks).length === 0) {
-    delete settings.hooks;
-  }
-
-  writeSettings(settingsPath, settings);
-  return removed;
+  return claudeCode.hooksInstalledInSettings(scope, cwd);
 }
 
 /**
@@ -185,6 +103,7 @@ export async function installHooks(
   source?: string,
   customPoliciesPath?: string,
   removeCustomHooks = false,
+  cli?: IntegrationType[],
 ): Promise<void> {
   // Validate user input first before any system checks
   if (policyNames !== undefined && policyNames.length > 0) {
@@ -196,6 +115,21 @@ export async function installHooks(
       throw new CliError(
         `"all" cannot be combined with specific policy names.\n` +
         `Use either: --install all  or  --install block-sudo sanitize-jwt ...`
+      );
+    }
+  }
+
+  // Back-compat default: ["claude"]. Callers (bin/failproofai.mjs) prompt
+  // the user for multi-CLI selection before reaching here when --cli is omitted.
+  const selectedClis: IntegrationType[] = cli && cli.length > 0 ? [...new Set(cli)] : ["claude"];
+
+  // Per-CLI scope validation: Codex doesn't have a "local" scope.
+  for (const cliId of selectedClis) {
+    const integration = getIntegration(cliId);
+    if (!integration.scopes.includes(scope)) {
+      throw new CliError(
+        `Scope "${scope}" is not supported by ${integration.displayName}. ` +
+          `Valid scopes: ${integration.scopes.join(", ")}`
       );
     }
   }
@@ -259,51 +193,16 @@ export async function installHooks(
     console.log(`Custom hooks path: ${configToWrite.customPoliciesPath}`);
   }
 
-  const settingsPath = getSettingsPath(scope, cwd);
-  const settings = readSettings(settingsPath);
-
-  if (!settings.hooks) {
-    settings.hooks = {};
+  // Write hooks for each selected CLI
+  const writtenSettingsPaths: { cli: IntegrationType; path: string }[] = [];
+  for (const cliId of selectedClis) {
+    const integration = getIntegration(cliId);
+    const settingsPath = integration.getSettingsPath(scope, cwd);
+    const settings = integration.readSettings(settingsPath);
+    integration.writeHookEntries(settings, binaryPath, scope);
+    integration.writeSettings(settingsPath, settings);
+    writtenSettingsPaths.push({ cli: cliId, path: settingsPath });
   }
-
-  for (const eventType of HOOK_EVENT_TYPES) {
-    const command = scope === "project"
-      ? `npx -y failproofai --hook ${eventType}`
-      : `"${binaryPath}" --hook ${eventType}`;
-    const hookEntry: ClaudeHookEntry = {
-      type: "command",
-      command,
-      timeout: 60_000,
-      [FAILPROOFAI_HOOK_MARKER]: true,
-    };
-
-    if (!settings.hooks[eventType]) {
-      settings.hooks[eventType] = [];
-    }
-
-    const matchers: ClaudeHookMatcher[] = settings.hooks[eventType];
-
-    // Find existing failproofai matcher
-    let found = false;
-    for (const matcher of matchers) {
-      if (!matcher.hooks) continue;
-      const failproofaiIdx = matcher.hooks.findIndex((h: ClaudeHookEntry | Record<string, unknown>) =>
-        isFailproofaiHook(h as Record<string, unknown>)
-      );
-      if (failproofaiIdx >= 0) {
-        matcher.hooks[failproofaiIdx] = hookEntry;
-        found = true;
-        break;
-      }
-    }
-
-    if (!found) {
-      // Append a new matcher with the failproofai hook
-      matchers.push({ hooks: [hookEntry] });
-    }
-  }
-
-  writeSettings(settingsPath, settings);
 
   // Telemetry: track successful hook installation (with diff vs previous config)
   try {
@@ -313,6 +212,8 @@ export async function installHooks(
     const distinctId = getInstanceId();
     await trackHookEvent(distinctId, "hooks_installed", {
       scope,
+      cli: selectedClis,
+      cli_count: selectedClis.length,
       policies: selectedPolicies,
       policy_count: selectedPolicies.length,
       policies_added: policiesAdded,
@@ -331,8 +232,14 @@ export async function installHooks(
     // Telemetry is best-effort — never block the operation
   }
 
-  console.log(`Failproof AI hooks installed for all ${HOOK_EVENT_TYPES.length} event types (scope: ${scope}).`);
-  console.log(`Settings: ${settingsPath}`);
+  for (const { cli: cliId, path } of writtenSettingsPaths) {
+    const integration = getIntegration(cliId);
+    console.log(
+      `Failproof AI hooks installed for ${integration.displayName} ` +
+        `(${integration.eventTypes.length} event types, scope: ${scope}).`
+    );
+    console.log(`Settings: ${path}`);
+  }
   if (scope === "project") {
     console.log(`Command:  npx -y failproofai`);
     console.log(`\nThis file can be committed to git — no machine-specific paths.`);
@@ -340,7 +247,7 @@ export async function installHooks(
     console.log(`Binary:   ${binaryPath}`);
   }
 
-  // Warn about duplicate-scope installations
+  // Warn about duplicate-scope installations (Claude Code only — uses HOOK_SCOPES)
   const otherScopes = deduplicateScopes(HOOK_SCOPES, cwd).filter((s) => s !== scope);
   const duplicates = otherScopes.filter((s) => hooksInstalledInSettings(s, cwd));
   if (duplicates.length > 0) {
@@ -362,9 +269,13 @@ export async function installHooks(
  * @param scope — settings scope to remove from (default: "user"), or "all" to remove from all scopes
  * @param opts.betaOnly — set to true when removing only beta policies (adds beta_only flag to telemetry)
  */
-export async function removeHooks(policyNames?: string[], scope: HookScope | "all" = "user", cwd?: string, opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean }): Promise<void> {
+export async function removeHooks(policyNames?: string[], scope: HookScope | "all" = "user", cwd?: string, opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean; cli?: IntegrationType[] }): Promise<void> {
   // Resolve the effective config scope ("all" falls back to "user" for config reads/writes)
   const configScope: HookScope = scope === "all" ? "user" : scope;
+  // Back-compat default: ["claude"]. The bin layer prompts for CLI selection
+  // when --cli is omitted and an interactive TTY is attached.
+  const selectedClis: IntegrationType[] =
+    opts?.cli && opts.cli.length > 0 ? [...new Set(opts.cli)] : ["claude"];
 
   // Clear custom hooks path if requested
   if (opts?.removeCustomHooks) {
@@ -401,6 +312,7 @@ export async function removeHooks(policyNames?: string[], scope: HookScope | "al
       const actuallyRemoved = policyNames.filter((p) => config.enabledPolicies.includes(p));
       await trackHookEvent(distinctId, "hooks_removed", {
         scope,
+        cli: selectedClis,
         removal_mode: opts?.betaOnly ? "beta_policies" : "policies",
         beta_only: opts?.betaOnly ?? false,
         policies_removed: actuallyRemoved,
@@ -423,44 +335,56 @@ export async function removeHooks(policyNames?: string[], scope: HookScope | "al
   // Capture enabled policies before clearing (used for accurate telemetry below)
   const configBeforeRemoval = readScopedHooksConfig(configScope, cwd);
 
-  // Remove all failproofai hooks from Claude Code settings
-  const scopesToRemove: HookScope[] = scope === "all" ? [...HOOK_SCOPES] : [scope];
+  // Remove failproofai hooks from each selected CLI's settings file(s)
   let totalRemoved = 0;
+  let nothingToReport = false;
 
-  for (const s of scopesToRemove) {
-    const settingsPath = getSettingsPath(s, cwd);
+  for (const cliId of selectedClis) {
+    const integration = getIntegration(cliId);
+    // For "all" scope, iterate over the integration's scopes; otherwise, only
+    // touch the single scope (skipping CLIs that don't support it).
+    const scopesToRemove: HookScope[] =
+      scope === "all"
+        ? [...integration.scopes]
+        : integration.scopes.includes(scope)
+          ? [scope]
+          : [];
 
-    if (!existsSync(settingsPath)) {
-      if (scope !== "all") {
-        console.log("No settings file found. Nothing to remove.");
-        return;
+    for (const s of scopesToRemove) {
+      const settingsPath = integration.getSettingsPath(s, cwd);
+
+      if (!existsSync(settingsPath)) {
+        if (scope !== "all" && selectedClis.length === 1) {
+          console.log("No settings file found. Nothing to remove.");
+          nothingToReport = true;
+        }
+        continue;
       }
-      continue;
-    }
 
-    const settings = readSettings(settingsPath);
-
-    if (!settings.hooks) {
-      if (scope !== "all") {
+      const removed = integration.removeHooksFromFile(settingsPath);
+      if (removed === 0 && scope !== "all" && selectedClis.length === 1) {
         console.log("No hooks found in settings. Nothing to remove.");
-        return;
+        nothingToReport = true;
+        continue;
       }
-      continue;
-    }
+      totalRemoved += removed;
 
-    const removed = removeHooksFromSettingsFile(settingsPath);
-    totalRemoved += removed;
-
-    if (scope !== "all") {
-      console.log(`Removed ${removed} failproofai hook(s) from settings.`);
-      console.log(`Settings: ${settingsPath}`);
+      if (scope !== "all") {
+        console.log(`Removed ${removed} failproofai hook(s) from ${integration.displayName} settings.`);
+        console.log(`Settings: ${settingsPath}`);
+      }
     }
   }
 
+  if (nothingToReport && totalRemoved === 0) return;
+
   if (scope === "all") {
     console.log(`Removed ${totalRemoved} failproofai hook(s) from all scopes.`);
-    for (const s of scopesToRemove) {
-      console.log(`  ${s}: ${getSettingsPath(s, cwd)}`);
+    for (const cliId of selectedClis) {
+      const integration = getIntegration(cliId);
+      for (const s of integration.scopes) {
+        console.log(`  ${integration.displayName} / ${s}: ${integration.getSettingsPath(s, cwd)}`);
+      }
     }
   }
 
@@ -469,6 +393,7 @@ export async function removeHooks(policyNames?: string[], scope: HookScope | "al
     const distinctId = getInstanceId();
     await trackHookEvent(distinctId, "hooks_removed", {
       scope,
+      cli: selectedClis,
       removal_mode: "hooks",
       policies_removed: configBeforeRemoval.enabledPolicies,
       removed_count: totalRemoved,

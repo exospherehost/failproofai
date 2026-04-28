@@ -11,6 +11,8 @@
  */
 import * as readline from "node:readline";
 import { BUILTIN_POLICIES } from "./builtin-policies";
+import { detectInstalledClis, getIntegration } from "./integrations";
+import type { IntegrationType } from "./types";
 
 interface SelectItem {
   name: string;
@@ -26,6 +28,73 @@ type DisplayRow =
 
 export interface PromptOptions {
   includeBeta?: boolean;
+}
+
+/**
+ * Resolve which agent CLIs to install hooks for.
+ *
+ * Rules:
+ *   • If `explicit` is provided (from `--cli`), use it as-is.
+ *   • Else, detect installed CLIs (PATH probe).
+ *   • If exactly one detected → use just that one (no prompt).
+ *   • If both detected and stdin is a TTY → ask single-keypress B/C/D.
+ *   • Otherwise → default to ["claude"] for back-compat.
+ *
+ * Returns the selected IntegrationType[] (always non-empty).
+ */
+export async function resolveTargetClis(explicit?: IntegrationType[]): Promise<IntegrationType[]> {
+  if (explicit && explicit.length > 0) return [...new Set(explicit)];
+
+  const detected = detectInstalledClis();
+
+  if (detected.length === 0) {
+    console.log(
+      "\x1B[33mWarning: no agent CLI binary found in PATH (claude, codex). " +
+        "Defaulting to Claude Code; hooks will activate when an agent is installed.\x1B[0m",
+    );
+    return ["claude"];
+  }
+
+  if (detected.length === 1) {
+    const integration = getIntegration(detected[0]);
+    console.log(`Detected ${integration.displayName}; installing hooks for it.`);
+    return detected;
+  }
+
+  // Both detected. Prompt or default.
+  if (!process.stdin.isTTY) return detected; // non-interactive: install for both
+
+  const labels = detected.map((id) => getIntegration(id).displayName).join(" + ");
+  process.stdout.write(
+    `Detected ${labels}. Install for [B]oth (default), [C]laude Code only, or co[D]ex only? `,
+  );
+
+  return new Promise<IntegrationType[]>((resolve) => {
+    readline.emitKeypressEvents(process.stdin);
+    const wasRaw = process.stdin.isRaw;
+    if (process.stdin.setRawMode) process.stdin.setRawMode(true);
+    const restore = () => {
+      if (process.stdin.setRawMode) process.stdin.setRawMode(wasRaw ?? false);
+      process.stdin.removeListener("keypress", onKey);
+    };
+    const onKey = (str: string, key: { ctrl?: boolean; name?: string } | undefined) => {
+      // Honor Ctrl+C / Ctrl+D as abort — restore terminal and exit, never
+      // silently install for both. Mirrors the keypress contract used by
+      // promptPolicySelection().
+      if (key && key.ctrl && (key.name === "c" || key.name === "d")) {
+        restore();
+        process.stdout.write("\n");
+        process.exit(130); // SIGINT-equivalent
+      }
+      const ch = (str || "").toLowerCase();
+      restore();
+      process.stdout.write("\n");
+      if (ch === "c") resolve(["claude"]);
+      else if (ch === "d") resolve(["codex"]);
+      else resolve(detected); // Enter, B, anything else → both
+    };
+    process.stdin.on("keypress", onKey);
+  });
 }
 
 /**

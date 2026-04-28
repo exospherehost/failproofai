@@ -116,6 +116,25 @@ function EventTypeBadge({ eventType }: { eventType: string }) {
   );
 }
 
+function IntegrationBadge({ integration }: { integration?: string }) {
+  if (!integration) return null;
+  const label =
+    integration === "claude" ? "Claude Code" : integration === "codex" ? "OpenAI Codex" : integration;
+  const isCodex = integration === "codex";
+  return (
+    <span
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium border ${
+        isCodex
+          ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+          : "bg-orange-500/10 text-orange-400 border-orange-500/20"
+      }`}
+      title={`Agent CLI: ${label}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 function ModeBadge({ mode }: { mode: string }) {
   const isDefault = mode === "default";
   return (
@@ -461,6 +480,7 @@ function ActivityTab({
                   <th className="px-4 py-2.5 font-medium w-6" />
                   <th className="px-3 py-2.5 font-medium">Decision</th>
                   <th className="px-3 py-2.5 font-medium">Event</th>
+                  <th className="px-3 py-2.5 font-medium">CLI</th>
                   <th className="px-3 py-2.5 font-medium">Tool</th>
                   <th className="px-3 py-2.5 font-medium">Policy</th>
                   <th className="px-3 py-2.5 font-medium">Reason</th>
@@ -501,6 +521,9 @@ function ActivityTab({
                         </td>
                         <td className="px-3 py-2">
                           <EventTypeBadge eventType={item.eventType} />
+                        </td>
+                        <td className="px-3 py-2">
+                          <IntegrationBadge integration={item.integration} />
                         </td>
                         <td className="px-3 py-2 font-mono text-foreground">
                           {item.toolName ?? "\u2014"}
