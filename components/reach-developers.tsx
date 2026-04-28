@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { GitBranch, Lightbulb, Bug, MessageSquare, ChevronDown, Star, BookOpen } from "lucide-react";
+import { GitBranch, Lightbulb, Bug, MessageSquare, ChevronDown, Star, BookOpen, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const GITHUB_REPO = "https://github.com/exospherehost/failproofai";
@@ -18,6 +18,11 @@ const options = [
     label: "Documentation",
     icon: BookOpen,
     href: "https://befailproof.ai",
+  },
+  {
+    label: "Join our Slack",
+    icon: Hash,
+    href: "https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ",
   },
   {
     label: "Request a Feature",
