@@ -18,9 +18,9 @@ export async function installHooksWebAction(
       ? config.enabledPolicies
       : BUILTIN_POLICIES.filter((p) => p.defaultEnabled && !p.beta).map((p) => p.name);
   // When the dashboard doesn't pass an explicit cli list, default to detected CLIs;
-  // if none are detected (rare on a server-rendered dashboard), fall back to claude-code.
+  // if none are detected (rare on a server-rendered dashboard), fall back to claude.
   const target = cli && cli.length > 0 ? cli : detectInstalledClis();
-  const finalCli: IntegrationType[] = target.length > 0 ? target : ["claude-code"];
+  const finalCli: IntegrationType[] = target.length > 0 ? target : ["claude"];
   await installHooks(policies, scope, undefined, false, "web", undefined, false, finalCli);
 }
 

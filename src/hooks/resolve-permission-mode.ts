@@ -21,7 +21,7 @@ export function resolvePermissionMode(
   parsed: Record<string, unknown>,
   sessionId: string | undefined,
 ): string {
-  if (integration === "claude-code") {
+  if (integration === "claude") {
     return (parsed.permission_mode as string | undefined) ?? "default";
   }
 

@@ -37,10 +37,11 @@ bun add -g failproofai
     failproofai policies --install
     ```
 
-    This writes hook entries into Claude Code's `settings.json`. You can also install for a single project or pick specific policies:
+    This writes hook entries into your installed agent CLIs (Claude Code's `~/.claude/settings.json` and/or OpenAI Codex's `~/.codex/hooks.json`). When both are present you'll be prompted; pass `--cli claude codex` to skip the prompt.
 
     ```bash
     failproofai policies --install --scope project
+    failproofai policies --install --cli codex --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>

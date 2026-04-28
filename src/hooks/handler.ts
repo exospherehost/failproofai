@@ -36,7 +36,7 @@ function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType
 
 export async function handleHookEvent(
   eventType: string,
-  cli: IntegrationType = "claude-code",
+  cli: IntegrationType = "claude",
 ): Promise<number> {
   const startTime = performance.now();
 

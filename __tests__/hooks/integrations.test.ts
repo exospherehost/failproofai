@@ -37,13 +37,13 @@ afterEach(() => {
 });
 
 describe("integrations registry", () => {
-  it("listIntegrations returns claude-code and codex", () => {
+  it("listIntegrations returns claude and codex", () => {
     const ids = listIntegrations().map((i) => i.id);
-    expect(ids).toEqual(["claude-code", "codex"]);
+    expect(ids).toEqual(["claude", "codex"]);
   });
 
-  it("getIntegration('claude-code') returns claudeCode", () => {
-    expect(getIntegration("claude-code")).toBe(claudeCode);
+  it("getIntegration('claude') returns claudeCode", () => {
+    expect(getIntegration("claude")).toBe(claudeCode);
   });
 
   it("getIntegration('codex') returns codex", () => {

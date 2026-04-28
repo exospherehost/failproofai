@@ -43,15 +43,15 @@ const hookIdx = args.indexOf("--hook");
 if (hookIdx >= 0) {
   if (!args[hookIdx + 1]) {
     console.error("Error: Missing event type after --hook");
-    console.error("Usage: failproofai --hook <event> [--cli <claude-code|codex>]");
+    console.error("Usage: failproofai --hook <event> [--cli <claude|codex>]");
     process.exit(1);
   }
   const eventType = args[hookIdx + 1];
   const cliIdx = args.indexOf("--cli");
   const cliArg = cliIdx >= 0 ? args[cliIdx + 1] : undefined;
-  // Default cli=claude-code preserves back-compat for hooks installed before
+  // Default cli=claude preserves back-compat for hooks installed before
   // multi-CLI support landed.
-  const cli = cliArg && (cliArg === "claude-code" || cliArg === "codex") ? cliArg : "claude-code";
+  const cli = cliArg && (cliArg === "claude" || cliArg === "codex") ? cliArg : "claude";
   try {
     const { handleHookEvent } = await import("../src/hooks/handler");
     const exitCode = await handleHookEvent(eventType, cli);
@@ -102,8 +102,9 @@ COMMANDS
   policies, p                    List all available policies and their status
   policies --install, -i         Enable policies in agent CLI settings
     [names...]                     Specific policy names to enable
-    --cli claude-code|codex        Agent CLI(s) to install for (repeatable or
-                                   comma-separated; default: detect installed)
+    --cli claude|codex             Agent CLI(s) to install for; space-separated
+                                   (e.g. --cli claude codex) or repeated.
+                                   Default: detect installed CLIs and prompt.
     --scope user|project|local     Config scope to write to (default: user)
                                    (Codex supports user|project only)
     --beta                         Include beta policies
@@ -111,7 +112,7 @@ COMMANDS
 
   policies --uninstall, -u       Disable policies or remove hooks
     [names...]                     Specific policy names to disable
-    --cli claude-code|codex        Agent CLI(s) to uninstall from
+    --cli claude|codex        Agent CLI(s) to uninstall from
     --scope user|project|local|all Config scope to remove from (default: user)
     --beta                         Remove only beta policies
     --custom, -c                   Clear the customPoliciesPath from config
@@ -137,7 +138,7 @@ EXAMPLES
   failproofai policies --install
   failproofai policies --install block-sudo sanitize-api-keys --scope project
   failproofai policies --install --cli codex --scope project
-  failproofai policies --install --cli claude-code,codex
+  failproofai policies --install --cli claude codex
   failproofai policies --install --custom ./my-policies.js
   failproofai policies -i -c ./my-policies.js
   failproofai policies --uninstall block-sudo
@@ -180,9 +181,10 @@ USAGE
 
 OPTIONS (install)
   [names...]                     Specific policy names to enable (omit for interactive)
-  --cli claude-code|codex        Agent CLI(s) to install for; repeatable or
-                                 comma-separated. Omit to detect installed CLIs
-                                 and prompt (or auto-pick if only one is found).
+  --cli claude|codex             Agent CLI(s) to install for; space-separated
+                                 (e.g. --cli claude codex) or repeated. Omit to
+                                 detect installed CLIs and prompt (or auto-pick
+                                 if only one is found).
   --scope user|project|local     Config scope to write to (default: user)
                                  (Codex supports user|project only)
   --beta                         Include beta policies
@@ -191,7 +193,7 @@ OPTIONS (install)
 
 OPTIONS (uninstall)
   [names...]                     Specific policy names to disable (omit to remove hooks)
-  --cli claude-code|codex        Agent CLI(s) to uninstall from
+  --cli claude|codex        Agent CLI(s) to uninstall from
   --scope user|project|local|all Config scope to remove from (default: user)
   --beta                         Remove only beta policies
   --custom, -c                   Clear the customPoliciesPath from config
@@ -201,7 +203,7 @@ EXAMPLES
   failproofai policies --install
   failproofai policies --install block-sudo sanitize-api-keys
   failproofai policies --install --cli codex --scope project
-  failproofai policies --install --cli claude-code,codex
+  failproofai policies --install --cli claude codex
   failproofai policies --install --custom ./my-policies.js
   failproofai policies -i -c ./my-policies.js
   failproofai policies --uninstall block-sudo
@@ -233,28 +235,35 @@ EXAMPLES
         throw new CliError("Missing path after --custom/-c\nUsage: --custom <path>  (e.g. --custom ./my-policies.js)");
       }
 
-      const cliFlagIdxs = subArgs.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
+      // --cli accepts one or more space-separated values, optionally repeated:
+      //   --cli claude codex
+      //   --cli claude --cli codex
+      // Values are consumed greedily until the next flag or end of argv.
+      const VALID_CLIS = new Set(["claude", "codex"]);
       const cliFlagValues = [];
       const cliConsumedIdxs = new Set();
-      const VALID_CLIS = new Set(["claude-code", "codex"]);
+      const cliFlagIdxs = subArgs.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
       for (const idx of cliFlagIdxs) {
-        const value = subArgs[idx + 1];
-        if (!value || value.startsWith("-")) {
-          throw new CliError("Missing value for --cli. Valid values: claude-code, codex");
+        let consumed = 0;
+        for (let j = idx + 1; j < subArgs.length; j++) {
+          const v = subArgs[j];
+          if (v.startsWith("-")) break;
+          // Stop at the first non-CLI token so a policy name following --cli
+          // (e.g. `--cli claude block-sudo`) is not mis-consumed as a CLI.
+          if (!VALID_CLIS.has(v)) break;
+          cliFlagValues.push(v);
+          cliConsumedIdxs.add(j);
+          consumed++;
         }
-        for (const part of value.split(",").map((s) => s.trim()).filter(Boolean)) {
-          if (!VALID_CLIS.has(part)) {
-            throw new CliError(`Invalid --cli value: ${part}. Valid: claude-code, codex`);
-          }
-          cliFlagValues.push(part);
+        if (consumed === 0) {
+          throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex (or any subset)");
         }
-        cliConsumedIdxs.add(idx + 1);
       }
 
       const includeBeta = subArgs.includes("--beta");
 
       // Collect positional policy names — args that don't start with - and aren't
-      // values consumed by --scope or --custom/-c (tracked by index, not value,
+      // values consumed by --scope, --custom/-c, or --cli (tracked by index, not value,
       // so a policy named "user" isn't incorrectly dropped by the default scope).
       const consumedIdxs = new Set();
       if (scopeIdx >= 0) consumedIdxs.add(scopeIdx + 1);
@@ -306,22 +315,26 @@ EXAMPLES
         throw new CliError(`Invalid scope: ${scope}. Valid values: user, project, local, all`);
       }
 
-      const cliFlagIdxs = subArgs.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
+      // --cli accepts one or more space-separated values; same parser as install.
+      const VALID_CLIS = new Set(["claude", "codex"]);
       const cliFlagValues = [];
       const cliConsumedIdxs = new Set();
-      const VALID_CLIS = new Set(["claude-code", "codex"]);
+      const cliFlagIdxs = subArgs.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
       for (const idx of cliFlagIdxs) {
-        const value = subArgs[idx + 1];
-        if (!value || value.startsWith("-")) {
-          throw new CliError("Missing value for --cli. Valid values: claude-code, codex");
+        let consumed = 0;
+        for (let j = idx + 1; j < subArgs.length; j++) {
+          const v = subArgs[j];
+          if (v.startsWith("-")) break;
+          // Stop at the first non-CLI token so a policy name following --cli
+          // (e.g. `--cli claude block-sudo`) is not mis-consumed as a CLI.
+          if (!VALID_CLIS.has(v)) break;
+          cliFlagValues.push(v);
+          cliConsumedIdxs.add(j);
+          consumed++;
         }
-        for (const part of value.split(",").map((s) => s.trim()).filter(Boolean)) {
-          if (!VALID_CLIS.has(part)) {
-            throw new CliError(`Invalid --cli value: ${part}. Valid: claude-code, codex`);
-          }
-          cliFlagValues.push(part);
+        if (consumed === 0) {
+          throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex (or any subset)");
         }
-        cliConsumedIdxs.add(idx + 1);
       }
 
       const betaOnly = subArgs.includes("--beta");

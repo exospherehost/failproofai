@@ -38,7 +38,7 @@ export interface PromptOptions {
  *   • Else, detect installed CLIs (PATH probe).
  *   • If exactly one detected → use just that one (no prompt).
  *   • If both detected and stdin is a TTY → ask single-keypress B/C/D.
- *   • Otherwise → default to ["claude-code"] for back-compat.
+ *   • Otherwise → default to ["claude"] for back-compat.
  *
  * Returns the selected IntegrationType[] (always non-empty).
  */
@@ -52,7 +52,7 @@ export async function resolveTargetClis(explicit?: IntegrationType[]): Promise<I
       "\x1B[33mWarning: no agent CLI binary found in PATH (claude, codex). " +
         "Defaulting to Claude Code; hooks will activate when an agent is installed.\x1B[0m",
     );
-    return ["claude-code"];
+    return ["claude"];
   }
 
   if (detected.length === 1) {
@@ -78,7 +78,7 @@ export async function resolveTargetClis(explicit?: IntegrationType[]): Promise<I
       if (process.stdin.setRawMode) process.stdin.setRawMode(wasRaw ?? false);
       process.stdin.removeListener("keypress", onKey);
       process.stdout.write("\n");
-      if (ch === "c") resolve(["claude-code"]);
+      if (ch === "c") resolve(["claude"]);
       else if (ch === "d") resolve(["codex"]);
       else resolve(detected); // Enter, B, anything else → both
     };

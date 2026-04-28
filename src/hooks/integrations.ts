@@ -61,7 +61,7 @@ function binaryExists(name: string): boolean {
 export interface Integration {
   id: IntegrationType;
   displayName: string;
-  /** Settings scopes this integration supports (e.g. claude-code: user/project/local; codex: user/project). */
+  /** Settings scopes this integration supports (e.g. claude: user/project/local; codex: user/project). */
   scopes: readonly HookScope[];
   /** Hook events this integration fires (Claude: PascalCase, Codex: snake_case stored as Pascal in settings). */
   eventTypes: readonly string[];
@@ -97,7 +97,7 @@ export interface Integration {
 // ── Claude Code integration ─────────────────────────────────────────────────
 
 export const claudeCode: Integration = {
-  id: "claude-code",
+  id: "claude",
   displayName: "Claude Code",
   scopes: HOOK_SCOPES,
   eventTypes: HOOK_EVENT_TYPES,
@@ -124,7 +124,7 @@ export const claudeCode: Integration = {
 
   buildHookEntry(binaryPath, eventType, scope) {
     // No --cli flag on the Claude command line: the handler defaults to
-    // claude-code when --cli is omitted, preserving back-compat with hooks
+    // claude when --cli is omitted, preserving back-compat with hooks
     // installed before multi-CLI support was added.
     const command =
       scope === "project"
@@ -351,7 +351,7 @@ export const codex: Integration = {
 // ── Registry ────────────────────────────────────────────────────────────────
 
 const INTEGRATIONS: Record<IntegrationType, Integration> = {
-  "claude-code": claudeCode,
+  claude: claudeCode,
   codex,
 };
 

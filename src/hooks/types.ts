@@ -5,7 +5,7 @@
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude-code", "codex"] as const;
+export const INTEGRATION_TYPES = ["claude", "codex"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CODEX_HOOK_SCOPES = ["user", "project"] as const;
@@ -82,7 +82,7 @@ export interface SessionMetadata {
   cwd?: string;
   permissionMode?: string;
   hookEventName?: string;
-  /** Which agent CLI fired this hook (claude-code | codex). Set by handler.ts from --cli. */
+  /** Which agent CLI fired this hook (claude | codex). Set by handler.ts from --cli. */
   cli?: IntegrationType;
 }
 

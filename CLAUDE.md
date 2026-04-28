@@ -27,6 +27,24 @@ failproofai policies --install --scope project
 Do **not** run `failproofai policies --install --scope project` from this repo — it will
 overwrite the local binary path back to `npx -y failproofai`.
 
+### Codex hooks (`.codex/hooks.json`)
+
+This repo also ships a `.codex/hooks.json` for OpenAI Codex sessions, mirroring the
+`.claude/settings.json` setup. Codex does **not** define an equivalent of
+`$CLAUDE_PROJECT_DIR` — its stdin payload exposes `cwd` but the hook command string
+runs before stdin is read. Codex hook commands are spawned with the project root as
+cwd (where `codex` was launched), so we use a relative `bun bin/failproofai.mjs`
+path. If Codex ever changes that behavior and the hook fails to find the binary,
+switch to an absolute path.
+
+For production users (outside this repo), the recommended Codex install is:
+```bash
+failproofai policies --install --cli codex --scope project
+```
+which writes a portable `npx -y failproofai --hook ... --cli codex` command. Same
+self-reference caveat applies — do **not** install the standard `npx` form from
+inside this repo.
+
 ## Workflow rules
 
 ### One PR per branch

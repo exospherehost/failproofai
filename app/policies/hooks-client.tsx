@@ -119,7 +119,7 @@ function EventTypeBadge({ eventType }: { eventType: string }) {
 function IntegrationBadge({ integration }: { integration?: string }) {
   if (!integration) return null;
   const label =
-    integration === "claude-code" ? "Claude Code" : integration === "codex" ? "OpenAI Codex" : integration;
+    integration === "claude" ? "Claude Code" : integration === "codex" ? "OpenAI Codex" : integration;
   const isCodex = integration === "codex";
   return (
     <span

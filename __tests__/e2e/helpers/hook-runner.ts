@@ -40,7 +40,7 @@ export interface HookRunResult {
 export function runHook(
   event: string,
   payload: Record<string, unknown>,
-  opts?: { homeDir?: string; cli?: "claude-code" | "codex" },
+  opts?: { homeDir?: string; cli?: "claude" | "codex" },
 ): HookRunResult {
   const binaryPath = getBinaryPath();
 

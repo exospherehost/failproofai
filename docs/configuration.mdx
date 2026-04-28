@@ -196,11 +196,11 @@ The `policies --install` and `policies --uninstall` commands write to your agent
   - **OpenAI Codex**: `~/.codex/hooks.json` (user), `<cwd>/.codex/hooks.json` (project) — Codex doesn't have a `local` scope
 - **`policies-config.json`** — tells failproofai which policies to evaluate and with what params (shared across all agent CLIs)
 
-Pass `--cli claude-code|codex` to target a specific agent (repeatable or comma-separated for both):
+Pass `--cli claude|codex` to target a specific agent (space-separated or repeated for both):
 
 ```bash
 failproofai policies --install --cli codex --scope project
-failproofai policies --install --cli claude-code,codex
+failproofai policies --install --cli claude codex
 ```
 
 When `--cli` is omitted, `failproofai` detects which agent CLIs are installed (`which claude` / `which codex`). If only one is present it auto-selects; if both are present you'll be prompted.

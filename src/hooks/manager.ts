@@ -119,9 +119,9 @@ export async function installHooks(
     }
   }
 
-  // Back-compat default: ["claude-code"]. Callers (bin/failproofai.mjs) prompt
+  // Back-compat default: ["claude"]. Callers (bin/failproofai.mjs) prompt
   // the user for multi-CLI selection before reaching here when --cli is omitted.
-  const selectedClis: IntegrationType[] = cli && cli.length > 0 ? [...new Set(cli)] : ["claude-code"];
+  const selectedClis: IntegrationType[] = cli && cli.length > 0 ? [...new Set(cli)] : ["claude"];
 
   // Per-CLI scope validation: Codex doesn't have a "local" scope.
   for (const cliId of selectedClis) {
@@ -272,10 +272,10 @@ export async function installHooks(
 export async function removeHooks(policyNames?: string[], scope: HookScope | "all" = "user", cwd?: string, opts?: { betaOnly?: boolean; source?: string; removeCustomHooks?: boolean; cli?: IntegrationType[] }): Promise<void> {
   // Resolve the effective config scope ("all" falls back to "user" for config reads/writes)
   const configScope: HookScope = scope === "all" ? "user" : scope;
-  // Back-compat default: ["claude-code"]. The bin layer prompts for CLI selection
+  // Back-compat default: ["claude"]. The bin layer prompts for CLI selection
   // when --cli is omitted and an interactive TTY is attached.
   const selectedClis: IntegrationType[] =
-    opts?.cli && opts.cli.length > 0 ? [...new Set(opts.cli)] : ["claude-code"];
+    opts?.cli && opts.cli.length > 0 ? [...new Set(opts.cli)] : ["claude"];
 
   // Clear custom hooks path if requested
   if (opts?.removeCustomHooks) {

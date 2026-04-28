@@ -26,14 +26,18 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
 ### Supported agent CLIs
 
 <p align="center">
-  <a href="https://claude.com/claude-code"><img src="https://img.shields.io/badge/Claude%20Code-supported-D97757?style=flat-square&logo=anthropic&logoColor=white" alt="Claude Code"/></a>
-  &nbsp;
-  <a href="https://developers.openai.com/codex"><img src="https://img.shields.io/badge/OpenAI%20Codex-supported-412991?style=flat-square&logo=openai&logoColor=white" alt="OpenAI Codex"/></a>
-  &nbsp;
-  <img src="https://img.shields.io/badge/More%20CLIs-coming%20soon-6e6e6e?style=flat-square" alt="More agent CLIs coming soon"/>
+  <a href="https://claude.com/claude-code" title="Claude Code">
+    <img src="https://cdn.simpleicons.org/claude/D97757" alt="Claude Code" height="48" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://developers.openai.com/codex" title="OpenAI Codex">
+    <img src="https://cdn.simpleicons.org/openai/412991" alt="OpenAI Codex" height="48" />
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <span><strong>+ more coming soon</strong></span>
 </p>
 
-> Install hooks for one or both: `failproofai policies --install --cli codex` (or `--cli claude-code,codex`). Omit `--cli` to auto-detect installed CLIs and prompt.
+> Install hooks for one or both: `failproofai policies --install --cli codex` (or `--cli claude codex`). Omit `--cli` to auto-detect installed CLIs and prompt.
 
 - **39 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
 - **Custom Policies** - Write your own reliability rules in JavaScript. Use the `allow`/`deny`/`instruct` API to enforce conventions, prevent drift, gate operations, or integrate with external systems.

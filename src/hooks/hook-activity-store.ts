@@ -41,7 +41,7 @@ let rotateSeq = 0;
 export interface HookActivityEntry {
   timestamp: number;
   eventType: string;
-  /** Which agent CLI fired the hook (claude-code | codex). */
+  /** Which agent CLI fired the hook (claude | codex). */
   integration?: string;
   toolName: string | null;
   policyName: string | null;
