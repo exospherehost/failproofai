@@ -27,14 +27,14 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
-    <img src="https://api.iconify.design/logos/anthropic-icon.svg" alt="Claude Code" height="48" />
+    <img src="assets/logos/claude.svg" alt="Claude Code" width="64" height="64" />
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://developers.openai.com/codex" title="OpenAI Codex">
-    <img src="https://api.iconify.design/logos/openai-icon.svg" alt="OpenAI Codex" height="48" />
+    <img src="assets/logos/openai.svg" alt="OpenAI Codex" width="64" height="64" />
   </a>
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <span><strong>+ more coming soon</strong></span>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <strong>+ more coming soon</strong>
 </p>
 
 > Install hooks for one or both: `failproofai policies --install --cli codex` (or `--cli claude codex`). Omit `--cli` to auto-detect installed CLIs and prompt.
