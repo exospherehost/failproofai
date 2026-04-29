@@ -131,8 +131,11 @@ export async function getCopilotProjects(): Promise<ProjectFolder[]> {
     return [];
   }
 
+  // Skip workspace-only sessions: their /projects rows would click through to
+  // an empty session list (metasToSessionFiles also filters on hasTranscript).
   const byCwd = new Map<string, { latest: Date; cwd: string }>();
   for (const m of metas) {
+    if (!m.hasTranscript) continue;
     const existing = byCwd.get(m.cwd);
     if (!existing || m.fileMtime.getTime() > existing.latest.getTime()) {
       byCwd.set(m.cwd, { latest: m.fileMtime, cwd: m.cwd });
@@ -201,7 +204,7 @@ export async function getCopilotSessionsByEncodedName(name: string): Promise<Cop
     logWarn("Failed to scan Copilot sessions:", error);
     return { cwd: null, sessions: [] };
   }
-  const matches = metas.filter((m) => encodeFolderName(m.cwd) === name);
+  const matches = metas.filter((m) => m.hasTranscript && encodeFolderName(m.cwd) === name);
   return {
     cwd: matches[0]?.cwd ?? null,
     sessions: metasToSessionFiles(matches),

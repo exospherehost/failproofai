@@ -75,8 +75,8 @@ describe("lib/copilot-projects", () => {
   });
 
   it("groups sessions by cwd into one ProjectFolder each", async () => {
-    writeSession("11111111-1111-1111-1111-111111111111", "/home/u/proj-a");
-    writeSession("22222222-2222-2222-2222-222222222222", "/home/u/proj-a");
+    writeSession("11111111-1111-1111-1111-111111111111", "/home/u/proj-a", { events: "{}\n" });
+    writeSession("22222222-2222-2222-2222-222222222222", "/home/u/proj-a", { events: "{}\n" });
 
     const result = await getCopilotProjects();
     expect(result).toHaveLength(1);
@@ -89,8 +89,16 @@ describe("lib/copilot-projects", () => {
   it("returns one entry per distinct cwd, sorted newest-first", async () => {
     const old = new Date("2024-01-01T00:00:00Z");
     const recent = new Date("2026-06-15T00:00:00Z");
-    writeSession("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "/home/u/old", { workspaceMtime: old });
-    writeSession("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "/home/u/new", { workspaceMtime: recent });
+    writeSession("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "/home/u/old", {
+      events: "{}\n",
+      workspaceMtime: old,
+      eventsMtime: old,
+    });
+    writeSession("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb", "/home/u/new", {
+      events: "{}\n",
+      workspaceMtime: recent,
+      eventsMtime: recent,
+    });
 
     const result = await getCopilotProjects();
     expect(result.map((p) => p.path)).toEqual(["/home/u/new", "/home/u/old"]);
@@ -128,6 +136,7 @@ describe("lib/copilot-projects", () => {
     const dir = join(fakeHome, ".copilot", "session-state", "quoted");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "workspace.yaml"), 'id: quoted\ncwd: "/home/u/has space"\n');
+    writeFileSync(join(dir, "events.jsonl"), "{}\n");
     const result = await getCopilotProjects();
     expect(result).toHaveLength(1);
     expect(result[0].path).toBe("/home/u/has space");
@@ -179,15 +188,42 @@ describe("lib/copilot-projects", () => {
     expect(result.sessions).toEqual([]);
   });
 
-  it("getCopilotSessionsByEncodedName: cwd is recovered even if all sessions are workspace-only", async () => {
-    // Project still surfaces in /projects (cwd extraction succeeds), but the
-    // session list filters out workspace-only entries to avoid clickable rows
-    // with nonexistent transcripts.
+  it("getCopilotSessionsByEncodedName: workspace-only sessions are not matched", async () => {
+    // /projects no longer surfaces workspace-only sessions, so the
+    // detail-page lookup must be consistent — return cwd:null + empty
+    // sessions instead of a ghost cwd whose session list is empty.
     const sid = "11112222-3333-4444-5555-aaaabbbbcccc";
     writeSession(sid, "/home/u/no-transcript-yet"); // workspace.yaml only
 
     const result = await getCopilotSessionsByEncodedName("-home-u-no-transcript-yet");
-    expect(result.cwd).toBe("/home/u/no-transcript-yet");
+    expect(result.cwd).toBeNull();
     expect(result.sessions).toEqual([]);
+  });
+
+  it("getCopilotProjects skips workspace-only sessions (no events.jsonl)", async () => {
+    // Pre-interaction sessions create workspace.yaml but no events.jsonl;
+    // surfacing them as /projects rows would lead to a detail page with an
+    // empty session list (metasToSessionFiles also filters on hasTranscript).
+    const withTranscript = "55556666-7777-8888-9999-aaaabbbbcccc";
+    const workspaceOnly1 = "66667777-8888-9999-aaaa-bbbbccccdddd";
+    const workspaceOnly2 = "77778888-9999-aaaa-bbbb-ccccddddeeee";
+    writeSession(withTranscript, "/home/u/has-events", { events: "{}\n" });
+    writeSession(workspaceOnly1, "/home/u/empty-1");
+    writeSession(workspaceOnly2, "/home/u/empty-2");
+
+    const result = await getCopilotProjects();
+    expect(result).toHaveLength(1);
+    expect(result[0].path).toBe("/home/u/has-events");
+  });
+
+  it("getCopilotProjects skips a cwd whose only sessions are workspace-only", async () => {
+    // Mixed cwds: one is fully workspace-only and must be filtered out.
+    const witnessId = "88889999-aaaa-bbbb-cccc-ddddeeeeffff";
+    const workspaceOnly = "99990000-aaaa-bbbb-cccc-ddddeeeeffff";
+    writeSession(witnessId, "/home/u/has-events", { events: "{}\n" });
+    writeSession(workspaceOnly, "/home/u/empty-cwd");
+
+    const result = await getCopilotProjects();
+    expect(result.map((p) => p.path)).toEqual(["/home/u/has-events"]);
   });
 });

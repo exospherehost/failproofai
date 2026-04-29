@@ -337,7 +337,15 @@ export interface CopilotSessionLogData {
 export async function getCopilotSessionLog(sessionId: string): Promise<CopilotSessionLogData | null> {
   const filePath = findCopilotTranscript(sessionId);
   if (!filePath) return null;
-  const fileContent = await readFile(filePath, "utf-8");
+  // findCopilotTranscript only proves existence at lookup time; the file can be
+  // removed/rotated before this readFile lands. Preserve the nullable contract
+  // instead of throwing into the session page.
+  let fileContent: string;
+  try {
+    fileContent = await readFile(filePath, "utf-8");
+  } catch {
+    return null;
+  }
   const { entries, rawLines, cwd } = await parseCopilotLog(fileContent, "session");
   // Fall back to workspace.yaml if events.jsonl didn't expose a session.start.
   const resolvedCwd = cwd ?? readCopilotWorkspaceCwd(sessionId);

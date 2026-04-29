@@ -342,4 +342,18 @@ describe("lib/copilot-sessions: findCopilotTranscript + getCopilotSessionLog", (
     const result = await getCopilotSessionLog(sessionId);
     expect(result).toBeNull();
   });
+
+  it("getCopilotSessionLog returns null when readFile fails for the resolved path", async () => {
+    // Simulate the file being unreadable between findCopilotTranscript()'s
+    // existsSync check and the async readFile — by making `events.jsonl` a
+    // directory, existsSync still returns true but readFile throws EISDIR.
+    // The function must preserve its nullable contract instead of throwing.
+    const sessionId = "66666666-6666-6666-6666-666666666666";
+    const dir = join(fakeHome, ".copilot", "session-state", sessionId);
+    mkdirSync(dir, { recursive: true });
+    mkdirSync(join(dir, "events.jsonl"));
+    writeFileSync(join(dir, "workspace.yaml"), "cwd: /will/not/be/reached\n");
+    const result = await getCopilotSessionLog(sessionId);
+    expect(result).toBeNull();
+  });
 });

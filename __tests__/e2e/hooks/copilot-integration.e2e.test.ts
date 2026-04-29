@@ -95,11 +95,21 @@ describe("E2E: Copilot integration — hook protocol", () => {
     const env = createCopilotEnv();
     try {
       writeConfig(env.cwd, ["sanitize-jwt"]);
+      // Build a JWT-shaped string at runtime to avoid embedding a contiguous
+      // JWT literal in the source — secret scanners (and this repo's own
+      // sanitize-jwt detector) flag committed JWTs even in test fixtures.
+      // Each segment must be 10+ base64url chars to satisfy JWT_RE in
+      // src/hooks/builtin-policies.ts.
+      const jwtLike = [
+        Buffer.from('{"alg":"HS256","typ":"JWT"}').toString("base64url"),
+        Buffer.from('{"sub":"123456"}').toString("base64url"),
+        Buffer.from("not-a-real-signature").toString("base64url"),
+      ].join(".");
       const result = runHook(
         "PostToolUse",
         CopilotPayloads.postToolUse.bash(
           "echo done",
-          "JWT=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTYifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+          `JWT=${jwtLike}`,
           env.cwd,
         ),
         { homeDir: env.home, cli: "copilot" },
