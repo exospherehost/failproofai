@@ -192,6 +192,7 @@ function metasToSessionFiles(metas: CodexSessionMeta[]): SessionFile[] {
     lastModified: m.fileMtime,
     lastModifiedFormatted: formatDate(m.fileMtime),
     sessionId: m.sessionId,
+    cli: "codex",
   }));
   files.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
   return files;

@@ -37,6 +37,9 @@ export interface SessionFile {
   lastModified: Date;
   lastModifiedFormatted?: string;
   sessionId?: string;
+  /** Originating agent CLI. Set when the session list mixes Claude + Codex sources
+   *  so the table can render a per-row CLI badge. */
+  cli?: ProjectCli;
 }
 
 /** Stats a path and returns mtime. Falls back to epoch (1970-01-01) on error
@@ -207,6 +210,7 @@ export async function getSessionFiles(projectPath: string): Promise<SessionFile[
           lastModified: mtime,
           lastModifiedFormatted: formatDate(mtime),
           sessionId: extractSessionId(entry.name),
+          cli: "claude",
         } as SessionFile;
       }),
       16,

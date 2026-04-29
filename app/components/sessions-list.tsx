@@ -25,6 +25,7 @@ import Link from "next/link";
 import PaginationControls from "./pagination-controls";
 import DatePickerInput from "./date-picker-input";
 import { CopyButton } from "./copy-button";
+import { CliBadge } from "./cli-badge";
 
 
 interface SessionsListProps {
@@ -190,7 +191,7 @@ export default function SessionsList({ files, projectName }: SessionsListProps) 
                       <File className="w-5 h-5 text-primary" />
                     </td>
                     <td className="px-4 py-3 max-w-md">
-                      <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         {file.sessionId ? (
                           <>
                             <Link
@@ -206,6 +207,7 @@ export default function SessionsList({ files, projectName }: SessionsListProps) 
                             {file.name.replace(/\.jsonl$/, "")}
                           </span>
                         )}
+                        {file.cli && <CliBadge cli={file.cli} />}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
