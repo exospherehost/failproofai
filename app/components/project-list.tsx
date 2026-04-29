@@ -5,7 +5,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { ProjectFolder } from "@/lib/projects";
+import { ProjectFolder, ProjectCli } from "@/lib/projects";
 import { decodeFolderName } from "@/lib/paths";
 import { formatDate } from "@/lib/format-date";
 import {
@@ -34,6 +34,23 @@ interface ProjectListProps {
 
 function DateDisplay({ date, formatted }: { date: Date; formatted?: string }) {
   return <span>{formatted || formatDate(date)}</span>;
+}
+
+function CliBadge({ cli }: { cli: ProjectCli }) {
+  const isCodex = cli === "codex";
+  const label = isCodex ? "OpenAI Codex" : "Claude Code";
+  return (
+    <span
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium border ${
+        isCodex
+          ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
+          : "bg-orange-500/10 text-orange-400 border-orange-500/20"
+      }`}
+      title={`Agent CLI: ${label}`}
+    >
+      {label}
+    </span>
+  );
 }
 
 // Replace `/` with `-` so users can search by filesystem path (e.g. "/home/user")
@@ -296,12 +313,17 @@ export default function ProjectList({ folders }: ProjectListProps) {
                       <Folder className="w-5 h-5 text-primary" />
                     </td>
                     <td className="px-4 py-3 max-w-md">
-                      <Link
-                        href={`/project/${encodeURIComponent(folder.name)}`}
-                        className="font-semibold text-foreground hover:text-primary transition-colors break-words break-all inline-block max-w-full"
-                      >
-                        {decodeFolderName(folder.name)}
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/project/${encodeURIComponent(folder.name)}`}
+                          className="font-semibold text-foreground hover:text-primary transition-colors break-words break-all inline-block max-w-full"
+                        >
+                          {decodeFolderName(folder.name)}
+                        </Link>
+                        {folder.cli.map((c) => (
+                          <CliBadge key={c} cli={c} />
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell truncate max-w-md">
                       {folder.path}

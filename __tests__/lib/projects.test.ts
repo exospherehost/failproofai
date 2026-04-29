@@ -19,8 +19,16 @@ vi.mock("@/lib/runtime-cache", () => ({
   runtimeCache: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
 }));
 
+// Default Codex stub returns no projects — individual tests override via mockResolvedValueOnce.
+vi.mock("@/lib/codex-projects", () => ({
+  getCodexProjects: vi.fn(async () => []),
+}));
+
 import { readdir, stat } from "fs/promises";
-import { extractSessionId, getProjectFolders, getSessionFiles } from "@/lib/projects";
+import { extractSessionId, getProjectFolders, getSessionFiles, type ProjectFolder } from "@/lib/projects";
+import { getCodexProjects } from "@/lib/codex-projects";
+
+const mockGetCodexProjects = vi.mocked(getCodexProjects);
 
 const mockReaddir = vi.mocked(readdir);
 const mockStat = vi.mocked(stat);
@@ -105,6 +113,67 @@ describe("getProjectFolders", () => {
     const result = await getProjectFolders();
     expect(result).toHaveLength(1);
     expect(result[0].lastModified.getTime()).toBe(0);
+  });
+
+  it("tags Claude folders with cli=['claude']", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-proj", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: new Date("2024-06-15T00:00:00Z") } as any);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["claude"]);
+  });
+
+  it("merges a Codex project with the same encoded name into one row with both badges", async () => {
+    const claudeMtime = new Date("2024-01-01T00:00:00Z");
+    const codexMtime = new Date("2026-06-15T00:00:00Z");
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-proj", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: claudeMtime } as any);
+    mockGetCodexProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-proj",
+        path: "/home/u/proj",
+        isDirectory: true,
+        lastModified: codexMtime,
+        lastModifiedFormatted: codexMtime.toISOString(),
+        cli: ["codex"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("-home-u-proj");
+    expect(result[0].cli).toEqual(["claude", "codex"]);
+    // Newer mtime wins
+    expect(result[0].lastModified.getTime()).toBe(codexMtime.getTime());
+    // Claude's path is preserved
+    expect(result[0].path).toBe("/mock/.claude/projects/-home-u-proj");
+  });
+
+  it("includes Codex-only projects (no matching Claude folder)", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([] as any);
+    mockGetCodexProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-codex-only",
+        path: "/home/u/codex-only",
+        isDirectory: true,
+        lastModified: new Date("2026-06-15T00:00:00Z"),
+        lastModifiedFormatted: "2026-06-15T00:00:00.000Z",
+        cli: ["codex"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["codex"]);
+    expect(result[0].path).toBe("/home/u/codex-only");
   });
 });
 
