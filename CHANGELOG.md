@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Features
-- Show OpenAI Codex projects on the `/projects` page alongside Claude Code projects. Codex stores transcripts under `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` keyed by date, so we scan each transcript's `session_meta` record for its `cwd` and surface one row per unique cwd. A CLI badge ("Claude Code" / "OpenAI Codex") appears beside each agent root; cwds that exist in both stores render as a single row with both badges. The `/project/[name]` detail page now lists Codex sessions for the project (recovering the canonical cwd from the transcript, since `decodeFolderName` is lossy when paths contain `-`); session click-through reuses the existing Codex-aware viewer.
+- Show OpenAI Codex projects on the `/projects` page alongside Claude Code projects. Codex stores transcripts under `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` keyed by date, so we scan each transcript's `session_meta` record for its `cwd` and surface one row per unique cwd. A CLI badge ("Claude Code" / "OpenAI Codex") appears beside each agent root; cwds that exist in both stores render as a single row with both badges. The `/project/[name]` detail page now lists Codex sessions for the project (recovering the canonical cwd from the transcript, since `decodeFolderName` is lossy when paths contain `-`); session click-through reuses the existing Codex-aware viewer, which now also renders the CLI badge beside the Session Log header.
 
 ### Fixes
 - Fix `mintlify validate` parse error in `docs/de/dashboard.mdx` caused by inner quotes inside `<Tab title="…">` attributes (#229)
