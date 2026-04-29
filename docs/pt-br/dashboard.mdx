@@ -16,7 +16,7 @@ failproofai
 
 Abre em `http://localhost:8020`.
 
-O dashboard lê diretamente do sistema de arquivos — suas pastas de projeto do Claude Code e os arquivos de configuração do failproofai. Nada é gravado em um serviço remoto.
+O dashboard lê diretamente do sistema de arquivos — suas pastas de projetos do Claude Code e os arquivos de configuração do failproofai. Nada é gravado em um serviço remoto.
 
 ---
 
@@ -63,15 +63,16 @@ Uma página com duas abas para gerenciar políticas e revisar atividades.
 
 <Tabs>
   <Tab title="Aba Políticas">
-  - Ative ou desative políticas individuais com um único clique (grava em `~/.failproofai/policies-config.json`)
+  - Ative ou desative políticas individualmente com um único clique (grava em `~/.failproofai/policies-config.json`)
   - Expanda uma política para configurar seus parâmetros (para políticas que suportam `policyParams`)
   - Instale ou remova hooks para um determinado escopo
-  - Defina um caminho de arquivo de políticas personalizado
+  - Defina um caminho personalizado para o arquivo de políticas
   </Tab>
   <Tab title="Aba Atividade">
-  - Histórico completo e paginado de todos os eventos de hook que foram acionados em todas as sessões
-  - Busque por nome de política, ID de sessão, nome de ferramenta ou decisão
-  - Cada linha exibe: timestamp, nome da política, decisão, nome da ferramenta, ID da sessão e o motivo das decisões deny/instruct
+  - Histórico completo paginado de cada evento de hook que foi acionado em todas as sessões
+  - Filtre por decisão, tipo de evento, CLI (Claude Code / OpenAI Codex), nome da política ou ID de sessão
+  - Cada linha exibe: timestamp, nome da política, decisão, badge da CLI, nome da ferramenta, ID de sessão e o motivo das decisões de deny/instruct
+  - Clique em um ID de sessão para abrir sua transcrição — funciona tanto para sessões do Claude (`~/.claude/projects/…`) quanto do Codex (`~/.codex/sessions/…`)
   </Tab>
 </Tabs>
 
@@ -79,13 +80,13 @@ Uma página com duas abas para gerenciar políticas e revisar atividades.
 
 ## Atualização automática
 
-O dashboard possui um botão de alternância de atualização automática na navegação superior. Quando ativado, a página atual é atualizada periodicamente para exibir novas sessões e atividades de políticas à medida que aparecem. Essencial para monitorar sessões de agentes autônomos de longa duração.
+O dashboard possui um botão de atualização automática na navegação superior. Quando ativado, a página atual é atualizada periodicamente para exibir novas sessões e atividades de políticas conforme elas aparecem. Essencial para monitorar sessões de agentes autônomos de longa duração.
 
 ---
 
 ## Desativando páginas
 
-Se você precisar apenas de algumas partes do dashboard, defina `FAILPROOFAI_DISABLE_PAGES` com uma lista de nomes de páginas separados por vírgula:
+Se você precisar apenas de algumas partes do dashboard, defina `FAILPROOFAI_DISABLE_PAGES` com uma lista separada por vírgulas dos nomes das páginas:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -103,7 +104,7 @@ O dashboard suporta modo claro e escuro. Alterne pelo botão na barra de navega�
 
 ## Configurando o caminho dos projetos
 
-Por padrão, o dashboard lê a partir do diretório de projetos padrão do Claude Code. Substitua-o para configurações personalizadas:
+Por padrão, o dashboard lê a partir do diretório padrão de projetos do Claude Code. Substitua-o para configurações personalizadas:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -111,7 +112,7 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## Acessando a partir de um host não-localhost
+## Acessando a partir de um host que não seja localhost
 
 Ao executar o dashboard em **modo dev** (`npm run dev`) e acessá-lo a partir de um hostname diferente de `localhost` — por exemplo, um domínio personalizado, um IP remoto ou uma URL tunelada — você pode ver um aviso como:
 
@@ -119,7 +120,7 @@ Ao executar o dashboard em **modo dev** (`npm run dev`) e acessá-lo a partir de
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Este é o Next.js bloqueando o acesso cross-origin ao seu websocket de HMR (hot module reload), que é um recurso exclusivo do modo dev. Para permitir seu host, use a flag `--allowed-origins`:
+Isso ocorre porque o Next.js está bloqueando o acesso cross-origin ao seu websocket de HMR (hot module reload), que é um recurso exclusivo do modo dev. Para permitir o seu host, use a flag `--allowed-origins`:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
@@ -131,12 +132,12 @@ Para múltiplos hosts ou IPs, passe uma lista separada por vírgulas:
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-Você também pode definir a variável de ambiente `FAILPROOFAI_ALLOWED_DEV_ORIGINS`:
+Você também pode definir a variável de ambiente `FAILPROOFAI_ALLOWED_DEV_ORIGINS` como alternativa:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Isso se aplica apenas ao modo dev. Ao executar `failproofai` (modo de produção), não há websocket de HMR nem problema de recurso dev cross-origin.
+Isso se aplica apenas ao modo dev. Ao executar `failproofai` (modo produção), não há websocket de HMR nem problema de recurso dev cross-origin.
 </Note>
