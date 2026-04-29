@@ -1,13 +1,13 @@
 ---
-title: Iniziare
-description: "Installa failproofai, abilita le policy e lascia che i tuoi agenti funzionino in modo affidabile"
+title: Introduzione
+description: "Installa failproofai, abilita le politiche e lascia che i tuoi agenti funzionino in modo affidabile"
 icon: rocket
 ---
 
 ## Requisiti
 
 - **Node.js** >= 20.9.0
-- **Bun** >= 1.3.0 (facoltativo - necessario solo per compilare dal codice sorgente)
+- **Bun** >= 1.3.0 (opzionale - necessario solo per compilare dal sorgente)
 
 ---
 
@@ -30,18 +30,21 @@ bun add -g failproofai
 ## Avvio rapido
 
 <Steps>
-  <Step title="Abilita le policy">
-    Le policy sono regole che vengono eseguite prima e dopo ogni chiamata a uno strumento dell'agente. Intercettano i comandi distruttivi, le fughe di segreti e altre modalità di errore prima che causino danni.
+  <Step title="Abilita le politiche">
+    Le politiche sono regole che vengono eseguite prima e dopo ogni chiamata a uno strumento dell'agente. Catturano comandi distruttivi, fughe di segreti e altri modi di fallimento prima che causino danni.
 
     ```bash
     failproofai policies --install
     ```
 
-    Questo scrive voci di hook nei tuoi CLI agente installati (il `~/.claude/settings.json` di Claude Code e/o il `~/.codex/hooks.json` di OpenAI Codex). Quando entrambi sono presenti ti verrà richiesto; passa `--cli claude codex` per saltare la richiesta.
+    Questo scrive voci di hook nelle tue CLI di agenti installate (`~/.claude/settings.json` di Claude Code, `~/.codex/hooks.json` di OpenAI Codex, o `~/.copilot/hooks/failproofai.json` di GitHub Copilot CLI). Quando è presente più di una, ti verrà richiesto di sceglierne una; passa `--cli claude codex copilot` (qualsiasi sottoinsieme) per saltare la richiesta.
+
+    Il supporto per GitHub Copilot CLI è **beta** — installa con `--cli copilot`.
 
     ```bash
     failproofai policies --install --scope project
     failproofai policies --install --cli codex --scope project
+    failproofai policies --install --cli copilot --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>
@@ -50,62 +53,62 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    Mostra ogni policy, se è abilitata e tutti i parametri configurati.
+    Mostra ogni politica, se è abilitata e eventuali parametri configurati.
   </Step>
   <Step title="Avvia la dashboard">
     ```bash
     failproofai
     ```
 
-    Apre una dashboard locale su `http://localhost:8020` dove puoi sfogliare le sessioni, ispezionare le chiamate ai tool e gestire le policy.
+    Apre una dashboard locale all'indirizzo `http://localhost:8020` dove puoi sfogliare le sessioni, ispezionare le chiamate agli strumenti e gestire le politiche.
   </Step>
   <Step title="Esegui il tuo agente">
-    Avvia Claude Code come al solito. Se l'agente prova a fare qualcosa di rischioso, failproofai lo intercetta automaticamente. Lascialo in esecuzione senza supervisione e rivedi cosa è accaduto nella dashboard.
+    Avvia Claude Code come al solito. Se l'agente tenta qualcosa di rischioso, failproofai lo intercetta automaticamente. Lascialo in esecuzione senza sorveglianza e rivedi quello che è accaduto nella dashboard.
   </Step>
 </Steps>
 
 ---
 
-## Come funzionano le policy
+## Come funzionano le politiche
 
-Ogni volta che un agente esegue uno strumento, Claude Code chiama failproofai come sottoprocedimento:
+Ogni volta che un agente esegue uno strumento, Claude Code chiama failproofai come un sottoprocesso:
 
 ```text
 Claude Code  →  failproofai --hook PreToolUse  →  legge JSON da stdin
-                                                    valuta le policy
-                                                    scrive la decisione su stdout
+                                                 valuta le politiche
+                                                 scrive la decisione su stdout
 ```
 
-Ogni policy restituisce una delle tre decisioni:
+Ogni politica restituisce una di tre decisioni:
 
 - **allow** - l'agente procede normalmente
-- **deny** - l'azione è bloccata, all'agente viene spiegato il motivo
-- **instruct** - contesto aggiuntivo viene aggiunto al prompt dell'agente
+- **deny** - l'azione viene bloccata, all'agente viene spiegato il motivo
+- **instruct** - contesto extra viene aggiunto al prompt dell'agente
 
 <Note>
-Le policy vengono eseguite nel tuo processo locale. Nulla viene inviato a un servizio remoto.
+Le politiche vengono eseguite nel tuo processo locale. Nulla viene inviato a un servizio remoto.
 </Note>
 
 ---
 
-## Configura policy di team con policy basate su convenzione
+## Configura le politiche del team con politiche basate su convenzioni
 
-Il modo più rapido per stabilire standard di qualità in tutto il team è la convenzione `.failproofai/policies/`. Inserisci i file di policy in questa directory e verranno caricati automaticamente — senza flag, senza cambiamenti di configurazione, senza comandi di installazione.
+Il modo più veloce per stabilire standard di qualità in tutto il team è la convenzione `.failproofai/policies/`. Inserisci i file di politica in questa directory e vengono caricati automaticamente — senza flag, senza modifiche di configurazione, senza comandi di installazione.
 
 <Steps>
-  <Step title="Crea la directory delle policy">
+  <Step title="Crea la directory delle politiche">
     ```bash
     mkdir -p .failproofai/policies
     ```
   </Step>
-  <Step title="Aggiungi file di policy">
-    Copia gli esempi iniziali o scrivi i tuoi:
+  <Step title="Aggiungi file di politica">
+    Copia gli esempi di avvio o scrivi i tuoi:
 
     ```bash
     cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
     ```
 
-    O crea uno nuovo:
+    Oppure creane uno nuovo:
 
     ```js
     // .failproofai/policies/team-policies.mjs
@@ -130,26 +133,26 @@ Il modo più rapido per stabilire standard di qualità in tutto il team è la co
     git commit -m "Add team quality policies"
     ```
 
-    Ogni membro del team che ha failproofai installato raccoglie automaticamente queste policy. Nessuna configurazione per sviluppatore è necessaria.
+    Ogni membro del team che ha failproofai installato raccoglie automaticamente queste politiche. Non è necessaria alcuna configurazione per sviluppatore.
   </Step>
 </Steps>
 
 <Tip>
-Esegui il commit di `.failproofai/policies/` nel tuo repo in modo che l'intero team condivida gli stessi standard. Man mano che il tuo team scopre nuove modalità di errore, aggiungi policy e fai un push — tutti riceveranno l'aggiornamento al prossimo `git pull`. Nel tempo queste policy diventano uno standard di qualità vivente che continua a migliorare.
+Esegui il commit di `.failproofai/policies/` al tuo repository in modo che tutto il team condivida gli stessi standard. Man mano che il tuo team scopre nuovi modi di fallimento, aggiungi politiche e esegui il push — tutti ricevono l'aggiornamento al loro prossimo `git pull`. Nel tempo, queste politiche diventano uno standard di qualità vivo che continua a migliorare.
 </Tip>
 
 ---
 
-## Archiviazione dati
+## Archiviazione dei dati
 
-Tutta la configurazione e i log rimangono sulla tua macchina:
+Tutta la configurazione e i log rimangono sul tuo computer:
 
 | Percorso | Cosa archivia |
 |------|----------------|
-| `~/.failproofai/policies-config.json` | Config policy globale |
-| `~/.failproofai/hook-activity.jsonl` | Cronologia di esecuzione dei hook |
-| `~/.failproofai/hook.log` | Log di debug per errori di hook personalizzati |
-| `.failproofai/policies-config.json` | Config per progetto (committed) |
+| `~/.failproofai/policies-config.json` | Configurazione globale delle politiche |
+| `~/.failproofai/hook-activity.jsonl` | Cronologia dell'esecuzione degli hook |
+| `~/.failproofai/hook.log` | Log di debug per gli errori degli hook personalizzati |
+| `.failproofai/policies-config.json` | Configurazione per progetto (sottoposta a commit) |
 | `.failproofai/policies-config.local.json` | Override personali (gitignored) |
 
 ---
@@ -164,24 +167,24 @@ Rimuove le voci di hook da `~/.claude/settings.json`. I file di configurazione i
 
 ---
 
-## Passaggi successivi
+## Prossimi passi
 
 <CardGroup cols={2}>
 
 <Card title="Configurazione" icon="gear" href="/it/configuration">
-  Scopi e formato del file di configurazione
+  Ambiti e formato del file di configurazione
 </Card>
 
-<Card title="Policy integrate" icon="shield" href="/it/built-in-policies">
-  Tutte le 26 policy con parametri
+<Card title="Politiche integrate" icon="shield" href="/it/built-in-policies">
+  Tutte le 26 politiche con parametri
 </Card>
 
-<Card title="Policy personalizzate" icon="code" href="/it/custom-policies">
-  Scrivi le tue policy in JavaScript
+<Card title="Politiche personalizzate" icon="code" href="/it/custom-policies">
+  Scrivi le tue politiche in JavaScript
 </Card>
 
 <Card title="Monitor agente" icon="chart-line" href="/it/dashboard">
-  Monitora le sessioni e rivedi l'attività delle policy
+  Monitora le sessioni e rivedi l'attività delle politiche
 </Card>
 
 </CardGroup>

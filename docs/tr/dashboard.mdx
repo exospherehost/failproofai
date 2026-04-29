@@ -1,14 +1,14 @@
 ---
-title: Kontrol Paneli
-description: "Ajan oturumlarını izleyin, araç çağrılarını gözden geçirin ve politikaları yönetin"
+title: Dashboard
+description: "Aracı oturumlarını izleyin, araç çağrılarını gözden geçirin ve politikaları yönetin"
 icon: chart-line
 ---
 
-failproofai kontrol paneli, AI aracı oturumlarınızı izlemek ve politikaları yönetmek için bir yerel web uygulamasıdır. Aracılarınız sizin yokken neler yaptığını görün.
+failproofai dashboard, AI aracı oturumlarınızı izlemek ve politikaları yönetmek için yerel bir web uygulamasıdır. Aracılarınız siz uzaktayken neler yaptığını görün.
 
 ---
 
-## Kontrol panelini başlatma
+## Dashboard'u başlatma
 
 ```bash
 failproofai
@@ -16,7 +16,7 @@ failproofai
 
 `http://localhost:8020` adresinde açılır.
 
-Kontrol paneli doğrudan dosya sisteminden okur - Claude Code proje klasörleriniz ve failproofai yapılandırma dosyalarınız. Hiçbir şey uzak bir hizmete yazılmaz.
+Dashboard doğrudan dosya sisteminden okur - Claude Code proje klasörleriniz ve failproofai yapılandırma dosyalarınız. Hiçbir şey uzak bir servise yazılmaz.
 
 ---
 
@@ -24,38 +24,38 @@ Kontrol paneli doğrudan dosya sisteminden okur - Claude Code proje klasörlerin
 
 ### Projeler
 
-Makinenizde bulunan tüm Claude Code ve OpenAI Codex projelerini listeler. Claude projeleri `~/.claude/projects/` adresinden keşfedilir (veya `CLAUDE_PROJECTS_PATH` tarafından ayarlanan yoldan); Codex projeleri `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` altındaki her transkripti tarayarak ve her oturumun ilk kaydında kaydedilen `cwd` ile gruplandırarak keşfedilir. Her iki CLI tarafından da kullanılan bir proje tek bir satır olarak görüntülenir.
+Makinenizde bulunan tüm Claude Code, OpenAI Codex ve GitHub Copilot CLI _(beta)_ projelerini listeler. Claude projeleri `~/.claude/projects/` konumundan keşfedilir (veya `CLAUDE_PROJECTS_PATH` tarafından ayarlanan yol); Codex projeleri `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` altındaki tüm transkriptleri tarayarak ve her oturumun ilk kaydında kayıtlı `cwd` ile gruplayarak keşfedilir; Copilot CLI projeleri her `~/.copilot/session-state/<sessionId>/workspace.yaml` dosyasını tarayarak (`COPILOT_HOME` aracılığıyla yapılandırılabilir) ve `cwd` alanına göre gruplayarak keşfedilir. Birden fazla CLI tarafından kullanılan bir proje, tüm eşleşen rozetlerle tek bir satır olarak görüntülenir. Tablo üzerindeki **CLI** açılır menüsünü kullanarak belirli bir aracı CLI'ye göre filtreleyin; URL seçiminizi `?cli=claude|codex|copilot` olarak korur.
 
 Her proje şunları gösterir:
 - Proje adı (klasör yolundan türetilmiş)
-- CLI rozeti — `Claude Code` (turuncu) ve/veya `OpenAI Codex` (mor)
+- CLI rozeti — `Claude Code` (turuncu), `OpenAI Codex` (mor) ve/veya `GitHub Copilot` (mavi)
 - En son oturum aktivitesinin tarihi
 
 Oturumlarını görmek için bir projeye tıklayın.
 
 ### Oturumlar
 
-Bir projede bulunan tüm oturumları listeler. Her oturum şunları gösterir:
+Bir proje içindeki tüm oturumları listeler. Her oturum şunları gösterir:
 - Oturum kimliği
 - Başlangıç ve bitiş zaman damgaları
-- Araç çağrı sayısı
-- Hook aktivitesi sayısı (ateşlenen politikalar)
+- Araç çağrısı sayısı
+- Hook aktivite sayısı (tetiklenen politikalar)
 
-Listeyi daraltmak için tarih aralığı filtresini ve oturum kimliği aramasını kullanın. Oturumlar sayfalandırılmıştır.
+Listeyi daraltmak için tarih aralığı filtresini ve oturum kimliği aramasını kullanın. Oturumlar sayfalanmıştır.
 
-Oturum görüntüleyiciyi açmak için bir oturuma tıklayın.
+Oturum görüntüleyicisini açmak için bir oturuma tıklayın.
 
 ### Oturum görüntüleyici
 
-Oturum görüntüleyici, otonom aracılar için temel soruyu yanıtlar: ajan ne yaptı ve yolunda kaldı mı? Başlığın yanındaki CLI rozeti, oturumun Claude Code mi yoksa OpenAI Codex transkripti mi olduğunu gösterir. Bir oturumda olan her şeyin bir zaman çizelgesini gösterir:
+Oturum görüntüleyici, otonom aracılar için temel soruyu cevaplar: aracı ne yaptı ve yolu takip etti mi? Başlık yanındaki CLI rozeti oturumun Claude Code veya OpenAI Codex transkripti olup olmadığını gösterir. Bir oturumda meydana gelen her şeyin bir zaman çizelgesini gösterir:
 
 - **Mesajlar** - Claude'un metin yanıtları ve kullanıcı istemleri
-- **Araç çağrıları** - Claude'un çağırdığı her araç, giriş ve çıkışıyla birlikte
-- **Politika aktivitesi** - Her araç çağrısı için, hangi politikaların ateşlendiği ve ne kararı döndürdükleri
+- **Araç çağrıları** - Claude'un çağırdığı her araç, girdisi ve çıktısı ile
+- **Politika aktivitesi** - Her araç çağrısı için hangi politikaların tetiklendiği ve hangi kararı döndürdüğü
 
-Üstteki istatistik çubuğu oturum süresini, toplam araç çağrı sayısını ve hook kararlarının bir özetini (allow / deny / instruct sayıları) gösterir.
+Üstteki istatistik çubuğu oturum süresini, toplam araç çağrısını ve kanca kararlarının (izin ver / reddet / talimatlı sayıları) özetini gösterir.
 
-İndir düğmesini kullanarak oturumu ZIP veya JSONL dosyası olarak dışa aktarabilirsiniz.
+İndirme düğmesini kullanarak oturumu ZIP veya JSONL dosyası olarak dışa aktarabilirsiniz.
 
 ### Politikalar
 
@@ -64,15 +64,15 @@ Politikaları yönetmek ve aktiviteyi gözden geçirmek için iki sekmeli bir sa
 <Tabs>
   <Tab title="Politikalar sekmesi">
   - Tek bir tıklamayla bireysel politikaları açıp kapatın (`~/.failproofai/policies-config.json` dosyasına yazılır)
-  - `policyParams` destekleyen politikalar için parametrelerini yapılandırmak amacıyla bir politikayı genişletin
-  - Belirli bir kapsam için hook yükleyin veya kaldırın
-  - Özel politika dosyası yolunu ayarlayın
+  - Bir politikanın parametrelerini yapılandırmak için genişletin (`policyParams` destekleyen politikalar için)
+  - Belirli bir kapsam için kancaları kurun veya kaldırın
+  - Özel politikalar dosyası yolu ayarlayın
   </Tab>
   <Tab title="Aktivite sekmesi">
-  - Tüm oturumlar arasında ateşlenen her hook olayının tam sayfalandırılmış geçmişi
-  - Karar, olay türü, CLI (Claude Code / OpenAI Codex), politika adı veya oturum kimliğine göre filtreleyin
-  - Her satır şunları gösterir: zaman damgası, politika adı, karar, CLI rozeti, araç adı, oturum kimliği ve deny/instruct kararlarının nedeni
-  - Transkriptini açmak için bir oturum kimliğine tıklayın — Claude (`~/.claude/projects/…`) ve Codex (`~/.codex/sessions/…`) oturumları için çalışır
+  - Tüm oturumlar genelinde tetiklenen her kanca olayının tam sayfalanmış geçmişi
+  - Kararına, olay türüne, CLI'ye (Claude Code / OpenAI Codex / GitHub Copilot _(beta)_), politika adına veya oturum kimliğine göre filtreleyin
+  - Her satır şunları gösterir: zaman damgası, politika adı, karar, CLI rozeti (turuncu = Claude Code, mor = OpenAI Codex, mavi = GitHub Copilot), araç adı, oturum kimliği ve reddet/talimatlı kararlarının nedeni
+  - Transkriptini açmak için bir oturum kimliğine tıklayın — görüntüleyici kancayı tetikleyen CLI'yi otomatik olarak algılar (Claude `~/.claude/projects/…`, Codex `~/.codex/sessions/…`, Copilot CLI `~/.copilot/session-state/<id>/events.jsonl`) ve başlıkta eşleşen CLI rozetini görüntüler
   </Tab>
 </Tabs>
 
@@ -80,13 +80,13 @@ Politikaları yönetmek ve aktiviteyi gözden geçirmek için iki sekmeli bir sa
 
 ## Otomatik yenileme
 
-Kontrol panelinin üst gezintide bir otomatik yenileme geçidi vardır. Etkinleştirildiğinde, mevcut sayfa yeni oturumlar ve politika aktiviteleri göründüğünde periyodik olarak yenilenir. Uzun süreli otonom ajan oturumlarını izlemek için gereklidir.
+Dashboard üst gezintide otomatik yenileme değiştiricisine sahiptir. Etkinleştirildiğinde, geçerli sayfa yeni oturumlar ve politika aktiviteleri göründüğünde periyodik olarak yenilenir. Uzun süren otonom aracı oturumlarını izlemek için gereklidir.
 
 ---
 
 ## Sayfaları devre dışı bırakma
 
-Kontrol panelinin yalnızca bazı bölümlerine ihtiyacınız varsa, `FAILPROOFAI_DISABLE_PAGES` ortam değişkenini virgülle ayrılmış sayfa adlarının listesine ayarlayın:
+Dashboard'un yalnızca bazı bölümlerine ihtiyacınız varsa, `FAILPROOFAI_DISABLE_PAGES` değerini virgülle ayrılmış bir sayfa adları listesine ayarlayın:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -98,13 +98,13 @@ Geçerli değerler: `policies`, `projects`.
 
 ## Tema
 
-Kontrol paneli açık ve koyu modu destekler. Gezinti çubuğundaki düğme aracılığıyla geçiş yapın. Tercih, tarayıcınızın yerel depolama alanında saklanır.
+Dashboard açık ve koyu modu destekler. Gezinti çubuğundaki düğmeyle geçiş yapın. Tercih, tarayıcınızın yerel depolama alanında saklanır.
 
 ---
 
-## Proje yolunu yapılandırma
+## Projeler yolunu yapılandırma
 
-Varsayılan olarak, kontrol paneli standart Claude Code projeleri dizininden okur. Özel kurulumlar için geçersiz kılın:
+Varsayılan olarak, dashboard standart Claude Code projeleri dizininden okur. Özel kurulumlar için bunu geçersiz kılın:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -112,21 +112,21 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## Localhost olmayan bir ana bilgisayardan erişim
+## localhost olmayan bir konaktan erişim
 
-Kontrol panelini **geliştirme modunda** (`npm run dev`) çalıştırırken ve `localhost` dışında bir ana bilgisayar adından erişirken - örneğin, özel bir alan adı, uzak IP veya tünel URL'si - şuna benzer bir uyarı görebilirsiniz:
+Dashboard'u **dev modunda** (`npm run dev`) çalıştırırken ve `localhost` dışında bir ana bilgisayar adından (örneğin özel bir alan, uzak bir IP veya tünel harita URL'si) erişirken şöyle bir uyarı görebilirsiniz:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Bu, Next.js'nin kendi HMR (hot module reload) WebSocket'ine yönelik çapraz kaynak erişimini engelmesidir; bu, yalnızca geliştirme özelliğidir. Ana bilgisayarınıza izin vermek için `--allowed-origins` bayrağını kullanın:
+Bu, Next.js'nin HMR (hot module reload) websocket'ine çapraz kaynaklı erişimi engellemesidir; bu yalnızca geliştirme özelliğidir. Konağınıza izin vermek için `--allowed-origins` bayrağını kullanın:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-Birden fazla ana bilgisayar veya IP için virgülle ayrılmış bir liste iletin:
+Birden fazla ana bilgisayar veya IP için virgülle ayrılmış bir liste geçirin:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
@@ -139,5 +139,5 @@ FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Bu yalnızca geliştirme modunda geçerlidir. `failproofai` (üretim modu) çalıştırıldığında, hiçbir HMR WebSocket ve çapraz kaynak geliştirme kaynağı sorunu yoktur.
+Bu yalnızca dev modu için geçerlidir. `failproofai` (üretim modu) çalıştırırken HMR websocket'i ve çapraz kaynaklı dev kaynağı sorunu yoktur.
 </Note>

@@ -7,17 +7,18 @@ description: "Richtlinien aktivieren, damit sie bei jedem Agenten-Tool-Aufruf au
 failproofai policies --install [policy-names...] [options]
 ```
 
-Schreibt Hook-Einträge in Claude Codes `settings.json`, damit failproofai Tool-Aufrufe abfängt.
+Schreibt Hook-Einträge in die Einstellungsdatei des installierten Agenten-CLI (Claude Code, OpenAI Codex oder GitHub Copilot CLI _(Beta)_), sodass failproofai Tool-Aufrufe abfängt.
 
 Aliase: `failproofai p -i`
 
 ## Optionen
 
 | Flag | Beschreibung |
-|------|-------------|
-| `--scope user` | In `~/.claude/settings.json` installieren (Standard – alle Sitzungen) |
-| `--scope project` | In `.claude/settings.json` im aktuellen Verzeichnis installieren |
-| `--scope local` | In `.claude/settings.local.json` im aktuellen Verzeichnis installieren |
+|------|--------------|
+| `--cli claude\|codex\|copilot` | Agenten-CLI(s), für die installiert werden soll; durch Leerzeichen getrennt (z. B. `--cli claude codex copilot`) oder wiederholt angegeben. Wird weggelassen, werden installierte CLIs automatisch erkannt und eine Auswahl angezeigt. |
+| `--scope user` | Installation in die benutzerweite Einstellungsdatei (Claude: `~/.claude/settings.json`; Codex: `~/.codex/hooks.json`; Copilot: `~/.copilot/hooks/failproofai.json`). Standard. |
+| `--scope project` | Installation in die projektweite Einstellungsdatei (Claude: `<cwd>/.claude/settings.json`; Codex: `<cwd>/.codex/hooks.json`; Copilot: `<cwd>/.github/hooks/failproofai.json`). |
+| `--scope local` | Nur Claude — installiert in `<cwd>/.claude/settings.local.json`. Codex und Copilot unterstützen keinen `local`-Scope. |
 | `--custom <path>` / `-c` | Pfad zu einer JS-Datei mit benutzerdefinierten Hook-Richtlinien |
 
 ## Verhalten
@@ -26,12 +27,12 @@ Aliase: `failproofai p -i`
 - **Bestimmte Namen** – aktiviert diese Richtlinien (werden zu bereits aktivierten hinzugefügt)
 - **`all`** – aktiviert alle verfügbaren Richtlinien
 
-Die Installation ist additiv: Ein erneutes Ausführen von `--install` fügt neue Richtlinien hinzu, ohne bestehende zu entfernen.
+Die Installation ist additiv: Ein erneuter Aufruf von `--install` fügt neue Richtlinien hinzu, ohne bestehende zu entfernen.
 
 ## Beispiele
 
 ```bash
-# Alle Standard-Richtlinien global installieren (interaktiv)
+# Alle Standardrichtlinien global installieren (interaktiv)
 failproofai policies --install
 
 # Bestimmte Richtlinien für das aktuelle Projekt installieren
@@ -42,6 +43,15 @@ failproofai policies --install all
 
 # Mit einer benutzerdefinierten Richtliniendatei installieren
 failproofai policies --install --custom ./my-policies.js
+
+# Für OpenAI Codex installieren (Projekt-Scope)
+failproofai policies --install --cli codex --scope project
+
+# Für GitHub Copilot CLI (Beta) für das aktuelle Projekt installieren
+failproofai policies --install --cli copilot --scope project
+
+# Für alle drei CLIs gleichzeitig installieren
+failproofai policies --install --cli claude codex copilot
 ```
 
 Wenn `--custom <path>` angegeben wird, wird die Datei sofort validiert – sie muss mindestens einmal `customPolicies.add()` aufrufen. Der aufgelöste Pfad wird als `customPoliciesPath` in `policies-config.json` gespeichert.
