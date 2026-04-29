@@ -19,16 +19,22 @@ vi.mock("@/lib/runtime-cache", () => ({
   runtimeCache: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
 }));
 
-// Default Codex stub returns no projects — individual tests override via mockResolvedValueOnce.
+// Default Codex / Copilot stubs return no projects — individual tests override via mockResolvedValueOnce.
 vi.mock("@/lib/codex-projects", () => ({
   getCodexProjects: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/copilot-projects", () => ({
+  getCopilotProjects: vi.fn(async () => []),
 }));
 
 import { readdir, stat } from "fs/promises";
 import { extractSessionId, getProjectFolders, getSessionFiles, type ProjectFolder } from "@/lib/projects";
 import { getCodexProjects } from "@/lib/codex-projects";
+import { getCopilotProjects } from "@/lib/copilot-projects";
 
 const mockGetCodexProjects = vi.mocked(getCodexProjects);
+const mockGetCopilotProjects = vi.mocked(getCopilotProjects);
 
 const mockReaddir = vi.mocked(readdir);
 const mockStat = vi.mocked(stat);
@@ -174,6 +180,105 @@ describe("getProjectFolders", () => {
     expect(result).toHaveLength(1);
     expect(result[0].cli).toEqual(["codex"]);
     expect(result[0].path).toBe("/home/u/codex-only");
+  });
+
+  it("merges a Copilot project with the same encoded name into one row with both badges", async () => {
+    const claudeMtime = new Date("2024-01-01T00:00:00Z");
+    const copilotMtime = new Date("2026-06-15T00:00:00Z");
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-proj", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: claudeMtime } as any);
+    mockGetCopilotProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-proj",
+        path: "/home/u/proj",
+        isDirectory: true,
+        lastModified: copilotMtime,
+        lastModifiedFormatted: copilotMtime.toISOString(),
+        cli: ["copilot"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe("-home-u-proj");
+    expect(result[0].cli).toEqual(["claude", "copilot"]);
+    // Newer mtime wins
+    expect(result[0].lastModified.getTime()).toBe(copilotMtime.getTime());
+    // Claude's path is preserved (it's the primary store)
+    expect(result[0].path).toBe("/mock/.claude/projects/-home-u-proj");
+  });
+
+  it("merges Claude + Codex + Copilot rows that share an encoded name", async () => {
+    const claudeMtime = new Date("2024-01-01T00:00:00Z");
+    const codexMtime = new Date("2025-01-01T00:00:00Z");
+    const copilotMtime = new Date("2026-06-15T00:00:00Z");
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-shared", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: claudeMtime } as any);
+    mockGetCodexProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-shared",
+        path: "/home/u/shared",
+        isDirectory: true,
+        lastModified: codexMtime,
+        lastModifiedFormatted: codexMtime.toISOString(),
+        cli: ["codex"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetCopilotProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-shared",
+        path: "/home/u/shared",
+        isDirectory: true,
+        lastModified: copilotMtime,
+        lastModifiedFormatted: copilotMtime.toISOString(),
+        cli: ["copilot"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["claude", "codex", "copilot"]);
+    expect(result[0].lastModified.getTime()).toBe(copilotMtime.getTime());
+  });
+
+  it("includes Copilot-only projects (no matching Claude or Codex folder)", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([] as any);
+    mockGetCopilotProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-copilot-only",
+        path: "/home/u/copilot-only",
+        isDirectory: true,
+        lastModified: new Date("2026-06-15T00:00:00Z"),
+        lastModifiedFormatted: "2026-06-15T00:00:00.000Z",
+        cli: ["copilot"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["copilot"]);
+    expect(result[0].path).toBe("/home/u/copilot-only");
+  });
+
+  it("falls back gracefully when getCopilotProjects rejects", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-claude", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: new Date("2026-04-01T00:00:00Z") } as any);
+    mockGetCopilotProjects.mockRejectedValueOnce(new Error("scan failed"));
+
+    const result = await getProjectFolders();
+    // Claude row still surfaces even though Copilot scan blew up.
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["claude"]);
   });
 });
 

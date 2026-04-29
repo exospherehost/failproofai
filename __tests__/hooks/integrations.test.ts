@@ -1,11 +1,12 @@
 /**
  * Unit tests for the per-CLI Integration adapter (src/hooks/integrations.ts).
  *
- * Covers Claude Code and OpenAI Codex:
+ * Covers Claude Code, OpenAI Codex, and GitHub Copilot:
  *   • per-scope settings path
  *   • hook entry shape + idempotent install
  *   • mark/detect/remove
  *   • Codex-specific snake → Pascal mapping in settings keys
+ *   • Copilot bash/powershell entry shape + PascalCase keys
  *   • registry (getIntegration / listIntegrations)
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -15,12 +16,14 @@ import { resolve, join } from "node:path";
 import {
   claudeCode,
   codex,
+  copilot,
   getIntegration,
   listIntegrations,
 } from "../../src/hooks/integrations";
 import {
   CODEX_HOOK_EVENT_TYPES,
   CODEX_EVENT_MAP,
+  COPILOT_HOOK_EVENT_TYPES,
   HOOK_EVENT_TYPES,
   FAILPROOFAI_HOOK_MARKER,
   type CodexHookEventType,
@@ -37,9 +40,9 @@ afterEach(() => {
 });
 
 describe("integrations registry", () => {
-  it("listIntegrations returns claude and codex", () => {
+  it("listIntegrations returns claude, codex, and copilot", () => {
     const ids = listIntegrations().map((i) => i.id);
-    expect(ids).toEqual(["claude", "codex"]);
+    expect(ids).toEqual(["claude", "codex", "copilot"]);
   });
 
   it("getIntegration('claude') returns claudeCode", () => {
@@ -48,6 +51,10 @@ describe("integrations registry", () => {
 
   it("getIntegration('codex') returns codex", () => {
     expect(getIntegration("codex")).toBe(codex);
+  });
+
+  it("getIntegration('copilot') returns copilot", () => {
+    expect(getIntegration("copilot")).toBe(copilot);
   });
 
   it("getIntegration throws for unknown id", () => {
@@ -223,5 +230,100 @@ describe("CODEX_EVENT_MAP", () => {
     expect(CODEX_EVENT_MAP.session_start).toBe("SessionStart");
     expect(CODEX_EVENT_MAP.user_prompt_submit).toBe("UserPromptSubmit");
     expect(CODEX_EVENT_MAP.stop).toBe("Stop");
+  });
+});
+
+describe("GitHub Copilot integration", () => {
+  it("getSettingsPath maps user → ~/.copilot/hooks/failproofai.json and project → <cwd>/.github/hooks/failproofai.json", () => {
+    expect(copilot.getSettingsPath("project", tempDir)).toBe(
+      resolve(tempDir, ".github", "hooks", "failproofai.json"),
+    );
+    expect(copilot.getSettingsPath("user")).toMatch(/\.copilot\/hooks\/failproofai\.json$/);
+  });
+
+  it("scopes are user|project (no local)", () => {
+    expect(copilot.scopes).toEqual(["user", "project"]);
+  });
+
+  it("eventTypes are the PascalCase Copilot events", () => {
+    expect(copilot.eventTypes).toEqual(COPILOT_HOOK_EVENT_TYPES);
+    expect(copilot.eventTypes).toContain("PreToolUse");
+    expect(copilot.eventTypes).toContain("PostToolUse");
+    expect(copilot.eventTypes).toContain("UserPromptSubmit");
+    expect(copilot.eventTypes).toContain("SessionStart");
+    expect(copilot.eventTypes).toContain("SessionEnd");
+    expect(copilot.eventTypes).toContain("Stop");
+  });
+
+  it("buildHookEntry uses bash + powershell keys with --cli copilot", () => {
+    const entry = copilot.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "user") as Record<string, unknown>;
+    expect(entry.type).toBe("command");
+    expect(entry.bash).toBe('"/usr/bin/failproofai" --hook PreToolUse --cli copilot');
+    expect(entry.powershell).toBe('"/usr/bin/failproofai" --hook PreToolUse --cli copilot');
+    expect(entry.timeoutSec).toBe(60);
+    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+    // Copilot entries do NOT use the Claude-style `command` field
+    expect(entry.command).toBeUndefined();
+    expect(entry.timeout).toBeUndefined();
+  });
+
+  it("project scope uses npx -y failproofai (portable)", () => {
+    const entry = copilot.buildHookEntry("/usr/bin/failproofai", "PreToolUse", "project") as Record<string, unknown>;
+    expect(entry.bash).toBe("npx -y failproofai --hook PreToolUse --cli copilot");
+    expect(entry.powershell).toBe("npx -y failproofai --hook PreToolUse --cli copilot");
+  });
+
+  it("writeHookEntries stores PascalCase event keys and version: 1", () => {
+    const settings: Record<string, unknown> = {};
+    copilot.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    const hooks = settings.hooks as Record<string, unknown[]>;
+    for (const eventType of COPILOT_HOOK_EVENT_TYPES) {
+      expect(hooks[eventType]).toBeDefined();
+    }
+    expect(settings.version).toBe(1);
+  });
+
+  it("readSettings backfills version: 1 on existing files without it", () => {
+    const settingsPath = resolve(tempDir, ".github", "hooks", "failproofai.json");
+    mkdirSync(resolve(tempDir, ".github", "hooks"), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify({ hooks: {} }));
+    const read = copilot.readSettings(settingsPath);
+    expect(read.version).toBe(1);
+  });
+
+  it("re-running writeHookEntries is idempotent", () => {
+    const settings: Record<string, unknown> = {};
+    copilot.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    copilot.writeHookEntries(settings, "/different/path/failproofai", "user");
+    const hooks = settings.hooks as Record<string, Array<{ hooks: unknown[] }>>;
+    expect(hooks.PreToolUse).toHaveLength(1);
+    expect(hooks.PreToolUse[0].hooks).toHaveLength(1);
+  });
+
+  it("removeHooksFromFile clears all failproofai entries (returns count)", () => {
+    const settingsPath = copilot.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    copilot.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    copilot.writeSettings(settingsPath, settings);
+    expect(existsSync(settingsPath)).toBe(true);
+
+    const removed = copilot.removeHooksFromFile(settingsPath);
+    expect(removed).toBe(COPILOT_HOOK_EVENT_TYPES.length);
+
+    const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+    expect(after.hooks).toBeUndefined();
+  });
+
+  it("hooksInstalledInSettings detects installed hooks under PascalCase keys", () => {
+    const settingsPath = copilot.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    copilot.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    copilot.writeSettings(settingsPath, settings);
+
+    expect(copilot.hooksInstalledInSettings("project", tempDir)).toBe(true);
+  });
+
+  it("hooksInstalledInSettings returns false when file is missing", () => {
+    expect(copilot.hooksInstalledInSettings("project", tempDir)).toBe(false);
   });
 });

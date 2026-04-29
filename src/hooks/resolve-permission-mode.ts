@@ -14,6 +14,10 @@
  *     Transcript discovery (cache → today/yesterday → full tree scan) lives
  *     in `lib/codex-sessions.ts` and is shared with the dashboard's Codex
  *     session viewer.
+ *
+ *   • GitHub Copilot CLI: no documented permission-mode equivalent on the
+ *     hook payload today; falls back to "default". Revisit when Copilot's
+ *     hook protocol exposes one.
  */
 import { readFileSync } from "node:fs";
 import { findCodexTranscript } from "../../lib/codex-sessions";
@@ -32,6 +36,7 @@ export function resolvePermissionMode(
     return resolveCodexMode(sessionId) ?? "default";
   }
 
+  // copilot, unknown integrations, or codex without a sessionId
   return "default";
 }
 

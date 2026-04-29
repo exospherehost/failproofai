@@ -5,8 +5,8 @@
  * All functions return sorted arrays (newest-first) and pre-format dates
  * so that client components can display them without hydration mismatches.
  */
-import { readdir, stat } from "fs/promises";
-import { join, resolve, sep } from "path";
+import { readdir, stat } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
 import { getClaudeProjectsPath } from "./paths";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
@@ -16,7 +16,7 @@ import { formatDate } from "./format-date";
 export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;
 
-export type ProjectCli = "claude" | "codex";
+export type ProjectCli = "claude" | "codex" | "copilot";
 
 export interface ProjectFolder {
   name: string;
@@ -26,7 +26,7 @@ export interface ProjectFolder {
   lastModifiedFormatted?: string; // Pre-formatted date string to avoid hydration issues
   /**
    * Which agent CLIs this project's data was found in. Multiple entries when
-   * the same cwd has both Claude and Codex transcripts; rendered as badges.
+   * the same cwd has transcripts from more than one CLI; rendered as badges.
    */
   cli: ProjectCli[];
 }
@@ -37,8 +37,8 @@ export interface SessionFile {
   lastModified: Date;
   lastModifiedFormatted?: string;
   sessionId?: string;
-  /** Originating agent CLI. Set when the session list mixes Claude + Codex sources
-   *  so the table can render a per-row CLI badge. */
+  /** Originating agent CLI. Set when the session list mixes sources from more
+   *  than one CLI, so the table can render a per-row CLI badge. */
   cli?: ProjectCli;
 }
 
@@ -99,28 +99,30 @@ async function getClaudeProjectFolders(): Promise<ProjectFolder[]> {
   }
 }
 
-/** Merges Claude + Codex project lists by encoded folder name. When both sources have
- *  the same name, keeps the Claude entry's `path` (so the Path column still points at
- *  `~/.claude/projects/<encoded>`), unions the `cli` arrays in [claude, codex] order,
- *  and takes the newer `lastModified`. */
-function mergeProjectFolders(claude: ProjectFolder[], codex: ProjectFolder[]): ProjectFolder[] {
+/** Merges any number of per-CLI project lists by encoded folder name. When
+ *  multiple sources share a name, the first source's `path` wins (so the Path
+ *  column still points at the primary store), the `cli` arrays are unioned in
+ *  source order, and `lastModified` takes the newest value. The first source
+ *  is treated as the "base" — pass Claude first to keep Claude paths primary. */
+function mergeProjectFolders(...sources: ProjectFolder[][]): ProjectFolder[] {
   const byName = new Map<string, ProjectFolder>();
-  for (const f of claude) byName.set(f.name, { ...f, cli: [...f.cli] });
-  for (const f of codex) {
-    const existing = byName.get(f.name);
-    if (!existing) {
-      byName.set(f.name, { ...f, cli: [...f.cli] });
-      continue;
+  for (const list of sources) {
+    for (const f of list) {
+      const existing = byName.get(f.name);
+      if (!existing) {
+        byName.set(f.name, { ...f, cli: [...f.cli] });
+        continue;
+      }
+      const mergedCli: ProjectCli[] = [...existing.cli];
+      for (const c of f.cli) if (!mergedCli.includes(c)) mergedCli.push(c);
+      const newer = f.lastModified.getTime() > existing.lastModified.getTime() ? f : existing;
+      byName.set(f.name, {
+        ...existing,
+        cli: mergedCli,
+        lastModified: newer.lastModified,
+        lastModifiedFormatted: newer.lastModifiedFormatted,
+      });
     }
-    const mergedCli: ProjectCli[] = [...existing.cli];
-    for (const c of f.cli) if (!mergedCli.includes(c)) mergedCli.push(c);
-    const newer = f.lastModified.getTime() > existing.lastModified.getTime() ? f : existing;
-    byName.set(f.name, {
-      ...existing,
-      cli: mergedCli,
-      lastModified: newer.lastModified,
-      lastModifiedFormatted: newer.lastModifiedFormatted,
-    });
   }
   const merged = Array.from(byName.values());
   merged.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
@@ -128,17 +130,25 @@ function mergeProjectFolders(claude: ProjectFolder[], codex: ProjectFolder[]): P
 }
 
 export async function getProjectFolders(): Promise<ProjectFolder[]> {
-  // Lazy import to keep `lib/codex-projects.ts` out of the dep graph for callers that
-  // only need Claude helpers (e.g. CLI codepaths).
-  const { getCodexProjects } = await import("./codex-projects");
-  const [claude, codex] = await Promise.all([
+  // Lazy imports keep `lib/codex-projects.ts` and `lib/copilot-projects.ts`
+  // out of the dep graph for callers that only need Claude helpers (e.g. CLI
+  // codepaths).
+  const [{ getCodexProjects }, { getCopilotProjects }] = await Promise.all([
+    import("./codex-projects"),
+    import("./copilot-projects"),
+  ]);
+  const [claude, codex, copilot] = await Promise.all([
     getClaudeProjectFolders(),
     getCodexProjects().catch((error) => {
       logError("Error reading Codex projects:", error);
       return [] as ProjectFolder[];
     }),
+    getCopilotProjects().catch((error) => {
+      logError("Error reading Copilot projects:", error);
+      return [] as ProjectFolder[];
+    }),
   ]);
-  return mergeProjectFolders(claude, codex);
+  return mergeProjectFolders(claude, codex, copilot);
 }
 
 /**

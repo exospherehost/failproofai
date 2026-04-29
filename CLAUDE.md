@@ -45,6 +45,30 @@ which writes a portable `npx -y failproofai --hook ... --cli codex` command. Sam
 self-reference caveat applies — do **not** install the standard `npx` form from
 inside this repo.
 
+### Copilot hooks (`.github/hooks/failproofai.json`)
+
+This repo also ships a `.github/hooks/failproofai.json` for GitHub Copilot CLI
+sessions, mirroring the `.claude/settings.json` and `.codex/hooks.json` setups.
+Copilot's project-scope hook config lives under `.github/hooks/`, **not**
+`.copilot/` (the latter is the user-scope path). The schema is Copilot's
+"VS Code compatible" form: `version: 1`, PascalCase event names, and
+`bash` + `powershell` + `timeoutSec` per entry (Copilot uses seconds, not
+milliseconds, for its timeout field).
+
+Like Codex, Copilot does not expose a `$COPILOT_PROJECT_DIR` env var, and its
+hooks are spawned with the project root as cwd, so we use a relative
+`bun bin/failproofai.mjs --hook ... --cli copilot` path. If Copilot ever
+changes that behavior and the hook fails to find the binary, switch to an
+absolute path.
+
+For production users (outside this repo), the recommended Copilot install is:
+```bash
+failproofai policies --install --cli copilot --scope project
+```
+which writes a portable `npx -y failproofai --hook ... --cli copilot` command.
+Same self-reference caveat applies — do **not** install the standard `npx`
+form from inside this repo.
+
 ## Workflow rules
 
 ### One PR per branch

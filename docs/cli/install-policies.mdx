@@ -7,7 +7,7 @@ description: "Enable policies so they run on every agent tool call"
 failproofai policies --install [policy-names...] [options]
 ```
 
-Writes hook entries into Claude Code's `settings.json` so failproofai intercepts tool calls.
+Writes hook entries into your installed agent CLI's settings file (Claude Code, OpenAI Codex, or GitHub Copilot CLI _(beta)_) so failproofai intercepts tool calls.
 
 Aliases: `failproofai p -i`
 
@@ -15,9 +15,10 @@ Aliases: `failproofai p -i`
 
 | Flag | Description |
 |------|-------------|
-| `--scope user` | Install into `~/.claude/settings.json` (default - all sessions) |
-| `--scope project` | Install into `.claude/settings.json` in the current directory |
-| `--scope local` | Install into `.claude/settings.local.json` in the current directory |
+| `--cli claude\|codex\|copilot` | Agent CLI(s) to install for; space-separated (e.g. `--cli claude codex copilot`) or repeated. Omit to detect installed CLIs and prompt. |
+| `--scope user` | Install into the user-scope settings file (Claude: `~/.claude/settings.json`; Codex: `~/.codex/hooks.json`; Copilot: `~/.copilot/hooks/failproofai.json`). Default. |
+| `--scope project` | Install into the project-scope settings file (Claude: `<cwd>/.claude/settings.json`; Codex: `<cwd>/.codex/hooks.json`; Copilot: `<cwd>/.github/hooks/failproofai.json`). |
+| `--scope local` | Claude only — installs into `<cwd>/.claude/settings.local.json`. Codex and Copilot do not have a `local` scope. |
 | `--custom <path>` / `-c` | Path to a JS file containing custom hook policies |
 
 ## Behavior
@@ -42,6 +43,15 @@ failproofai policies --install all
 
 # Install with a custom policies file
 failproofai policies --install --custom ./my-policies.js
+
+# Install for OpenAI Codex (project scope)
+failproofai policies --install --cli codex --scope project
+
+# Install for GitHub Copilot CLI (beta) for the current project
+failproofai policies --install --cli copilot --scope project
+
+# Install for all three CLIs at once
+failproofai policies --install --cli claude codex copilot
 ```
 
 When `--custom <path>` is provided, the file is validated immediately - it must call `customPolicies.add()` at least once. The resolved path is saved to `policies-config.json` as `customPoliciesPath`.

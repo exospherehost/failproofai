@@ -205,6 +205,48 @@ describe("hooks/handler", () => {
       );
     });
 
+    it("tags telemetry with cli=copilot when invoked with --cli copilot", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"hookSpecificOutput":{"permissionDecision":"deny"}}',
+        stderr: "",
+        policyName: "block-sudo",
+        reason: "sudo blocked",
+        decision: "deny",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("PreToolUse", "copilot");
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "hook_policy_triggered",
+        expect.objectContaining({ cli: "copilot" }),
+      );
+    });
+
+    it("tags activity store entry with integration=copilot for copilot hook fires", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        policyName: null,
+        reason: null,
+        decision: "allow",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("PreToolUse", "copilot");
+
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({ integration: "copilot" }),
+      );
+    });
+
     it("fires telemetry with full payload for instruct decisions", async () => {
       const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
       vi.mocked(evaluatePolicies).mockResolvedValueOnce({

@@ -67,11 +67,18 @@ describe("ProjectList", () => {
     expect(screen.getByText("C:/code/myapp")).toBeInTheDocument();
   });
 
+  // Helper: find badges (span elements with title="Agent CLI: X") to disambiguate
+  // from the new CLI filter dropdown's <option> elements (which share the same text).
+  function badgeNodes(label: string): Element[] {
+    return Array.from(document.querySelectorAll(`span[title="Agent CLI: ${label}"]`));
+  }
+
   it("renders a Claude Code badge for cli=['claude']", () => {
     const folders = makeFolders(1);
     render(<ProjectList folders={folders} />);
-    expect(screen.getByText("Claude Code")).toBeInTheDocument();
-    expect(screen.queryByText("OpenAI Codex")).not.toBeInTheDocument();
+    expect(badgeNodes("Claude Code")).toHaveLength(1);
+    expect(badgeNodes("OpenAI Codex")).toHaveLength(0);
+    expect(badgeNodes("GitHub Copilot")).toHaveLength(0);
   });
 
   it("renders an OpenAI Codex badge for cli=['codex']", () => {
@@ -86,8 +93,8 @@ describe("ProjectList", () => {
       },
     ];
     render(<ProjectList folders={folders} />);
-    expect(screen.getByText("OpenAI Codex")).toBeInTheDocument();
-    expect(screen.queryByText("Claude Code")).not.toBeInTheDocument();
+    expect(badgeNodes("OpenAI Codex")).toHaveLength(1);
+    expect(badgeNodes("Claude Code")).toHaveLength(0);
   });
 
   it("renders both badges when cli=['claude','codex']", () => {
@@ -102,8 +109,23 @@ describe("ProjectList", () => {
       },
     ];
     render(<ProjectList folders={folders} />);
-    expect(screen.getByText("Claude Code")).toBeInTheDocument();
-    expect(screen.getByText("OpenAI Codex")).toBeInTheDocument();
+    expect(badgeNodes("Claude Code")).toHaveLength(1);
+    expect(badgeNodes("OpenAI Codex")).toHaveLength(1);
+  });
+
+  it("renders a GitHub Copilot badge for cli=['copilot']", () => {
+    const folders: ProjectFolder[] = [
+      {
+        name: "-home-u-copilot",
+        path: "/home/u/copilot",
+        isDirectory: true,
+        lastModified: new Date(),
+        lastModifiedFormatted: "Jun 15, 2024",
+        cli: ["copilot"],
+      },
+    ];
+    render(<ProjectList folders={folders} />);
+    expect(badgeNodes("GitHub Copilot")).toHaveLength(1);
   });
 
   it("links to /project/[name]", () => {
@@ -133,5 +155,106 @@ describe("ProjectList", () => {
     const folders = makeFolders(30);
     render(<ProjectList folders={folders} />);
     expect(screen.getByText(/Showing 1-25 of 30 projects/)).toBeInTheDocument();
+  });
+
+  it("CLI filter dropdown shows All CLIs + each known CLI label", () => {
+    render(<ProjectList folders={[]} />);
+    const select = screen.getByLabelText("Filter by CLI") as HTMLSelectElement;
+    const optionLabels = Array.from(select.querySelectorAll("option")).map((o) => o.textContent);
+    expect(optionLabels).toEqual([
+      "All CLIs",
+      "Claude Code",
+      "OpenAI Codex",
+      "GitHub Copilot",
+    ]);
+  });
+
+  it("CLI filter narrows the visible rows to the chosen CLI", async () => {
+    const user = userEvent.setup();
+    const mixed: ProjectFolder[] = [
+      {
+        name: "-home-u-claude-only",
+        path: "/home/u/claude-only",
+        isDirectory: true,
+        lastModified: new Date("2026-04-01T00:00:00Z"),
+        lastModifiedFormatted: "Apr 1",
+        cli: ["claude"],
+      },
+      {
+        name: "-home-u-codex-only",
+        path: "/home/u/codex-only",
+        isDirectory: true,
+        lastModified: new Date("2026-04-02T00:00:00Z"),
+        lastModifiedFormatted: "Apr 2",
+        cli: ["codex"],
+      },
+      {
+        name: "-home-u-copilot-only",
+        path: "/home/u/copilot-only",
+        isDirectory: true,
+        lastModified: new Date("2026-04-03T00:00:00Z"),
+        lastModifiedFormatted: "Apr 3",
+        cli: ["copilot"],
+      },
+    ];
+    render(<ProjectList folders={mixed} />);
+    expect(screen.getByText(/Showing 1-3 of 3 projects/)).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Filter by CLI"), "copilot");
+    expect(screen.getByText(/Showing 1-1 of 1 projects/)).toBeInTheDocument();
+    expect(screen.queryByText("/home/u/claude-only")).not.toBeInTheDocument();
+    expect(screen.queryByText("/home/u/codex-only")).not.toBeInTheDocument();
+    expect(screen.getByText("/home/u/copilot-only")).toBeInTheDocument();
+  });
+
+  it("CLI filter set to 'All CLIs' (empty value) shows all rows", async () => {
+    const user = userEvent.setup();
+    const mixed: ProjectFolder[] = [
+      {
+        name: "-home-u-claude",
+        path: "/home/u/claude",
+        isDirectory: true,
+        lastModified: new Date(),
+        cli: ["claude"],
+      },
+      {
+        name: "-home-u-codex",
+        path: "/home/u/codex",
+        isDirectory: true,
+        lastModified: new Date(),
+        cli: ["codex"],
+      },
+    ];
+    render(<ProjectList folders={mixed} />);
+    const select = screen.getByLabelText("Filter by CLI");
+    await user.selectOptions(select, "claude");
+    expect(screen.getByText(/Showing 1-1 of 1 projects/)).toBeInTheDocument();
+    await user.selectOptions(select, "");
+    expect(screen.getByText(/Showing 1-2 of 2 projects/)).toBeInTheDocument();
+  });
+
+  it("CLI filter matches multi-CLI rows", async () => {
+    const user = userEvent.setup();
+    const folders: ProjectFolder[] = [
+      {
+        name: "-home-u-shared",
+        path: "/home/u/shared",
+        isDirectory: true,
+        lastModified: new Date(),
+        cli: ["claude", "copilot"],
+      },
+      {
+        name: "-home-u-codex-only",
+        path: "/home/u/codex-only",
+        isDirectory: true,
+        lastModified: new Date(),
+        cli: ["codex"],
+      },
+    ];
+    render(<ProjectList folders={folders} />);
+    await user.selectOptions(screen.getByLabelText("Filter by CLI"), "copilot");
+    // shared has copilot in its cli array; codex-only does not.
+    // Path renders both as a link (Agent Root col) and plain text (Path col), hence getAllByText.
+    expect(screen.getAllByText("/home/u/shared").length).toBeGreaterThan(0);
+    expect(screen.queryByText("/home/u/codex-only")).not.toBeInTheDocument();
   });
 });

@@ -194,21 +194,23 @@ The `policies --install` and `policies --uninstall` commands write to your agent
 - **Agent CLI settings** — tells the agent to call `failproofai --hook <event>` on each tool use:
   - **Claude Code**: `~/.claude/settings.json` (user), `<cwd>/.claude/settings.json` (project), `<cwd>/.claude/settings.local.json` (local)
   - **OpenAI Codex**: `~/.codex/hooks.json` (user), `<cwd>/.codex/hooks.json` (project) — Codex doesn't have a `local` scope
+  - **GitHub Copilot CLI _(beta)_**: `~/.copilot/hooks/failproofai.json` (user), `<cwd>/.github/hooks/failproofai.json` (project) — Copilot has no `local` scope. Hook entries use Copilot's OS-keyed `bash`/`powershell` command fields with `timeoutSec`; the file carries a top-level `version: 1` marker. Copilot CLI support is **beta** while we verify the `events.jsonl` record schema (which the public docs do not specify) against more real-world sessions.
 - **`policies-config.json`** — tells failproofai which policies to evaluate and with what params (shared across all agent CLIs)
 
-Pass `--cli claude|codex` to target a specific agent (space-separated or repeated for both):
+Pass `--cli claude|codex|copilot` to target a specific agent (space-separated or repeated for any subset):
 
 ```bash
 failproofai policies --install --cli codex --scope project
-failproofai policies --install --cli claude codex
+failproofai policies --install --cli copilot --scope project
+failproofai policies --install --cli claude codex copilot
 ```
 
-When `--cli` is omitted, `failproofai` detects which agent CLIs are installed (`which claude` / `which codex`):
+When `--cli` is omitted, `failproofai` detects which agent CLIs are installed (`which claude` / `which codex` / `which copilot`):
 
 - **One CLI detected** — auto-selects that CLI without prompting.
-- **Both CLIs detected** in an interactive terminal — shows an arrow-key single-select prompt: choose `Both`, `Claude Code only`, or `OpenAI Codex only` (↑↓ to move, Enter to select, ^C to quit).
-- **Both CLIs detected** in a non-interactive run (CI, no TTY) — installs for both without prompting.
-- **Neither CLI detected** — falls back to `claude`, with a warning that no agent binary was found in PATH; the hook command is still written so it activates as soon as you install one.
+- **Multiple CLIs detected** in an interactive terminal — shows an arrow-key single-select prompt: when two CLIs are present the choices are `Both`, `<CLI A> only`, `<CLI B> only`; with three CLIs the first option becomes `All` (↑↓ to move, Enter to select, ^C to quit).
+- **Multiple CLIs detected** in a non-interactive run (CI, no TTY) — installs for all detected CLIs without prompting.
+- **None detected** — falls back to `claude`, with a warning that no agent binary was found in PATH; the hook command is still written so it activates as soon as you install one.
 
 You can edit `policies-config.json` directly at any time; changes take effect immediately on the next hook event with no restart needed.
 

@@ -9,9 +9,9 @@
  * convention (see `encodeFolderName` in `lib/paths.ts`), so a cwd present in both stores
  * naturally produces the same `name` and can be merged on the Claude side.
  */
-import { open, readdir } from "fs/promises";
-import { homedir } from "os";
-import { join } from "path";
+import { open, readdir } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { encodeFolderName } from "./paths";
 import type { ProjectFolder, SessionFile } from "./projects";
 import { runtimeCache } from "./runtime-cache";

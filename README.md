@@ -17,7 +17,7 @@
 
 **Translations**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-The easiest way to manage policies that keep your AI agents reliable, on-task, and running autonomously - for **Claude Code**, **OpenAI Codex** & the **Agents SDK**.
+The easiest way to manage policies that keep your AI agents reliable, on-task, and running autonomously - for **Claude Code**, **OpenAI Codex**, **GitHub Copilot CLI** _(beta)_ & the **Agents SDK**.
 
 <p align="center">
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
@@ -37,10 +37,17 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
     </picture>
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks" title="GitHub Copilot CLI">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/copilot-dark.svg" />
+      <img src="assets/logos/copilot-light.svg" alt="GitHub Copilot" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <strong>+ more coming soon</strong>
 </p>
 
-> Install hooks for one or both: `failproofai policies --install --cli codex` (or `--cli claude codex`). Omit `--cli` to auto-detect installed CLIs and prompt.
+> Install hooks for one, two, or all three: `failproofai policies --install --cli copilot` (or `--cli claude codex copilot`). Omit `--cli` to auto-detect installed CLIs and prompt. **GitHub Copilot CLI support is in beta.**
 
 - **39 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
 - **Custom Policies** - Write your own reliability rules in JavaScript. Use the `allow`/`deny`/`instruct` API to enforce conventions, prevent drift, gate operations, or integrate with external systems.
