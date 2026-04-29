@@ -22,15 +22,18 @@ import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
 /**
  * Canonicalize an event name to PascalCase. Codex sends snake_case event names
- * on stdin and as the --hook arg; Claude Code sends PascalCase. The internal
- * registry, builtin policies, and policy.match.events all key on PascalCase.
+ * on stdin and as the --hook arg; Claude Code sends PascalCase. Copilot CLI is
+ * installed in "VS Code compatible" PascalCase mode (see integrations.ts), so
+ * its events arrive PascalCase already. The internal registry, builtin
+ * policies, and policy.match.events all key on PascalCase.
  */
 function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType {
   if (cli === "codex") {
     const mapped = CODEX_EVENT_MAP[raw as CodexHookEventType];
     if (mapped) return mapped;
   }
-  // Already PascalCase or unknown — pass through; HOOK_EVENT_TYPES type-checks downstream.
+  // claude / copilot / unknown — already PascalCase, pass through.
+  // HOOK_EVENT_TYPES type-checks downstream.
   return raw as HookEventType;
 }
 

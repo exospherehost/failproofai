@@ -1,11 +1,11 @@
 /**
- * Constants and interfaces for agent CLI hooks integrations (Claude Code, OpenAI Codex, …).
+ * Constants and interfaces for agent CLI hooks integrations (Claude Code, OpenAI Codex, GitHub Copilot, …).
  */
 
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude", "codex"] as const;
+export const INTEGRATION_TYPES = ["claude", "codex", "copilot"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CODEX_HOOK_SCOPES = ["user", "project"] as const;
@@ -29,6 +29,31 @@ export const CODEX_EVENT_MAP: Record<CodexHookEventType, HookEventType> = {
   user_prompt_submit: "UserPromptSubmit",
   stop: "Stop",
 };
+
+// ── GitHub Copilot CLI ─────────────────────────────────────────────────────
+//
+// Copilot CLI accepts two payload formats. We install with PascalCase event
+// keys ("VS Code compatible" mode), which makes Copilot deliver PascalCase
+// `hook_event_name` plus snake_case fields — same shape Claude already uses.
+// As a result no Codex-style canonicalization map is required.
+//
+// Settings paths:
+//   user    → ~/.copilot/hooks/failproofai.json
+//   project → <cwd>/.github/hooks/failproofai.json   (also where the cloud agent reads)
+// Settings file carries `version: 1` like Codex's hooks.json.
+
+export const COPILOT_HOOK_SCOPES = ["user", "project"] as const;
+export type CopilotHookScope = (typeof COPILOT_HOOK_SCOPES)[number];
+
+export const COPILOT_HOOK_EVENT_TYPES = [
+  "SessionStart",
+  "SessionEnd",
+  "UserPromptSubmit",
+  "PreToolUse",
+  "PostToolUse",
+  "Stop",
+] as const;
+export type CopilotHookEventType = (typeof COPILOT_HOOK_EVENT_TYPES)[number];
 
 export const HOOK_EVENT_TYPES = [
   "SessionStart",
@@ -82,7 +107,7 @@ export interface SessionMetadata {
   cwd?: string;
   permissionMode?: string;
   hookEventName?: string;
-  /** Which agent CLI fired this hook (claude | codex). Set by handler.ts from --cli. */
+  /** Which agent CLI fired this hook (claude | codex | copilot). Set by handler.ts from --cli. */
   cli?: IntegrationType;
 }
 

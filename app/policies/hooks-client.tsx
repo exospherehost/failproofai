@@ -27,6 +27,7 @@ import { updatePolicyParamsAction } from "@/app/actions/update-policy-params";
 import { useAutoRefresh } from "@/contexts/AutoRefreshContext";
 import { useUrlParams } from "@/lib/use-url-params";
 import { pageToParam, paramToPage } from "@/lib/url-filter-serializers";
+import { getCliLabel, getCliBadgeClasses, KNOWN_CLI_IDS, isKnownCli, type CliId } from "@/lib/cli-registry";
 import { formatRelativeTime } from "@/lib/format-duration";
 import { Button } from "@/components/ui/button";
 
@@ -86,10 +87,14 @@ function SessionCell({
   const short = shortenSession(sessionId);
 
   const isCodex = integration === "codex" || (transcriptPath?.includes("/.codex/") ?? false);
-  if (isCodex) {
+  const isCopilot =
+    integration === "copilot" ||
+    (transcriptPath?.includes("/.copilot/session-state/") ?? false);
+  if (isCodex || isCopilot) {
     // The session route auto-detects CLI by file location, so [name] only
     // affects the breadcrumb. Encode the cwd Claude-style when we have it.
-    const projectSeg = cwd ? encodeCwdForUrl(cwd) : "codex";
+    const fallbackSeg = isCodex ? "codex" : "copilot";
+    const projectSeg = cwd ? encodeCwdForUrl(cwd) : fallbackSeg;
     return (
       <Link
         href={`/project/${encodeURIComponent(projectSeg)}/session/${encodeURIComponent(sessionId)}`}
@@ -153,16 +158,11 @@ function EventTypeBadge({ eventType }: { eventType: string }) {
 
 function IntegrationBadge({ integration }: { integration?: string }) {
   if (!integration) return null;
-  const label =
-    integration === "claude" ? "Claude Code" : integration === "codex" ? "OpenAI Codex" : integration;
-  const isCodex = integration === "codex";
+  const label = getCliLabel(integration);
+  const classes = getCliBadgeClasses(integration);
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium border ${
-        isCodex
-          ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-          : "bg-orange-500/10 text-orange-400 border-orange-500/20"
-      }`}
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium border ${classes}`}
       title={`Agent CLI: ${label}`}
     >
       {label}
@@ -366,9 +366,9 @@ function ActivityTab({
   const [filterEventType, setFilterEventType] = useState(() => url.get("event") ?? "");
   const [filterPolicy, setFilterPolicy] = useState(() => url.get("policy") ?? "");
   const [filterSessionId, setFilterSessionId] = useState(() => url.get("session") ?? "");
-  const [filterCli, setFilterCli] = useState<"" | "claude" | "codex">(() => {
+  const [filterCli, setFilterCli] = useState<"" | CliId>(() => {
     const v = url.get("cli");
-    return v === "claude" || v === "codex" ? v : "";
+    return isKnownCli(v) ? v : "";
   });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const filtersRef = useRef({ filterDecision, filterEventType, filterPolicy, filterSessionId, filterCli });
@@ -470,13 +470,16 @@ function ActivityTab({
           </select>
           <select
             value={filterCli}
-            onChange={(e) => setFilterCli(e.target.value as "" | "claude" | "codex")}
+            onChange={(e) => setFilterCli(e.target.value as "" | "claude" | "codex" | "copilot")}
             className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
             aria-label="Filter by CLI"
           >
             <option value="">All CLIs</option>
-            <option value="claude">Claude Code</option>
-            <option value="codex">OpenAI Codex</option>
+            {KNOWN_CLI_IDS.map((id) => (
+              <option key={id} value={id}>
+                {getCliLabel(id)}
+              </option>
+            ))}
           </select>
           <div className="relative">
             <input

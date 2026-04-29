@@ -49,7 +49,7 @@ export async function resolveTargetClis(explicit?: IntegrationType[]): Promise<I
 
   if (detected.length === 0) {
     console.log(
-      "\x1B[33mWarning: no agent CLI binary found in PATH (claude, codex). " +
+      "\x1B[33mWarning: no agent CLI binary found in PATH (claude, codex, copilot). " +
         "Defaulting to Claude Code; hooks will activate when an agent is installed.\x1B[0m",
     );
     return ["claude"];
@@ -75,8 +75,9 @@ async function promptCliTargetSelection(
   detected: IntegrationType[],
 ): Promise<IntegrationType[]> {
   const labels = detected.map((id) => getIntegration(id).displayName).join(" + ");
+  const allLabel = detected.length > 2 ? "All" : "Both";
   const options: Array<{ label: string; description: string; value: IntegrationType[] }> = [
-    { label: "Both", description: labels, value: detected },
+    { label: allLabel, description: labels, value: detected },
     ...detected.map((id) => ({
       label: `${getIntegration(id).displayName} only`,
       description: "",

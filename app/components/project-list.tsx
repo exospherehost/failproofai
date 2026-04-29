@@ -23,6 +23,7 @@ import {
   keywordsToParam, paramToKeywords,
   pageToParam, paramToPage,
 } from "@/lib/url-filter-serializers";
+import { KNOWN_CLI_IDS, getCliLabel, isKnownCli, type CliId } from "@/lib/cli-registry";
 import { Folder, Search, X } from "lucide-react";
 import Link from "next/link";
 import PaginationControls from "./pagination-controls";
@@ -50,6 +51,10 @@ export default function ProjectList({ folders }: ProjectListProps) {
   // Read initial state from URL
   const [keywords, setKeywords] = useState<string[]>(() => paramToKeywords(url.get("q")));
   const [keywordInput, setKeywordInput] = useState("");
+  const [filterCli, setFilterCli] = useState<"" | CliId>(() => {
+    const v = url.get("cli");
+    return isKnownCli(v) ? v : "";
+  });
 
   const {
     filterPreset, dateRange, currentPage, setCurrentPage,
@@ -72,9 +77,10 @@ export default function ProjectList({ folders }: ProjectListProps) {
       ...dateRangeToParams(dateRange),
       q: keywordsToParam(keywords),
       page: pageToParam(currentPage),
+      cli: filterCli || undefined,
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterPreset, dateRange, keywords, currentPage]);
+  }, [filterPreset, dateRange, keywords, currentPage, filterCli]);
 
   const addKeyword = (keyword: string) => {
     const trimmed = keyword.trim();
@@ -96,6 +102,7 @@ export default function ProjectList({ folders }: ProjectListProps) {
   const clearFilters = () => {
     clearDateFilters();
     clearKeywords();
+    setFilterCli("");
   };
 
   const normalizedFolders = useMemo(() => rehydrateDates(folders), [folders]);
@@ -113,8 +120,12 @@ export default function ProjectList({ folders }: ProjectListProps) {
       });
     }
 
+    if (filterCli) {
+      filtered = filtered.filter((folder) => folder.cli.includes(filterCli));
+    }
+
     return filtered.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
-  }, [normalizedFolders, filterPreset, dateRange, keywords]);
+  }, [normalizedFolders, filterPreset, dateRange, keywords, filterCli]);
 
   const totalPages = Math.max(1, Math.ceil(filteredFolders.length / ITEMS_PER_PAGE));
   useEffect(() => {
@@ -129,7 +140,7 @@ export default function ProjectList({ folders }: ProjectListProps) {
       {/* Filter Bar */}
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex flex-col gap-4">
-          {/* Preset Filters + Refresh */}
+          {/* Preset Filters + CLI filter */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-medium text-foreground">Filter by:</span>
             {FILTER_PRESETS.map((preset) => (
@@ -146,6 +157,20 @@ export default function ProjectList({ folders }: ProjectListProps) {
               </button>
             ))}
 
+            <span className="ml-2 text-sm font-medium text-foreground">CLI:</span>
+            <select
+              aria-label="Filter by CLI"
+              value={filterCli}
+              onChange={(e) => setFilterCli(e.target.value as "" | CliId)}
+              className="px-2 py-1.5 text-sm bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
+            >
+              <option value="">All CLIs</option>
+              {KNOWN_CLI_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {getCliLabel(id)}
+                </option>
+              ))}
+            </select>
           </div>
 
           {/* Keyword Search */}
@@ -227,7 +252,7 @@ export default function ProjectList({ folders }: ProjectListProps) {
                 aria-label="Filter to date"
               />
             </div>
-            {(filterPreset !== "all" || dateRange.from !== null || dateRange.to !== null || keywords.length > 0) && (
+            {(filterPreset !== "all" || dateRange.from !== null || dateRange.to !== null || keywords.length > 0 || filterCli !== "") && (
               <button
                 onClick={clearFilters}
                 className="px-3 py-2 text-sm bg-muted text-muted-foreground hover:bg-muted/80 rounded-md transition-colors"

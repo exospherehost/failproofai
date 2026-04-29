@@ -12,11 +12,11 @@ import { hookLogWarn } from "./hook-logger";
 
 /**
  * Whether `resolved` lives under an agent CLI's home directory
- * (~/.claude/ or ~/.codex/). Used to whitelist agent self-reads of their own
- * config and transcripts.
+ * (~/.claude/, ~/.codex/, or ~/.copilot/). Used to whitelist agent self-reads
+ * of their own config and transcripts.
  */
 function isAgentInternalPath(resolved: string): boolean {
-  for (const dir of [".claude", ".codex"]) {
+  for (const dir of [".claude", ".codex", ".copilot"]) {
     const root = join(homedir(), dir);
     if (resolved === root || resolved.startsWith(root + "/")) return true;
   }
@@ -26,13 +26,16 @@ function isAgentInternalPath(resolved: string): boolean {
 /**
  * Whether `resolved` is a settings/hooks file for an agent CLI:
  *   • Claude Code: `.claude/settings.json`, `.claude/settings.local.json`, etc.
- *   • Codex: `.codex/hooks.json`
+ *   • Codex:       `.codex/hooks.json`
+ *   • Copilot CLI: `.copilot/hooks/*.json`, `.github/hooks/*.json`
  * These must NEVER be edited by the agent itself — that would let it disable
  * its own protections.
  */
 function isAgentSettingsFile(resolved: string): boolean {
   if (/[\\/]\.claude[\\/]settings(?:\.[^/\\]+)?\.json$/.test(resolved)) return true;
   if (/[\\/]\.codex[\\/]hooks\.json$/.test(resolved)) return true;
+  if (/[\\/]\.copilot[\\/]hooks[\\/][^/\\]+\.json$/.test(resolved)) return true;
+  if (/[\\/]\.github[\\/]hooks[\\/][^/\\]+\.json$/.test(resolved)) return true;
   return false;
 }
 

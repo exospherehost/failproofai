@@ -16,6 +16,8 @@ import {
   CODEX_HOOK_EVENT_TYPES,
   CODEX_HOOK_SCOPES,
   CODEX_EVENT_MAP,
+  COPILOT_HOOK_EVENT_TYPES,
+  COPILOT_HOOK_SCOPES,
   FAILPROOFAI_HOOK_MARKER,
   INTEGRATION_TYPES,
   type IntegrationType,
@@ -348,11 +350,171 @@ export const codex: Integration = {
   },
 };
 
+// ── GitHub Copilot CLI integration ──────────────────────────────────────────
+//
+// Copilot CLI accepts two hook payload formats: a camelCase native form and a
+// "VS Code compatible" PascalCase form. We install with PascalCase keys, which
+// gets us:
+//   • PascalCase `hook_event_name` on stdin (matches Claude — no canonicalization)
+//   • snake_case fields like `tool_name`/`tool_input` (matches Claude payload parser)
+//   • `hookSpecificOutput.permissionDecision` honored on stdout (matches Claude
+//     output shape — policy-evaluator works unchanged)
+//
+// Hook entries differ from Claude/Codex: each entry uses OS-keyed `bash` and
+// `powershell` command fields and a `timeoutSec` (seconds) instead of Claude's
+// single `command` field with `timeout` (milliseconds). Top-level wrapper is
+// `{ "version": 1, "hooks": {...} }`, mirroring Codex.
+
+interface CopilotHookEntry {
+  type: "command";
+  bash: string;
+  powershell: string;
+  timeoutSec: number;
+  [FAILPROOFAI_HOOK_MARKER]: true;
+}
+
+interface CopilotSettingsFile {
+  version?: number;
+  hooks?: Record<string, ClaudeHookMatcher[]>;
+  [key: string]: unknown;
+}
+
+function isMarkedCopilotHook(hook: Record<string, unknown>): boolean {
+  if (hook[FAILPROOFAI_HOOK_MARKER] === true) return true;
+  // Fallback for legacy installs predating the marker — Copilot entries store
+  // commands under `bash`/`powershell` rather than `command`, so check both.
+  const bash = typeof hook.bash === "string" ? hook.bash : "";
+  const ps = typeof hook.powershell === "string" ? hook.powershell : "";
+  for (const cmd of [bash, ps]) {
+    if (cmd.includes("failproofai") && cmd.includes("--hook")) return true;
+  }
+  return false;
+}
+
+export const copilot: Integration = {
+  id: "copilot",
+  displayName: "GitHub Copilot",
+  scopes: COPILOT_HOOK_SCOPES,
+  eventTypes: COPILOT_HOOK_EVENT_TYPES,
+
+  getSettingsPath(scope, cwd) {
+    const base = cwd ? resolve(cwd) : process.cwd();
+    switch (scope) {
+      case "user":
+        return resolve(homedir(), ".copilot", "hooks", "failproofai.json");
+      case "project":
+        return resolve(base, ".github", "hooks", "failproofai.json");
+      case "local":
+        // Copilot has no "local" scope; CLI rejects --cli copilot --scope local
+        // before reaching here, but fall back to project so callers don't crash.
+        return resolve(base, ".github", "hooks", "failproofai.json");
+    }
+  },
+
+  readSettings(settingsPath) {
+    const raw = readJsonFile(settingsPath);
+    if (raw.version === undefined) raw.version = 1;
+    return raw;
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeJsonFile(settingsPath, settings);
+  },
+
+  buildHookEntry(binaryPath, eventType, scope) {
+    const cmd =
+      scope === "project"
+        ? `npx -y failproofai --hook ${eventType} --cli copilot`
+        : `"${binaryPath}" --hook ${eventType} --cli copilot`;
+    return {
+      type: "command",
+      bash: cmd,
+      powershell: cmd,
+      timeoutSec: 60,
+      [FAILPROOFAI_HOOK_MARKER]: true,
+    };
+  },
+
+  isFailproofaiHook: isMarkedCopilotHook,
+
+  writeHookEntries(settings, binaryPath, scope) {
+    const s = settings as CopilotSettingsFile;
+    if (s.version === undefined) s.version = 1;
+    if (!s.hooks) s.hooks = {};
+
+    for (const eventType of COPILOT_HOOK_EVENT_TYPES) {
+      const hookEntry = this.buildHookEntry(binaryPath, eventType, scope) as unknown as CopilotHookEntry;
+      if (!s.hooks[eventType]) s.hooks[eventType] = [];
+      const matchers: ClaudeHookMatcher[] = s.hooks[eventType];
+
+      let found = false;
+      for (const matcher of matchers) {
+        if (!matcher.hooks) continue;
+        const idx = matcher.hooks.findIndex((h) => isMarkedCopilotHook(h as Record<string, unknown>));
+        if (idx >= 0) {
+          matcher.hooks[idx] = hookEntry as unknown as ClaudeHookEntry;
+          found = true;
+          break;
+        }
+      }
+      if (!found) matchers.push({ hooks: [hookEntry as unknown as ClaudeHookEntry] });
+    }
+  },
+
+  removeHooksFromFile(settingsPath) {
+    const settings = this.readSettings(settingsPath) as CopilotSettingsFile;
+    if (!settings.hooks) return 0;
+
+    let removed = 0;
+    for (const eventType of Object.keys(settings.hooks)) {
+      const matchers = settings.hooks[eventType];
+      if (!Array.isArray(matchers)) continue;
+      for (let i = matchers.length - 1; i >= 0; i--) {
+        const matcher = matchers[i];
+        if (!matcher.hooks) continue;
+        const before = matcher.hooks.length;
+        matcher.hooks = matcher.hooks.filter((h) => !isMarkedCopilotHook(h as Record<string, unknown>));
+        removed += before - matcher.hooks.length;
+        if (matcher.hooks.length === 0) matchers.splice(i, 1);
+      }
+      if (matchers.length === 0) delete settings.hooks[eventType];
+    }
+    if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
+
+    this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const settings = this.readSettings(settingsPath) as CopilotSettingsFile;
+      if (!settings.hooks) return false;
+      for (const matchers of Object.values(settings.hooks)) {
+        if (!Array.isArray(matchers)) continue;
+        for (const matcher of matchers) {
+          if (!matcher.hooks) continue;
+          if (matcher.hooks.some((h) => isMarkedCopilotHook(h as Record<string, unknown>))) return true;
+        }
+      }
+    } catch {
+      // Corrupt settings — treat as not installed
+    }
+    return false;
+  },
+
+  detectInstalled() {
+    return binaryExists("copilot");
+  },
+};
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 const INTEGRATIONS: Record<IntegrationType, Integration> = {
   claude: claudeCode,
   codex,
+  copilot,
 };
 
 export function getIntegration(id: IntegrationType): Integration {

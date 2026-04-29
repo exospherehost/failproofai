@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Features
+- Add GitHub Copilot CLI hook integration **(beta)**. Install hooks for Copilot via `failproofai policies --install --cli copilot` (or `--cli claude codex copilot` for all three). Supports the six PascalCase Copilot hook events (`SessionStart`, `SessionEnd`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`) and writes to `~/.copilot/hooks/failproofai.json` (user) / `<cwd>/.github/hooks/failproofai.json` (project). Copilot's hook protocol exposes a "VS Code compatible" PascalCase mode whose stdin payload (snake_case fields) and stdout output shape (`hookSpecificOutput.permissionDecision`) match Claude Code's, so the existing handler and policy-evaluator work unchanged. Hook entries use Copilot's OS-keyed `bash`/`powershell` command fields with a `timeoutSec` (vs Claude's single `command` + `timeout` ms) and the file carries a top-level `version: 1` marker like Codex's `hooks.json`. New `--cli copilot` flag is wired through the existing CLI parser, install prompt (now picks "All" when 3+ agent CLIs are detected), telemetry, and activity store. `isAgentInternalPath` / `isAgentSettingsFile` extended to cover `~/.copilot/`, `.copilot/hooks/*.json`, and `.github/hooks/*.json` so existing path-protection rules apply to Copilot out of the box. Activity dashboard CLI filter and per-row badge accept `cli=copilot`, the session viewer falls back to `~/.copilot/session-state/<id>/events.jsonl`, and `/projects` lists Copilot projects alongside Claude / Codex via a new `lib/copilot-projects.ts`. Marked beta because Copilot's `events.jsonl` record schema is not publicly documented; the parser is best-effort and based on the documented hook payload shapes.
+
 ## 0.0.9 — 2026-04-28
 
 ### Features

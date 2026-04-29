@@ -4,6 +4,7 @@ import { ArrowLeft, Download } from "lucide-react";
 import { notFound } from "next/navigation";
 import { getCachedSessionLog, type LogEntry } from "@/lib/log-entries";
 import { getCachedCodexSessionLog } from "@/lib/codex-sessions";
+import { getCachedCopilotSessionLog } from "@/lib/copilot-sessions";
 import { decodeFolderName } from "@/lib/paths";
 import { baseSessionId } from "@/lib/utils/session-id";
 import { resolveProjectPath, UUID_RE } from "@/lib/projects";
@@ -35,8 +36,8 @@ export default async function SessionPage({ params }: SessionPageProps) {
   let entries: LogEntry[] | null = null;
   let rawLines: Record<string, unknown>[] | null = null;
   let error: string | null = null;
-  let cli: "claude" | "codex" = "claude";
-  let codexCwd: string | undefined;
+  let cli: "claude" | "codex" | "copilot" = "claude";
+  let externalCwd: string | undefined;
 
   try {
     // Use raw folder name for file operations — decodedName is for display only
@@ -53,29 +54,44 @@ export default async function SessionPage({ params }: SessionPageProps) {
       if (codex) {
         entries = codex.entries;
         rawLines = codex.rawLines;
-        codexCwd = codex.cwd;
+        externalCwd = codex.cwd;
         cli = "codex";
       } else {
-        error = "Session log file not found.";
+        // Final fallback: Copilot CLI stores sessions at
+        // ~/.copilot/session-state/<sessionId>/events.jsonl.
+        const copilot = await getCachedCopilotSessionLog(decodedSessionId);
+        if (copilot) {
+          entries = copilot.entries;
+          rawLines = copilot.rawLines;
+          externalCwd = copilot.cwd;
+          cli = "copilot";
+        } else {
+          error = "Session log file not found.";
+        }
       }
     } else {
       error = "Failed to read session log.";
     }
   }
 
-  const isCodex = cli === "codex";
-  const headerLabel = isCodex ? "CLI" : "Project";
-  const headerValue = isCodex ? `OpenAI Codex${codexCwd ? ` · ${codexCwd}` : ""}` : decodedName;
+  const isExternal = cli !== "claude";
+  const headerLabel = isExternal ? "CLI" : "Project";
+  const headerValue =
+    cli === "codex"
+      ? `OpenAI Codex${externalCwd ? ` · ${externalCwd}` : ""}`
+      : cli === "copilot"
+        ? `GitHub Copilot${externalCwd ? ` · ${externalCwd}` : ""}`
+        : decodedName;
 
   return (
     <main className="min-h-screen bg-background">
       <div className="container mx-auto p-8">
         <Link
-          href={isCodex ? "/policies?tab=activity" : `/project/${encodeURIComponent(name)}`}
+          href={isExternal ? "/policies?tab=activity" : `/project/${encodeURIComponent(name)}`}
           className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>{isCodex ? "Back to Activity" : "Back to Sessions"}</span>
+          <span>{isExternal ? "Back to Activity" : "Back to Sessions"}</span>
         </Link>
 
         <div className="mb-8">
@@ -99,7 +115,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
                 <p className="text-muted-foreground">
                   <span className="font-medium">{rawLines.length}</span> log lines
                 </p>
-                {!isCodex && (
+                {!isExternal && (
                   <a
                     href={`/api/download/${encodeURIComponent(name)}/${encodeURIComponent(decodedSessionId)}`}
                     download
@@ -122,7 +138,11 @@ export default async function SessionPage({ params }: SessionPageProps) {
         {!error && entries && (
           <LazyLogViewer
             entries={entries}
-            projectName={isCodex ? (codexCwd ?? "OpenAI Codex") : decodedName}
+            projectName={
+              isExternal
+                ? (externalCwd ?? (cli === "codex" ? "OpenAI Codex" : "GitHub Copilot"))
+                : decodedName
+            }
             sessionId={decodedSessionId}
           />
         )}

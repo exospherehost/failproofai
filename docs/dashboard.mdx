@@ -24,11 +24,11 @@ The dashboard reads directly from the filesystem - your Claude Code project fold
 
 ### Projects
 
-Lists all Claude Code and OpenAI Codex projects found on your machine. Claude projects are discovered from `~/.claude/projects/` (or the path set by `CLAUDE_PROJECTS_PATH`); Codex projects are discovered by scanning every transcript under `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` and grouping by the `cwd` recorded in each session's first record. A project that has been used by both CLIs renders as a single row.
+Lists all Claude Code, OpenAI Codex, and GitHub Copilot CLI _(beta)_ projects found on your machine. Claude projects are discovered from `~/.claude/projects/` (or the path set by `CLAUDE_PROJECTS_PATH`); Codex projects are discovered by scanning every transcript under `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` and grouping by the `cwd` recorded in each session's first record; Copilot CLI projects are discovered by scanning each `~/.copilot/session-state/<sessionId>/workspace.yaml` (configurable via `COPILOT_HOME`) and grouping by its `cwd` field. A project that has been used by multiple CLIs renders as a single row with all matching badges. Use the **CLI** dropdown above the table to filter by a specific agent CLI; the URL preserves your selection as `?cli=claude|codex|copilot`.
 
 Each project shows:
 - Project name (derived from the folder path)
-- A CLI badge — `Claude Code` (orange) and/or `OpenAI Codex` (purple)
+- A CLI badge — `Claude Code` (orange), `OpenAI Codex` (purple), and/or `GitHub Copilot` (blue)
 - Date of most recent session activity
 
 Click a project to see its sessions.
@@ -70,9 +70,9 @@ A two-tab page for managing policies and reviewing activity.
   </Tab>
   <Tab title="Activity tab">
   - Full paginated history of every hook event that has fired across all sessions
-  - Filter by decision, event type, CLI (Claude Code / OpenAI Codex), policy name, or session ID
+  - Filter by decision, event type, CLI (Claude Code / OpenAI Codex / GitHub Copilot _(beta)_), policy name, or session ID
   - Each row shows: timestamp, policy name, decision, CLI badge, tool name, session ID, and the reason for deny/instruct decisions
-  - Click a session ID to open its transcript — works for both Claude (`~/.claude/projects/…`) and Codex (`~/.codex/sessions/…`) sessions
+  - Click a session ID to open its transcript — works for Claude (`~/.claude/projects/…`), Codex (`~/.codex/sessions/…`), and Copilot CLI (`~/.copilot/session-state/<id>/events.jsonl`) sessions
   </Tab>
 </Tabs>
 

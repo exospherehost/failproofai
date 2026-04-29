@@ -19,16 +19,22 @@ vi.mock("@/lib/runtime-cache", () => ({
   runtimeCache: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
 }));
 
-// Default Codex stub returns no projects — individual tests override via mockResolvedValueOnce.
+// Default Codex / Copilot stubs return no projects — individual tests override via mockResolvedValueOnce.
 vi.mock("@/lib/codex-projects", () => ({
   getCodexProjects: vi.fn(async () => []),
+}));
+
+vi.mock("@/lib/copilot-projects", () => ({
+  getCopilotProjects: vi.fn(async () => []),
 }));
 
 import { readdir, stat } from "fs/promises";
 import { extractSessionId, getProjectFolders, getSessionFiles, type ProjectFolder } from "@/lib/projects";
 import { getCodexProjects } from "@/lib/codex-projects";
+import { getCopilotProjects } from "@/lib/copilot-projects";
 
 const mockGetCodexProjects = vi.mocked(getCodexProjects);
+const mockGetCopilotProjects = vi.mocked(getCopilotProjects);
 
 const mockReaddir = vi.mocked(readdir);
 const mockStat = vi.mocked(stat);
