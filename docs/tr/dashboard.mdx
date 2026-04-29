@@ -4,7 +4,7 @@ description: "Ajan oturumlarını izleyin, araç çağrılarını gözden geçir
 icon: chart-line
 ---
 
-failproofai kontrol paneli, AI ajan oturumlarınızı izlemek ve politikaları yönetmek için kullanılan yerel bir web uygulamasıdır. Ajanlarınız sizin yokken ne yaptığını görün.
+failproofai kontrol paneli, AI aracı oturumlarınızı izlemek ve politikaları yönetmek için bir yerel web uygulamasıdır. Aracılarınız sizin yokken neler yaptığını görün.
 
 ---
 
@@ -16,7 +16,7 @@ failproofai
 
 `http://localhost:8020` adresinde açılır.
 
-Kontrol paneli dosya sisteminden doğrudan okur - Claude Code proje klasörleriniz ve failproofai yapılandırma dosyalarınız. Hiçbir şey uzak bir servise yazılmaz.
+Kontrol paneli doğrudan dosya sisteminden okur - Claude Code proje klasörleriniz ve failproofai yapılandırma dosyalarınız. Hiçbir şey uzak bir hizmete yazılmaz.
 
 ---
 
@@ -24,22 +24,22 @@ Kontrol paneli dosya sisteminden doğrudan okur - Claude Code proje klasörlerin
 
 ### Projeler
 
-Makinenizde bulunan tüm Claude Code projelerini listeler. Projeler `~/.claude/projects/` konumundan (veya `CLAUDE_PROJECTS_PATH` tarafından ayarlanan yoldan) keşfedilir.
+Makinenizde bulunan tüm Claude Code ve OpenAI Codex projelerini listeler. Claude projeleri `~/.claude/projects/` adresinden keşfedilir (veya `CLAUDE_PROJECTS_PATH` tarafından ayarlanan yoldan); Codex projeleri `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` altındaki her transkripti tarayarak ve her oturumun ilk kaydında kaydedilen `cwd` ile gruplandırarak keşfedilir. Her iki CLI tarafından da kullanılan bir proje tek bir satır olarak görüntülenir.
 
 Her proje şunları gösterir:
-- Proje adı (klasör yolundan türetilir)
-- Oturum sayısı
+- Proje adı (klasör yolundan türetilmiş)
+- CLI rozeti — `Claude Code` (turuncu) ve/veya `OpenAI Codex` (mor)
 - En son oturum aktivitesinin tarihi
 
 Oturumlarını görmek için bir projeye tıklayın.
 
 ### Oturumlar
 
-Bir proje içindeki tüm oturumları listeler. Her oturum şunları gösterir:
-- Oturum Kimliği
+Bir projede bulunan tüm oturumları listeler. Her oturum şunları gösterir:
+- Oturum kimliği
 - Başlangıç ve bitiş zaman damgaları
-- Araç çağrısı sayısı
-- Hook aktivite sayısı (tetiklenen politikalar)
+- Araç çağrı sayısı
+- Hook aktivitesi sayısı (ateşlenen politikalar)
 
 Listeyi daraltmak için tarih aralığı filtresini ve oturum kimliği aramasını kullanın. Oturumlar sayfalandırılmıştır.
 
@@ -47,32 +47,32 @@ Oturum görüntüleyiciyi açmak için bir oturuma tıklayın.
 
 ### Oturum görüntüleyici
 
-Oturum görüntüleyici, özerk ajanlar için temel soruyu yanıtlar: ajan ne yaptı ve doğru yolda kaldı mı? Bir oturumda meydana gelen her şeyin bir zaman çizelgesini gösterir:
+Oturum görüntüleyici, otonom aracılar için temel soruyu yanıtlar: ajan ne yaptı ve yolunda kaldı mı? Başlığın yanındaki CLI rozeti, oturumun Claude Code mi yoksa OpenAI Codex transkripti mi olduğunu gösterir. Bir oturumda olan her şeyin bir zaman çizelgesini gösterir:
 
-- **Mesajlar** - Claude'un metin yanıtları ve kullanıcı komutları
-- **Araç çağrıları** - Claude'un çağırdığı her araç, girişi ve çıkışıyla birlikte
-- **Politika aktivitesi** - Her araç çağrısı için, hangi politikaların tetiklendiği ve ne kararı döndürdüğü
+- **Mesajlar** - Claude'un metin yanıtları ve kullanıcı istemleri
+- **Araç çağrıları** - Claude'un çağırdığı her araç, giriş ve çıkışıyla birlikte
+- **Politika aktivitesi** - Her araç çağrısı için, hangi politikaların ateşlendiği ve ne kararı döndürdükleri
 
-En üstteki istatistik çubuğu oturum süresini, toplam araç çağrı sayısını ve kanca kararlarının özetini (allow / deny / instruct sayıları) gösterir.
+Üstteki istatistik çubuğu oturum süresini, toplam araç çağrı sayısını ve hook kararlarının bir özetini (allow / deny / instruct sayıları) gösterir.
 
-İndirme düğmesini kullanarak oturumu ZIP veya JSONL dosyası olarak dışa aktarabilirsiniz.
+İndir düğmesini kullanarak oturumu ZIP veya JSONL dosyası olarak dışa aktarabilirsiniz.
 
 ### Politikalar
 
-Politikaları yönetmek ve aktiviteyi gözden geçirmek için iki sekmelik bir sayfa.
+Politikaları yönetmek ve aktiviteyi gözden geçirmek için iki sekmeli bir sayfa.
 
 <Tabs>
   <Tab title="Politikalar sekmesi">
   - Tek bir tıklamayla bireysel politikaları açıp kapatın (`~/.failproofai/policies-config.json` dosyasına yazılır)
-  - `policyParams` destekleyen politikaları yapılandırmak için genişletin
-  - Belirli bir kapsam için hook'ları yükleyin veya kaldırın
+  - `policyParams` destekleyen politikalar için parametrelerini yapılandırmak amacıyla bir politikayı genişletin
+  - Belirli bir kapsam için hook yükleyin veya kaldırın
   - Özel politika dosyası yolunu ayarlayın
   </Tab>
   <Tab title="Aktivite sekmesi">
-  - Tüm oturumlar genelinde tetiklenen her hook olayının tam sayfalandırılmış geçmişi
+  - Tüm oturumlar arasında ateşlenen her hook olayının tam sayfalandırılmış geçmişi
   - Karar, olay türü, CLI (Claude Code / OpenAI Codex), politika adı veya oturum kimliğine göre filtreleyin
-  - Her satır şunları gösterir: zaman damgası, politika adı, karar, CLI rozeti, araç adı, oturum kimliği ve deny/instruct kararları için gerekçe
-  - Transcript açmak için bir oturum kimliğine tıklayın — hem Claude (`~/.claude/projects/…`) hem de Codex (`~/.codex/sessions/…`) oturumları için çalışır
+  - Her satır şunları gösterir: zaman damgası, politika adı, karar, CLI rozeti, araç adı, oturum kimliği ve deny/instruct kararlarının nedeni
+  - Transkriptini açmak için bir oturum kimliğine tıklayın — Claude (`~/.claude/projects/…`) ve Codex (`~/.codex/sessions/…`) oturumları için çalışır
   </Tab>
 </Tabs>
 
@@ -80,13 +80,13 @@ Politikaları yönetmek ve aktiviteyi gözden geçirmek için iki sekmelik bir s
 
 ## Otomatik yenileme
 
-Kontrol paneli üst gezintide bir otomatik yenileme aç/kapat düğmesine sahiptir. Etkinleştirildiğinde, geçerli sayfa, yeni oturumlar ve politika aktiviteleri göründükçe periyodik olarak yenilenir. Uzun süre çalışan özerk ajan oturumlarını izlemek için gereklidir.
+Kontrol panelinin üst gezintide bir otomatik yenileme geçidi vardır. Etkinleştirildiğinde, mevcut sayfa yeni oturumlar ve politika aktiviteleri göründüğünde periyodik olarak yenilenir. Uzun süreli otonom ajan oturumlarını izlemek için gereklidir.
 
 ---
 
 ## Sayfaları devre dışı bırakma
 
-Kontrol panelinin yalnızca bazı bölümlerine ihtiyaç duyuyorsanız, `FAILPROOFAI_DISABLE_PAGES` değerini virgülle ayrılmış sayfa adları listesine ayarlayın:
+Kontrol panelinin yalnızca bazı bölümlerine ihtiyacınız varsa, `FAILPROOFAI_DISABLE_PAGES` ortam değişkenini virgülle ayrılmış sayfa adlarının listesine ayarlayın:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -98,13 +98,13 @@ Geçerli değerler: `policies`, `projects`.
 
 ## Tema
 
-Kontrol paneli açık ve koyu modu destekler. Navigasyon çubuğundaki düğmeyi kullanarak geçiş yapın. Tercihiniz tarayıcınızın yerel depolamada saklanır.
+Kontrol paneli açık ve koyu modu destekler. Gezinti çubuğundaki düğme aracılığıyla geçiş yapın. Tercih, tarayıcınızın yerel depolama alanında saklanır.
 
 ---
 
 ## Proje yolunu yapılandırma
 
-Varsayılan olarak, kontrol paneli standart Claude Code projeler dizininden okur. Özel kurulumlar için geçersiz kılın:
+Varsayılan olarak, kontrol paneli standart Claude Code projeleri dizininden okur. Özel kurulumlar için geçersiz kılın:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -112,21 +112,21 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## localhost olmayan bir ana bilgisayardan erişim
+## Localhost olmayan bir ana bilgisayardan erişim
 
-Kontrol panelini **dev modunda** (`npm run dev`) çalıştırırken ve `localhost` dışında bir ana bilgisayar adından erişirken - örneğin özel bir etki alanı, uzak bir IP veya tünel oluşturulmuş bir URL - şu gibi bir uyarı görebilirsiniz:
+Kontrol panelini **geliştirme modunda** (`npm run dev`) çalıştırırken ve `localhost` dışında bir ana bilgisayar adından erişirken - örneğin, özel bir alan adı, uzak IP veya tünel URL'si - şuna benzer bir uyarı görebilirsiniz:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Bu, Next.js'in HMR (hot module reload) websocket'ine yönelik cross-origin erişimini engellemesidir. Bu, yalnızca dev ortamında bir özelliktir. Ana bilgisayarınıza izin vermek için `--allowed-origins` bayrağını kullanın:
+Bu, Next.js'nin kendi HMR (hot module reload) WebSocket'ine yönelik çapraz kaynak erişimini engelmesidir; bu, yalnızca geliştirme özelliğidir. Ana bilgisayarınıza izin vermek için `--allowed-origins` bayrağını kullanın:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-Birden fazla ana bilgisayar veya IP için virgülle ayrılmış bir liste geçirin:
+Birden fazla ana bilgisayar veya IP için virgülle ayrılmış bir liste iletin:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
@@ -139,5 +139,5 @@ FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Bu yalnızca dev modu için geçerlidir. `failproofai` (üretim modu) çalıştırırken HMR websocket'i ve cross-origin dev kaynak sorunu yoktur.
+Bu yalnızca geliştirme modunda geçerlidir. `failproofai` (üretim modu) çalıştırıldığında, hiçbir HMR WebSocket ve çapraz kaynak geliştirme kaynağı sorunu yoktur.
 </Note>

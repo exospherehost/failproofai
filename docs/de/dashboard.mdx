@@ -1,10 +1,10 @@
 ---
 title: Dashboard
-description: "Agentensitzungen überwachen, Tool-Aufrufe prüfen und Richtlinien verwalten"
+description: "Agent-Sitzungen überwachen, Tool-Aufrufe einsehen und Richtlinien verwalten"
 icon: chart-line
 ---
 
-Das failproofai Dashboard ist eine lokale Webanwendung zur Überwachung deiner KI-Agentensitzungen und Verwaltung von Richtlinien. Sieh nach, was deine Agenten in deiner Abwesenheit getan haben.
+Das failproofai-Dashboard ist eine lokale Webanwendung zur Überwachung deiner KI-Agent-Sitzungen und zur Verwaltung von Richtlinien. Sieh nach, was deine Agents in deiner Abwesenheit gemacht haben.
 
 ---
 
@@ -16,7 +16,7 @@ failproofai
 
 Öffnet sich unter `http://localhost:8020`.
 
-Das Dashboard liest direkt aus dem Dateisystem – aus deinen Claude Code Projektordnern und den failproofai Konfigurationsdateien. Es werden keine Daten an einen externen Dienst übertragen.
+Das Dashboard liest direkt aus dem Dateisystem – aus deinen Claude Code-Projektordnern und den failproofai-Konfigurationsdateien. Es werden keine Daten an einen Remote-Dienst übermittelt.
 
 ---
 
@@ -24,14 +24,14 @@ Das Dashboard liest direkt aus dem Dateisystem – aus deinen Claude Code Projek
 
 ### Projekte
 
-Listet alle Claude Code Projekte auf, die auf deinem Rechner gefunden wurden. Projekte werden aus `~/.claude/projects/` ermittelt (oder dem Pfad, der über `CLAUDE_PROJECTS_PATH` gesetzt wurde).
+Listet alle Claude Code- und OpenAI Codex-Projekte auf, die auf deinem Rechner gefunden wurden. Claude-Projekte werden aus `~/.claude/projects/` ermittelt (oder aus dem Pfad, der durch `CLAUDE_PROJECTS_PATH` gesetzt wurde). Codex-Projekte werden durch das Scannen aller Transkripte unter `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` gefunden und anhand des im ersten Eintrag jeder Sitzung gespeicherten `cwd`-Werts gruppiert. Ein Projekt, das von beiden CLIs verwendet wurde, erscheint als einzelne Zeile.
 
 Jedes Projekt zeigt:
-- Projektname (abgeleitet vom Ordnerpfad)
-- Anzahl der Sitzungen
+- Projektname (abgeleitet aus dem Ordnerpfad)
+- Ein CLI-Badge – `Claude Code` (orange) und/oder `OpenAI Codex` (lila)
 - Datum der letzten Sitzungsaktivität
 
-Klicke auf ein Projekt, um dessen Sitzungen anzuzeigen.
+Klicke auf ein Projekt, um seine Sitzungen anzuzeigen.
 
 ### Sitzungen
 
@@ -47,32 +47,32 @@ Klicke auf eine Sitzung, um den Sitzungsbetrachter zu öffnen.
 
 ### Sitzungsbetrachter
 
-Der Sitzungsbetrachter beantwortet die zentrale Frage bei autonomen Agenten: Was hat der Agent getan, und hat er sich auf Kurs gehalten? Er zeigt eine Zeitleiste aller Ereignisse einer Sitzung:
+Der Sitzungsbetrachter beantwortet die zentrale Frage bei autonomen Agents: Was hat der Agent getan, und ist er auf Kurs geblieben? Ein CLI-Badge neben dem Header zeigt an, ob es sich um ein Claude Code- oder OpenAI Codex-Transkript handelt. Er zeigt eine Zeitleiste aller Ereignisse einer Sitzung:
 
 - **Nachrichten** – Claudes Textantworten und Benutzereingaben
-- **Tool-Aufrufe** – Jedes Tool, das Claude aufgerufen hat, mit Ein- und Ausgabe
+- **Tool-Aufrufe** – Jeder Tool-Aufruf, den Claude ausgeführt hat, mit Ein- und Ausgabe
 - **Richtlinienaktivität** – Für jeden Tool-Aufruf: welche Richtlinien ausgelöst wurden und welche Entscheidung sie zurückgegeben haben
 
-Die Statistikleiste oben zeigt Sitzungsdauer, Gesamtanzahl der Tool-Aufrufe sowie eine Zusammenfassung der Hook-Entscheidungen (Anzahl von allow / deny / instruct).
+Die Statistikleiste oben zeigt die Sitzungsdauer, die Gesamtzahl der Tool-Aufrufe sowie eine Zusammenfassung der Hook-Entscheidungen (Anzahl von allow / deny / instruct).
 
-Über die Download-Schaltfläche kannst du die Sitzung als ZIP- oder JSONL-Datei exportieren.
+Du kannst die Sitzung über den Download-Button als ZIP- oder JSONL-Datei exportieren.
 
 ### Richtlinien
 
-Eine Seite mit zwei Tabs zur Verwaltung von Richtlinien und Überprüfung von Aktivitäten.
+Eine zweiseitige Seite zur Verwaltung von Richtlinien und zur Einsicht in Aktivitäten.
 
 <Tabs>
-  <Tab title="Tab Richtlinien">
+  <Tab title="Richtlinien-Tab">
   - Einzelne Richtlinien mit einem Klick aktivieren oder deaktivieren (schreibt in `~/.failproofai/policies-config.json`)
   - Eine Richtlinie aufklappen, um ihre Parameter zu konfigurieren (für Richtlinien, die `policyParams` unterstützen)
-  - Hooks für einen bestimmten Bereich installieren oder entfernen
+  - Hooks für einen bestimmten Geltungsbereich installieren oder entfernen
   - Einen benutzerdefinierten Pfad für die Richtliniendatei festlegen
   </Tab>
-  <Tab title="Tab Aktivität">
-  - Vollständige, seitenweise Verlaufsansicht aller Hook-Ereignisse, die über alle Sitzungen hinweg ausgelöst wurden
+  <Tab title="Aktivitäts-Tab">
+  - Vollständige, seitenweise Verlaufsübersicht aller Hook-Ereignisse, die über alle Sitzungen hinweg ausgelöst wurden
   - Filtern nach Entscheidung, Ereignistyp, CLI (Claude Code / OpenAI Codex), Richtlinienname oder Sitzungs-ID
   - Jede Zeile zeigt: Zeitstempel, Richtlinienname, Entscheidung, CLI-Badge, Tool-Name, Sitzungs-ID sowie den Grund für deny/instruct-Entscheidungen
-  - Klicke auf eine Sitzungs-ID, um ihr Transkript zu öffnen – funktioniert sowohl für Claude (`~/.claude/projects/…`) als auch für Codex (`~/.codex/sessions/…`) Sitzungen
+  - Klicke auf eine Sitzungs-ID, um ihr Transkript zu öffnen – funktioniert für Claude- (`~/.claude/projects/…`) und Codex-Sitzungen (`~/.codex/sessions/…`)
   </Tab>
 </Tabs>
 
@@ -80,7 +80,7 @@ Eine Seite mit zwei Tabs zur Verwaltung von Richtlinien und Überprüfung von Ak
 
 ## Automatische Aktualisierung
 
-Das Dashboard verfügt über einen Schalter für die automatische Aktualisierung in der oberen Navigation. Wenn aktiviert, wird die aktuelle Seite regelmäßig aktualisiert, um neue Sitzungen und Richtlinienaktivitäten anzuzeigen, sobald sie auftreten. Unverzichtbar für die Überwachung lang laufender autonomer Agentensitzungen.
+Das Dashboard verfügt über eine Auto-Refresh-Umschalttaste in der oberen Navigation. Wenn aktiviert, wird die aktuelle Seite regelmäßig aktualisiert, um neue Sitzungen und Richtlinienaktivitäten anzuzeigen, sobald sie auftreten. Unverzichtbar für die Überwachung lang laufender autonomer Agent-Sitzungen.
 
 ---
 
@@ -96,15 +96,15 @@ Gültige Werte: `policies`, `projects`.
 
 ---
 
-## Theme
+## Design
 
-Das Dashboard unterstützt Hell- und Dunkelmodus. Umschalten über die Schaltfläche in der Navigationsleiste. Die Einstellung wird im lokalen Speicher deines Browsers gespeichert.
+Das Dashboard unterstützt hellen und dunklen Modus. Umschalten über die Schaltfläche in der Navigationsleiste. Die Einstellung wird im lokalen Speicher deines Browsers gespeichert.
 
 ---
 
 ## Projektpfad konfigurieren
 
-Standardmäßig liest das Dashboard aus dem Standard-Claude Code Projektverzeichnis. Für benutzerdefinierte Setups kann dies überschrieben werden:
+Standardmäßig liest das Dashboard aus dem Standardverzeichnis für Claude Code-Projekte. Überschreibe es für benutzerdefinierte Setups:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -114,30 +114,30 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ## Zugriff von einem Nicht-localhost-Host
 
-Wenn das Dashboard im **Dev-Modus** (`npm run dev`) ausgeführt wird und der Zugriff von einem anderen Hostnamen als `localhost` erfolgt – zum Beispiel einer benutzerdefinierten Domain, einer Remote-IP oder einer getunnelten URL – kann folgende Warnung erscheinen:
+Wenn das Dashboard im **Entwicklungsmodus** (`npm run dev`) läuft und von einem anderen Hostnamen als `localhost` aufgerufen wird – zum Beispiel einer benutzerdefinierten Domain, einer Remote-IP oder einer getunnelten URL – kann folgende Warnung erscheinen:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Dabei blockiert Next.js den Cross-Origin-Zugriff auf seinen HMR-WebSocket (Hot Module Reload), was eine reine Entwicklungsfunktion ist. Um deinen Host zuzulassen, verwende das Flag `--allowed-origins`:
+Dies liegt daran, dass Next.js den ursprungsübergreifenden Zugriff auf seinen HMR-Websocket (Hot Module Reload) blockiert – ein Feature, das nur im Entwicklungsmodus verfügbar ist. Um deinen Host zuzulassen, verwende das Flag `--allowed-origins`:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-Für mehrere Hosts oder IPs eine kommagetrennte Liste übergeben:
+Für mehrere Hosts oder IPs übergib eine kommagetrennte Liste:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-Alternativ kann auch die Umgebungsvariable `FAILPROOFAI_ALLOWED_DEV_ORIGINS` gesetzt werden:
+Du kannst stattdessen auch die Umgebungsvariable `FAILPROOFAI_ALLOWED_DEV_ORIGINS` setzen:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Dies gilt nur für den Dev-Modus. Bei der Ausführung von `failproofai` (Produktionsmodus) gibt es keinen HMR-WebSocket und kein Cross-Origin-Problem mit Dev-Ressourcen.
+Dies gilt nur für den Entwicklungsmodus. Beim Ausführen von `failproofai` (Produktionsmodus) gibt es keinen HMR-Websocket und kein ursprungsübergreifendes Entwicklungsressourcenproblem.
 </Note>

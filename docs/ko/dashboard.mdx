@@ -16,7 +16,7 @@ failproofai
 
 `http://localhost:8020`에서 열립니다.
 
-대시보드는 파일 시스템에서 직접 데이터를 읽어옵니다 — Claude Code 프로젝트 폴더와 failproofai 설정 파일을 사용하며, 원격 서비스에는 아무것도 기록되지 않습니다.
+대시보드는 파일 시스템에서 직접 데이터를 읽어옵니다 — Claude Code 프로젝트 폴더와 failproofai 설정 파일에서 읽어오며, 원격 서비스에는 아무것도 기록되지 않습니다.
 
 ---
 
@@ -24,55 +24,55 @@ failproofai
 
 ### 프로젝트
 
-머신에서 발견된 모든 Claude Code 프로젝트를 나열합니다. 프로젝트는 `~/.claude/projects/` (또는 `CLAUDE_PROJECTS_PATH`로 설정된 경로)에서 탐색됩니다.
+머신에서 발견된 모든 Claude Code 및 OpenAI Codex 프로젝트를 나열합니다. Claude 프로젝트는 `~/.claude/projects/`(또는 `CLAUDE_PROJECTS_PATH`로 설정된 경로)에서 검색되며, Codex 프로젝트는 `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` 아래의 모든 트랜스크립트를 스캔하여 각 세션의 첫 번째 레코드에 기록된 `cwd`로 그룹화해 검색합니다. 두 CLI 모두에서 사용된 프로젝트는 하나의 행으로 표시됩니다.
 
 각 프로젝트에는 다음이 표시됩니다:
 - 프로젝트 이름 (폴더 경로에서 파생)
-- 세션 수
+- CLI 배지 — `Claude Code` (주황색) 및/또는 `OpenAI Codex` (보라색)
 - 가장 최근 세션 활동 날짜
 
-프로젝트를 클릭하면 해당 세션 목록을 볼 수 있습니다.
+프로젝트를 클릭하면 해당 세션 목록이 표시됩니다.
 
 ### 세션
 
-프로젝트 내 모든 세션을 나열합니다. 각 세션에는 다음이 표시됩니다:
+프로젝트 내의 모든 세션을 나열합니다. 각 세션에는 다음이 표시됩니다:
 - 세션 ID
 - 시작 및 종료 타임스탬프
 - 도구 호출 횟수
-- 훅 활동 횟수 (실행된 정책 수)
+- 훅 활동 횟수 (발동된 정책 수)
 
-날짜 범위 필터와 세션 ID 검색을 사용해 목록을 좁힐 수 있습니다. 세션은 페이지 단위로 표시됩니다.
+날짜 범위 필터와 세션 ID 검색을 사용하여 목록을 좁힐 수 있습니다. 세션은 페이지로 나뉩니다.
 
 세션을 클릭하면 세션 뷰어가 열립니다.
 
 ### 세션 뷰어
 
-세션 뷰어는 자율 에이전트에게 핵심적인 질문에 답해줍니다: 에이전트가 무엇을 했으며, 올바른 방향을 유지했는가? 세션에서 발생한 모든 일의 타임라인을 보여줍니다:
+세션 뷰어는 자율 에이전트에 대한 핵심 질문에 답합니다: 에이전트가 무엇을 했으며, 올바른 방향으로 진행했는가? 헤더 옆의 CLI 배지는 해당 세션이 Claude Code 트랜스크립트인지 OpenAI Codex 트랜스크립트인지를 나타냅니다. 세션에서 발생한 모든 일의 타임라인을 보여줍니다:
 
-- **메시지** - Claude의 텍스트 응답과 사용자 프롬프트
-- **도구 호출** - Claude가 호출한 모든 도구와 그 입력 및 출력
-- **정책 활동** - 각 도구 호출에 대해 어떤 정책이 실행되었고 어떤 결정을 내렸는지
+- **메시지** - Claude의 텍스트 응답 및 사용자 프롬프트
+- **도구 호출** - Claude가 호출한 모든 도구와 입력 및 출력 내용
+- **정책 활동** - 각 도구 호출에 대해 어떤 정책이 발동되었고 어떤 결정을 내렸는지
 
-상단의 통계 바에는 세션 지속 시간, 총 도구 호출 횟수, 훅 결정 요약(allow / deny / instruct 횟수)이 표시됩니다.
+상단의 통계 표시줄에는 세션 지속 시간, 총 도구 호출 횟수, 훅 결정 요약(allow / deny / instruct 횟수)이 표시됩니다.
 
 다운로드 버튼을 사용하여 세션을 ZIP 또는 JSONL 파일로 내보낼 수 있습니다.
 
 ### 정책
 
-정책 관리 및 활동 검토를 위한 두 개의 탭으로 구성된 페이지입니다.
+정책을 관리하고 활동을 검토하기 위한 두 탭 페이지입니다.
 
 <Tabs>
   <Tab title="정책 탭">
-  - 클릭 한 번으로 개별 정책을 켜거나 끌 수 있습니다 (`~/.failproofai/policies-config.json`에 기록됨)
-  - 정책을 펼쳐 파라미터를 설정합니다 (`policyParams`를 지원하는 정책에 해당)
-  - 지정된 스코프에 대한 훅을 설치하거나 제거합니다
-  - 커스텀 정책 파일 경로를 설정합니다
+  - 클릭 한 번으로 개별 정책을 켜거나 끄기 (`~/.failproofai/policies-config.json`에 기록됨)
+  - 정책을 펼쳐서 파라미터 설정하기 (`policyParams`를 지원하는 정책의 경우)
+  - 특정 범위에 대한 훅 설치 또는 제거
+  - 사용자 지정 정책 파일 경로 설정
   </Tab>
   <Tab title="활동 탭">
-  - 모든 세션에 걸쳐 실행된 모든 훅 이벤트의 전체 페이지네이션 이력
-  - 결정, 이벤트 유형, CLI(Claude Code / OpenAI Codex), 정책 이름, 또는 세션 ID로 필터링
-  - 각 행에는 타임스탬프, 정책 이름, 결정, CLI 배지, 도구 이름, 세션 ID, 그리고 deny/instruct 결정의 이유가 표시됩니다
-  - 세션 ID를 클릭하면 해당 트랜스크립트가 열립니다 — Claude(`~/.claude/projects/…`)와 Codex(`~/.codex/sessions/…`) 세션 모두 지원
+  - 모든 세션에 걸쳐 발동된 모든 훅 이벤트의 전체 페이지별 이력
+  - 결정, 이벤트 유형, CLI (Claude Code / OpenAI Codex), 정책 이름 또는 세션 ID로 필터링
+  - 각 행에 표시되는 항목: 타임스탬프, 정책 이름, 결정, CLI 배지, 도구 이름, 세션 ID, deny/instruct 결정의 이유
+  - 세션 ID를 클릭하면 해당 트랜스크립트가 열림 — Claude (`~/.claude/projects/…`)와 Codex (`~/.codex/sessions/…`) 세션 모두 지원
   </Tab>
 </Tabs>
 
@@ -80,13 +80,13 @@ failproofai
 
 ## 자동 새로고침
 
-대시보드 상단 내비게이션에는 자동 새로고침 토글이 있습니다. 활성화하면 현재 페이지가 주기적으로 새로고침되어 새로운 세션과 정책 활동이 나타나는 즉시 확인할 수 있습니다. 장시간 실행되는 자율 에이전트 세션을 모니터링할 때 필수적인 기능입니다.
+대시보드 상단 내비게이션에는 자동 새로고침 토글이 있습니다. 활성화하면 현재 페이지가 주기적으로 새로고침되어 새 세션과 정책 활동이 나타나는 대로 표시됩니다. 장시간 실행되는 자율 에이전트 세션을 모니터링할 때 유용합니다.
 
 ---
 
 ## 페이지 비활성화
 
-대시보드의 일부 기능만 필요한 경우 `FAILPROOFAI_DISABLE_PAGES`에 쉼표로 구분된 페이지 이름 목록을 설정하세요:
+대시보드의 일부 기능만 필요한 경우, `FAILPROOFAI_DISABLE_PAGES`를 쉼표로 구분된 페이지 이름 목록으로 설정하세요:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -104,7 +104,7 @@ FAILPROOFAI_DISABLE_PAGES=policies failproofai
 
 ## 프로젝트 경로 설정
 
-기본적으로 대시보드는 표준 Claude Code 프로젝트 디렉터리에서 읽어옵니다. 커스텀 설정을 위해 경로를 재정의할 수 있습니다:
+기본적으로 대시보드는 표준 Claude Code 프로젝트 디렉토리에서 읽어옵니다. 커스텀 설정의 경우 이를 재정의할 수 있습니다:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -114,30 +114,30 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ## localhost가 아닌 호스트에서 접근하기
 
-**개발 모드**(`npm run dev`)로 대시보드를 실행하면서 `localhost` 이외의 호스트 이름(예: 커스텀 도메인, 원격 IP, 또는 터널링된 URL)에서 접근할 경우 다음과 같은 경고가 표시될 수 있습니다:
+**개발 모드**(`npm run dev`)로 대시보드를 실행하면서 `localhost` 이외의 호스트 이름 — 예를 들어 커스텀 도메인, 원격 IP, 또는 터널링된 URL — 에서 접근하는 경우 다음과 같은 경고가 표시될 수 있습니다:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-이는 Next.js가 HMR(핫 모듈 리로드) 웹소켓에 대한 교차 출처 접근을 차단하는 것으로, 개발 전용 기능입니다. 특정 호스트를 허용하려면 `--allowed-origins` 플래그를 사용하세요:
+이는 Next.js가 HMR(핫 모듈 리로드) 웹소켓에 대한 크로스 오리진 접근을 차단하는 것으로, 개발 전용 기능입니다. 해당 호스트를 허용하려면 `--allowed-origins` 플래그를 사용하세요:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-여러 호스트나 IP를 허용하려면 쉼표로 구분된 목록을 전달하세요:
+여러 호스트나 IP의 경우 쉼표로 구분된 목록을 전달하세요:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-환경 변수 `FAILPROOFAI_ALLOWED_DEV_ORIGINS`를 대신 설정할 수도 있습니다:
+`FAILPROOFAI_ALLOWED_DEV_ORIGINS` 환경 변수를 대신 설정할 수도 있습니다:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-이 설정은 개발 모드에서만 적용됩니다. `failproofai`(프로덕션 모드)를 실행할 때는 HMR 웹소켓이 없으므로 교차 출처 개발 리소스 문제가 발생하지 않습니다.
+이 설정은 개발 모드에만 적용됩니다. `failproofai`(프로덕션 모드)를 실행할 때는 HMR 웹소켓이 없으므로 크로스 오리진 개발 리소스 문제가 발생하지 않습니다.
 </Note>
