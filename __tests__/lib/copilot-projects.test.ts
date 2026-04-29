@@ -137,9 +137,9 @@ describe("lib/copilot-projects", () => {
     const sid1 = "77777777-7777-7777-7777-777777777777";
     const sid2 = "88888888-8888-8888-8888-888888888888";
     const sid3 = "99999999-9999-9999-9999-999999999999";
-    writeSession(sid1, "/home/u/proj-a");
-    writeSession(sid2, "/home/u/proj-a");
-    writeSession(sid3, "/home/u/proj-b");
+    writeSession(sid1, "/home/u/proj-a", { events: "{}\n" });
+    writeSession(sid2, "/home/u/proj-a", { events: "{}\n" });
+    writeSession(sid3, "/home/u/proj-b", { events: "{}\n" });
 
     const aSessions = await getCopilotSessionsForCwd("/home/u/proj-a");
     expect(aSessions).toHaveLength(2);
@@ -147,14 +147,25 @@ describe("lib/copilot-projects", () => {
   });
 
   it("getCopilotSessionsForCwd returns [] for an unknown cwd", async () => {
-    writeSession("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "/home/u/known");
+    writeSession("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "/home/u/known", { events: "{}\n" });
     const result = await getCopilotSessionsForCwd("/home/u/unknown");
     expect(result).toEqual([]);
   });
 
+  it("getCopilotSessionsForCwd skips workspace-only sessions (no events.jsonl)", async () => {
+    const withTranscript = "77770000-1111-2222-3333-444455556666";
+    const workspaceOnly = "88880000-1111-2222-3333-444455556666";
+    writeSession(withTranscript, "/home/u/proj-a", { events: "{}\n" });
+    writeSession(workspaceOnly, "/home/u/proj-a"); // workspace.yaml only
+
+    const sessions = await getCopilotSessionsForCwd("/home/u/proj-a");
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].sessionId).toBe(withTranscript);
+  });
+
   it("getCopilotSessionsByEncodedName recovers cwd with dashes that decodeFolderName loses", async () => {
     const sid = "11112222-3333-4444-5555-666677778888";
-    writeSession(sid, "/home/u/agentic-test");
+    writeSession(sid, "/home/u/agentic-test", { events: "{}\n" });
 
     const result = await getCopilotSessionsByEncodedName("-home-u-agentic-test");
     expect(result.cwd).toBe("/home/u/agentic-test");
@@ -165,6 +176,18 @@ describe("lib/copilot-projects", () => {
   it("getCopilotSessionsByEncodedName returns empty result when no session matches", async () => {
     const result = await getCopilotSessionsByEncodedName("-home-u-nothing-here");
     expect(result.cwd).toBeNull();
+    expect(result.sessions).toEqual([]);
+  });
+
+  it("getCopilotSessionsByEncodedName: cwd is recovered even if all sessions are workspace-only", async () => {
+    // Project still surfaces in /projects (cwd extraction succeeds), but the
+    // session list filters out workspace-only entries to avoid clickable rows
+    // with nonexistent transcripts.
+    const sid = "11112222-3333-4444-5555-aaaabbbbcccc";
+    writeSession(sid, "/home/u/no-transcript-yet"); // workspace.yaml only
+
+    const result = await getCopilotSessionsByEncodedName("-home-u-no-transcript-yet");
+    expect(result.cwd).toBe("/home/u/no-transcript-yet");
     expect(result.sessions).toEqual([]);
   });
 });

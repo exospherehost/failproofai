@@ -265,6 +265,16 @@ describe("lib/copilot-sessions: findCopilotTranscript + getCopilotSessionLog", (
     expect(findCopilotWorkspace("")).toBeNull();
   });
 
+  it("rejects path-traversal session ids that would escape session-state/", () => {
+    // Even pre-creating a real file via a traversal target should not be
+    // returned, because the resolver rejects the candidate before existsSync.
+    const escape = "../../etc";
+    expect(findCopilotTranscript(escape)).toBeNull();
+    expect(findCopilotWorkspace(escape)).toBeNull();
+    expect(findCopilotTranscript("..")).toBeNull();
+    expect(findCopilotTranscript("/absolute/path")).toBeNull();
+  });
+
   it("locates events.jsonl and workspace.yaml under ~/.copilot/session-state/<id>/", () => {
     const sessionId = "11111111-1111-1111-1111-111111111111";
     const dir = join(fakeHome, ".copilot", "session-state", sessionId);

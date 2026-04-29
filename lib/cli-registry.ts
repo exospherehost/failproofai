@@ -78,5 +78,7 @@ export function getCliBadgeClasses(id: string): string {
 
 /** Predicate: is this id a known CLI? Useful when validating user input. */
 export function isKnownCli(id: string | null | undefined): id is CliId {
-  return typeof id === "string" && id in CLI_ENTRIES;
+  // hasOwnProperty.call (not `id in CLI_ENTRIES`) so inherited Object.prototype
+  // keys like "toString" / "constructor" / "hasOwnProperty" don't pass.
+  return typeof id === "string" && Object.prototype.hasOwnProperty.call(CLI_ENTRIES, id);
 }

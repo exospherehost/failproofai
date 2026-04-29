@@ -32,7 +32,7 @@
  */
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve, sep } from "node:path";
 import { homedir } from "node:os";
 import { runtimeCache } from "./runtime-cache";
 import {
@@ -60,9 +60,25 @@ export function getCopilotSessionStateRoot(): string {
   return join(getCopilotHome(), "session-state");
 }
 
-/** Session-state dir for a given sessionId. */
-export function getCopilotSessionDir(sessionId: string): string {
-  return join(getCopilotSessionStateRoot(), sessionId);
+/** Session-state dir for a given sessionId. Returns null if `sessionId` is
+ *  empty or contains path-traversal segments that would escape the
+ *  session-state root. */
+export function getCopilotSessionDir(sessionId: string): string | null {
+  if (!sessionId) return null;
+  const root = resolve(getCopilotSessionStateRoot());
+  const candidate = resolve(root, sessionId);
+  // Containment check: the resolved path must be a child of `root`.
+  // (Equality means `sessionId` resolved to root itself — also rejected.)
+  if (candidate === root || !candidate.startsWith(`${root}${sep}`)) return null;
+  return candidate;
+}
+
+/** Resolve a single file under a session directory, applying the same
+ *  containment check. Returns null if the sessionId is invalid. */
+function resolveSessionFile(sessionId: string, filename: string): string | null {
+  const dir = getCopilotSessionDir(sessionId);
+  if (!dir) return null;
+  return join(dir, filename);
 }
 
 // ── Transcript discovery ──
@@ -71,19 +87,20 @@ export function getCopilotSessionDir(sessionId: string): string {
  * Locate a Copilot CLI events.jsonl by sessionId. Copilot lays sessions out
  * directly under `session-state/<sessionId>/events.jsonl` (only created after
  * the first user interaction), so the lookup is a single existence check.
+ * Path-traversal sessionIds (`../foo`) are rejected.
  *
  * Synchronous so the hook hot path can call it without awaits.
  */
 export function findCopilotTranscript(sessionId: string): string | null {
-  if (!sessionId) return null;
-  const candidate = join(getCopilotSessionDir(sessionId), "events.jsonl");
+  const candidate = resolveSessionFile(sessionId, "events.jsonl");
+  if (!candidate) return null;
   return existsSync(candidate) ? candidate : null;
 }
 
 /** Locate the workspace.yaml for a session (always present, even pre-interaction). */
 export function findCopilotWorkspace(sessionId: string): string | null {
-  if (!sessionId) return null;
-  const candidate = join(getCopilotSessionDir(sessionId), "workspace.yaml");
+  const candidate = resolveSessionFile(sessionId, "workspace.yaml");
+  if (!candidate) return null;
   return existsSync(candidate) ? candidate : null;
 }
 

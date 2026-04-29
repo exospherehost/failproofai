@@ -5,8 +5,8 @@
  * All functions return sorted arrays (newest-first) and pre-format dates
  * so that client components can display them without hydration mismatches.
  */
-import { readdir, stat } from "fs/promises";
-import { join, resolve, sep } from "path";
+import { readdir, stat } from "node:fs/promises";
+import { join, resolve, sep } from "node:path";
 import { getClaudeProjectsPath } from "./paths";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";

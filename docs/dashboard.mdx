@@ -71,8 +71,8 @@ A two-tab page for managing policies and reviewing activity.
   <Tab title="Activity tab">
   - Full paginated history of every hook event that has fired across all sessions
   - Filter by decision, event type, CLI (Claude Code / OpenAI Codex / GitHub Copilot _(beta)_), policy name, or session ID
-  - Each row shows: timestamp, policy name, decision, CLI badge, tool name, session ID, and the reason for deny/instruct decisions
-  - Click a session ID to open its transcript — works for Claude (`~/.claude/projects/…`), Codex (`~/.codex/sessions/…`), and Copilot CLI (`~/.copilot/session-state/<id>/events.jsonl`) sessions
+  - Each row shows: timestamp, policy name, decision, CLI badge (orange = Claude Code, purple = OpenAI Codex, blue = GitHub Copilot), tool name, session ID, and the reason for deny/instruct decisions
+  - Click a session ID to open its transcript — the viewer auto-detects which CLI fired the hook (Claude `~/.claude/projects/…`, Codex `~/.codex/sessions/…`, Copilot CLI `~/.copilot/session-state/<id>/events.jsonl`) and renders the matching CLI badge in the header
   </Tab>
 </Tabs>
 

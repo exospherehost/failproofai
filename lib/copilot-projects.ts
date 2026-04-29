@@ -13,9 +13,9 @@
  * present in multiple stores naturally produces the same `name` and merges in
  * `lib/projects.ts`.
  */
-import { open, readdir, readFile } from "fs/promises";
-import { homedir } from "os";
-import { join } from "path";
+import { open, readdir, readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { join } from "node:path";
 import { encodeFolderName } from "./paths";
 import type { ProjectFolder, SessionFile } from "./projects";
 import { runtimeCache } from "./runtime-cache";
@@ -39,6 +39,10 @@ interface CopilotSessionMeta {
   cwd: string;
   /** Latest of (workspace.yaml mtime, events.jsonl mtime if present). */
   fileMtime: Date;
+  /** True iff `events.jsonl` exists. Workspace-only sessions (initialized but
+   *  never sent a prompt) skip the `/project` session list because the viewer
+   *  would only render "Session log file not found." */
+  hasTranscript: boolean;
 }
 
 async function safeReaddir(dir: string) {
@@ -98,6 +102,7 @@ async function scanCopilotSessions(): Promise<CopilotSessionMeta[]> {
       // fall back to workspace.yaml mtime for sessions without interaction.
       const eventsMtime = await statMtime(c.eventsPath);
       const wsMtime = await statMtime(c.workspacePath);
+      const hasTranscript = eventsMtime !== null;
       const fileMtime =
         eventsMtime && wsMtime
           ? new Date(Math.max(eventsMtime.getTime(), wsMtime.getTime()))
@@ -108,6 +113,7 @@ async function scanCopilotSessions(): Promise<CopilotSessionMeta[]> {
         sessionId: c.sessionId,
         cwd,
         fileMtime,
+        hasTranscript,
       };
     }),
     16,
@@ -154,14 +160,18 @@ export async function getCopilotProjects(): Promise<ProjectFolder[]> {
 }
 
 function metasToSessionFiles(metas: CopilotSessionMeta[]): SessionFile[] {
-  const files: SessionFile[] = metas.map((m) => ({
-    name: m.sessionId,
-    path: m.eventsPath,
-    lastModified: m.fileMtime,
-    lastModifiedFormatted: formatDate(m.fileMtime),
-    sessionId: m.sessionId,
-    cli: "copilot",
-  }));
+  // Skip workspace-only sessions: their "openable" rows would lead to a
+  // 'Session log file not found' viewer because events.jsonl doesn't exist.
+  const files: SessionFile[] = metas
+    .filter((m) => m.hasTranscript)
+    .map((m) => ({
+      name: m.sessionId,
+      path: m.eventsPath,
+      lastModified: m.fileMtime,
+      lastModifiedFormatted: formatDate(m.fileMtime),
+      sessionId: m.sessionId,
+      cli: "copilot",
+    }));
   files.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
   return files;
 }

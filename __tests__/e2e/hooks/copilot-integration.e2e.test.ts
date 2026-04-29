@@ -204,7 +204,19 @@ describe("E2E: Copilot integration — install/uninstall", () => {
       try {
         execSync(
           `bun ${BINARY_PATH} policies --install block-sudo --cli copilot --scope local`,
-          { cwd: env.cwd, env: { ...process.env, HOME: env.home, FAILPROOFAI_TELEMETRY_DISABLED: "1" }, stdio: "pipe" },
+          {
+            cwd: env.cwd,
+            env: {
+              ...process.env,
+              HOME: env.home,
+              FAILPROOFAI_TELEMETRY_DISABLED: "1",
+              // Pass override so resolveFailproofaiBinary() doesn't probe PATH
+              // — the test must reach the scope-validation deny, not crash on
+              // a missing global install.
+              FAILPROOFAI_BINARY_OVERRIDE: BINARY_PATH,
+            },
+            stdio: "pipe",
+          },
         );
       } catch (e) {
         err = e as { status?: number; stderr?: Buffer };
