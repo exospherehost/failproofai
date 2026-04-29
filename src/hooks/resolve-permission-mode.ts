@@ -18,6 +18,10 @@
  *   • GitHub Copilot CLI: no documented permission-mode equivalent on the
  *     hook payload today; falls back to "default". Revisit when Copilot's
  *     hook protocol exposes one.
+ *
+ *   • Cursor Agent CLI: no permission-mode field in the hook payload (Cursor's
+ *     `loop_limit` is per-hook, not per-session). Falls back to "default" via
+ *     the same final branch as Copilot.
  */
 import { readFileSync } from "node:fs";
 import { findCodexTranscript } from "../../lib/codex-sessions";
@@ -36,7 +40,7 @@ export function resolvePermissionMode(
     return resolveCodexMode(sessionId) ?? "default";
   }
 
-  // copilot, unknown integrations, or codex without a sessionId
+  // copilot, cursor, unknown integrations, or codex without a sessionId
   return "default";
 }
 

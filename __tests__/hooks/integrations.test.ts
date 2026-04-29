@@ -17,6 +17,7 @@ import {
   claudeCode,
   codex,
   copilot,
+  cursor,
   getIntegration,
   listIntegrations,
 } from "../../src/hooks/integrations";
@@ -24,9 +25,12 @@ import {
   CODEX_HOOK_EVENT_TYPES,
   CODEX_EVENT_MAP,
   COPILOT_HOOK_EVENT_TYPES,
+  CURSOR_HOOK_EVENT_TYPES,
+  CURSOR_EVENT_MAP,
   HOOK_EVENT_TYPES,
   FAILPROOFAI_HOOK_MARKER,
   type CodexHookEventType,
+  type CursorHookEventType,
 } from "../../src/hooks/types";
 
 let tempDir: string;
@@ -40,9 +44,9 @@ afterEach(() => {
 });
 
 describe("integrations registry", () => {
-  it("listIntegrations returns claude, codex, and copilot", () => {
+  it("listIntegrations returns claude, codex, copilot, and cursor", () => {
     const ids = listIntegrations().map((i) => i.id);
-    expect(ids).toEqual(["claude", "codex", "copilot"]);
+    expect(ids).toEqual(["claude", "codex", "copilot", "cursor"]);
   });
 
   it("getIntegration('claude') returns claudeCode", () => {
@@ -55,6 +59,10 @@ describe("integrations registry", () => {
 
   it("getIntegration('copilot') returns copilot", () => {
     expect(getIntegration("copilot")).toBe(copilot);
+  });
+
+  it("getIntegration('cursor') returns cursor", () => {
+    expect(getIntegration("cursor")).toBe(cursor);
   });
 
   it("getIntegration throws for unknown id", () => {
@@ -325,5 +333,128 @@ describe("GitHub Copilot integration", () => {
 
   it("hooksInstalledInSettings returns false when file is missing", () => {
     expect(copilot.hooksInstalledInSettings("project", tempDir)).toBe(false);
+  });
+});
+
+describe("Cursor Agent integration", () => {
+  it("getSettingsPath maps user → ~/.cursor/hooks.json and project → <cwd>/.cursor/hooks.json", () => {
+    expect(cursor.getSettingsPath("project", tempDir)).toBe(
+      resolve(tempDir, ".cursor", "hooks.json"),
+    );
+    expect(cursor.getSettingsPath("user")).toMatch(/\.cursor\/hooks\.json$/);
+  });
+
+  it("scopes are user|project (no local)", () => {
+    expect(cursor.scopes).toEqual(["user", "project"]);
+  });
+
+  it("eventTypes are the camelCase Cursor events", () => {
+    expect(cursor.eventTypes).toEqual(CURSOR_HOOK_EVENT_TYPES);
+    expect(cursor.eventTypes).toContain("preToolUse");
+    expect(cursor.eventTypes).toContain("postToolUse");
+    expect(cursor.eventTypes).toContain("beforeSubmitPrompt");
+    expect(cursor.eventTypes).toContain("sessionStart");
+    expect(cursor.eventTypes).toContain("sessionEnd");
+    expect(cursor.eventTypes).toContain("stop");
+  });
+
+  it("buildHookEntry uses Claude-shaped {command,timeout} with --cli cursor", () => {
+    const entry = cursor.buildHookEntry("/usr/bin/failproofai", "preToolUse", "user") as Record<string, unknown>;
+    expect(entry.type).toBe("command");
+    expect(entry.command).toBe('"/usr/bin/failproofai" --hook preToolUse --cli cursor');
+    expect(entry.timeout).toBe(60_000);
+    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+    // Cursor entries use the Claude-style `command` field, not Copilot's bash/powershell split.
+    expect(entry.bash).toBeUndefined();
+    expect(entry.powershell).toBeUndefined();
+  });
+
+  it("project scope uses npx -y failproofai (portable)", () => {
+    const entry = cursor.buildHookEntry("/usr/bin/failproofai", "preToolUse", "project") as Record<string, unknown>;
+    expect(entry.command).toBe("npx -y failproofai --hook preToolUse --cli cursor");
+  });
+
+  it("writeHookEntries stores camelCase event keys with version: 1 in a FLAT array (no matcher wrapper)", () => {
+    const settings: Record<string, unknown> = {};
+    cursor.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    const hooks = settings.hooks as Record<string, unknown[]>;
+    for (const eventType of CURSOR_HOOK_EVENT_TYPES) {
+      expect(hooks[eventType]).toBeDefined();
+      const entries = hooks[eventType] as Array<Record<string, unknown>>;
+      // Flat array: each element IS a hook entry, not a {hooks: [...]} matcher.
+      expect(entries.length).toBeGreaterThanOrEqual(1);
+      expect(entries[0].type).toBe("command");
+      expect(typeof entries[0].command).toBe("string");
+      expect(entries[0].hooks).toBeUndefined(); // no nested matcher wrapper
+    }
+    expect(settings.version).toBe(1);
+  });
+
+  it("readSettings backfills version: 1 on existing files without it", () => {
+    const settingsPath = resolve(tempDir, ".cursor", "hooks.json");
+    mkdirSync(resolve(tempDir, ".cursor"), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify({ hooks: {} }));
+    const read = cursor.readSettings(settingsPath);
+    expect(read.version).toBe(1);
+  });
+
+  it("re-running writeHookEntries is idempotent (replaces, doesn't duplicate)", () => {
+    const settings: Record<string, unknown> = {};
+    cursor.writeHookEntries(settings, "/usr/bin/failproofai", "user");
+    cursor.writeHookEntries(settings, "/different/path/failproofai", "user");
+    const hooks = settings.hooks as Record<string, Array<Record<string, unknown>>>;
+    expect(hooks.preToolUse).toHaveLength(1);
+    // Second call's binary path should win.
+    expect(hooks.preToolUse[0].command).toBe('"/different/path/failproofai" --hook preToolUse --cli cursor');
+  });
+
+  it("removeHooksFromFile clears all failproofai entries (returns count)", () => {
+    const settingsPath = cursor.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    cursor.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    cursor.writeSettings(settingsPath, settings);
+    expect(existsSync(settingsPath)).toBe(true);
+
+    const removed = cursor.removeHooksFromFile(settingsPath);
+    expect(removed).toBe(CURSOR_HOOK_EVENT_TYPES.length);
+
+    const after = JSON.parse(readFileSync(settingsPath, "utf-8")) as Record<string, unknown>;
+    expect(after.hooks).toBeUndefined();
+  });
+
+  it("hooksInstalledInSettings detects installed hooks under camelCase keys", () => {
+    const settingsPath = cursor.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    cursor.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    cursor.writeSettings(settingsPath, settings);
+
+    expect(cursor.hooksInstalledInSettings("project", tempDir)).toBe(true);
+  });
+
+  it("hooksInstalledInSettings returns false when file is missing", () => {
+    expect(cursor.hooksInstalledInSettings("project", tempDir)).toBe(false);
+  });
+});
+
+describe("CURSOR_EVENT_MAP", () => {
+  it("maps every Cursor camelCase event to a PascalCase HookEventType", () => {
+    expect(CURSOR_EVENT_MAP.preToolUse).toBe("PreToolUse");
+    expect(CURSOR_EVENT_MAP.postToolUse).toBe("PostToolUse");
+    expect(CURSOR_EVENT_MAP.beforeSubmitPrompt).toBe("UserPromptSubmit");
+    expect(CURSOR_EVENT_MAP.sessionStart).toBe("SessionStart");
+    expect(CURSOR_EVENT_MAP.sessionEnd).toBe("SessionEnd");
+    expect(CURSOR_EVENT_MAP.stop).toBe("Stop");
+  });
+
+  it("CURSOR_EVENT_MAP keys exactly match CURSOR_HOOK_EVENT_TYPES", () => {
+    const mapKeys = Object.keys(CURSOR_EVENT_MAP).sort();
+    const eventTypes = [...CURSOR_HOOK_EVENT_TYPES].sort();
+    expect(mapKeys).toEqual(eventTypes);
+  });
+
+  // Reference cursor + CursorHookEventType so both stay in scope.
+  it("CursorHookEventType is exhaustive", () => {
+    const sample: CursorHookEventType = "preToolUse";
+    expect(CURSOR_EVENT_MAP[sample]).toBe("PreToolUse");
   });
 });

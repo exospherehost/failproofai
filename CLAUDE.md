@@ -69,6 +69,34 @@ which writes a portable `npx -y failproofai --hook ... --cli copilot` command.
 Same self-reference caveat applies — do **not** install the standard `npx`
 form from inside this repo.
 
+### Cursor hooks (`.cursor/hooks.json`)
+
+This repo also ships a `.cursor/hooks.json` for Cursor Agent CLI sessions,
+mirroring the `.claude/settings.json`, `.codex/hooks.json`, and
+`.github/hooks/failproofai.json` setups. Cursor's hook config goes at the
+project root under `.cursor/hooks.json` per the
+[Cursor docs](https://cursor.com/docs/hooks). The schema is Cursor's flat
+form: `version: 1`, camelCase event keys (`preToolUse`, `beforeSubmitPrompt`,
+…), and a flat array of `{type, command, timeout}` entries per event (no
+Claude-style `{hooks: [...]}` matcher wrapper). The handler canonicalizes
+camelCase → PascalCase via `CURSOR_EVENT_MAP` before policy lookup so the
+existing builtin policies fire unchanged.
+
+Like Codex and Copilot, Cursor does not expose a `$CURSOR_PROJECT_DIR` env
+var to the hook command line (only as a process env var inside the hook
+itself), and Cursor hooks are spawned with the project root as cwd, so we
+use a relative `bun bin/failproofai.mjs --hook ... --cli cursor` path. If
+Cursor ever changes that behavior and the hook fails to find the binary,
+switch to an absolute path.
+
+For production users (outside this repo), the recommended Cursor install is:
+```bash
+failproofai policies --install --cli cursor --scope project
+```
+which writes a portable `npx -y failproofai --hook ... --cli cursor` command.
+Same self-reference caveat applies — do **not** install the standard `npx`
+form from inside this repo.
+
 ## Workflow rules
 
 ### One PR per branch

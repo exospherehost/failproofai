@@ -128,6 +128,39 @@ describe("ProjectList", () => {
     expect(badgeNodes("GitHub Copilot")).toHaveLength(1);
   });
 
+  it("renders a Cursor Agent badge for cli=['cursor']", () => {
+    const folders: ProjectFolder[] = [
+      {
+        name: "-home-u-cursor",
+        path: "/home/u/cursor",
+        isDirectory: true,
+        lastModified: new Date(),
+        lastModifiedFormatted: "Jun 15, 2024",
+        cli: ["cursor"],
+      },
+    ];
+    render(<ProjectList folders={folders} />);
+    expect(badgeNodes("Cursor Agent")).toHaveLength(1);
+  });
+
+  it("renders all four badges when cli=['claude','codex','copilot','cursor']", () => {
+    const folders: ProjectFolder[] = [
+      {
+        name: "-home-u-quad",
+        path: "/home/u/quad",
+        isDirectory: true,
+        lastModified: new Date(),
+        lastModifiedFormatted: "Jun 15, 2024",
+        cli: ["claude", "codex", "copilot", "cursor"],
+      },
+    ];
+    render(<ProjectList folders={folders} />);
+    expect(badgeNodes("Claude Code")).toHaveLength(1);
+    expect(badgeNodes("OpenAI Codex")).toHaveLength(1);
+    expect(badgeNodes("GitHub Copilot")).toHaveLength(1);
+    expect(badgeNodes("Cursor Agent")).toHaveLength(1);
+  });
+
   it("links to /project/[name]", () => {
     const folders = makeFolders(1);
     render(<ProjectList folders={folders} />);
@@ -166,6 +199,7 @@ describe("ProjectList", () => {
       "Claude Code",
       "OpenAI Codex",
       "GitHub Copilot",
+      "Cursor Agent",
     ]);
   });
 
