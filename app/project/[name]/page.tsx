@@ -8,7 +8,7 @@ import { existsSync } from "fs";
 import { stat } from "fs/promises";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 import SessionsList from "@/app/components/sessions-list";
 
 export const dynamic = "force-dynamic";

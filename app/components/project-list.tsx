@@ -7,7 +7,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { ProjectFolder } from "@/lib/projects";
 import { decodeFolderName } from "@/lib/paths";
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 import {
   FILTER_PRESETS,
   ITEMS_PER_PAGE,

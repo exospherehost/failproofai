@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { cn, formatDate } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 
 describe("cn", () => {
   it("merges multiple class names", () => {

@@ -6,7 +6,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { SessionFile } from "@/lib/projects";
-import { formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/format-date";
 import {
   FILTER_PRESETS,
   ITEMS_PER_PAGE,
