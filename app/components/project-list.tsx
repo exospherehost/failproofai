@@ -161,7 +161,10 @@ export default function ProjectList({ folders }: ProjectListProps) {
             <select
               aria-label="Filter by CLI"
               value={filterCli}
-              onChange={(e) => setFilterCli(e.target.value as "" | CliId)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setFilterCli(v === "" || isKnownCli(v) ? v : "");
+              }}
               className="px-2 py-1.5 text-sm bg-input border border-border rounded-md text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent"
             >
               <option value="">All CLIs</option>

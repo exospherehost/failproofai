@@ -36,7 +36,7 @@ export function resolvePermissionMode(
     return resolveCodexMode(sessionId) ?? "default";
   }
 
-  // copilot / unknown
+  // copilot, unknown integrations, or codex without a sessionId
   return "default";
 }
 
