@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.9 — 2026-04-28
+
 ### Features
 - Surface the Slack community invite alongside the existing GitHub and docs links: add a `💬 Slack` line to the CLI `--help` banner (`bin/failproofai.mjs`) and the `dev` / `start` launch banner (`scripts/launch.ts`), plus a `Join our Slack` entry in the in-app `Reach Us` dropdown (`components/reach-developers.tsx`). Uses the existing `https://join.slack.com/t/failproofai/...` invite already linked from the README and docs sidebar (#225).
 - Add OpenAI Codex hook integration. Install hooks for Codex via `failproofai policies --install --cli codex` (or `--cli claude codex` for both). Supports all six documented Codex hook events (`SessionStart`, `PreToolUse`, `PermissionRequest`, `PostToolUse`, `UserPromptSubmit`, `Stop`) and writes to `~/.codex/hooks.json` (user) / `<cwd>/.codex/hooks.json` (project). Codex's `PermissionRequest` is wired through `policy-evaluator.ts` to emit the `hookSpecificOutput.decision.behavior` shape per Codex docs; `block-sudo` now also fires for `PermissionRequest` events. Stdin event names arrive snake_case (`pre_tool_use`) and are canonicalized to PascalCase before policy lookup. Permission-mode tracking for Codex reads `approval_policy` from the active session transcript (`~/.codex/sessions/<…>.jsonl`). New `--cli` flag is interactive by default — detects installed agent CLIs and prompts when both are present. Telemetry now tags every hook decision with the originating CLI; activity dashboard rows show a per-CLI badge. `isAgentInternalPath` / `isAgentSettingsFile` generalized to also cover `~/.codex/` and `.codex/hooks.json` so existing path-protection rules apply to Codex out of the box (#220).
