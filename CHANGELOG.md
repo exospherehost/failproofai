@@ -4,6 +4,7 @@
 
 ### Fixes
 - Fix `mintlify validate` failing on `docs/de/dashboard.mdx` after #228 added German „..." quotation marks inside two `<Tab title="…">` attributes — the inner straight `"` ended the JSX attribute value, then the leftover `"` produced an `Unexpected character "` parse error. Drop the inner quotes (matching how every other locale renders the tab labels) so the docs CI job passes again.
+- Fix `block-read-outside-cwd` falsely denying Bash commands that contain unquoted glob patterns or compound argv tokens. The unquoted-path regex in `extractAbsolutePaths` (`src/hooks/builtin-policies.ts`) only excluded `[a-zA-Z0-9_.\-~\\]` from its negative lookbehind, so a `/`-prefixed glob suffix or volume-mount target was misread as a standalone absolute path: `grep ... docs/*/dashboard.mdx | head` extracted `/dashboard.mdx`, and `docker run -v /host:/docs ...` extracted `/docs`. Both paths then resolved outside cwd and the read-like-command branch denied the call. Add `*?:=` to the lookbehind exclusion class so a `/` immediately following a glob meta or a separator no longer starts a match. Existing whitelisted/quoted/space-separated path detection is unchanged.
 
 ## 0.0.9 — 2026-04-28
 

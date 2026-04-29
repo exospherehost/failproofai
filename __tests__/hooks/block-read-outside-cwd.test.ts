@@ -485,6 +485,80 @@ describe("block-read-outside-cwd policy", () => {
     expect(result.reason).toContain("/api");
   });
 
+  // -- Glob/separator suffix false-positive regression tests --
+  // The path extractor must not treat `/foo` as an absolute path when it
+  // immediately follows a glob metacharacter or a compound-token separator —
+  // it's a suffix of the surrounding glob/mount, not a standalone path.
+
+  it("allows unquoted glob whose suffix would parse as an absolute path", async () => {
+    // `docs/*/dashboard.mdx` previously extracted `/dashboard.mdx` after `*`.
+    const ctx = makeCtx({
+      toolName: "Bash",
+      toolInput: {
+        command: "grep -rn 'Tab title=' docs/*/dashboard.mdx | head -30",
+      },
+      session: { cwd: "/home/user/project" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("allow");
+  });
+
+  it("allows unquoted ? glob whose suffix would parse as an absolute path", async () => {
+    const ctx = makeCtx({
+      toolName: "Bash",
+      toolInput: { command: "ls docs/?/dashboard.mdx" },
+      session: { cwd: "/home/user/project" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("allow");
+  });
+
+  it("allows docker volume mount where `:/container` is not a host read", async () => {
+    // `-v /host:/container` previously extracted `/container` after `:`.
+    const ctx = makeCtx({
+      toolName: "Bash",
+      toolInput: {
+        command:
+          "docker run --rm -v /home/user/project/docs:/docs node:20 ls /docs",
+      },
+      session: { cwd: "/home/user/project" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("allow");
+  });
+
+  it("allows env-var-prefixed path where `=/path` is the assignment value", async () => {
+    // `FOO=/etc/conf` previously extracted `/etc/conf` after `=`. The path is
+    // still an absolute path in its own right — but if it lives inside cwd
+    // it should be allowed (the `=` lookbehind exclusion only affects whether
+    // the `/` after `=` *starts* a match; the body of the path is unaffected
+    // when it's actually preceded by whitespace).
+    const ctx = makeCtx({
+      toolName: "Bash",
+      toolInput: {
+        command: "FAILPROOFAI_DIST_PATH=/home/user/project/dist ls /home/user/project",
+      },
+      session: { cwd: "/home/user/project" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("allow");
+  });
+
+  it("still denies a real outside read in a glob-bearing command", async () => {
+    // Even if the command also contains a glob, a separately-tokenized
+    // outside-cwd read like `cat /etc/passwd` should still be caught.
+    const ctx = makeCtx({
+      toolName: "Bash",
+      toolInput: {
+        command: "ls docs/*/dashboard.mdx && cat /etc/passwd",
+      },
+      session: { cwd: "/home/user/project" },
+    });
+    const result = await policy.fn(ctx);
+    expect(result.decision).toBe("deny");
+    expect(result.reason).toContain("/etc/passwd");
+  });
+
   it("denies Read of ~/.claude-other/file (not whitelisted)", async () => {
     const os = await import("node:os");
     const home = os.homedir();
