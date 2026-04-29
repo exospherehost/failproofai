@@ -9,6 +9,7 @@ import { baseSessionId } from "@/lib/utils/session-id";
 import { resolveProjectPath, UUID_RE } from "@/lib/projects";
 import LazyLogViewer from "@/app/components/lazy-log-viewer";
 import { CopyButton } from "@/app/components/copy-button";
+import { CliBadge } from "@/app/components/cli-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -78,9 +79,12 @@ export default async function SessionPage({ params }: SessionPageProps) {
         </Link>
 
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
-            Session Log
-          </h1>
+          <div className="flex flex-wrap items-center gap-3 mb-2">
+            <h1 className="text-4xl font-bold text-foreground">
+              Session Log
+            </h1>
+            <CliBadge cli={cli} />
+          </div>
           <div className="space-y-1">
             <p className="text-muted-foreground">
               <span className="font-medium">{headerLabel}:</span>{" "}

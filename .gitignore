@@ -70,3 +70,4 @@ packages/*/assets/
 
 # WSL/Windows alternate data streams
 *:Zone.Identifier
+.dev.log

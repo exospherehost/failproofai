@@ -5,7 +5,8 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from "react";
-import { ProjectFolder, ProjectCli } from "@/lib/projects";
+import { ProjectFolder } from "@/lib/projects";
+import { CliBadge } from "./cli-badge";
 import { decodeFolderName } from "@/lib/paths";
 import { formatDate } from "@/lib/format-date";
 import {
@@ -34,23 +35,6 @@ interface ProjectListProps {
 
 function DateDisplay({ date, formatted }: { date: Date; formatted?: string }) {
   return <span>{formatted || formatDate(date)}</span>;
-}
-
-function CliBadge({ cli }: { cli: ProjectCli }) {
-  const isCodex = cli === "codex";
-  const label = isCodex ? "OpenAI Codex" : "Claude Code";
-  return (
-    <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium border ${
-        isCodex
-          ? "bg-purple-500/10 text-purple-400 border-purple-500/20"
-          : "bg-orange-500/10 text-orange-400 border-orange-500/20"
-      }`}
-      title={`Agent CLI: ${label}`}
-    >
-      {label}
-    </span>
-  );
 }
 
 // Replace `/` with `-` so users can search by filesystem path (e.g. "/home/user")
