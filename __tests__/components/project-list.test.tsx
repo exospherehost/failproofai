@@ -38,6 +38,7 @@ function makeFolders(count: number): ProjectFolder[] {
     isDirectory: true,
     lastModified: new Date(Date.now() - i * 86400000),
     lastModifiedFormatted: `Jun ${15 - i}, 2024`,
+    cli: ["claude"],
   }));
 }
 
@@ -59,10 +60,50 @@ describe("ProjectList", () => {
         isDirectory: true,
         lastModified: new Date(),
         lastModifiedFormatted: "Jun 15, 2024",
+        cli: ["claude"],
       },
     ];
     render(<ProjectList folders={folders} />);
     expect(screen.getByText("C:/code/myapp")).toBeInTheDocument();
+  });
+
+  it("renders a Claude Code badge for cli=['claude']", () => {
+    const folders = makeFolders(1);
+    render(<ProjectList folders={folders} />);
+    expect(screen.getByText("Claude Code")).toBeInTheDocument();
+    expect(screen.queryByText("OpenAI Codex")).not.toBeInTheDocument();
+  });
+
+  it("renders an OpenAI Codex badge for cli=['codex']", () => {
+    const folders: ProjectFolder[] = [
+      {
+        name: "-home-u-codex",
+        path: "/home/u/codex",
+        isDirectory: true,
+        lastModified: new Date(),
+        lastModifiedFormatted: "Jun 15, 2024",
+        cli: ["codex"],
+      },
+    ];
+    render(<ProjectList folders={folders} />);
+    expect(screen.getByText("OpenAI Codex")).toBeInTheDocument();
+    expect(screen.queryByText("Claude Code")).not.toBeInTheDocument();
+  });
+
+  it("renders both badges when cli=['claude','codex']", () => {
+    const folders: ProjectFolder[] = [
+      {
+        name: "-home-u-shared",
+        path: "/mock/.claude/projects/-home-u-shared",
+        isDirectory: true,
+        lastModified: new Date(),
+        lastModifiedFormatted: "Jun 15, 2024",
+        cli: ["claude", "codex"],
+      },
+    ];
+    render(<ProjectList folders={folders} />);
+    expect(screen.getByText("Claude Code")).toBeInTheDocument();
+    expect(screen.getByText("OpenAI Codex")).toBeInTheDocument();
   });
 
   it("links to /project/[name]", () => {

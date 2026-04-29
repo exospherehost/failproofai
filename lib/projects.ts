@@ -16,12 +16,19 @@ import { formatDate } from "./format-date";
 export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;
 
+export type ProjectCli = "claude" | "codex";
+
 export interface ProjectFolder {
   name: string;
   path: string;
   isDirectory: boolean;
   lastModified: Date;
   lastModifiedFormatted?: string; // Pre-formatted date string to avoid hydration issues
+  /**
+   * Which agent CLIs this project's data was found in. Multiple entries when
+   * the same cwd has both Claude and Codex transcripts; rendered as badges.
+   */
+  cli: ProjectCli[];
 }
 
 export interface SessionFile {
@@ -30,6 +37,9 @@ export interface SessionFile {
   lastModified: Date;
   lastModifiedFormatted?: string;
   sessionId?: string;
+  /** Originating agent CLI. Set when the session list mixes Claude + Codex sources
+   *  so the table can render a per-row CLI badge. */
+  cli?: ProjectCli;
 }
 
 /** Stats a path and returns mtime. Falls back to epoch (1970-01-01) on error
@@ -54,7 +64,7 @@ async function safeReaddir(dirPath: string) {
   }
 }
 
-export async function getProjectFolders(): Promise<ProjectFolder[]> {
+async function getClaudeProjectFolders(): Promise<ProjectFolder[]> {
   try {
     const projectsPath = getClaudeProjectsPath();
     const entries = await safeReaddir(projectsPath);
@@ -72,6 +82,7 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
             isDirectory: true,
             lastModified: mtime,
             lastModifiedFormatted: formatDate(mtime),
+            cli: ["claude"],
           } as ProjectFolder;
         }),
       16,
@@ -83,9 +94,51 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
     folders.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
     return folders;
   } catch (error) {
-    logError("Error reading project folders:", error);
+    logError("Error reading Claude project folders:", error);
     return [];
   }
+}
+
+/** Merges Claude + Codex project lists by encoded folder name. When both sources have
+ *  the same name, keeps the Claude entry's `path` (so the Path column still points at
+ *  `~/.claude/projects/<encoded>`), unions the `cli` arrays in [claude, codex] order,
+ *  and takes the newer `lastModified`. */
+function mergeProjectFolders(claude: ProjectFolder[], codex: ProjectFolder[]): ProjectFolder[] {
+  const byName = new Map<string, ProjectFolder>();
+  for (const f of claude) byName.set(f.name, { ...f, cli: [...f.cli] });
+  for (const f of codex) {
+    const existing = byName.get(f.name);
+    if (!existing) {
+      byName.set(f.name, { ...f, cli: [...f.cli] });
+      continue;
+    }
+    const mergedCli: ProjectCli[] = [...existing.cli];
+    for (const c of f.cli) if (!mergedCli.includes(c)) mergedCli.push(c);
+    const newer = f.lastModified.getTime() > existing.lastModified.getTime() ? f : existing;
+    byName.set(f.name, {
+      ...existing,
+      cli: mergedCli,
+      lastModified: newer.lastModified,
+      lastModifiedFormatted: newer.lastModifiedFormatted,
+    });
+  }
+  const merged = Array.from(byName.values());
+  merged.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+  return merged;
+}
+
+export async function getProjectFolders(): Promise<ProjectFolder[]> {
+  // Lazy import to keep `lib/codex-projects.ts` out of the dep graph for callers that
+  // only need Claude helpers (e.g. CLI codepaths).
+  const { getCodexProjects } = await import("./codex-projects");
+  const [claude, codex] = await Promise.all([
+    getClaudeProjectFolders(),
+    getCodexProjects().catch((error) => {
+      logError("Error reading Codex projects:", error);
+      return [] as ProjectFolder[];
+    }),
+  ]);
+  return mergeProjectFolders(claude, codex);
 }
 
 /**
@@ -157,6 +210,7 @@ export async function getSessionFiles(projectPath: string): Promise<SessionFile[
           lastModified: mtime,
           lastModifiedFormatted: formatDate(mtime),
           sessionId: extractSessionId(entry.name),
+          cli: "claude",
         } as SessionFile;
       }),
       16,

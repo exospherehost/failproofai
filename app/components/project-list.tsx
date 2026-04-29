@@ -6,6 +6,7 @@
 
 import { useState, useMemo, useEffect, useRef } from "react";
 import { ProjectFolder } from "@/lib/projects";
+import { CliBadge } from "./cli-badge";
 import { decodeFolderName } from "@/lib/paths";
 import { formatDate } from "@/lib/format-date";
 import {
@@ -296,12 +297,17 @@ export default function ProjectList({ folders }: ProjectListProps) {
                       <Folder className="w-5 h-5 text-primary" />
                     </td>
                     <td className="px-4 py-3 max-w-md">
-                      <Link
-                        href={`/project/${encodeURIComponent(folder.name)}`}
-                        className="font-semibold text-foreground hover:text-primary transition-colors break-words break-all inline-block max-w-full"
-                      >
-                        {decodeFolderName(folder.name)}
-                      </Link>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                          href={`/project/${encodeURIComponent(folder.name)}`}
+                          className="font-semibold text-foreground hover:text-primary transition-colors break-words break-all inline-block max-w-full"
+                        >
+                          {decodeFolderName(folder.name)}
+                        </Link>
+                        {folder.cli.map((c) => (
+                          <CliBadge key={c} cli={c} />
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell truncate max-w-md">
                       {folder.path}
