@@ -63,10 +63,45 @@ function projectFromTranscriptPath(transcriptPath: string): string | null {
   return folder;
 }
 
-function SessionCell({ sessionId, transcriptPath }: { sessionId?: string; transcriptPath?: string }) {
+function encodeCwdForUrl(cwd: string): string {
+  // Inverse of decodeFolderName, inlined here so this component file stays
+  // client-side and doesn't pull lib/paths server imports.
+  const driveMatch = /^([A-Za-z]):[\\/](.*)$/.exec(cwd);
+  if (driveMatch) return driveMatch[1] + "--" + driveMatch[2].replace(/[\\/]/g, "-");
+  return cwd.replace(/[\\/]/g, "-");
+}
+
+function SessionCell({
+  sessionId,
+  transcriptPath,
+  integration,
+  cwd,
+}: {
+  sessionId?: string;
+  transcriptPath?: string;
+  integration?: string;
+  cwd?: string;
+}) {
   if (!sessionId) return <span className="text-muted-foreground">\u2014</span>;
-  const project = transcriptPath ? projectFromTranscriptPath(transcriptPath) : null;
   const short = shortenSession(sessionId);
+
+  const isCodex = integration === "codex" || (transcriptPath?.includes("/.codex/") ?? false);
+  if (isCodex) {
+    // The session route auto-detects CLI by file location, so [name] only
+    // affects the breadcrumb. Encode the cwd Claude-style when we have it.
+    const projectSeg = cwd ? encodeCwdForUrl(cwd) : "codex";
+    return (
+      <Link
+        href={`/project/${encodeURIComponent(projectSeg)}/session/${encodeURIComponent(sessionId)}`}
+        className="text-primary hover:underline font-mono"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {short}
+      </Link>
+    );
+  }
+
+  const project = transcriptPath ? projectFromTranscriptPath(transcriptPath) : null;
   if (project) {
     return (
       <Link
@@ -331,9 +366,13 @@ function ActivityTab({
   const [filterEventType, setFilterEventType] = useState(() => url.get("event") ?? "");
   const [filterPolicy, setFilterPolicy] = useState(() => url.get("policy") ?? "");
   const [filterSessionId, setFilterSessionId] = useState(() => url.get("session") ?? "");
+  const [filterCli, setFilterCli] = useState<"" | "claude" | "codex">(() => {
+    const v = url.get("cli");
+    return v === "claude" || v === "codex" ? v : "";
+  });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const filtersRef = useRef({ filterDecision, filterEventType, filterPolicy, filterSessionId });
-  filtersRef.current = { filterDecision, filterEventType, filterPolicy, filterSessionId };
+  const filtersRef = useRef({ filterDecision, filterEventType, filterPolicy, filterSessionId, filterCli });
+  filtersRef.current = { filterDecision, filterEventType, filterPolicy, filterSessionId, filterCli };
 
   useEffect(() => {
     if (!mountedRef.current) {
@@ -345,17 +384,18 @@ function ActivityTab({
       event: filterEventType || undefined,
       policy: filterPolicy || undefined,
       session: filterSessionId || undefined,
+      cli: filterCli || undefined,
       page: pageToParam(page),
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterDecision, filterEventType, filterPolicy, filterSessionId, page]);
+  }, [filterDecision, filterEventType, filterPolicy, filterSessionId, filterCli, page]);
 
-  const hasActiveFilters = filterDecision !== "" || filterEventType !== "" || filterPolicy !== "" || filterSessionId !== "";
+  const hasActiveFilters = filterDecision !== "" || filterEventType !== "" || filterPolicy !== "" || filterSessionId !== "" || filterCli !== "";
 
   const fetchData = useCallback(async (p: number) => {
     try {
-      const { filterDecision: fd, filterEventType: fe, filterPolicy: fp, filterSessionId: fs } = filtersRef.current;
-      const active = fd !== "" || fe !== "" || fp !== "" || fs !== "";
+      const { filterDecision: fd, filterEventType: fe, filterPolicy: fp, filterSessionId: fs, filterCli: fc } = filtersRef.current;
+      const active = fd !== "" || fe !== "" || fp !== "" || fs !== "" || fc !== "";
       let result: HookActivityPayload;
       if (active) {
         result = await searchHookActivityAction(
@@ -364,6 +404,7 @@ function ActivityTab({
             eventType: fe || undefined,
             policyName: fp || undefined,
             sessionId: fs || undefined,
+            integration: fc || undefined,
           },
           p,
         );
@@ -394,7 +435,7 @@ function ActivityTab({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterDecision, filterEventType, filterPolicy, filterSessionId]);
+  }, [filterDecision, filterEventType, filterPolicy, filterSessionId, filterCli]);
 
   const items = data?.entries ?? [];
   const totalPages = data?.totalPages ?? 1;
@@ -426,6 +467,16 @@ function ActivityTab({
             <option value="SessionEnd">SessionEnd</option>
             <option value="UserPromptSubmit">UserPromptSubmit</option>
             <option value="PermissionRequest">PermissionRequest</option>
+          </select>
+          <select
+            value={filterCli}
+            onChange={(e) => setFilterCli(e.target.value as "" | "claude" | "codex")}
+            className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
+            aria-label="Filter by CLI"
+          >
+            <option value="">All CLIs</option>
+            <option value="claude">Claude Code</option>
+            <option value="codex">OpenAI Codex</option>
           </select>
           <div className="relative">
             <input
@@ -548,7 +599,12 @@ function ActivityTab({
                           <DurationDisplay ms={item.durationMs} />
                         </td>
                         <td className="px-3 py-2" title={item.sessionId ?? ""}>
-                          <SessionCell sessionId={item.sessionId} transcriptPath={item.transcriptPath} />
+                          <SessionCell
+                            sessionId={item.sessionId}
+                            transcriptPath={item.transcriptPath}
+                            integration={item.integration}
+                            cwd={item.cwd}
+                          />
                         </td>
                         <td className="px-3 py-2">
                           {item.permissionMode ? (

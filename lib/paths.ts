@@ -29,6 +29,19 @@ export function decodeFolderName(name: string): string {
   return name.replace(/-/g, "/");
 }
 
+/**
+ * Encodes a filesystem path into a Claude-compatible project folder name.
+ * Inverse of `decodeFolderName`.
+ */
+export function encodeFolderName(path: string): string {
+  // Windows drive-letter pattern: "C:/code/project" → "C--code-project"
+  const driveMatch = /^([A-Za-z]):[\\/](.*)$/.exec(path);
+  if (driveMatch) {
+    return driveMatch[1] + "--" + driveMatch[2].replace(/[\\/]/g, "-");
+  }
+  return path.replace(/[\\/]/g, "-");
+}
+
 export function getClaudeProjectsPath(): string {
   // Check if path is provided via environment variable
   const envPath = process.env.CLAUDE_PROJECTS_PATH;

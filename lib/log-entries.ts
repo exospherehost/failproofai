@@ -115,14 +115,14 @@ export type LogEntryType = LogEntry["type"];
 
 // ── Helpers ──
 
-function formatTimestamp(date: Date): string {
+export function formatTimestamp(date: Date): string {
   const base = formatDate(date);
   const ms = date.getMilliseconds().toString().padStart(3, "0");
   return `${base}.${ms}`;
 }
 
 /** Shared base fields present on every log entry. */
-function baseEntry(raw: Record<string, unknown>, timestamp: string, date: Date, source: LogSource) {
+export function baseEntry(raw: Record<string, unknown>, timestamp: string, date: Date, source: LogSource) {
   return {
     _source: source,
     uuid: (raw.uuid as string) || "",
