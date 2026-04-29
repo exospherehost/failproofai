@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.9 — 2026-04-28
+
 ### Features
 - Surface the Slack community invite alongside the existing GitHub and docs links: add a `💬 Slack` line to the CLI `--help` banner (`bin/failproofai.mjs`) and the `dev` / `start` launch banner (`scripts/launch.ts`), plus a `Join our Slack` entry in the in-app `Reach Us` dropdown (`components/reach-developers.tsx`). Uses the existing `https://join.slack.com/t/failproofai/...` invite already linked from the README and docs sidebar (#225).
 - Activity dashboard now has a CLI filter alongside event-type, policy, and session-id filters; URL is preserved as `?cli=claude|codex`. Codex sessions in the activity feed are also clickable: the session route now falls back to `~/.codex/sessions/<…>.jsonl` when the Claude lookup misses, and the existing log viewer renders Codex transcripts (user prompts, assistant messages, exec_command tool calls with stdout/stderr and durations) by mapping every record type. Transcript discovery (`findCodexTranscript`) lives in a shared `lib/codex-sessions.ts` module reused by the hook hot path (#226).
