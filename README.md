@@ -38,7 +38,10 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks" title="GitHub Copilot CLI">
-    <img src="assets/logos/copilot.svg" alt="GitHub Copilot" width="64" height="64" />
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/copilot-dark.svg" />
+      <img src="assets/logos/copilot-light.svg" alt="GitHub Copilot" width="64" height="64" />
+    </picture>
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <strong>+ more coming soon</strong>
