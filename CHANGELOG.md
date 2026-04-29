@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Fixes
+- Fix `mintlify validate` failing on `docs/de/dashboard.mdx` after #228 added German „..." quotation marks inside two `<Tab title="…">` attributes — the inner straight `"` ended the JSX attribute value, then the leftover `"` produced an `Unexpected character "` parse error. Drop the inner quotes (matching how every other locale renders the tab labels) so the docs CI job passes again.
+
 ## 0.0.9 — 2026-04-28
 
 ### Features
