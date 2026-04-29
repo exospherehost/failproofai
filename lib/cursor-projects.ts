@@ -65,21 +65,51 @@ async function statMtime(path: string): Promise<Date | null> {
   }
 }
 
-/** Parse a flat scalar for `cwd` from JSON-or-YAML metadata. Tolerant on purpose:
- *  Cursor's metadata format is unspecified, so a permissive regex handles either
- *  shape (`"cwd": "/foo"` in JSON or `cwd: /foo` in YAML) without a parser dep. */
+/** Parse a flat scalar for `cwd` from JSON-or-YAML metadata. Tries `JSON.parse`
+ *  first so escape sequences in JSON strings (e.g. Windows `C:\\Users\\...`) are
+ *  decoded, then falls back to a permissive YAML-ish regex when the file isn't
+ *  valid JSON. Tolerant on purpose: Cursor's metadata format is unspecified. */
 function parseCwdFromMetaText(text: string): string | undefined {
-  // JSON shape: "cwd": "/path"
-  const json = text.match(/"cwd"\s*:\s*"([^"]+)"/);
-  if (json) return json[1];
-  // YAML shape: cwd: /path
+  try {
+    const parsed = JSON.parse(text) as { cwd?: unknown };
+    if (typeof parsed.cwd === "string" && parsed.cwd.length > 0) return parsed.cwd;
+  } catch {
+    // Not JSON — fall through to the YAML-ish parser.
+  }
+  // YAML shape: `cwd: /path` (optionally quoted).
   const yaml = text.match(/^\s*cwd\s*:\s*(.+?)\s*$/m);
-  if (yaml) return yaml[1].replace(/^['"]|['"]$/g, "");
+  if (yaml) {
+    const stripped = yaml[1].replace(/^['"]|['"]$/g, "");
+    if (stripped.length > 0) return stripped;
+  }
   return undefined;
 }
 
-/** First file that exists from `candidates`, joined under `dir`. */
-async function findFirstExisting(dir: string, candidates: readonly string[]): Promise<string | null> {
+/** Try each candidate under `dir`; for metadata files we keep probing until one
+ *  yields a usable `cwd` (a stale `meta.json` shouldn't shadow a valid
+ *  `workspace.yaml`). Returns `{path, cwd}` for the first usable file, or null. */
+async function findFirstUsableMeta(
+  dir: string,
+  candidates: readonly string[],
+): Promise<{ path: string; cwd: string } | null> {
+  for (const name of candidates) {
+    const path = join(dir, name);
+    if ((await statMtime(path)) === null) continue;
+    let text: string;
+    try {
+      text = await readFile(path, "utf-8");
+    } catch {
+      continue;
+    }
+    const cwd = parseCwdFromMetaText(text);
+    if (cwd) return { path, cwd };
+  }
+  return null;
+}
+
+/** First existing path from `candidates` under `dir`. Used for transcript files
+ *  where existence is the only check we can perform without parsing JSONL. */
+async function findFirstExistingPath(dir: string, candidates: readonly string[]): Promise<string | null> {
   for (const name of candidates) {
     const path = join(dir, name);
     if ((await statMtime(path)) !== null) return path;
@@ -103,28 +133,20 @@ async function scanCursorSessions(): Promise<CursorSessionMeta[]> {
 
   const settled = await batchAll(
     allCandidates.map((c) => async (): Promise<CursorSessionMeta | null> => {
-      const metaPath = await findFirstExisting(c.dir, META_FILE_CANDIDATES);
-      if (!metaPath) return null;
-      let metaText: string;
-      try {
-        metaText = await readFile(metaPath, "utf-8");
-      } catch {
-        return null;
-      }
-      const cwd = parseCwdFromMetaText(metaText);
-      if (!cwd) return null;
-      const transcriptPath = await findFirstExisting(c.dir, TRANSCRIPT_FILE_CANDIDATES);
+      const meta = await findFirstUsableMeta(c.dir, META_FILE_CANDIDATES);
+      if (!meta) return null;
+      const transcriptPath = await findFirstExistingPath(c.dir, TRANSCRIPT_FILE_CANDIDATES);
       const transcriptMtime = transcriptPath ? await statMtime(transcriptPath) : null;
-      const metaMtime = await statMtime(metaPath);
+      const metaMtime = await statMtime(meta.path);
       const fileMtime =
         transcriptMtime && metaMtime
           ? new Date(Math.max(transcriptMtime.getTime(), metaMtime.getTime()))
           : transcriptMtime ?? metaMtime ?? new Date(0);
       return {
-        metaPath,
+        metaPath: meta.path,
         transcriptPath,
         sessionId: c.sessionId,
-        cwd,
+        cwd: meta.cwd,
         fileMtime,
         hasTranscript: transcriptPath !== null,
       };

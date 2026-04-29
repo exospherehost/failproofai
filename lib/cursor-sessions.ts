@@ -163,7 +163,12 @@ export async function parseCursorLog(
     }
 
     if (recType === "user.message" || recType === "userMessage") {
-      const text = (data.content as string) ?? (data.text as string) ?? "";
+      const text =
+        typeof data.content === "string"
+          ? data.content
+          : typeof data.text === "string"
+            ? data.text
+            : "";
       if (!text) continue;
       entries.push({
         type: "user",
@@ -183,7 +188,12 @@ export async function parseCursorLog(
     }
 
     if (recType === "assistant.message" || recType === "assistantMessage") {
-      const text = (data.content as string) ?? (data.text as string) ?? "";
+      const text =
+        typeof data.content === "string"
+          ? data.content
+          : typeof data.text === "string"
+            ? data.text
+            : "";
       if (!text) {
         entries.push({
           type: "system",
