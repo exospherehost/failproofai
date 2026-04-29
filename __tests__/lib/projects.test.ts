@@ -19,7 +19,7 @@ vi.mock("@/lib/runtime-cache", () => ({
   runtimeCache: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
 }));
 
-// Default Codex / Copilot stubs return no projects — individual tests override via mockResolvedValueOnce.
+// Default Codex / Copilot / Cursor stubs return no projects — individual tests override via mockResolvedValueOnce.
 vi.mock("@/lib/codex-projects", () => ({
   getCodexProjects: vi.fn(async () => []),
 }));
@@ -28,13 +28,19 @@ vi.mock("@/lib/copilot-projects", () => ({
   getCopilotProjects: vi.fn(async () => []),
 }));
 
+vi.mock("@/lib/cursor-projects", () => ({
+  getCursorProjects: vi.fn(async () => []),
+}));
+
 import { readdir, stat } from "fs/promises";
 import { extractSessionId, getProjectFolders, getSessionFiles, type ProjectFolder } from "@/lib/projects";
 import { getCodexProjects } from "@/lib/codex-projects";
 import { getCopilotProjects } from "@/lib/copilot-projects";
+import { getCursorProjects } from "@/lib/cursor-projects";
 
 const mockGetCodexProjects = vi.mocked(getCodexProjects);
 const mockGetCopilotProjects = vi.mocked(getCopilotProjects);
+const mockGetCursorProjects = vi.mocked(getCursorProjects);
 
 const mockReaddir = vi.mocked(readdir);
 const mockStat = vi.mocked(stat);
@@ -245,6 +251,88 @@ describe("getProjectFolders", () => {
     expect(result).toHaveLength(1);
     expect(result[0].cli).toEqual(["claude", "codex", "copilot"]);
     expect(result[0].lastModified.getTime()).toBe(copilotMtime.getTime());
+  });
+
+  it("merges Claude + Codex + Copilot + Cursor rows that share an encoded name", async () => {
+    const claudeMtime = new Date("2024-01-01T00:00:00Z");
+    const codexMtime = new Date("2025-01-01T00:00:00Z");
+    const copilotMtime = new Date("2026-03-15T00:00:00Z");
+    const cursorMtime = new Date("2026-06-15T00:00:00Z");
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-quad", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: claudeMtime } as any);
+    mockGetCodexProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-quad",
+        path: "/home/u/quad",
+        isDirectory: true,
+        lastModified: codexMtime,
+        lastModifiedFormatted: codexMtime.toISOString(),
+        cli: ["codex"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetCopilotProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-quad",
+        path: "/home/u/quad",
+        isDirectory: true,
+        lastModified: copilotMtime,
+        lastModifiedFormatted: copilotMtime.toISOString(),
+        cli: ["copilot"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetCursorProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-quad",
+        path: "/home/u/quad",
+        isDirectory: true,
+        lastModified: cursorMtime,
+        lastModifiedFormatted: cursorMtime.toISOString(),
+        cli: ["cursor"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["claude", "codex", "copilot", "cursor"]);
+    // Newest mtime wins (cursor in this case).
+    expect(result[0].lastModified.getTime()).toBe(cursorMtime.getTime());
+  });
+
+  it("includes Cursor-only projects (no matching Claude/Codex/Copilot folder)", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([] as any);
+    mockGetCursorProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-cursor-only",
+        path: "/home/u/cursor-only",
+        isDirectory: true,
+        lastModified: new Date("2026-06-15T00:00:00Z"),
+        lastModifiedFormatted: "2026-06-15T00:00:00.000Z",
+        cli: ["cursor"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["cursor"]);
+    expect(result[0].path).toBe("/home/u/cursor-only");
+  });
+
+  it("falls back gracefully when getCursorProjects rejects", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-claude", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: new Date("2026-04-01T00:00:00Z") } as any);
+    mockGetCursorProjects.mockRejectedValueOnce(new Error("scan failed"));
+
+    const result = await getProjectFolders();
+    // Claude row still surfaces even though Cursor scan blew up.
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["claude"]);
   });
 
   it("includes Copilot-only projects (no matching Claude or Codex folder)", async () => {

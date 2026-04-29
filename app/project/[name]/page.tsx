@@ -2,6 +2,8 @@
 import { Suspense } from "react";
 import { resolveProjectPath, getCachedSessionFiles, type SessionFile } from "@/lib/projects";
 import { getCachedCodexSessionsByEncodedName } from "@/lib/codex-projects";
+import { getCachedCopilotSessionsByEncodedName } from "@/lib/copilot-projects";
+import { getCachedCursorSessionsByEncodedName } from "@/lib/cursor-projects";
 import { logWarn } from "@/lib/logger";
 import { decodeFolderName } from "@/lib/paths";
 import { notFound } from "next/navigation";
@@ -23,7 +25,8 @@ interface ProjectPageProps {
 export default async function ProjectPage({ params }: ProjectPageProps) {
   const { name } = await params;
   // Resolve under ~/.claude/projects/. Validation may throw RangeError; on bad input
-  // we still want to try Codex, since a Codex-only cwd never escapes this check.
+  // we still want to try the external CLIs, since a non-Claude-only cwd never
+  // escapes this check.
   let claudeProjectPath: string | null = null;
   try {
     claudeProjectPath = resolveProjectPath(name);
@@ -39,18 +42,30 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     claudeSessions = await getCachedSessionFiles(claudeProjectPath);
   }
   // Note: decodeFolderName is lossy when cwds contain `-` (every `-` becomes `/`),
-  // so we look up Codex sessions by re-encoding each session's cwd and matching the slug.
-  const codex = await getCachedCodexSessionsByEncodedName(name);
+  // so each external CLI looks up sessions by re-encoding cwd and matching the slug.
+  const [codex, copilot, cursor] = await Promise.all([
+    getCachedCodexSessionsByEncodedName(name),
+    getCachedCopilotSessionsByEncodedName(name),
+    getCachedCursorSessionsByEncodedName(name),
+  ]);
   const codexSessions = codex.sessions;
+  const copilotSessions = copilot.sessions;
+  const cursorSessions = cursor.sessions;
 
-  if (!claudeExists && codexSessions.length === 0) {
+  if (
+    !claudeExists &&
+    codexSessions.length === 0 &&
+    copilotSessions.length === 0 &&
+    cursorSessions.length === 0
+  ) {
     notFound();
   }
 
-  // Prefer the canonical Codex cwd when available — `decodeFolderName(name)` is
-  // ambiguous for cwds containing `-` (every `-` becomes `/`). Codex transcripts
-  // record the literal cwd, so they round-trip correctly.
-  const canonicalRoot = codex.cwd ?? decodedName;
+  // Prefer a canonical cwd recovered from any external store when available —
+  // `decodeFolderName(name)` is ambiguous for cwds containing `-` (every `-`
+  // becomes `/`). Each external transcript records the literal cwd, so they
+  // round-trip correctly. First non-null wins (Codex → Copilot → Cursor).
+  const canonicalRoot = codex.cwd ?? copilot.cwd ?? cursor.cwd ?? decodedName;
 
   // Project header metadata
   let lastModified: Date | null = null;
@@ -64,18 +79,24 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       logWarn(`Failed to get stats for project ${decodedName}:`, error);
     }
   }
-  const newestCodex = codexSessions[0]?.lastModified ?? null;
-  if (newestCodex && (!lastModified || newestCodex.getTime() > lastModified.getTime())) {
-    lastModified = newestCodex;
-    lastModifiedFormatted = formatDate(newestCodex);
+  const newestExternal = [codexSessions[0], copilotSessions[0], cursorSessions[0]]
+    .filter((s): s is SessionFile => !!s)
+    .map((s) => s.lastModified)
+    .reduce<Date | null>((acc, d) => (!acc || d.getTime() > acc.getTime() ? d : acc), null);
+  if (newestExternal && (!lastModified || newestExternal.getTime() > lastModified.getTime())) {
+    lastModified = newestExternal;
+    lastModifiedFormatted = formatDate(newestExternal);
   }
 
-  const sessionFiles: SessionFile[] = [...claudeSessions, ...codexSessions].sort(
-    (a, b) => b.lastModified.getTime() - a.lastModified.getTime(),
-  );
+  const sessionFiles: SessionFile[] = [
+    ...claudeSessions,
+    ...codexSessions,
+    ...copilotSessions,
+    ...cursorSessions,
+  ].sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
 
   // Path line: prefer the Claude storage dir if present (matches existing UX);
-  // otherwise show the canonical Codex cwd.
+  // otherwise show the canonical cwd recovered from the first external store.
   const displayPath = claudeExists && claudeProjectPath ? claudeProjectPath : canonicalRoot;
 
   return (

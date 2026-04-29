@@ -179,6 +179,80 @@ export const CodexPayloads = {
 };
 
 /**
+ * Cursor Agent CLI-accurate payload factories. Cursor delivers camelCase
+ * `hook_event_name` (`preToolUse`, `beforeSubmitPrompt`, …) plus snake_case
+ * fields (`tool_name`, `tool_input`, `cwd`). The failproofai handler
+ * canonicalizes camelCase → PascalCase via CURSOR_EVENT_MAP for internal
+ * lookup. Ref: https://cursor.com/docs/hooks (Stdin Payload Schema).
+ */
+const CURSOR_SESSION_ID = "test-session-cursor-001";
+
+export const CursorPayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: CURSOR_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "preToolUse",
+        tool_name: "Bash",
+        tool_input: { command },
+      };
+    },
+    write(filePath: string, content: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: CURSOR_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "preToolUse",
+        tool_name: "Write",
+        tool_input: { file_path: filePath, content },
+      };
+    },
+    read(filePath: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: CURSOR_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "preToolUse",
+        tool_name: "Read",
+        tool_input: { file_path: filePath },
+      };
+    },
+  },
+  postToolUse: {
+    bash(command: string, output: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: CURSOR_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "postToolUse",
+        tool_name: "Bash",
+        tool_input: { command },
+        tool_output: output,
+      };
+    },
+  },
+  beforeSubmitPrompt(prompt: string, cwd: string): Record<string, unknown> {
+    return {
+      session_id: CURSOR_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "beforeSubmitPrompt",
+      prompt,
+    };
+  },
+  stop(cwd: string): Record<string, unknown> {
+    return {
+      session_id: CURSOR_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "stop",
+    };
+  },
+};
+
+/**
  * Copilot CLI-accurate payload factories. We install Copilot hooks in
  * "VS Code compatible" PascalCase mode, so Copilot delivers PascalCase
  * `hook_event_name` plus snake_case fields (the same shape Claude uses).

@@ -9,8 +9,12 @@
 - `failproofai policies --uninstall` interactive CLI selector now says "Remove Hooks" / "Choose where to remove from:" instead of "Install Hooks" / "Choose where to install:" (#236)
 - README: replace the GitHub Copilot logo with the current canonical mark and add a dark-mode variant (`copilot-light.svg` + `copilot-dark.svg` via `<picture>`); the previous SVG used outdated path data with a hard-coded black fill that rendered invisibly on GitHub's dark theme (#236)
 
+### Features
+- Add Cursor Agent CLI integration (beta) across hooks, activity dashboard, session viewer, and `/projects` listing. New `--cli cursor` flag installs into `~/.cursor/hooks.json` (user) or `<cwd>/.cursor/hooks.json` (project) using Cursor's flat-array schema with camelCase event keys (`preToolUse`, `beforeSubmitPrompt`, …); the handler canonicalizes to PascalCase via `CURSOR_EVENT_MAP` so existing builtin policies fire unchanged. The policy evaluator emits Cursor's `{permission, user_message, agent_message, additional_context, followup_message}` stdout shape. Path-protection (`isAgentInternalPath` + `isAgentSettingsFile`) covers `~/.cursor/` and `.cursor/hooks.json`. Frontend: `lib/cli-registry.ts` adds a `Cursor Agent` entry with an emerald badge; `lib/projects.ts` merges Cursor projects into `/projects`; `app/project/[name]` and `/session/[id]` extend the external-CLI fallback chain. Also ships this repo's own `.cursor/hooks.json` so contributors using Cursor get hooks active automatically (#245).
+- Project page (`/project/[name]`): list Copilot and Cursor sessions alongside Claude + Codex, mirroring the existing merge logic on the projects index. Previously the project detail view only enumerated Claude + Codex transcripts (#245).
+
 ### Docs
-- README: note that GitHub Copilot CLI testing is ongoing in the beta callout (#245)
+- README: add Cursor Agent to the supported-CLIs intro line and visual list, with light/dark logo variants (`assets/logos/cursor-light.svg` + `cursor-dark.svg`). Note that GitHub Copilot CLI testing is ongoing in the beta callout (#245).
 
 ## 0.0.9 — 2026-04-28
 

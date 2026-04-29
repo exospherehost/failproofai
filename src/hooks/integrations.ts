@@ -18,6 +18,8 @@ import {
   CODEX_EVENT_MAP,
   COPILOT_HOOK_EVENT_TYPES,
   COPILOT_HOOK_SCOPES,
+  CURSOR_HOOK_EVENT_TYPES,
+  CURSOR_HOOK_SCOPES,
   FAILPROOFAI_HOOK_MARKER,
   INTEGRATION_TYPES,
   type IntegrationType,
@@ -509,12 +511,147 @@ export const copilot: Integration = {
   },
 };
 
+// ── Cursor Agent CLI integration ───────────────────────────────────────────
+//
+// Cursor's hooks.json schema is a FLAT array of hook entries per event —
+// `{ hooks: { preToolUse: [{ command, type, timeout, ... }] } }` — without
+// the Claude-style `{ hooks: [...] }` matcher wrapper. The settings file
+// carries `version: 1` like Codex/Copilot. Differences from Claude:
+//   • Settings paths: ~/.cursor/hooks.json (user) and <cwd>/.cursor/hooks.json (project)
+//   • Event keys are camelCase (`preToolUse`, `beforeSubmitPrompt`, …); we
+//     canonicalize to PascalCase in handler.ts before policy lookup
+//   • Stdout decision shape differs (`{permission, user_message, agent_message,
+//     additional_context}`); the Cursor branch in policy-evaluator.ts emits it
+//   • No "local" scope
+//   • Detected via the `cursor-agent` binary (preferred) or `agent` (legacy alias)
+//
+// Ref: https://cursor.com/docs/hooks (Schema section).
+
+interface CursorSettingsFile {
+  version?: number;
+  /** Flat array of hook entries per event — NOT wrapped in `{ hooks: [...] }`. */
+  hooks?: Record<string, Array<ClaudeHookEntry | Record<string, unknown>>>;
+  [key: string]: unknown;
+}
+
+export const cursor: Integration = {
+  id: "cursor",
+  displayName: "Cursor Agent",
+  scopes: CURSOR_HOOK_SCOPES,
+  eventTypes: CURSOR_HOOK_EVENT_TYPES,
+
+  getSettingsPath(scope, cwd) {
+    const base = cwd ? resolve(cwd) : process.cwd();
+    switch (scope) {
+      case "user":
+        return resolve(homedir(), ".cursor", "hooks.json");
+      case "project":
+        return resolve(base, ".cursor", "hooks.json");
+      case "local":
+        // Cursor has no "local" scope; CLI rejects --cli cursor --scope local
+        // before reaching here, but fall back to project so callers don't crash.
+        return resolve(base, ".cursor", "hooks.json");
+    }
+  },
+
+  readSettings(settingsPath) {
+    const raw = readJsonFile(settingsPath);
+    if (raw.version === undefined) raw.version = 1;
+    return raw;
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeJsonFile(settingsPath, settings);
+  },
+
+  buildHookEntry(binaryPath, eventType, scope) {
+    const command =
+      scope === "project"
+        ? `npx -y failproofai --hook ${eventType} --cli cursor`
+        : `"${binaryPath}" --hook ${eventType} --cli cursor`;
+    // `timeout` is documented as ms in Cursor's schema (matches Claude).
+    return {
+      type: "command",
+      command,
+      timeout: 60_000,
+      [FAILPROOFAI_HOOK_MARKER]: true,
+    };
+  },
+
+  isFailproofaiHook: isMarkedHook,
+
+  writeHookEntries(settings, binaryPath, scope) {
+    const s = settings as CursorSettingsFile;
+    if (s.version === undefined) s.version = 1;
+    if (!s.hooks) s.hooks = {};
+
+    for (const eventType of CURSOR_HOOK_EVENT_TYPES) {
+      const hookEntry = this.buildHookEntry(binaryPath, eventType, scope) as unknown as ClaudeHookEntry;
+      const existing = s.hooks[eventType];
+      const entries: Array<ClaudeHookEntry | Record<string, unknown>> = existing ?? [];
+      if (!existing) s.hooks[eventType] = entries;
+
+      // Idempotent: replace an existing failproofai-marked entry; otherwise append.
+      const idx = entries.findIndex((h) => isMarkedHook(h as Record<string, unknown>));
+      if (idx >= 0) {
+        entries[idx] = hookEntry;
+      } else {
+        entries.push(hookEntry);
+      }
+    }
+  },
+
+  removeHooksFromFile(settingsPath) {
+    const settings = this.readSettings(settingsPath) as CursorSettingsFile;
+    if (!settings.hooks) return 0;
+
+    let removed = 0;
+    for (const eventType of Object.keys(settings.hooks)) {
+      const entries = settings.hooks[eventType];
+      if (!Array.isArray(entries)) continue;
+      const before = entries.length;
+      const filtered = entries.filter((h) => !isMarkedHook(h as Record<string, unknown>));
+      removed += before - filtered.length;
+      if (filtered.length === 0) {
+        delete settings.hooks[eventType];
+      } else {
+        settings.hooks[eventType] = filtered;
+      }
+    }
+    if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
+
+    this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const settings = this.readSettings(settingsPath) as CursorSettingsFile;
+      if (!settings.hooks) return false;
+      for (const entries of Object.values(settings.hooks)) {
+        if (!Array.isArray(entries)) continue;
+        if (entries.some((h) => isMarkedHook(h as Record<string, unknown>))) return true;
+      }
+    } catch {
+      // Corrupt settings — treat as not installed
+    }
+    return false;
+  },
+
+  detectInstalled() {
+    return binaryExists("cursor-agent") || binaryExists("agent");
+  },
+};
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 const INTEGRATIONS: Record<IntegrationType, Integration> = {
   claude: claudeCode,
   codex,
   copilot,
+  cursor,
 };
 
 export function getIntegration(id: IntegrationType): Integration {

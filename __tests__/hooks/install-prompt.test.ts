@@ -119,7 +119,7 @@ describe("hooks/install-prompt", () => {
         );
         return {
           ...actual,
-          detectInstalledClis: () => ["claude", "codex", "copilot"],
+          detectInstalledClis: () => ["claude", "codex", "copilot", "cursor"],
         };
       });
       vi.resetModules();
@@ -128,8 +128,8 @@ describe("hooks/install-prompt", () => {
       const uninstallResult = await resolveTargetClis(undefined, "uninstall");
       vi.doUnmock("../../src/hooks/integrations");
       vi.resetModules();
-      expect(installResult).toEqual(["claude", "codex", "copilot"]);
-      expect(uninstallResult).toEqual(["claude", "codex", "copilot"]);
+      expect(installResult).toEqual(["claude", "codex", "copilot", "cursor"]);
+      expect(uninstallResult).toEqual(["claude", "codex", "copilot", "cursor"]);
     });
   });
 });

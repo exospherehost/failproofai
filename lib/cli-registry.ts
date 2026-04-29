@@ -5,9 +5,10 @@
  * This module is **client-safe** — it only exports plain string metadata. The
  * server-side project / session providers live in their own files
  * (`lib/codex-projects.ts`, `lib/codex-sessions.ts`, `lib/copilot-projects.ts`,
- * `lib/copilot-sessions.ts`) and are imported lazily by `lib/projects.ts` and
- * the session viewer page so Turbopack doesn't drag Node-only deps
- * (`fs/promises`, `os`) into client bundles.
+ * `lib/copilot-sessions.ts`, `lib/cursor-projects.ts`, `lib/cursor-sessions.ts`)
+ * and are imported lazily by `lib/projects.ts` and the session viewer page so
+ * Turbopack doesn't drag Node-only deps (`fs/promises`, `os`) into client
+ * bundles.
  *
  * Adding a new agent CLI = three steps:
  *   1. Extend `INTEGRATION_TYPES` in `src/hooks/types.ts` (server-side hook contract).
@@ -24,7 +25,7 @@
 import type { IntegrationType } from "@/src/hooks/types";
 
 /** Canonical CLI ids the registry knows about. Mirrors `INTEGRATION_TYPES`. */
-export const KNOWN_CLI_IDS = ["claude", "codex", "copilot"] as const satisfies readonly IntegrationType[];
+export const KNOWN_CLI_IDS = ["claude", "codex", "copilot", "cursor"] as const satisfies readonly IntegrationType[];
 export type CliId = (typeof KNOWN_CLI_IDS)[number];
 
 /** Per-CLI metadata consumed by the dashboard. */
@@ -50,6 +51,11 @@ const CLI_ENTRIES: Record<CliId, CliEntry> = {
     id: "copilot",
     label: "GitHub Copilot",
     badgeClasses: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  },
+  cursor: {
+    id: "cursor",
+    label: "Cursor Agent",
+    badgeClasses: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
   },
 };
 

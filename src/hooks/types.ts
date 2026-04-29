@@ -5,7 +5,7 @@
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude", "codex", "copilot"] as const;
+export const INTEGRATION_TYPES = ["claude", "codex", "copilot", "cursor"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CODEX_HOOK_SCOPES = ["user", "project"] as const;
@@ -54,6 +54,43 @@ export const COPILOT_HOOK_EVENT_TYPES = [
   "Stop",
 ] as const;
 export type CopilotHookEventType = (typeof COPILOT_HOOK_EVENT_TYPES)[number];
+
+// ── Cursor Agent CLI ───────────────────────────────────────────────────────
+//
+// Cursor delivers events under camelCase keys (`preToolUse`, `postToolUse`,
+// `beforeSubmitPrompt`, …) per https://cursor.com/docs/hooks. The handler
+// maps each one to the PascalCase canonical form via CURSOR_EVENT_MAP before
+// looking up policies. We install the same 6-event parity set as Copilot so
+// every existing builtin policy fires; Cursor-specific events
+// (`beforeShellExecution`, `afterFileEdit`, `subagentStart`, …) can be added
+// later without touching the handler.
+//
+// Settings paths:
+//   user    → ~/.cursor/hooks.json
+//   project → <cwd>/.cursor/hooks.json
+// Settings file carries `version: 1` like Codex/Copilot.
+
+export const CURSOR_HOOK_SCOPES = ["user", "project"] as const;
+export type CursorHookScope = (typeof CURSOR_HOOK_SCOPES)[number];
+
+export const CURSOR_HOOK_EVENT_TYPES = [
+  "sessionStart",
+  "sessionEnd",
+  "beforeSubmitPrompt",
+  "preToolUse",
+  "postToolUse",
+  "stop",
+] as const;
+export type CursorHookEventType = (typeof CURSOR_HOOK_EVENT_TYPES)[number];
+
+export const CURSOR_EVENT_MAP: Record<CursorHookEventType, HookEventType> = {
+  sessionStart: "SessionStart",
+  sessionEnd: "SessionEnd",
+  beforeSubmitPrompt: "UserPromptSubmit",
+  preToolUse: "PreToolUse",
+  postToolUse: "PostToolUse",
+  stop: "Stop",
+};
 
 export const HOOK_EVENT_TYPES = [
   "SessionStart",
@@ -107,7 +144,7 @@ export interface SessionMetadata {
   cwd?: string;
   permissionMode?: string;
   hookEventName?: string;
-  /** Which agent CLI fired this hook (claude | codex | copilot). Set by handler.ts from --cli. */
+  /** Which agent CLI fired this hook (claude | codex | copilot | cursor). Set by handler.ts from --cli. */
   cli?: IntegrationType;
 }
 

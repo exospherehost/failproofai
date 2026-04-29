@@ -119,13 +119,36 @@ export async function evaluatePolicies(
       hookLogInfo(`deny by "${policy.name}": ${reason}`);
 
       const displayTool = ctx.toolName ?? "unknown tool";
+      const blockedMessage = `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`;
+
+      // Cursor's hook protocol expects a flat `{permission, user_message,
+      // agent_message}` shape for any blocking decision, regardless of which
+      // event triggered it. Branch ahead of the per-event handlers below so
+      // PreToolUse / PostToolUse / PermissionRequest all flow through the
+      // Cursor-shaped response.
+      // Ref: https://cursor.com/docs/hooks (Stdout Response Format).
+      if (session?.cli === "cursor") {
+        const response = {
+          permission: "deny",
+          user_message: blockedMessage,
+          agent_message: blockedMessage,
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(response),
+          stderr: "",
+          policyName: policy.name,
+          reason,
+          decision: "deny",
+        };
+      }
 
       if (eventType === "PreToolUse") {
         const response = {
           hookSpecificOutput: {
             hookEventName: eventType,
             permissionDecision: "deny",
-            permissionDecisionReason: `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`,
+            permissionDecisionReason: blockedMessage,
           },
         };
         return {
@@ -188,7 +211,7 @@ export async function evaluatePolicies(
         };
       }
 
-      // Other event types: exit 2
+      // Other event types (Cursor case already handled above): exit 2
       return {
         exitCode: 2,
         stdout: "",
@@ -219,6 +242,40 @@ export async function evaluatePolicies(
   if (instructEntries.length > 0) {
     const combined = instructEntries.map((e) => e.reason).join("\n");
     const policyNames = instructEntries.map((e) => e.policyName);
+
+    // Cursor's hook protocol uses a flat `{permission, additional_context}`
+    // shape for non-Stop and `{followup_message}` for Stop/SubagentStop.
+    // Branch first so the rest of the function only handles Claude-shaped
+    // responses. Ref: https://cursor.com/docs/hooks (Stdout Response Format).
+    if (session?.cli === "cursor") {
+      if (eventType === "Stop") {
+        const response = {
+          followup_message: `Instruction from failproofai: ${combined}`,
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(response),
+          stderr: "",
+          policyName: policyNames[0],
+          policyNames,
+          reason: combined,
+          decision: "instruct",
+        };
+      }
+      const response = {
+        permission: "allow",
+        additional_context: `Instruction from failproofai: ${combined}`,
+      };
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(response),
+        stderr: "",
+        policyName: policyNames[0],
+        policyNames,
+        reason: combined,
+        decision: "instruct",
+      };
+    }
 
     if (eventType === "Stop") {
       // Stop hook: exitCode 2 blocks Claude from stopping.
@@ -258,6 +315,28 @@ export async function evaluatePolicies(
   if (allowEntries.length > 0) {
     const combined = allowEntries.map((e) => e.reason).join("\n");
     const policyNames = allowEntries.map((e) => e.policyName);
+
+    // Cursor: emit the flat shape; allow-with-info maps to
+    // `{permission: "allow", additional_context}`.
+    if (session?.cli === "cursor") {
+      const response = {
+        permission: "allow",
+        additional_context: `Note from failproofai: ${combined}`,
+      };
+      const stderrMsg = allowEntries
+        .map((e) => `[failproofai] ${e.policyName}: ${e.reason}`)
+        .join("\n");
+      return {
+        exitCode: 0,
+        stdout: JSON.stringify(response),
+        stderr: stderrMsg + "\n",
+        policyName: policyNames[0],
+        policyNames,
+        reason: combined,
+        decision: "allow",
+      };
+    }
+
     const supportsHookSpecificOutput =
       eventType === "PreToolUse" ||
       eventType === "PostToolUse" ||

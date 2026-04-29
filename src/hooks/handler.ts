@@ -5,8 +5,14 @@
  * ~/.failproofai/policies-config.json, evaluates matching policies, persists
  * activity to disk, and returns the appropriate exit code + stdout response.
  */
-import type { HookEventType, IntegrationType, SessionMetadata, CodexHookEventType } from "./types";
-import { CODEX_EVENT_MAP } from "./types";
+import type {
+  HookEventType,
+  IntegrationType,
+  SessionMetadata,
+  CodexHookEventType,
+  CursorHookEventType,
+} from "./types";
+import { CODEX_EVENT_MAP, CURSOR_EVENT_MAP } from "./types";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
 import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
@@ -22,14 +28,19 @@ import { hookLogInfo, hookLogWarn } from "./hook-logger";
 
 /**
  * Canonicalize an event name to PascalCase. Codex sends snake_case event names
- * on stdin and as the --hook arg; Claude Code sends PascalCase. Copilot CLI is
- * installed in "VS Code compatible" PascalCase mode (see integrations.ts), so
- * its events arrive PascalCase already. The internal registry, builtin
- * policies, and policy.match.events all key on PascalCase.
+ * on stdin and as the --hook arg; Cursor sends camelCase (`preToolUse`,
+ * `beforeSubmitPrompt`); Claude Code sends PascalCase. Copilot CLI is installed
+ * in "VS Code compatible" PascalCase mode (see integrations.ts), so its events
+ * arrive PascalCase already. The internal registry, builtin policies, and
+ * policy.match.events all key on PascalCase.
  */
 function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType {
   if (cli === "codex") {
     const mapped = CODEX_EVENT_MAP[raw as CodexHookEventType];
+    if (mapped) return mapped;
+  }
+  if (cli === "cursor") {
+    const mapped = CURSOR_EVENT_MAP[raw as CursorHookEventType];
     if (mapped) return mapped;
   }
   // claude / copilot / unknown — already PascalCase, pass through.
