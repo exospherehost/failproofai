@@ -7,6 +7,7 @@
 
 ### Fixes
 - `failproofai policies --uninstall` interactive CLI selector now says "Remove Hooks" / "Choose where to remove from:" instead of "Install Hooks" / "Choose where to install:" (#236)
+- README: replace the GitHub Copilot logo with the current canonical mark and add a dark-mode variant (`copilot-light.svg` + `copilot-dark.svg` via `<picture>`); the previous SVG used outdated path data with a hard-coded black fill that rendered invisibly on GitHub's dark theme (#236)
 
 ## 0.0.9 — 2026-04-28
 
