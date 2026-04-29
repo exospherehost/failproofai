@@ -13,7 +13,7 @@
  * present in multiple stores naturally produces the same `name` and merges in
  * `lib/projects.ts`.
  */
-import { open, readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { encodeFolderName } from "./paths";
@@ -63,15 +63,10 @@ function parseCwdFromWorkspace(text: string): string | undefined {
 }
 
 async function statMtime(path: string): Promise<Date | null> {
-  let fh: Awaited<ReturnType<typeof open>> | null = null;
   try {
-    fh = await open(path, "r");
-    const stat = await fh.stat();
-    return stat.mtime;
+    return (await stat(path)).mtime;
   } catch {
     return null;
-  } finally {
-    if (fh) await fh.close().catch(() => {});
   }
 }
 

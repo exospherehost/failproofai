@@ -151,13 +151,9 @@ interface CopilotToolResult {
   detailedContent?: string;
 }
 
-interface CopilotToolToolTelemetry {
+interface CopilotToolTelemetry {
   metrics?: { commandTimeMs?: number; durationMs?: number };
   properties?: Record<string, unknown>;
-}
-
-function getMs(date: Date): number {
-  return date.getTime();
 }
 
 /**
@@ -260,7 +256,7 @@ export async function parseCopilotLog(
       const callId = data.toolCallId as string | undefined;
       const name = (data.toolName as string) ?? "tool";
       const args = (data.arguments as Record<string, unknown>) ?? {};
-      const id = callId ?? `${getMs(date)}-${name}`;
+      const id = callId ?? `${date.getTime()}-${name}`;
       const toolUse: ToolUseBlock = {
         type: "tool_use",
         id,
@@ -275,7 +271,7 @@ export async function parseCopilotLog(
       entries.push(entry);
       if (callId) {
         toolUseById.set(callId, toolUse);
-        toolUseStartMs.set(callId, getMs(date));
+        toolUseStartMs.set(callId, date.getTime());
       }
       continue;
     }
@@ -284,15 +280,15 @@ export async function parseCopilotLog(
       const callId = data.toolCallId as string | undefined;
       const block = callId ? toolUseById.get(callId) : undefined;
       if (block) {
-        const startMs = toolUseStartMs.get(callId!) ?? getMs(date);
+        const startMs = toolUseStartMs.get(callId!) ?? date.getTime();
         const result = (data.result as CopilotToolResult | undefined) ?? {};
-        const telemetry = (data.toolTelemetry as CopilotToolToolTelemetry | undefined) ?? {};
+        const telemetry = (data.toolTelemetry as CopilotToolTelemetry | undefined) ?? {};
         const reportedMs =
           telemetry.metrics?.commandTimeMs ?? telemetry.metrics?.durationMs ?? null;
         const durationMs =
           typeof reportedMs === "number" && reportedMs >= 0
             ? reportedMs
-            : Math.max(0, getMs(date) - startMs);
+            : Math.max(0, date.getTime() - startMs);
         const content = result.detailedContent ?? result.content ?? "";
         block.result = {
           timestamp,
