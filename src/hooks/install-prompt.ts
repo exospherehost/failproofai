@@ -30,8 +30,13 @@ export interface PromptOptions {
   includeBeta?: boolean;
 }
 
+/** Whether the prompt is being shown for an install or an uninstall flow.
+ *  Drives heading + hint text so `policies --uninstall` no longer says
+ *  "Install Hooks". */
+export type CliPromptAction = "install" | "uninstall";
+
 /**
- * Resolve which agent CLIs to install hooks for.
+ * Resolve which agent CLIs to install/uninstall hooks for.
  *
  * Rules:
  *   • If `explicit` is provided (from `--cli`), use it as-is.
@@ -42,12 +47,24 @@ export interface PromptOptions {
  *
  * Returns the selected IntegrationType[] (always non-empty).
  */
-export async function resolveTargetClis(explicit?: IntegrationType[]): Promise<IntegrationType[]> {
+export async function resolveTargetClis(
+  explicit?: IntegrationType[],
+  action: CliPromptAction = "install",
+): Promise<IntegrationType[]> {
   if (explicit && explicit.length > 0) return [...new Set(explicit)];
 
   const detected = detectInstalledClis();
 
   if (detected.length === 0) {
+    if (action === "uninstall") {
+      // Uninstall flow: no agent CLIs detected — nothing to remove from. Default to
+      // claude so removeHooks operates over Claude's scopes (no-op if no settings file).
+      console.log(
+        "\x1B[33mWarning: no agent CLI binary found in PATH (claude, codex, copilot). " +
+          "Defaulting to Claude Code; nothing will be removed if no settings file exists.\x1B[0m",
+      );
+      return ["claude"];
+    }
     console.log(
       "\x1B[33mWarning: no agent CLI binary found in PATH (claude, codex, copilot). " +
         "Defaulting to Claude Code; hooks will activate when an agent is installed.\x1B[0m",
@@ -57,22 +74,24 @@ export async function resolveTargetClis(explicit?: IntegrationType[]): Promise<I
 
   if (detected.length === 1) {
     const integration = getIntegration(detected[0]);
-    console.log(`Detected ${integration.displayName}; installing hooks for it.`);
+    const verb = action === "uninstall" ? "removing hooks from" : "installing hooks for";
+    console.log(`Detected ${integration.displayName}; ${verb} it.`);
     return detected;
   }
 
   // Multiple detected. Prompt or default.
-  if (!process.stdin.isTTY) return detected; // non-interactive: install for all detected
+  if (!process.stdin.isTTY) return detected; // non-interactive: install/remove for all detected
 
-  return promptCliTargetSelection(detected);
+  return promptCliTargetSelection(detected, action);
 }
 
 /**
- * Interactive arrow-key single-select for "install for which CLI?" when
+ * Interactive arrow-key single-select for "install/remove for which CLI?" when
  * multiple agent CLIs are detected. Visual style mirrors promptPolicySelection.
  */
 async function promptCliTargetSelection(
   detected: IntegrationType[],
+  action: CliPromptAction = "install",
 ): Promise<IntegrationType[]> {
   const labels = detected.map((id) => getIntegration(id).displayName).join(" + ");
   const allLabel = detected.length > 2 ? "All" : "Both";
@@ -123,14 +142,17 @@ async function promptCliTargetSelection(
     return result;
   }
 
+  const heading = action === "uninstall" ? "Remove Hooks" : "Install Hooks";
+  const verb = action === "uninstall" ? "remove from" : "install";
+
   function render(): void {
     const cols = process.stdout.columns || 120;
     hideCursor();
 
     const lines: string[] = [];
-    lines.push("  Failproof AI — Install Hooks");
+    lines.push(`  Failproof AI — ${heading}`);
     lines.push("");
-    lines.push(`  \x1B[2mDetected ${labels}. Choose where to install:\x1B[0m`);
+    lines.push(`  \x1B[2mDetected ${labels}. Choose where to ${verb}:\x1B[0m`);
     lines.push("");
 
     for (let i = 0; i < options.length; i++) {

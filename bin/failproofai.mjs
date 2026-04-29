@@ -295,7 +295,10 @@ EXAMPLES
         : customPoliciesPath !== undefined ? []
         : undefined;
 
-      const cli = await resolveTargetClis(cliFlagValues.length > 0 ? cliFlagValues : undefined);
+      const cli = await resolveTargetClis(
+        cliFlagValues.length > 0 ? cliFlagValues : undefined,
+        "install",
+      );
 
       await installHooks(
         policyNames,
@@ -361,7 +364,10 @@ EXAMPLES
         (a, idx) => !a.startsWith("-") && !consumedIdxs.has(idx)
       );
 
-      const cli = await resolveTargetClis(cliFlagValues.length > 0 ? cliFlagValues : undefined);
+      const cli = await resolveTargetClis(
+        cliFlagValues.length > 0 ? cliFlagValues : undefined,
+        "uninstall",
+      );
 
       await removeHooks(
         policyNames.length > 0 ? policyNames : undefined,

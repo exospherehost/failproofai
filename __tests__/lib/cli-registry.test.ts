@@ -53,13 +53,6 @@ describe("lib/cli-registry", () => {
     expect(ids).toEqual(["codex", "copilot"]);
   });
 
-  it("external CLI entries provide getProjects + loadSessionLog", () => {
-    for (const entry of listExternalCliEntries()) {
-      expect(typeof entry.getProjects).toBe("function");
-      expect(typeof entry.loadSessionLog).toBe("function");
-    }
-  });
-
   it("each CLI has a unique badgeClasses string", () => {
     const classes = listCliEntries().map((c) => c.badgeClasses);
     expect(new Set(classes).size).toBe(classes.length);

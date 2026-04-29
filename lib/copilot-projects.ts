@@ -14,14 +14,23 @@
  * `lib/projects.ts`.
  */
 import { open, readdir, readFile } from "fs/promises";
+import { homedir } from "os";
 import { join } from "path";
 import { encodeFolderName } from "./paths";
-import { getCopilotSessionStateRoot } from "./copilot-sessions";
 import type { ProjectFolder, SessionFile } from "./projects";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
 import { formatDate } from "./format-date";
 import { logWarn } from "./logger";
+
+/** Inlined to avoid cross-module imports from `lib/copilot-sessions.ts` —
+ *  keeping the dep tree independent prevents Turbopack from tracing
+ *  Node-only modules (`fs/promises`, `os`) into the client bundle when the
+ *  session viewer page statically imports `copilot-sessions`. Mirrors the
+ *  pattern in `lib/codex-projects.ts`. */
+function getCopilotSessionStateRoot(): string {
+  return join(process.env.COPILOT_HOME || join(homedir(), ".copilot"), "session-state");
+}
 
 interface CopilotSessionMeta {
   workspacePath: string;
