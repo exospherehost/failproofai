@@ -23,6 +23,7 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import type { IntegrationType } from "./types";
 
 export const PAGE_SIZE = 25;
 
@@ -61,6 +62,7 @@ export interface HookActivityFilters {
   eventType?: string;
   policyName?: string;
   sessionId?: string;
+  integration?: IntegrationType;
 }
 
 export interface HookActivityStats {
@@ -281,6 +283,7 @@ export function searchHookActivity(
     ) {
       return false;
     }
+    if (filters.integration && entry.integration !== filters.integration) return false;
     return true;
   });
 

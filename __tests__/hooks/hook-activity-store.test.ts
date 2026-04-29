@@ -141,6 +141,20 @@ describe("hooks/hook-activity-store", () => {
       expect(result.entries[0].policyName).toBe("block-sudo");
     });
 
+    it("filters by integration (cli)", () => {
+      persistHookActivity(makeEntry({ integration: "claude", policyName: "claude-only" }));
+      persistHookActivity(makeEntry({ integration: "codex", policyName: "codex-only" }));
+      persistHookActivity(makeEntry({ integration: "codex", policyName: "codex-other" }));
+
+      const codex = searchHookActivity({ integration: "codex" }, 1);
+      expect(codex.entries).toHaveLength(2);
+      expect(codex.entries.every((e) => e.integration === "codex")).toBe(true);
+
+      const claude = searchHookActivity({ integration: "claude" }, 1);
+      expect(claude.entries).toHaveLength(1);
+      expect(claude.entries[0].policyName).toBe("claude-only");
+    });
+
     it("paginates filtered results", () => {
       // Add many entries to test pagination
       for (let i = 0; i < PAGE_SIZE + 5; i++) {
