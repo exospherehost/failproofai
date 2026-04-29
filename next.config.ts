@@ -1,8 +1,9 @@
 import type { NextConfig } from "next";
-import { readFileSync } from "fs";
-import { join } from "path";
-
-const pkg = JSON.parse(readFileSync(join(__dirname, "package.json"), "utf-8"));
+// Static import (instead of `readFileSync(join(__dirname, "package.json"))`)
+// keeps Turbopack's Node File Tracer from flagging this file as doing
+// dynamic filesystem work, which produced an "Encountered unexpected file
+// in NFT list" warning during `bun run build`.
+import pkg from "./package.json";
 
 const allowedDevOrigins = process.env.FAILPROOFAI_ALLOWED_DEV_ORIGINS
   ? process.env.FAILPROOFAI_ALLOWED_DEV_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
