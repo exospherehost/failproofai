@@ -47,7 +47,7 @@ The easiest way to manage policies that keep your AI agents reliable, on-task, a
   <strong>+ more coming soon</strong>
 </p>
 
-> Install hooks for one, two, or all three: `failproofai policies --install --cli copilot` (or `--cli claude codex copilot`). Omit `--cli` to auto-detect installed CLIs and prompt. **GitHub Copilot CLI support is in beta.**
+> Install hooks for one, two, or all three: `failproofai policies --install --cli copilot` (or `--cli claude codex copilot`). Omit `--cli` to auto-detect installed CLIs and prompt. **GitHub Copilot CLI support is in beta — testing is ongoing.**
 
 - **39 Built-in Policies** - Catch common agent failure modes out of the box. Block destructive commands, prevent secret leakage, keep agents inside project boundaries, detect loops, and more.
 - **Custom Policies** - Write your own reliability rules in JavaScript. Use the `allow`/`deny`/`instruct` API to enforce conventions, prevent drift, gate operations, or integrate with external systems.
