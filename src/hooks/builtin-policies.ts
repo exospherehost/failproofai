@@ -664,10 +664,16 @@ const READ_LIKE_CMDS =
  * This catches `cat "/etc/passwd"` while avoiding false positives from grep
  * patterns and find glob patterns that appear in later pipeline stages.
  * Unquoted absolute paths are extracted from the whole command as before.
+ *
+ * The negative lookbehind also excludes glob metacharacters ('*', '?') and
+ * separator characters that appear in compound argv tokens (':' for Docker
+ * volume mounts and PATH-like lists, '=' for env var assignments) so that a
+ * suffix like '/dashboard.mdx' in 'docs/STAR/dashboard.mdx' or '/docs' in
+ * '-v HOST_DIR:/docs' is not misread as a standalone absolute path.
  */
 function extractAbsolutePaths(command: string): string[] {
   const paths: string[] = [];
-  const pathRe = /(?<![a-zA-Z0-9_.\-~\\])(?:~\/[^\s;|&"'()\[\]{}]*|~(?=\s|$|[;|&"'()\[\]{}])|\/[^\s;|&"'()\[\]{}]*)/g;
+  const pathRe = /(?<![a-zA-Z0-9_.\-~\\*?:=])(?:~\/[^\s;|&"'()\[\]{}]*|~(?=\s|$|[;|&"'()\[\]{}])|\/[^\s;|&"'()\[\]{}]*)/g;
 
   function addPaths(s: string): void {
     pathRe.lastIndex = 0;
