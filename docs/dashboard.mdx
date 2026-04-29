@@ -24,11 +24,11 @@ The dashboard reads directly from the filesystem - your Claude Code project fold
 
 ### Projects
 
-Lists all Claude Code projects found on your machine. Projects are discovered from `~/.claude/projects/` (or the path set by `CLAUDE_PROJECTS_PATH`).
+Lists all Claude Code and OpenAI Codex projects found on your machine. Claude projects are discovered from `~/.claude/projects/` (or the path set by `CLAUDE_PROJECTS_PATH`); Codex projects are discovered by scanning every transcript under `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` and grouping by the `cwd` recorded in each session's first record. A project that has been used by both CLIs renders as a single row.
 
 Each project shows:
 - Project name (derived from the folder path)
-- Number of sessions
+- A CLI badge — `Claude Code` (orange) and/or `OpenAI Codex` (purple)
 - Date of most recent session activity
 
 Click a project to see its sessions.
