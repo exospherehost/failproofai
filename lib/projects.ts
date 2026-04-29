@@ -11,7 +11,7 @@ import { getClaudeProjectsPath } from "./paths";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
 import { logWarn, logError } from "./logger";
-import { formatDate } from "./utils";
+import { formatDate } from "./format-date";
 
 export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;

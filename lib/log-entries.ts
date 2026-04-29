@@ -5,7 +5,7 @@ import { resolveProjectPath } from "./projects";
 import { resolveSubagentPath } from "./resolve-subagent-path";
 import { runtimeCache } from "./runtime-cache";
 import { batchAll } from "./concurrency";
-import { formatDate } from "./utils";
+import { formatDate } from "./format-date";
 import { formatDuration } from "./format-duration";
 
 // ── Source Tagging ──
