@@ -1,14 +1,14 @@
 ---
 title: Bảng điều khiển
-description: "Theo dõi phiên làm việc của agent, xem xét các lệnh gọi công cụ và quản lý chính sách"
+description: "Giám sát các phiên làm việc của agent, xem lại các lệnh gọi công cụ và quản lý chính sách"
 icon: chart-line
 ---
 
-Bảng điều khiển failproofai là một ứng dụng web cục bộ để theo dõi các phiên làm việc của agent AI và quản lý chính sách. Xem những gì các agent của bạn đã làm trong khi bạn vắng mặt.
+Bảng điều khiển failproofai là một ứng dụng web cục bộ để giám sát các phiên làm việc của agent AI của bạn và quản lý chính sách. Xem những gì các agent của bạn đã làm trong khi bạn vắng mặt.
 
 ---
 
-## Khởi động bảng điều khiển
+## Bắt đầu bảng điều khiển
 
 ```bash
 failproofai
@@ -16,7 +16,7 @@ failproofai
 
 Mở tại `http://localhost:8020`.
 
-Bảng điều khiển đọc trực tiếp từ hệ thống tệp - các thư mục dự án Claude Code và các tệp cấu hình failproofai của bạn. Không có gì được ghi vào dịch vụ từ xa.
+Bảng điều khiển đọc trực tiếp từ hệ thống tệp - các thư mục dự án Claude Code của bạn và các tệp cấu hình failproofai. Không có dữ liệu nào được ghi vào dịch vụ từ xa.
 
 ---
 
@@ -24,21 +24,21 @@ Bảng điều khiển đọc trực tiếp từ hệ thống tệp - các thư 
 
 ### Dự án
 
-Liệt kê tất cả các dự án Claude Code được tìm thấy trên máy của bạn. Các dự án được phát hiện từ `~/.claude/projects/` (hoặc đường dẫn được đặt bởi `CLAUDE_PROJECTS_PATH`).
+Liệt kê tất cả các dự án Claude Code và OpenAI Codex được tìm thấy trên máy của bạn. Các dự án Claude được khám phá từ `~/.claude/projects/` (hoặc đường dẫn được đặt bởi `CLAUDE_PROJECTS_PATH`); các dự án Codex được khám phá bằng cách quét mỗi bản ghi dưới `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` và nhóm theo `cwd` được ghi lại trong bản ghi đầu tiên của mỗi phiên. Một dự án đã được sử dụng bởi cả hai CLI sẽ hiển thị dưới dạng một hàng duy nhất.
 
 Mỗi dự án hiển thị:
-- Tên dự án (được lấy từ đường dẫn thư mục)
-- Số lượng phiên làm việc
-- Ngày hoạt động phiên gần đây nhất
+- Tên dự án (dựa trên đường dẫn thư mục)
+- Một huy hiệu CLI — `Claude Code` (cam) và/hoặc `OpenAI Codex` (tím)
+- Ngày của hoạt động phiên gần đây nhất
 
-Nhấp vào một dự án để xem các phiên làm việc của nó.
+Nhấp vào một dự án để xem các phiên của nó.
 
-### Phiên làm việc
+### Phiên
 
-Liệt kê tất cả các phiên làm việc trong một dự án. Mỗi phiên hiển thị:
+Liệt kê tất cả các phiên trong một dự án. Mỗi phiên hiển thị:
 - ID phiên
 - Dấu thời gian bắt đầu và kết thúc
-- Số lượng lệnh gọi công cụ
+- Số lệnh gọi công cụ
 - Số lượng hoạt động hook (chính sách đã kích hoạt)
 
 Sử dụng bộ lọc phạm vi ngày và tìm kiếm ID phiên để thu hẹp danh sách. Các phiên được phân trang.
@@ -47,32 +47,32 @@ Nhấp vào một phiên để mở trình xem phiên.
 
 ### Trình xem phiên
 
-Trình xem phiên trả lời câu hỏi chính cho các agent tự động: agent đã làm gì, và nó có ở đúng vị trí không? Nó hiển thị một dòng thời gian của mọi thứ xảy ra trong một phiên:
+Trình xem phiên trả lời câu hỏi chính cho các agent tự chủ: agent đã làm gì, và nó có ở lại đúng hướng không? Một huy hiệu CLI bên cạnh tiêu đề cho biết phiên là Claude Code hay bản ghi OpenAI Codex. Nó hiển thị một dòng thời gian của mọi thứ đã xảy ra trong một phiên:
 
-- **Tin nhắn** - Các phản hồi văn bản của Claude và nhắc nhở của người dùng
-- **Lệnh gọi công cụ** - Mọi công cụ mà Claude đã gọi, cùng với đầu vào và đầu ra của nó
-- **Hoạt động chính sách** - Cho mỗi lệnh gọi công cụ, những chính sách nào đã kích hoạt và quyết định nào mà chúng trả về
+- **Tin nhắn** - Các phản hồi văn bản của Claude và các lời nhắc của người dùng
+- **Lệnh gọi công cụ** - Mỗi công cụ mà Claude đã gọi, với đầu vào và đầu ra của nó
+- **Hoạt động chính sách** - Đối với mỗi lệnh gọi công cụ, chính sách nào đã kích hoạt và quyết định nào mà chúng trả về
 
-Thanh thống kê ở trên cùng hiển thị thời lượng phiên, tổng số lệnh gọi công cụ và tóm tắt các quyết định hook (số lượng cho phép / từ chối / hướng dẫn).
+Thanh thống kê ở phía trên cùng hiển thị thời lượng phiên, tổng số lệnh gọi công cụ và tóm tắt các quyết định hook (cho phép / từ chối / số lượng chỉ dẫn).
 
 Bạn có thể xuất phiên dưới dạng tệp ZIP hoặc JSONL bằng cách sử dụng nút tải xuống.
 
 ### Chính sách
 
-Một trang hai tab để quản lý chính sách và xem xét hoạt động.
+Một trang có hai tab để quản lý chính sách và xem lại hoạt động.
 
 <Tabs>
   <Tab title="Tab Chính sách">
   - Bật hoặc tắt các chính sách riêng lẻ bằng một cú nhấp chuột (ghi vào `~/.failproofai/policies-config.json`)
   - Mở rộng một chính sách để cấu hình các tham số của nó (đối với các chính sách hỗ trợ `policyParams`)
-  - Cài đặt hoặc loại bỏ hook cho một phạm vi nhất định
+  - Cài đặt hoặc xóa hook cho một phạm vi nhất định
   - Đặt đường dẫn tệp chính sách tùy chỉnh
   </Tab>
   <Tab title="Tab Hoạt động">
-  - Lịch sử được phân trang đầy đủ của mọi sự kiện hook đã kích hoạt trên tất cả các phiên
+  - Lịch sử hoàn chỉnh được phân trang của mỗi sự kiện hook đã kích hoạt trên tất cả các phiên
   - Lọc theo quyết định, loại sự kiện, CLI (Claude Code / OpenAI Codex), tên chính sách hoặc ID phiên
-  - Mỗi hàng hiển thị: dấu thời gian, tên chính sách, quyết định, huy hiệu CLI, tên công cụ, ID phiên và lý do cho các quyết định từ chối/hướng dẫn
-  - Nhấp vào ID phiên để mở bản ghi của nó — hoạt động cho cả phiên Claude (`~/.claude/projects/…`) và Codex (`~/.codex/sessions/…`)
+  - Mỗi hàng hiển thị: dấu thời gian, tên chính sách, quyết định, huy hiệu CLI, tên công cụ, ID phiên và lý do cho các quyết định từ chối/chỉ dẫn
+  - Nhấp vào một ID phiên để mở bản ghi của nó — hoạt động cho cả phiên Claude (`~/.claude/projects/…`) và Codex (`~/.codex/sessions/…`)
   </Tab>
 </Tabs>
 
@@ -80,7 +80,7 @@ Một trang hai tab để quản lý chính sách và xem xét hoạt động.
 
 ## Làm mới tự động
 
-Bảng điều khiển có bộ chuyển đổi làm mới tự động trong thanh điều hướng trên cùng. Khi được bật, trang hiện tại sẽ làm mới định kỳ để hiển thị các phiên mới và hoạt động chính sách khi chúng xuất hiện. Điều cần thiết để theo dõi các phiên agent tự động chạy lâu dài.
+Bảng điều khiển có một công tắc làm mới tự động trong thanh điều hướng trên cùng. Khi bật, trang hiện tại sẽ làm mới định kỳ để hiển thị các phiên mới và hoạt động chính sách khi chúng xuất hiện. Điều cần thiết để giám sát các phiên agent tự chủ chạy lâu dài.
 
 ---
 
@@ -98,7 +98,7 @@ Các giá trị hợp lệ: `policies`, `projects`.
 
 ## Chủ đề
 
-Bảng điều khiển hỗ trợ chế độ sáng và tối. Chuyển đổi bằng nút trong thanh điều hướng. Tùy chọn được lưu trữ trong bộ nhớ cục bộ của trình duyệt của bạn.
+Bảng điều khiển hỗ trợ chế độ sáng và tối. Bật/tắt bằng nút trong thanh điều hướng. Tùy chọn được lưu trữ trong bộ nhớ cục bộ của trình duyệt của bạn.
 
 ---
 
@@ -112,15 +112,15 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## Truy cập từ máy chủ không phải localhost
+## Truy cập từ một máy chủ không phải localhost
 
-Khi chạy bảng điều khiển ở **chế độ phát triển** (`npm run dev`) và truy cập từ tên máy chủ khác ngoài `localhost` - ví dụ: tên miền tùy chỉnh, IP từ xa hoặc URL được sử dụng tunnel - bạn có thể thấy cảnh báo như:
+Khi chạy bảng điều khiển ở **chế độ phát triển** (`npm run dev`) và truy cập nó từ một tên máy chủ khác ngoài `localhost` - ví dụ, một miền tùy chỉnh, một IP từ xa hoặc một URL được tuân hành - bạn có thể thấy một cảnh báo như:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Đây là Next.js chặn truy cập giữa các origin đến websocket HMR (hot module reload) của nó, đây là tính năng chỉ dùng cho phát triển. Để cho phép máy chủ của bạn, sử dụng cờ `--allowed-origins`:
+Đây là Next.js chặn truy cập nguồn chéo vào websocket HMR (reload mô-đun nóng) của nó, đây là một tính năng chỉ dành cho quá trình phát triển. Để cho phép máy chủ của bạn, hãy sử dụng cờ `--allowed-origins`:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
@@ -139,5 +139,5 @@ FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Điều này chỉ áp dụng cho chế độ phát triển. Khi chạy `failproofai` (chế độ sản xuất), không có websocket HMR và không có vấn đề tài nguyên dev giữa các origin.
+Điều này chỉ áp dụng cho chế độ phát triển. Khi chạy `failproofai` (chế độ sản xuất), không có websocket HMR và không có vấn đề tài nguyên phát triển nguồn chéo.
 </Note>

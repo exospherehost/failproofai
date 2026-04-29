@@ -16,7 +16,7 @@ failproofai
 
 Abre em `http://localhost:8020`.
 
-O dashboard lê diretamente do sistema de arquivos — suas pastas de projetos do Claude Code e os arquivos de configuração do failproofai. Nada é gravado em um serviço remoto.
+O dashboard lê diretamente do sistema de arquivos — as pastas de projetos do Claude Code e os arquivos de configuração do failproofai. Nada é gravado em serviços remotos.
 
 ---
 
@@ -24,11 +24,11 @@ O dashboard lê diretamente do sistema de arquivos — suas pastas de projetos d
 
 ### Projetos
 
-Lista todos os projetos do Claude Code encontrados na sua máquina. Os projetos são descobertos a partir de `~/.claude/projects/` (ou do caminho definido por `CLAUDE_PROJECTS_PATH`).
+Lista todos os projetos do Claude Code e do OpenAI Codex encontrados na sua máquina. Os projetos do Claude são descobertos em `~/.claude/projects/` (ou no caminho definido por `CLAUDE_PROJECTS_PATH`); os projetos do Codex são descobertos varrendo todas as transcrições em `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` e agrupando pelo `cwd` registrado no primeiro registro de cada sessão. Um projeto que foi utilizado por ambas as CLIs é exibido como uma única linha.
 
 Cada projeto exibe:
 - Nome do projeto (derivado do caminho da pasta)
-- Número de sessões
+- Um badge de CLI — `Claude Code` (laranja) e/ou `OpenAI Codex` (roxo)
 - Data da atividade mais recente da sessão
 
 Clique em um projeto para ver suas sessões.
@@ -47,11 +47,11 @@ Clique em uma sessão para abrir o visualizador de sessão.
 
 ### Visualizador de sessão
 
-O visualizador de sessão responde à pergunta central para agentes autônomos: o que o agente fez e ele se manteve no caminho certo? Ele exibe uma linha do tempo de tudo o que aconteceu em uma sessão:
+O visualizador de sessão responde à pergunta principal para agentes autônomos: o que o agente fez e ele se manteve no caminho certo? Um badge de CLI ao lado do cabeçalho indica se a sessão é uma transcrição do Claude Code ou do OpenAI Codex. Ele exibe uma linha do tempo de tudo o que aconteceu em uma sessão:
 
-- **Mensagens** — Respostas de texto do Claude e prompts do usuário
-- **Chamadas de ferramentas** — Cada ferramenta que o Claude invocou, com sua entrada e saída
-- **Atividade de políticas** — Para cada chamada de ferramenta, quais políticas foram acionadas e qual decisão elas retornaram
+- **Mensagens** - Respostas em texto do Claude e prompts do usuário
+- **Chamadas de ferramentas** - Cada ferramenta que o Claude invocou, com sua entrada e saída
+- **Atividade de políticas** - Para cada chamada de ferramenta, quais políticas foram acionadas e qual decisão retornaram
 
 A barra de estatísticas no topo exibe a duração da sessão, o total de chamadas de ferramentas e um resumo das decisões de hooks (contagens de allow / deny / instruct).
 
@@ -62,16 +62,16 @@ Você pode exportar a sessão como um arquivo ZIP ou JSONL usando o botão de do
 Uma página com duas abas para gerenciar políticas e revisar atividades.
 
 <Tabs>
-  <Tab title="Aba Políticas">
+  <Tab title="Aba de Políticas">
   - Ative ou desative políticas individualmente com um único clique (grava em `~/.failproofai/policies-config.json`)
   - Expanda uma política para configurar seus parâmetros (para políticas que suportam `policyParams`)
   - Instale ou remova hooks para um determinado escopo
   - Defina um caminho personalizado para o arquivo de políticas
   </Tab>
-  <Tab title="Aba Atividade">
-  - Histórico completo paginado de cada evento de hook que foi acionado em todas as sessões
+  <Tab title="Aba de Atividade">
+  - Histórico completo e paginado de todos os eventos de hook que foram acionados em todas as sessões
   - Filtre por decisão, tipo de evento, CLI (Claude Code / OpenAI Codex), nome da política ou ID de sessão
-  - Cada linha exibe: timestamp, nome da política, decisão, badge da CLI, nome da ferramenta, ID de sessão e o motivo das decisões de deny/instruct
+  - Cada linha exibe: timestamp, nome da política, decisão, badge de CLI, nome da ferramenta, ID da sessão e o motivo das decisões deny/instruct
   - Clique em um ID de sessão para abrir sua transcrição — funciona tanto para sessões do Claude (`~/.claude/projects/…`) quanto do Codex (`~/.codex/sessions/…`)
   </Tab>
 </Tabs>
@@ -80,7 +80,7 @@ Uma página com duas abas para gerenciar políticas e revisar atividades.
 
 ## Atualização automática
 
-O dashboard possui um botão de atualização automática na navegação superior. Quando ativado, a página atual é atualizada periodicamente para exibir novas sessões e atividades de políticas conforme elas aparecem. Essencial para monitorar sessões de agentes autônomos de longa duração.
+O dashboard possui um toggle de atualização automática na navegação superior. Quando ativado, a página atual é atualizada periodicamente para exibir novas sessões e atividades de políticas conforme aparecem. Essencial para monitorar sessões de agentes autônomos de longa duração.
 
 ---
 
@@ -104,7 +104,7 @@ O dashboard suporta modo claro e escuro. Alterne pelo botão na barra de navega�
 
 ## Configurando o caminho dos projetos
 
-Por padrão, o dashboard lê a partir do diretório padrão de projetos do Claude Code. Substitua-o para configurações personalizadas:
+Por padrão, o dashboard lê do diretório padrão de projetos do Claude Code. Substitua-o para configurações personalizadas:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -112,15 +112,15 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## Acessando a partir de um host que não seja localhost
+## Acessando de um host diferente de localhost
 
-Ao executar o dashboard em **modo dev** (`npm run dev`) e acessá-lo a partir de um hostname diferente de `localhost` — por exemplo, um domínio personalizado, um IP remoto ou uma URL tunelada — você pode ver um aviso como:
+Ao executar o dashboard em **modo de desenvolvimento** (`npm run dev`) e acessá-lo a partir de um hostname diferente de `localhost` — por exemplo, um domínio personalizado, um IP remoto ou uma URL tunelada — você pode ver um aviso como:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Isso ocorre porque o Next.js está bloqueando o acesso cross-origin ao seu websocket de HMR (hot module reload), que é um recurso exclusivo do modo dev. Para permitir o seu host, use a flag `--allowed-origins`:
+O Next.js está bloqueando o acesso cross-origin ao seu websocket de HMR (hot module reload), que é um recurso exclusivo do modo de desenvolvimento. Para permitir seu host, use a flag `--allowed-origins`:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
@@ -132,12 +132,12 @@ Para múltiplos hosts ou IPs, passe uma lista separada por vírgulas:
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-Você também pode definir a variável de ambiente `FAILPROOFAI_ALLOWED_DEV_ORIGINS` como alternativa:
+Você também pode definir a variável de ambiente `FAILPROOFAI_ALLOWED_DEV_ORIGINS`:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Isso se aplica apenas ao modo dev. Ao executar `failproofai` (modo produção), não há websocket de HMR nem problema de recurso dev cross-origin.
+Isso se aplica apenas ao modo de desenvolvimento. Ao executar `failproofai` (modo de produção), não há websocket de HMR nem problema de recurso de desenvolvimento cross-origin.
 </Note>
