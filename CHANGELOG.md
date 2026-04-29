@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Features
-- Add GitHub Copilot CLI integration (beta) across hooks, activity dashboard, session fallback, and `/projects` listing (#236)
+- Add GitHub Copilot CLI integration (beta) across hooks, activity dashboard, session fallback, and `/projects` listing. Also ships this repo's own `.github/hooks/failproofai.json` so contributors developing failproofai with the GitHub Copilot CLI get hooks active automatically, mirroring the existing `.claude/settings.json` and `.codex/hooks.json` (#236)
 
 ### Fixes
 - `failproofai policies --uninstall` interactive CLI selector now says "Remove Hooks" / "Choose where to remove from:" instead of "Install Hooks" / "Choose where to install:" (#236)

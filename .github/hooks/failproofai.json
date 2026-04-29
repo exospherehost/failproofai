@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "bash": "bun bin/failproofai.mjs --hook SessionStart --cli copilot",
+            "powershell": "bun bin/failproofai.mjs --hook SessionStart --cli copilot",
+            "timeoutSec": 60,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "bash": "bun bin/failproofai.mjs --hook SessionEnd --cli copilot",
+            "powershell": "bun bin/failproofai.mjs --hook SessionEnd --cli copilot",
+            "timeoutSec": 60,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "bash": "bun bin/failproofai.mjs --hook UserPromptSubmit --cli copilot",
+            "powershell": "bun bin/failproofai.mjs --hook UserPromptSubmit --cli copilot",
+            "timeoutSec": 60,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "bash": "bun bin/failproofai.mjs --hook PreToolUse --cli copilot",
+            "powershell": "bun bin/failproofai.mjs --hook PreToolUse --cli copilot",
+            "timeoutSec": 60,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "bash": "bun bin/failproofai.mjs --hook PostToolUse --cli copilot",
+            "powershell": "bun bin/failproofai.mjs --hook PostToolUse --cli copilot",
+            "timeoutSec": 60,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "bash": "bun bin/failproofai.mjs --hook Stop --cli copilot",
+            "powershell": "bun bin/failproofai.mjs --hook Stop --cli copilot",
+            "timeoutSec": 60,
+            "__failproofai_hook__": true
+          }
+        ]
+      }
+    ]
+  }
+}
