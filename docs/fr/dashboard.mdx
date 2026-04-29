@@ -1,10 +1,10 @@
 ---
 title: Tableau de bord
-description: "Surveillez les sessions des agents, examinez les appels d'outils et gérez les politiques"
+description: "Surveiller les sessions d'agents, examiner les appels d'outils et gérer les politiques"
 icon: chart-line
 ---
 
-Le tableau de bord failproofai est une application web locale permettant de surveiller les sessions de vos agents IA et de gérer les politiques. Voyez ce que vos agents ont fait pendant votre absence.
+Le tableau de bord failproofai est une application web locale permettant de surveiller vos sessions d'agents IA et de gérer vos politiques. Découvrez ce que vos agents ont fait pendant votre absence.
 
 ---
 
@@ -24,7 +24,7 @@ Le tableau de bord lit directement depuis le système de fichiers — vos dossie
 
 ### Projets
 
-Liste tous les projets Claude Code trouvés sur votre machine. Les projets sont découverts depuis `~/.claude/projects/` (ou le chemin défini par `CLAUDE_PROJECTS_PATH`).
+Liste tous les projets Claude Code trouvés sur votre machine. Les projets sont découverts à partir de `~/.claude/projects/` (ou du chemin défini par `CLAUDE_PROJECTS_PATH`).
 
 Chaque projet affiche :
 - Le nom du projet (dérivé du chemin du dossier)
@@ -47,31 +47,32 @@ Cliquez sur une session pour ouvrir le visualiseur de session.
 
 ### Visualiseur de session
 
-Le visualiseur de session répond à la question clé pour les agents autonomes : qu'a fait l'agent, et est-il resté sur la bonne voie ? Il affiche une chronologie de tout ce qui s'est passé lors d'une session :
+Le visualiseur de session répond à la question clé pour les agents autonomes : qu'a fait l'agent, et est-il resté dans les rails ? Il affiche une chronologie de tout ce qui s'est passé lors d'une session :
 
-- **Messages** - Les réponses textuelles de Claude et les invites de l'utilisateur
+- **Messages** - Les réponses textuelles de Claude et les invites utilisateur
 - **Appels d'outils** - Chaque outil invoqué par Claude, avec ses entrées et sorties
-- **Activité des politiques** - Pour chaque appel d'outil, quelles politiques ont été déclenchées et quelle décision elles ont rendue
+- **Activité des politiques** - Pour chaque appel d'outil, quelles politiques se sont déclenchées et quelle décision elles ont retournée
 
-La barre de statistiques en haut affiche la durée de la session, le nombre total d'appels d'outils et un résumé des décisions de hook (compteurs allow / deny / instruct).
+La barre de statistiques en haut affiche la durée de la session, le nombre total d'appels d'outils et un résumé des décisions de hook (nombre de allow / deny / instruct).
 
-Vous pouvez exporter la session sous forme de fichier ZIP ou JSONL à l'aide du bouton de téléchargement.
+Vous pouvez exporter la session sous forme de fichier ZIP ou JSONL via le bouton de téléchargement.
 
 ### Politiques
 
-Une page à deux onglets pour gérer les politiques et consulter l'activité.
+Une page à deux onglets pour gérer les politiques et examiner l'activité.
 
 <Tabs>
   <Tab title="Onglet Politiques">
-  - Activez ou désactivez individuellement les politiques d'un simple clic (écrit dans `~/.failproofai/policies-config.json`)
-  - Développez une politique pour configurer ses paramètres (pour les politiques qui prennent en charge `policyParams`)
-  - Installez ou supprimez des hooks pour un scope donné
-  - Définissez un chemin personnalisé vers un fichier de politiques
+  - Activer ou désactiver des politiques individuellement en un seul clic (écrit dans `~/.failproofai/policies-config.json`)
+  - Développer une politique pour configurer ses paramètres (pour les politiques qui prennent en charge `policyParams`)
+  - Installer ou supprimer des hooks pour une portée donnée
+  - Définir un chemin de fichier de politiques personnalisé
   </Tab>
   <Tab title="Onglet Activité">
-  - Historique paginé complet de tous les événements de hook déclenchés dans toutes les sessions
-  - Recherchez par nom de politique, identifiant de session, nom d'outil ou décision
-  - Chaque ligne affiche : horodatage, nom de politique, décision, nom d'outil, identifiant de session et la raison des décisions deny/instruct
+  - Historique complet et paginé de chaque événement de hook déclenché dans toutes les sessions
+  - Filtrer par décision, type d'événement, CLI (Claude Code / OpenAI Codex), nom de politique ou identifiant de session
+  - Chaque ligne affiche : l'horodatage, le nom de la politique, la décision, le badge CLI, le nom de l'outil, l'identifiant de session et la raison des décisions deny/instruct
+  - Cliquez sur un identifiant de session pour ouvrir sa transcription — fonctionne aussi bien pour les sessions Claude (`~/.claude/projects/…`) que Codex (`~/.codex/sessions/…`)
   </Tab>
 </Tabs>
 
@@ -79,7 +80,7 @@ Une page à deux onglets pour gérer les politiques et consulter l'activité.
 
 ## Actualisation automatique
 
-Le tableau de bord dispose d'un bouton d'actualisation automatique dans la navigation supérieure. Lorsqu'il est activé, la page courante se rafraîchit périodiquement pour afficher les nouvelles sessions et l'activité des politiques au fur et à mesure qu'elles apparaissent. Indispensable pour surveiller des sessions d'agents autonomes de longue durée.
+Le tableau de bord dispose d'un bouton d'actualisation automatique dans la navigation supérieure. Lorsqu'il est activé, la page en cours s'actualise périodiquement pour afficher les nouvelles sessions et l'activité des politiques au fur et à mesure qu'elles apparaissent. Indispensable pour surveiller les sessions d'agents autonomes de longue durée.
 
 ---
 
@@ -91,7 +92,7 @@ Si vous n'avez besoin que de certaines parties du tableau de bord, définissez `
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
 ```
 
-Valeurs valides : `policies`, `projects`.
+Valeurs acceptées : `policies`, `projects`.
 
 ---
 
@@ -103,7 +104,7 @@ Le tableau de bord prend en charge les modes clair et sombre. Basculez entre les
 
 ## Configurer le chemin des projets
 
-Par défaut, le tableau de bord lit depuis le répertoire standard des projets Claude Code. Remplacez-le pour des configurations personnalisées :
+Par défaut, le tableau de bord lit depuis le répertoire de projets Claude Code standard. Remplacez-le pour des configurations personnalisées :
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -113,13 +114,13 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ## Accès depuis un hôte autre que localhost
 
-Lorsque vous exécutez le tableau de bord en **mode développement** (`npm run dev`) et que vous y accédez depuis un nom d'hôte autre que `localhost` — par exemple, un domaine personnalisé, une IP distante ou une URL tunnelisée — vous pouvez voir un avertissement du type :
+Lorsque vous exécutez le tableau de bord en **mode développement** (`npm run dev`) et y accédez depuis un nom d'hôte autre que `localhost` — par exemple, un domaine personnalisé, une IP distante ou une URL tunnelisée — vous pouvez voir un avertissement du type :
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Il s'agit de Next.js qui bloque l'accès cross-origin à son websocket HMR (rechargement à chaud des modules), une fonctionnalité réservée au développement. Pour autoriser votre hôte, utilisez le flag `--allowed-origins` :
+Il s'agit de Next.js qui bloque l'accès multi-origine à son websocket HMR (rechargement à chaud des modules), une fonctionnalité réservée au développement. Pour autoriser votre hôte, utilisez le flag `--allowed-origins` :
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
@@ -138,5 +139,5 @@ FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Ceci s'applique uniquement au mode développement. Lors de l'exécution de `failproofai` (mode production), il n'y a pas de websocket HMR ni de problème de ressource cross-origin en développement.
+Cela ne s'applique qu'au mode développement. Lors de l'exécution de `failproofai` (mode production), il n'y a pas de websocket HMR ni de problème de ressource de développement multi-origine.
 </Note>
