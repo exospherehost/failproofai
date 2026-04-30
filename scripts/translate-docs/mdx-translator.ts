@@ -27,9 +27,13 @@ const DOCS_DIR = join(__dirname, "..", "..", "docs");
  * the extras.
  */
 export function sanitizeJsxAttributes(content: string): string {
+  // Each pair must use an OPENER that is unambiguously an opener — i.e. the
+  // codepoint never serves as a CLOSER of a different pair. That's why we
+  // skip English curly “…” (U+201C/U+201D): U+201C is also the German
+  // closer, so processing English curly after German would strip the very
+  // German closer we just preserved.
   const openings: Array<[string, string]> = [
     ["„", "“"], // German „ … "
-    ["“", "”"], // English curly " … "
     ["«", "»"], // French « … »
     ["‹", "›"], // French single ‹ … ›
     ["「", "」"], // Japanese 「 … 」
@@ -47,7 +51,16 @@ export function sanitizeJsxAttributes(content: string): string {
       for (const [open, close] of openings) {
         const opens = cleaned.split(open).length - 1;
         const closes = cleaned.split(close).length - 1;
-        if (opens > closes) cleaned = cleaned.split(open).join("");
+        // Drop only the surplus unmatched openers, removing from the right.
+        // A value like `„Foo“ und „Bar` (one matched pair plus one stray
+        // opener) keeps the leading `„Foo“` intact and only the dangling
+        // `„Bar` opener gets stripped.
+        let surplus = opens - closes;
+        while (surplus-- > 0) {
+          const i = cleaned.lastIndexOf(open);
+          if (i < 0) break;
+          cleaned = cleaned.slice(0, i) + cleaned.slice(i + open.length);
+        }
       }
       return `${prefix}${cleaned}"`;
     },

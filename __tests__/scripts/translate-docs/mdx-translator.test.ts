@@ -111,6 +111,13 @@ describe("sanitizeJsxAttributes", () => {
     expect(sanitizeJsxAttributes(input)).toBe(`<Tab title="Tab Aktivität">`);
   });
 
+  it("drops only the surplus opener when a matched pair is also present", () => {
+    // One properly matched „…“ German pair plus one dangling „ — keep the
+    // pair, strip only the unmatched trailing opener.
+    const input = `<Tab title="„Foo“ und „Bar"">`;
+    expect(sanitizeJsxAttributes(input)).toBe(`<Tab title="„Foo“ und Bar">`);
+  });
+
   it("does not mangle empty attributes", () => {
     const input = `<Tag attr="">`;
     expect(sanitizeJsxAttributes(input)).toBe(input);
