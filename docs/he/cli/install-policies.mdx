@@ -1,13 +1,13 @@
 ---
-title: התקנת מדיניויות
-description: "הפעל מדיניויות כך שתפעלנה בכל קריאת כלי של סוכן"
+title: התקנת מדיניות
+description: "אפשר מדיניות כך שיפעלו בכל קריאת כלי של סוכן"
 ---
 
 ```bash
 failproofai policies --install [policy-names...] [options]
 ```
 
-כותב ערכי hook ל-`settings.json` של Claude Code כך ש-failproofai יעכב קריאות כלים.
+כותב ערכי hook לקובץ ההגדרות של ה-CLI של הסוכן המותקן שלך (Claude Code, OpenAI Codex, או GitHub Copilot CLI _(beta)_) כדי ש-failproofai יחתוך קריאות כלים.
 
 כינויים: `failproofai p -i`
 
@@ -15,33 +15,43 @@ failproofai policies --install [policy-names...] [options]
 
 | דגל | תיאור |
 |------|-------------|
-| `--scope user` | התקן ל-`~/.claude/settings.json` (ברירת מחדל - כל ההפעלות) |
-| `--scope project` | התקן ל-`.claude/settings.json` בתיקייה הנוכחית |
-| `--scope local` | התקן ל-`.claude/settings.local.json` בתיקייה הנוכחית |
-| `--custom <path>` / `-c` | נתיב לקובץ JS המכיל מדיניויות hook מותאמות |
+| `--cli claude\|codex\|copilot` | CLI(s) של סוכן להתקנה; מופרדים בחילוף (לדוגמה `--cli claude codex copilot`) או חוזרים. השמט כדי לזהות CLI מותקנים ולהנחות. |
+| `--scope user` | התקן לקובץ הגדרות בהיקף משתמש (Claude: `~/.claude/settings.json`; Codex: `~/.codex/hooks.json`; Copilot: `~/.copilot/hooks/failproofai.json`). ברירת המחדל. |
+| `--scope project` | התקן לקובץ הגדרות בהיקף פרויקט (Claude: `<cwd>/.claude/settings.json`; Codex: `<cwd>/.codex/hooks.json`; Copilot: `<cwd>/.github/hooks/failproofai.json`). |
+| `--scope local` | Claude בלבד — מתקין ל-`<cwd>/.claude/settings.local.json`. Codex ו-Copilot אין להם היקף `local`. |
+| `--custom <path>` / `-c` | נתיב לקובץ JS המכיל מדיניות hook מותאמות אישית |
 
 ## התנהגות
 
-- **ללא שמות מדיניויות** - פותח הנמקה אינטראקטיבית לבחירת מדיניויות
-- **שמות ספציפיים** - מפעיל את המדיניויות הללו (מתווספים לכל מדיניות שכבר מופעלות)
+- **ללא שמות מדיניות** - פותח הנחיה אינטראקטיבית לבחירת מדיניות
+- **שמות ספציפיים** - מפעיל את המדיניות הללו (מתווסף לכל מדיניות שכבר מופעלת)
 - **`all`** - מפעיל כל מדיניות זמינה
 
-ההתקנה היא תוספתית: הפעלת `--install` שוב תוסיף מדיניויות חדשות ללא הסרת קיימות.
+התקנה היא תוספתית: הפעלת `--install` שוב מוסיפה מדיניות חדשה ללא הסרת קיימות.
 
 ## דוגמאות
 
 ```bash
-# התקן את כל המדיניויות ברירת המחדל באופן גלובלי (אינטראקטיבי)
+# התקן את כל המדיניות ברירת המחדל באופן גלובלי (אינטראקטיבי)
 failproofai policies --install
 
-# התקן מדיניויות ספציפיות עבור הפרויקט הנוכחי
+# התקן מדיניות ספציפיות עבור הפרויקט הנוכחי
 failproofai policies --install block-sudo sanitize-api-keys --scope project
 
-# הפעל את כל המדיניויות בבת אחת
+# הפעל את כל המדיניות בבת אחת
 failproofai policies --install all
 
-# התקן עם קובץ מדיניויות מותאם
+# התקן עם קובץ מדיניות מותאם אישית
 failproofai policies --install --custom ./my-policies.js
+
+# התקן עבור OpenAI Codex (היקף פרויקט)
+failproofai policies --install --cli codex --scope project
+
+# התקן עבור GitHub Copilot CLI (beta) עבור הפרויקט הנוכחי
+failproofai policies --install --cli copilot --scope project
+
+# התקן עבור שלוש ה-CLIs בבת אחת
+failproofai policies --install --cli claude codex copilot
 ```
 
-כאשר `--custom <path>` מסופק, הקובץ מוודא מיד - עליו להפעיל `customPolicies.add()` לפחות פעם אחת. הנתיב שנפתר נשמר ל-`policies-config.json` כ-`customPoliciesPath`.
+כאשר `--custom <path>` מסופק, הקובץ מאומת מיד - הוא חייב לקרוא ל-`customPolicies.add()` לפחות פעם אחת. הנתיב שנפתר נשמר ל-`policies-config.json` כ-`customPoliciesPath`.

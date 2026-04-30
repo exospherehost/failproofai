@@ -1,6 +1,6 @@
 ---
 title: はじめに
-description: "failproofaiをインストールし、ポリシーを有効化して、エージェントを安定稼働させましょう"
+description: "failproofai をインストールし、ポリシーを有効にして、エージェントを安定して動作させましょう"
 icon: rocket
 ---
 
@@ -30,18 +30,21 @@ bun add -g failproofai
 ## クイックスタート
 
 <Steps>
-  <Step title="ポリシーを有効化する">
-    ポリシーとは、エージェントのツール呼び出しの前後に実行されるルールです。破壊的なコマンド、シークレット漏洩、その他の障害パターンを、実害が生じる前に検出します。
+  <Step title="ポリシーを有効にする">
+    ポリシーとは、エージェントのツール呼び出しの前後に実行されるルールです。破壊的なコマンドやシークレットの漏洩、その他の障害パターンを、実害が出る前に検出します。
 
     ```bash
     failproofai policies --install
     ```
 
-    このコマンドは、インストール済みのエージェントCLI（Claude Codeの `~/.claude/settings.json` および/またはOpenAI Codexの `~/.codex/hooks.json`）にフックエントリを書き込みます。両方が存在する場合はプロンプトが表示されます。`--cli claude codex` を渡すことでプロンプトをスキップできます。
+    このコマンドは、インストール済みのエージェント CLI（Claude Code の `~/.claude/settings.json`、OpenAI Codex の `~/.codex/hooks.json`、GitHub Copilot CLI の `~/.copilot/hooks/failproofai.json`）にフックエントリを書き込みます。複数の CLI が検出された場合は選択を求めるプロンプトが表示されます。プロンプトをスキップしたい場合は `--cli claude codex copilot`（任意の組み合わせ）を指定してください。
+
+    GitHub Copilot CLI のサポートは**ベータ版**です — `--cli copilot` を指定してインストールしてください。
 
     ```bash
     failproofai policies --install --scope project
     failproofai policies --install --cli codex --scope project
+    failproofai policies --install --cli copilot --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>
@@ -50,17 +53,17 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    すべてのポリシー、その有効/無効の状態、および設定済みのパラメータが表示されます。
+    すべてのポリシー、その有効状態、および設定済みのパラメーターを表示します。
   </Step>
   <Step title="ダッシュボードを起動する">
     ```bash
     failproofai
     ```
 
-    `http://localhost:8020` にローカルダッシュボードが開き、セッションの閲覧、ツール呼び出しの検査、ポリシーの管理が行えます。
+    `http://localhost:8020` にローカルダッシュボードが開き、セッションの閲覧、ツール呼び出しの確認、ポリシーの管理ができます。
   </Step>
   <Step title="エージェントを実行する">
-    通常通りClaude Codeを起動します。エージェントがリスクのある操作を試みた場合、failproofaiが自動的に介入します。そのまま無人で実行しておき、ダッシュボードで後から結果を確認できます。
+    通常どおり Claude Code を起動してください。エージェントが危険な操作を試みた場合、failproofai が自動的に介入します。エージェントをそのまま放置して実行し、後からダッシュボードで何が起きたかを確認できます。
   </Step>
 </Steps>
 
@@ -68,7 +71,7 @@ bun add -g failproofai
 
 ## ポリシーの仕組み
 
-エージェントがツールを実行するたびに、Claude Codeはfailproofaiをサブプロセスとして呼び出します。
+エージェントがツールを実行するたびに、Claude Code はサブプロセスとして failproofai を呼び出します：
 
 ```text
 Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
@@ -76,10 +79,10 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
                                                  writes decision to stdout
 ```
 
-各ポリシーは次の3つのいずれかの判定を返します。
+各ポリシーは次の 3 つのいずれかの判断を返します：
 
-- **allow** — エージェントは通常通り処理を続行する
-- **deny** — アクションがブロックされ、エージェントにその理由が通知される
+- **allow** — エージェントは通常どおり処理を続行する
+- **deny** — 操作がブロックされ、エージェントにその理由が通知される
 - **instruct** — エージェントのプロンプトに追加のコンテキストが付加される
 
 <Note>
@@ -90,7 +93,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 
 ## 規約ベースのポリシーでチームポリシーを設定する
 
-チーム全体に品質基準を浸透させる最も手軽な方法は、`.failproofai/policies/` の規約です。このディレクトリにポリシーファイルを置くだけで自動的に読み込まれます — フラグも設定変更もインストールコマンドも不要です。
+チーム全体に品質基準を迅速に展開する最善の方法は、`.failproofai/policies/` 規約を使うことです。このディレクトリにポリシーファイルを置くだけで自動的に読み込まれます — フラグも設定変更もインストールコマンドも不要です。
 
 <Steps>
   <Step title="ポリシーディレクトリを作成する">
@@ -99,13 +102,13 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
     ```
   </Step>
   <Step title="ポリシーファイルを追加する">
-    スターターのサンプルをコピーするか、独自のファイルを作成します。
+    スターターサンプルをコピーするか、独自のファイルを作成してください：
 
     ```bash
     cp node_modules/failproofai/examples/convention-policies/*.mjs .failproofai/policies/
     ```
 
-    または新規ファイルを作成します。
+    または新しいファイルを作成する場合：
 
     ```js
     // .failproofai/policies/team-policies.mjs
@@ -124,25 +127,25 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
     });
     ```
   </Step>
-  <Step title="gitにコミットする">
+  <Step title="git にコミットする">
     ```bash
     git add .failproofai/policies/
     git commit -m "Add team quality policies"
     ```
 
-    failproofaiをインストールしているすべてのチームメンバーが、これらのポリシーを自動的に取得できます。開発者ごとの個別セットアップは不要です。
+    failproofai をインストールしているチームメンバー全員が、これらのポリシーを自動的に利用できるようになります。開発者ごとの個別設定は不要です。
   </Step>
 </Steps>
 
 <Tip>
-`.failproofai/policies/` をリポジトリにコミットしておけば、チーム全体が同じ基準を共有できます。チームが新たな障害パターンを発見するたびにポリシーを追加してプッシュすれば、全員が次回の `git pull` 時に更新を受け取れます。こうしてポリシーは継続的に改善される生きた品質基準へと育っていきます。
+`.failproofai/policies/` をリポジトリにコミットして、チーム全体が同じ基準を共有できるようにしましょう。新たな障害パターンが見つかるたびにポリシーを追加してプッシュすれば、全員が次の `git pull` 時に更新を受け取れます。こうしてポリシーは継続的に進化するチームの品質基準となっていきます。
 </Tip>
 
 ---
 
 ## データの保存場所
 
-すべての設定とログはローカルマシンに保存されます。
+すべての設定とログはお使いのマシン上に保存されます：
 
 | パス | 保存内容 |
 |------|----------------|
@@ -150,7 +153,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
 | `~/.failproofai/hook-activity.jsonl` | フック実行履歴 |
 | `~/.failproofai/hook.log` | カスタムフックエラーのデバッグログ |
 | `.failproofai/policies-config.json` | プロジェクト単位の設定（コミット対象） |
-| `.failproofai/policies-config.local.json` | 個人用オーバーライド（gitignore対象） |
+| `.failproofai/policies-config.local.json` | 個人用オーバーライド（gitignore 対象） |
 
 ---
 
@@ -169,19 +172,19 @@ failproofai policies --uninstall
 <CardGroup cols={2}>
 
 <Card title="設定" icon="gear" href="/ja/configuration">
-  スコープと設定ファイルのフォーマット
+  スコープと設定ファイルの形式
 </Card>
 
 <Card title="組み込みポリシー" icon="shield" href="/ja/built-in-policies">
-  パラメータ付きの全26ポリシー
+  パラメーター付き 26 のポリシー一覧
 </Card>
 
 <Card title="カスタムポリシー" icon="code" href="/ja/custom-policies">
-  JavaScriptで独自のポリシーを作成する
+  JavaScript で独自のポリシーを作成する
 </Card>
 
 <Card title="エージェントモニター" icon="chart-line" href="/ja/dashboard">
-  セッションの監視とポリシーアクティビティの確認
+  セッションを監視してポリシーの活動を確認する
 </Card>
 
 </CardGroup>

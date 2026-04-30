@@ -25,13 +25,13 @@
 
 **الترجمات**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-الطريقة الأسهل لإدارة السياسات التي تحافظ على موثوقية وكلائك الذكيين، وتركز على المهمة، وتعمل بشكل مستقل - لـ **Claude Code** و **OpenAI Codex** و **Agents SDK**.
+الطريقة الأسهل لإدارة السياسات التي تحافظ على موثوقية وكلاءك بالذكاء الاصطناعي وتركيزهم على المهام وتشغيلهم بشكل مستقل - لـ **Claude Code**، **OpenAI Codex**، **GitHub Copilot CLI** _(beta)_ و **Agents SDK**.
 
 <p align="center">
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-## واجهات سطر الأوامر المدعومة
+## واجهات سطر الأوامر للوكلاء المدعومة
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -45,17 +45,24 @@
     </picture>
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-hooks" title="GitHub Copilot CLI">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/copilot-dark.svg" />
+      <img src="assets/logos/copilot-light.svg" alt="GitHub Copilot" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
   <strong>+ المزيد قريباً</strong>
 </p>
 
-> تثبيت الخطاطيف لأحد أو كليهما: `failproofai policies --install --cli codex` (أو `--cli claude codex`). اترك `--cli` للكشف التلقائي عن واجهات سطر الأوامر المثبتة والمطالبة.
+> قم بتثبيت الـ hooks لأحد أو اثنين أو جميعهم: `failproofai policies --install --cli copilot` (أو `--cli claude codex copilot`). تجاهل `--cli` للكشف التلقائي عن واجهات سطر الأوامر المثبتة والفحص. **دعم GitHub Copilot CLI قيد الإصدار التجريبي.**
 
-- **39 سياسة مدمجة** - اكتشف أوضاع فشل الوكيل الشائعة بسهولة. احجب الأوامر المدمرة، ومنع تسرب الأسرار، وأبقِ الوكلاء داخل حدود المشروع، واكتشف الحلقات، والمزيد.
-- **سياسات مخصصة** - اكتب قواعد موثوقيتك الخاصة في JavaScript. استخدم واجهة برمجية `allow`/`deny`/`instruct` لفرض الاتفاقيات ومنع الانجراف وتنظيم العمليات أو التكامل مع الأنظمة الخارجية.
-- **تكوين سهل** - اضبط أي سياسة بدون كتابة أكواد. قم بتعيين قوائم السماح والفروع المحمية والحدود الفردية لكل مشروع أو بشكل عام. يتم دمج التكوين بثلاث نطاقات تلقائياً.
-- **مراقب الوكيل** - انظر ما فعله وكلاؤك بينما كنت بعيداً. تصفح الجلسات وفتش كل استدعاء أداة واستعرض المكان الذي تم فيه تطبيق السياسات.
+- **39 سياسة مدمجة** - تجنب حالات الفشل الشائعة للوكلاء خارج الصندوق. احجب الأوامر المدمرة، منع تسريب الأسرار، احتفظ بالوكلاء داخل حدود المشروع، اكتشف الحلقات، والمزيد.
+- **سياسات مخصصة** - اكتب قواعد موثوقيتك الخاصة في JavaScript. استخدم `allow`/`deny`/`instruct` API لفرض المعايير، منع الانجراف، تقييد العمليات، أو الدمج مع الأنظمة الخارجية.
+- **تكوين سهل** - اضبط أي سياسة بدون كتابة الأكواد. قم بتعيين قوائم السماح والفروع المحمية والحدود لكل مشروع أو عام. يتم دمج تكوين ثلاث نطاقات تلقائياً.
+- **شاشة عرض الوكيل** - اطلع على ما فعله وكلاؤك أثناء غيابك. استعرض الجلسات، افحص كل استدعاء أداة، واستعرض بالضبط المكان الذي تم فيه تفعيل السياسات.
 
-كل شيء يعمل محلياً - لا توجد بيانات تغادر جهازك.
+كل شيء يعمل محلياً - لا تترك البيانات جهازك.
 
 ---
 
@@ -84,15 +91,15 @@ bun add -g failproofai
 failproofai policies --install
 ```
 
-يكتب إدخالات الخطاطيف إلى `~/.claude/settings.json`. الآن سيستدعي Claude Code failproofai قبل وبعد كل استدعاء أداة.
+يكتب إدخالات hook في `~/.claude/settings.json`. سيستدعي Claude Code الآن failproofai قبل وبعد كل استدعاء أداة.
 
-### 2. تشغيل لوحة المعلومات
+### 2. قم بتشغيل لوحة التحكم
 
 ```bash
 failproofai
 ```
 
-يفتح `http://localhost:8020` - تصفح الجلسات وفتش السجلات وأدر السياسات.
+يفتح `http://localhost:8020` - استعرض الجلسات، افحص السجلات، أدر السياسات.
 
 ### 3. تحقق مما هو نشط
 
@@ -106,8 +113,8 @@ failproofai policies
 
 ### النطاقات
 
-| النطاق | الأمر | المكان المكتوب |
-|-------|-------|-----------------|
+| النطاق | الأمر | حيث يكتب |
+|-------|-------|---------|
 | عام (افتراضي) | `failproofai policies --install` | `~/.claude/settings.json` |
 | المشروع | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | محلي | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
@@ -130,7 +137,7 @@ failproofai policies --uninstall --scope project
 
 ## التكوين
 
-يوجد تكوين السياسة في `~/.failproofai/policies-config.json` (عام) أو `.failproofai/policies-config.json` في مشروعك (حسب المشروع).
+يتم حفظ تكوين السياسة في `~/.failproofai/policies-config.json` (عام) أو `.failproofai/policies-config.json` في مشروعك (لكل مشروع).
 
 ```json
 {
@@ -145,15 +152,15 @@ failproofai policies --uninstall --scope project
   "policyParams": {
     "block-sudo": {
       "allowPatterns": ["sudo systemctl status", "sudo journalctl"],
-      "hint": "استخدم apt-get مباشرة بدون sudo."
+      "hint": "Use apt-get directly without sudo."
     },
     "block-push-master": {
       "protectedBranches": ["main", "release", "prod"],
-      "hint": "حاول إنشاء فرع جديد بدلاً من ذلك."
+      "hint": "Try creating a fresh branch instead."
     },
     "sanitize-api-keys": {
       "additionalPatterns": [
-        { "regex": "myco_[A-Za-z0-9]{32}", "label": "مفتاح API من MyCo" }
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
       ]
     },
     "warn-large-file-write": {
@@ -163,66 +170,66 @@ failproofai policies --uninstall --scope project
 }
 ```
 
-**يتم دمج ثلاثة نطاقات تكوين** تلقائياً (المشروع → محلي → عام). انظر [docs/configuration.mdx](docs/configuration.mdx) للقواعد الكاملة للدمج.
+**يتم دمج نطاقات التكوين الثلاثة** تلقائياً (المشروع → المحلي → العام). انظر [docs/configuration.mdx](docs/configuration.mdx) للحصول على قواعد الدمج الكاملة.
 
 ---
 
 ## السياسات المدمجة
 
-| السياسة | الوصف | قابلة للتكوين |
-|--------|-------------|:---:|
-| `block-sudo` | منع الوكلاء من تشغيل أوامر النظام المميزة | `allowPatterns` |
-| `block-rm-rf` | منع حذف الملفات العودي العرضي | `allowPaths` |
-| `block-curl-pipe-sh` | منع الوكلاء من توجيه النصوص غير الموثوقة إلى shell | |
+| السياسة | الوصف | قابل للتخصيص |
+|--------|--------|:---:|
+| `block-sudo` | منع الوكلاء من تشغيل الأوامر النظامية الممتازة | `allowPatterns` |
+| `block-rm-rf` | منع حذف الملفات العودية العرضية | `allowPaths` |
+| `block-curl-pipe-sh` | منع الوكلاء من أنابيب البرامج النصية غير الموثوقة إلى shell | |
 | `block-failproofai-commands` | منع إلغاء التثبيت الذاتي | |
-| `sanitize-jwt` | إيقاف تسرب رموز JWT إلى سياق الوكيل | |
-| `sanitize-api-keys` | إيقاف تسرب مفاتيح API إلى سياق الوكيل | `additionalPatterns` |
-| `sanitize-connection-strings` | إيقاف تسرب بيانات اعتماد قاعدة البيانات إلى سياق الوكيل | |
+| `sanitize-jwt` | إيقاف تسريب رموز JWT إلى سياق الوكيل | |
+| `sanitize-api-keys` | إيقاف تسريب مفاتيح API إلى سياق الوكيل | `additionalPatterns` |
+| `sanitize-connection-strings` | إيقاف تسريب بيانات اعتماد قاعدة البيانات إلى سياق الوكيل | |
 | `sanitize-private-key-content` | تحرير كتل مفاتيح PEM الخاصة من الإخراج | |
-| `sanitize-bearer-tokens` | تحرير رموز Authorization Bearer من الإخراج | |
+| `sanitize-bearer-tokens` | تحرير رموز Bearer للترخيص من الإخراج | |
 | `block-env-files` | منع الوكلاء من قراءة ملفات .env | |
 | `protect-env-vars` | منع الوكلاء من طباعة متغيرات البيئة | |
-| `block-read-outside-cwd` | إبقاء الوكلاء داخل حدود المشروع | `allowPaths` |
-| `block-secrets-write` | منع الكتابة إلى ملفات المفاتيح الخاصة والشهادات | `additionalPatterns` |
+| `block-read-outside-cwd` | احتفظ بالوكلاء داخل حدود المشروع | `allowPaths` |
+| `block-secrets-write` | منع الكتابة إلى ملفات المفاتيح والشهادات الخاصة | `additionalPatterns` |
 | `block-push-master` | منع الدفع العرضي إلى main/master | `protectedBranches` |
-| `block-work-on-main` | إبقاء الوكلاء بعيداً عن الفروع المحمية | `protectedBranches` |
+| `block-work-on-main` | احتفظ بالوكلاء بعيداً عن الفروع المحمية | `protectedBranches` |
 | `block-force-push` | منع `git push --force` | |
-| `warn-git-amend` | تذكير الوكلاء قبل تعديل الالتزامات | |
-| `warn-git-stash-drop` | تذكير الوكلاء قبل إسقاط الخزينة | |
-| `warn-all-files-staged` | اكتشف `git add -A` العرضي | |
-| `warn-destructive-sql` | اكتشف DROP/DELETE SQL قبل التنفيذ | |
-| `warn-schema-alteration` | اكتشف ALTER TABLE قبل التنفيذ | |
-| `warn-large-file-write` | اكتشف عمليات كتابة ملفات كبيرة غير متوقعة | `thresholdKb` |
-| `warn-package-publish` | اكتشف `npm publish` العرضي | |
-| `warn-background-process` | اكتشف عمليات الخلفية غير المقصودة | |
-| `warn-global-package-install` | اكتشف تثبيتات الحزم العامة غير المقصودة | |
+| `warn-git-amend` | ذكّر الوكلاء قبل تعديل الالتزامات | |
+| `warn-git-stash-drop` | ذكّر الوكلاء قبل إسقاط المخزن المؤقت | |
+| `warn-all-files-staged` | احصر `git add -A` العرضية | |
+| `warn-destructive-sql` | احصر DROP/DELETE SQL قبل التنفيذ | |
+| `warn-schema-alteration` | احصر ALTER TABLE قبل التنفيذ | |
+| `warn-large-file-write` | احصر كتابات الملفات الكبيرة غير المتوقعة | `thresholdKb` |
+| `warn-package-publish` | احصر `npm publish` العرضية | |
+| `warn-background-process` | احصر عمليات الخلفية غير المقصودة | |
+| `warn-global-package-install` | احصر تثبيتات الحزم العام غير المقصودة | |
 | …والمزيد | | |
 
-التفاصيل الكاملة للسياسة ورجع المعاملات: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
+تفاصيل السياسة الكاملة ومرجع المعاملات: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
 ---
 
 ## السياسات المخصصة
 
-اكتب سياساتك الخاصة للحفاظ على موثوقية الوكلاء والتركيز على المهمة:
+اكتب سياساتك الخاصة للحفاظ على موثوقية الوكلاء وتركيزهم على المهام:
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
 
 customPolicies.add({
   name: "no-production-writes",
-  description: "احجب الكتابة إلى المسارات التي تحتوي على 'production'",
+  description: "Block writes to paths containing 'production'",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
     const path = ctx.toolInput?.file_path ?? "";
-    if (path.includes("production")) return deny("الكتابة إلى مسارات الإنتاج محجوبة");
+    if (path.includes("production")) return deny("Writes to production paths are blocked");
     return allow();
   },
 });
 ```
 
-التثبيت باستخدام:
+تثبيت مع:
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -231,29 +238,29 @@ failproofai policies --install --custom ./my-policies.js
 ### مساعدات القرار
 
 | الدالة | التأثير |
-|----------|--------|
+|--------|--------|
 | `allow()` | السماح بالعملية |
-| `allow(message)` | السماح بالعملية وإرسال سياق معلوماتي إلى Claude |
+| `allow(message)` | السماح وإرسال سياق معلوماتي إلى Claude |
 | `deny(message)` | حجب العملية؛ يتم عرض الرسالة لـ Claude |
-| `instruct(message)` | إضافة سياق إلى موجه Claude؛ لا تحجب |
+| `instruct(message)` | إضافة سياق إلى سلب Claude؛ لا تحجب |
 
 ### كائن السياق (`ctx`)
 
 | الحقل | النوع | الوصف |
-|-------|------|-------------|
+|-------|-------|--------|
 | `eventType` | `string` | `"PreToolUse"`، `"PostToolUse"`، `"Notification"`، `"Stop"` |
-| `toolName` | `string` | الأداة التي يتم استدعاؤها (`"Bash"`، `"Write"`، `"Read"`، ...) |
+| `toolName` | `string` | الأداة التي يتم استدعاؤها (`"Bash"`، `"Write"`، `"Read"`، …) |
 | `toolInput` | `object` | معاملات إدخال الأداة |
-| `payload` | `object` | حمولة الحدث الخام الكاملة |
+| `payload` | `object` | حمل الحدث الخام الكامل |
 | `session.cwd` | `string` | دليل العمل لجلسة Claude Code |
-| `session.sessionId` | `string` | معرّف الجلسة |
+| `session.sessionId` | `string` | معرف الجلسة |
 | `session.transcriptPath` | `string` | المسار إلى ملف نسخة الجلسة |
 
-تدعم الخطاطيف المخصصة الواردات المحلية الانتقالية والانتظار بشكل غير متزامن والوصول إلى `process.env`. الأخطاء آمنة (تسجيل إلى `~/.failproofai/hook.log`، استمرار السياسات المدمجة). انظر [docs/custom-hooks.mdx](docs/custom-hooks.mdx) للدليل الكامل.
+تدعم الـ hooks المخصصة الاستيراد المحلي الانتقالي والـ async/await والوصول إلى `process.env`. الأخطاء قابلة للفتح (مسجلة في `~/.failproofai/hook.log`، السياسات المدمجة تستمر). انظر [docs/custom-hooks.mdx](docs/custom-hooks.mdx) للحصول على الدليل الكامل.
 
-### سياسات قائمة على الاتفاقية
+### السياسات المستندة إلى الاتفاقية
 
-اسقط ملفات `*policies.{js,mjs,ts}` في `.failproofai/policies/` وسيتم تحميلها تلقائياً - لا توجد أعلام أو تغييرات تكوين مطلوبة. التزم بالدليل وكل فرد من فريقك يحصل على نفس معايير الجودة تلقائياً.
+أسقط ملفات `*policies.{js,mjs,ts}` في `.failproofai/policies/` وتحمل تلقائياً - لا توجد أعلام أو تغييرات تكوين مطلوبة. احفظ الدليل في git وكل عضو فريق يحصل على نفس معايير الجودة تلقائياً.
 
 ```text
 # مستوى المشروع — ملتزم بـ git، مشترك مع الفريق
@@ -264,13 +271,13 @@ failproofai policies --install --custom ./my-policies.js
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-يتم تحميل كلا المستويين (اتحاد). يتم تحميل الملفات أبجدياً داخل كل دليل. بادئة مع `01-`، `02-`، إلخ. للتحكم في الترتيب. عندما يكتشف فريقك أوضاع فشل جديدة، أضف سياسة وادفع — يحصل الجميع على التحديث على سحبهم التالي. انظر [examples/convention-policies/](examples/convention-policies/) للحصول على أمثلة جاهزة للاستخدام.
+كلا المستويين محملان (اتحاد). يتم تحميل الملفات أبجدياً داخل كل دليل. البادئة مع `01-`، `02-`، إلخ للتحكم في الترتيب. مع اكتشاف فريقك لحالات فشل جديدة، أضف سياسة ودفع — يحصل الجميع على التحديث في السحب التالي. انظر [examples/convention-policies/](examples/convention-policies/) للأمثلة الجاهزة للاستخدام.
 
 ---
 
-## قياس الاستخدام
+## القياس عن بعد
 
-يجمع Failproof AI بيانات قياس الاستخدام المجهولة عبر PostHog لفهم استخدام الميزات. لا يتم أبداً إرسال محتوى الجلسة أو أسماء الملفات أو مدخلات الأدوات أو المعلومات الشخصية.
+يجمع Failproof AI قياس الاستخدام المجهول عبر PostHog لفهم استخدام الميزات. لم يتم أبداً إرسال محتوى الجلسة أو أسماء الملفات أو إدخالات الأدوات أو المعلومات الشخصية.
 
 تعطيله:
 
@@ -283,14 +290,14 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 ## التوثيق
 
 | الدليل | الوصف |
-|-------|-------------|
-| [Getting Started](docs/getting-started.mdx) | التثبيت والخطوات الأولى |
-| [Built-in Policies](docs/built-in-policies.mdx) | جميع السياسات المدمجة الـ 39 مع المعاملات |
-| [Custom Policies](docs/custom-policies.mdx) | اكتب سياساتك الخاصة |
-| [Configuration](docs/configuration.mdx) | تنسيق ملف التكوين ودمج النطاق |
-| [Dashboard](docs/dashboard.mdx) | راقب الجلسات واستعرض نشاط السياسة |
-| [Architecture](docs/architecture.mdx) | كيف يعمل نظام الخطاطيف |
-| [Testing](docs/testing.mdx) | تشغيل الاختبارات وكتابة اختبارات جديدة |
+|--------|--------|
+| [البدء](docs/getting-started.mdx) | التثبيت والخطوات الأولى |
+| [السياسات المدمجة](docs/built-in-policies.mdx) | جميع 39 سياسة مدمجة مع المعاملات |
+| [السياسات المخصصة](docs/custom-policies.mdx) | اكتب سياساتك الخاصة |
+| [التكوين](docs/configuration.mdx) | تنسيق ملف التكوين ودمج النطاق |
+| [لوحة التحكم](docs/dashboard.mdx) | راقب الجلسات واستعرض نشاط السياسة |
+| [العمارة](docs/architecture.mdx) | كيف يعمل نظام hook |
+| [الاختبار](docs/testing.mdx) | تشغيل الاختبارات وكتابة اختبارات جديدة |
 
 ### تشغيل التوثيق محلياً
 
@@ -299,7 +306,7 @@ docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-يفتح موقع Mintlify docs على `http://localhost:3000`. الحاوية تراقب التغييرات إذا قمت بتركيب دليل التوثيق:
+يفتح موقع Mintlify documentation على `http://localhost:3000`. الحاوية تراقب التغييرات إذا قمت بتحميل دليل التوثيق:
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -309,9 +316,9 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ## ملاحظة لمساهمي failproofai
 
-ملف `.claude/settings.json` في هذا المستودع يستخدم `bun ./bin/failproofai.mjs --hook <EventType>` بدلاً من أمر `npx -y failproofai` القياسي. هذا لأن تشغيل `npx -y failproofai` داخل مشروع failproofai نفسه ينشئ تضاربات مرجعية ذاتية.
+يستخدم ملف `.claude/settings.json` الخاص بهذا المستودع `bun ./bin/failproofai.mjs --hook <EventType>` بدلاً من أمر `npx -y failproofai` القياسي. هذا لأن تشغيل `npx -y failproofai` داخل مشروع failproofai نفسه يخلق تضاربة يشير إلى نفسه.
 
-لجميع المستودعات الأخرى، الطريقة الموصى بها هي `npx -y failproofai`، مثبتة عبر:
+بالنسبة لجميع المستودعات الأخرى، النهج الموصى به هو `npx -y failproofai`، المثبت عبر:
 
 ```bash
 failproofai policies --install --scope project
@@ -329,7 +336,7 @@ failproofai policies --install --scope project
 
 ---
 
-تم البناء والصيانة بواسطة **ExosphereHost: Reliability Research Lab لوكلائك**. نساعد المؤسسات والشركات الناشئة على تحسين موثوقية وكلائهم الذكيين من خلال وكلائنا والبرامج والخبرة. تعرّف على المزيد على [exosphere.host](https://exosphere.host).
+تم الإنشاء والصيانة بواسطة **ExosphereHost: مختبر أبحاث الموثوقية لوكلاءك**. نساعد المؤسسات والشركات الناشئة على تحسين موثوقية وكلاءهم بالذكاء الاصطناعي من خلال وكلائنا الخاصين والبرامج والخبرة. تعرف على المزيد على [exosphere.host](https://exosphere.host).
 
 
 </div>

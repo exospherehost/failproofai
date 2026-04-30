@@ -1,22 +1,22 @@
 ---
-title: Dashboard
+title: Tableau de bord
 description: "Surveillez les sessions d'agents, examinez les appels d'outils et gérez les politiques"
 icon: chart-line
 ---
 
-Le dashboard failproofai est une application web locale permettant de surveiller vos sessions d'agents IA et de gérer vos politiques. Voyez ce que vos agents ont fait pendant votre absence.
+Le tableau de bord failproofai est une application web locale permettant de surveiller vos sessions d'agents IA et de gérer les politiques. Voyez ce que vos agents ont fait pendant votre absence.
 
 ---
 
-## Démarrer le dashboard
+## Démarrer le tableau de bord
 
 ```bash
 failproofai
 ```
 
-S'ouvre sur `http://localhost:8020`.
+S'ouvre à l'adresse `http://localhost:8020`.
 
-Le dashboard lit directement depuis le système de fichiers — vos dossiers de projets Claude Code et les fichiers de configuration failproofai. Rien n'est écrit vers un service distant.
+Le tableau de bord lit directement depuis le système de fichiers — vos dossiers de projets Claude Code et les fichiers de configuration failproofai. Rien n'est écrit vers un service distant.
 
 ---
 
@@ -24,69 +24,69 @@ Le dashboard lit directement depuis le système de fichiers — vos dossiers de 
 
 ### Projets
 
-Liste tous les projets Claude Code et OpenAI Codex trouvés sur votre machine. Les projets Claude sont découverts depuis `~/.claude/projects/` (ou le chemin défini par `CLAUDE_PROJECTS_PATH`) ; les projets Codex sont découverts en analysant chaque transcript sous `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` et en les regroupant par le `cwd` enregistré dans le premier enregistrement de chaque session. Un projet utilisé par les deux CLI s'affiche sur une seule ligne.
+Liste tous les projets Claude Code, OpenAI Codex et GitHub Copilot CLI _(bêta)_ trouvés sur votre machine. Les projets Claude sont découverts depuis `~/.claude/projects/` (ou le chemin défini par `CLAUDE_PROJECTS_PATH`) ; les projets Codex sont découverts en analysant chaque transcription sous `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` et en les regroupant par le `cwd` enregistré dans le premier enregistrement de chaque session ; les projets Copilot CLI sont découverts en analysant chaque `~/.copilot/session-state/<sessionId>/workspace.yaml` (configurable via `COPILOT_HOME`) et en les regroupant par son champ `cwd`. Un projet utilisé par plusieurs CLI s'affiche sur une seule ligne avec tous les badges correspondants. Utilisez le menu déroulant **CLI** au-dessus du tableau pour filtrer par un agent CLI spécifique ; l'URL conserve votre sélection sous la forme `?cli=claude|codex|copilot`.
 
 Chaque projet affiche :
 - Le nom du projet (dérivé du chemin du dossier)
-- Un badge CLI — `Claude Code` (orange) et/ou `OpenAI Codex` (violet)
-- La date de la dernière activité de session
+- Un badge CLI — `Claude Code` (orange), `OpenAI Codex` (violet) et/ou `GitHub Copilot` (bleu)
+- La date de l'activité de session la plus récente
 
 Cliquez sur un projet pour voir ses sessions.
 
 ### Sessions
 
-Liste toutes les sessions au sein d'un projet. Chaque session affiche :
+Liste toutes les sessions d'un projet. Chaque session affiche :
 - L'identifiant de session
 - Les horodatages de début et de fin
 - Le nombre d'appels d'outils
 - Le nombre d'activités de hook (politiques déclenchées)
 
-Utilisez le filtre par plage de dates et la recherche par identifiant de session pour affiner la liste. Les sessions sont paginées.
+Utilisez le filtre de plage de dates et la recherche par identifiant de session pour affiner la liste. Les sessions sont paginées.
 
 Cliquez sur une session pour ouvrir le visualiseur de session.
 
 ### Visualiseur de session
 
-Le visualiseur de session répond à la question clé concernant les agents autonomes : qu'a fait l'agent, et est-il resté dans les rails ? Un badge CLI à côté de l'en-tête indique si la session est un transcript Claude Code ou OpenAI Codex. Il affiche une chronologie de tout ce qui s'est passé durant une session :
+Le visualiseur de session répond à la question essentielle pour les agents autonomes : qu'a fait l'agent, et est-il resté dans les rails ? Un badge CLI à côté de l'en-tête indique si la session est une transcription Claude Code ou OpenAI Codex. Il affiche une chronologie de tout ce qui s'est passé dans une session :
 
-- **Messages** - Les réponses textuelles de Claude et les invites utilisateur
-- **Appels d'outils** - Chaque outil invoqué par Claude, avec son entrée et sa sortie
-- **Activité des politiques** - Pour chaque appel d'outil, quelles politiques se sont déclenchées et quelle décision elles ont retournée
+- **Messages** — Les réponses textuelles de Claude et les invites utilisateur
+- **Appels d'outils** — Chaque outil invoqué par Claude, avec son entrée et sa sortie
+- **Activité des politiques** — Pour chaque appel d'outil, quelles politiques ont été déclenchées et quelle décision elles ont rendue
 
-La barre de statistiques en haut affiche la durée de la session, le nombre total d'appels d'outils, et un résumé des décisions de hook (nombre de allow / deny / instruct).
+La barre de statistiques en haut affiche la durée de la session, le nombre total d'appels d'outils et un résumé des décisions de hook (nombre de allow / deny / instruct).
 
-Vous pouvez exporter la session en fichier ZIP ou JSONL via le bouton de téléchargement.
+Vous pouvez exporter la session sous forme de fichier ZIP ou JSONL via le bouton de téléchargement.
 
 ### Politiques
 
-Une page à deux onglets pour gérer les politiques et consulter l'activité.
+Une page à deux onglets pour gérer les politiques et examiner l'activité.
 
 <Tabs>
   <Tab title="Onglet Politiques">
-  - Activez ou désactivez des politiques individuelles d'un simple clic (écrit dans `~/.failproofai/policies-config.json`)
-  - Développez une politique pour configurer ses paramètres (pour les politiques qui prennent en charge `policyParams`)
-  - Installez ou supprimez des hooks pour une portée donnée
+  - Activez ou désactivez des politiques individuelles d'un seul clic (écrit dans `~/.failproofai/policies-config.json`)
+  - Développez une politique pour configurer ses paramètres (pour les politiques prenant en charge `policyParams`)
+  - Installez ou supprimez des hooks pour un scope donné
   - Définissez un chemin de fichier de politiques personnalisé
   </Tab>
   <Tab title="Onglet Activité">
-  - Historique paginé complet de chaque événement de hook déclenché dans toutes les sessions
-  - Filtrez par décision, type d'événement, CLI (Claude Code / OpenAI Codex), nom de politique ou identifiant de session
-  - Chaque ligne affiche : horodatage, nom de politique, décision, badge CLI, nom d'outil, identifiant de session, et la raison des décisions deny/instruct
-  - Cliquez sur un identifiant de session pour ouvrir son transcript — fonctionne aussi bien pour les sessions Claude (`~/.claude/projects/…`) que Codex (`~/.codex/sessions/…`)
+  - Historique complet et paginé de chaque événement de hook déclenché dans toutes les sessions
+  - Filtrez par décision, type d'événement, CLI (Claude Code / OpenAI Codex / GitHub Copilot _(bêta)_), nom de politique ou identifiant de session
+  - Chaque ligne affiche : horodatage, nom de la politique, décision, badge CLI (orange = Claude Code, violet = OpenAI Codex, bleu = GitHub Copilot), nom de l'outil, identifiant de session, et la raison des décisions deny/instruct
+  - Cliquez sur un identifiant de session pour ouvrir sa transcription — le visualiseur détecte automatiquement quel CLI a déclenché le hook (Claude `~/.claude/projects/…`, Codex `~/.codex/sessions/…`, Copilot CLI `~/.copilot/session-state/<id>/events.jsonl`) et affiche le badge CLI correspondant dans l'en-tête
   </Tab>
 </Tabs>
 
 ---
 
-## Actualisation automatique
+## Rafraîchissement automatique
 
-Le dashboard dispose d'un bouton d'actualisation automatique dans la navigation principale. Lorsqu'il est activé, la page courante s'actualise périodiquement pour afficher les nouvelles sessions et l'activité des politiques au fur et à mesure qu'elles apparaissent. Indispensable pour surveiller les sessions d'agents autonomes de longue durée.
+Le tableau de bord dispose d'un bouton de rafraîchissement automatique dans la navigation supérieure. Lorsqu'il est activé, la page courante se rafraîchit périodiquement pour afficher les nouvelles sessions et l'activité des politiques au fur et à mesure. Indispensable pour surveiller des sessions d'agents autonomes de longue durée.
 
 ---
 
 ## Désactiver des pages
 
-Si vous n'avez besoin que de certaines parties du dashboard, définissez `FAILPROOFAI_DISABLE_PAGES` avec une liste de noms de pages séparés par des virgules :
+Si vous n'avez besoin que de certaines parties du tableau de bord, définissez `FAILPROOFAI_DISABLE_PAGES` avec une liste de noms de pages séparés par des virgules :
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -98,13 +98,13 @@ Valeurs valides : `policies`, `projects`.
 
 ## Thème
 
-Le dashboard prend en charge les modes clair et sombre. Basculez entre les deux via le bouton dans la barre de navigation. La préférence est enregistrée dans le stockage local de votre navigateur.
+Le tableau de bord prend en charge les modes clair et sombre. Basculez entre les deux via le bouton dans la barre de navigation. La préférence est enregistrée dans le stockage local de votre navigateur.
 
 ---
 
 ## Configurer le chemin des projets
 
-Par défaut, le dashboard lit depuis le répertoire de projets Claude Code standard. Remplacez-le pour des configurations personnalisées :
+Par défaut, le tableau de bord lit depuis le répertoire de projets Claude Code standard. Remplacez-le pour des configurations personnalisées :
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -112,15 +112,15 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## Accéder depuis un hôte non-localhost
+## Accéder depuis un hôte autre que localhost
 
-Lorsque vous exécutez le dashboard en **mode développement** (`npm run dev`) et y accédez depuis un nom d'hôte autre que `localhost` — par exemple, un domaine personnalisé, une IP distante ou une URL tunnelisée — vous pouvez voir un avertissement tel que :
+Lorsque vous exécutez le tableau de bord en **mode développement** (`npm run dev`) et que vous y accédez depuis un nom d'hôte autre que `localhost` — par exemple, un domaine personnalisé, une IP distante ou une URL tunnelisée — vous pouvez voir un avertissement du type :
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-Il s'agit de Next.js bloquant l'accès cross-origin à son WebSocket HMR (rechargement à chaud des modules), qui est une fonctionnalité réservée au développement. Pour autoriser votre hôte, utilisez le flag `--allowed-origins` :
+Il s'agit de Next.js qui bloque l'accès cross-origin à son websocket HMR (hot module reload), une fonctionnalité réservée au développement. Pour autoriser votre hôte, utilisez l'option `--allowed-origins` :
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
@@ -139,5 +139,5 @@ FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-Ceci s'applique uniquement au mode développement. Lorsque vous exécutez `failproofai` (mode production), il n'y a pas de WebSocket HMR ni de problème de ressource de développement cross-origin.
+Ceci s'applique uniquement au mode développement. Lors de l'exécution de `failproofai` (mode production), il n'y a pas de websocket HMR ni de problème de ressource cross-origin en développement.
 </Note>
