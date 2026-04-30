@@ -40,7 +40,7 @@ export interface HookRunResult {
 export function runHook(
   event: string,
   payload: Record<string, unknown>,
-  opts?: { homeDir?: string; cli?: "claude" | "codex" | "copilot" },
+  opts?: { homeDir?: string; cli?: "claude" | "codex" | "copilot" | "cursor" },
 ): HookRunResult {
   const binaryPath = getBinaryPath();
 
@@ -116,4 +116,26 @@ export function assertInstruct(result: HookRunResult): void {
 export function assertStopInstruct(result: HookRunResult): void {
   expect(result.exitCode).toBe(2);
   expect(result.stderr).toBeTruthy();
+}
+
+// ── Cursor-shaped assertions ───────────────────────────────────────────────
+// Cursor uses a flat `{permission, user_message, agent_message}` JSON shape
+// (no `hookSpecificOutput` wrapper) — see https://cursor.com/docs/hooks.
+
+export function assertCursorDeny(result: HookRunResult): void {
+  expect(result.exitCode).toBe(0);
+  expect(result.parsed?.permission).toBe("deny");
+  expect(result.parsed?.user_message).toMatch(/Blocked/i);
+  expect(result.parsed?.agent_message).toMatch(/Blocked/i);
+}
+
+export function assertCursorInstruct(result: HookRunResult): void {
+  expect(result.exitCode).toBe(0);
+  expect(result.parsed?.permission).toBe("allow");
+  expect(result.parsed?.additional_context).toMatch(/^Instruction from failproofai:/);
+}
+
+export function assertCursorStopInstruct(result: HookRunResult): void {
+  expect(result.exitCode).toBe(0);
+  expect(result.parsed?.followup_message).toMatch(/^Instruction from failproofai:/);
 }

@@ -90,10 +90,12 @@ function SessionCell({
   const isCopilot =
     integration === "copilot" ||
     (transcriptPath?.includes("/.copilot/session-state/") ?? false);
-  if (isCodex || isCopilot) {
+  const isCursor =
+    integration === "cursor" || (transcriptPath?.includes("/.cursor/") ?? false);
+  if (isCodex || isCopilot || isCursor) {
     // The session route auto-detects CLI by file location, so [name] only
     // affects the breadcrumb. Encode the cwd Claude-style when we have it.
-    const fallbackSeg = isCodex ? "codex" : "copilot";
+    const fallbackSeg = isCodex ? "codex" : isCopilot ? "copilot" : "cursor";
     const projectSeg = cwd ? encodeCwdForUrl(cwd) : fallbackSeg;
     return (
       <Link
@@ -470,7 +472,10 @@ function ActivityTab({
           </select>
           <select
             value={filterCli}
-            onChange={(e) => setFilterCli(e.target.value as "" | "claude" | "codex" | "copilot")}
+            onChange={(e) => {
+              const v = e.target.value;
+              setFilterCli(v === "" || isKnownCli(v) ? v : "");
+            }}
             className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/40 transition-shadow"
             aria-label="Filter by CLI"
           >

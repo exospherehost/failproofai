@@ -44,7 +44,8 @@ next-env.d.ts
 !.claude/settings.json
 
 # cursor
-.cursor
+.cursor/*
+!.cursor/hooks.json
 
 # custom hooks loader temp files
 *.__failproofai_tmp__.*

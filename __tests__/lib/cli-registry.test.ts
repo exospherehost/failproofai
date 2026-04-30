@@ -12,13 +12,14 @@ import {
 
 describe("lib/cli-registry", () => {
   it("KNOWN_CLI_IDS lists all supported CLIs in stable order", () => {
-    expect(KNOWN_CLI_IDS).toEqual(["claude", "codex", "copilot"]);
+    expect(KNOWN_CLI_IDS).toEqual(["claude", "codex", "copilot", "cursor"]);
   });
 
   it("getCliEntry returns the entry for known ids and undefined for unknown", () => {
     expect(getCliEntry("claude")?.label).toBe("Claude Code");
     expect(getCliEntry("codex")?.label).toBe("OpenAI Codex");
     expect(getCliEntry("copilot")?.label).toBe("GitHub Copilot");
+    expect(getCliEntry("cursor")?.label).toBe("Cursor Agent");
     expect(getCliEntry("unknown")).toBeUndefined();
   });
 
@@ -31,12 +32,14 @@ describe("lib/cli-registry", () => {
     expect(getCliBadgeClasses("copilot")).toContain("blue");
     expect(getCliBadgeClasses("codex")).toContain("purple");
     expect(getCliBadgeClasses("claude")).toContain("orange");
+    expect(getCliBadgeClasses("cursor")).toContain("emerald");
     expect(getCliBadgeClasses("unknown")).toContain("orange"); // falls back to claude
   });
 
   it("isKnownCli is null/undefined-safe", () => {
     expect(isKnownCli("claude")).toBe(true);
     expect(isKnownCli("copilot")).toBe(true);
+    expect(isKnownCli("cursor")).toBe(true);
     expect(isKnownCli("nope")).toBe(false);
     expect(isKnownCli(null)).toBe(false);
     expect(isKnownCli(undefined)).toBe(false);
@@ -50,7 +53,7 @@ describe("lib/cli-registry", () => {
 
   it("listExternalCliEntries excludes claude", () => {
     const ids = listExternalCliEntries().map((c) => c.id);
-    expect(ids).toEqual(["codex", "copilot"]);
+    expect(ids).toEqual(["codex", "copilot", "cursor"]);
   });
 
   it("each CLI has a unique badgeClasses string", () => {

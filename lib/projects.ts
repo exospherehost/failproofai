@@ -16,7 +16,7 @@ import { formatDate } from "./format-date";
 export const UUID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/;
 export const PATH_TRAVERSAL_RE = /(^|[\\/])\.\.($|[\\/])/;
 
-export type ProjectCli = "claude" | "codex" | "copilot";
+export type ProjectCli = "claude" | "codex" | "copilot" | "cursor";
 
 export interface ProjectFolder {
   name: string;
@@ -130,14 +130,14 @@ function mergeProjectFolders(...sources: ProjectFolder[][]): ProjectFolder[] {
 }
 
 export async function getProjectFolders(): Promise<ProjectFolder[]> {
-  // Lazy imports keep `lib/codex-projects.ts` and `lib/copilot-projects.ts`
-  // out of the dep graph for callers that only need Claude helpers (e.g. CLI
-  // codepaths).
-  const [{ getCodexProjects }, { getCopilotProjects }] = await Promise.all([
+  // Lazy imports keep the per-CLI project providers out of the dep graph for
+  // callers that only need Claude helpers (e.g. CLI codepaths).
+  const [{ getCodexProjects }, { getCopilotProjects }, { getCursorProjects }] = await Promise.all([
     import("./codex-projects"),
     import("./copilot-projects"),
+    import("./cursor-projects"),
   ]);
-  const [claude, codex, copilot] = await Promise.all([
+  const [claude, codex, copilot, cursor] = await Promise.all([
     getClaudeProjectFolders(),
     getCodexProjects().catch((error) => {
       logError("Error reading Codex projects:", error);
@@ -147,8 +147,12 @@ export async function getProjectFolders(): Promise<ProjectFolder[]> {
       logError("Error reading Copilot projects:", error);
       return [] as ProjectFolder[];
     }),
+    getCursorProjects().catch((error) => {
+      logError("Error reading Cursor projects:", error);
+      return [] as ProjectFolder[];
+    }),
   ]);
-  return mergeProjectFolders(claude, codex, copilot);
+  return mergeProjectFolders(claude, codex, copilot, cursor);
 }
 
 /**

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getCachedSessionLog, type LogEntry } from "@/lib/log-entries";
 import { getCachedCodexSessionLog } from "@/lib/codex-sessions";
 import { getCachedCopilotSessionLog } from "@/lib/copilot-sessions";
+import { getCachedCursorSessionLog } from "@/lib/cursor-sessions";
 import { decodeFolderName } from "@/lib/paths";
 import { baseSessionId } from "@/lib/utils/session-id";
 import { resolveProjectPath, UUID_RE } from "@/lib/projects";
@@ -36,7 +37,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
   let entries: LogEntry[] | null = null;
   let rawLines: Record<string, unknown>[] | null = null;
   let error: string | null = null;
-  let cli: "claude" | "codex" | "copilot" = "claude";
+  let cli: "claude" | "codex" | "copilot" | "cursor" = "claude";
   let externalCwd: string | undefined;
 
   try {
@@ -47,9 +48,9 @@ export default async function SessionPage({ params }: SessionPageProps) {
   } catch (e) {
     const isNotFound = (e as NodeJS.ErrnoException).code === "ENOENT";
     if (isNotFound) {
-      // Fall back to Codex transcripts. Codex stores files at
-      // ~/.codex/sessions/<YYYY>/<MM>/<DD>/<file containing sessionId>.jsonl,
-      // so the [name] segment is irrelevant — we look up by sessionId.
+      // Fall back through external stores in order: Codex → Copilot → Cursor.
+      // Each store keys by sessionId rather than the project slug, so the
+      // [name] segment is irrelevant on these branches.
       const codex = await getCachedCodexSessionLog(decodedSessionId);
       if (codex) {
         entries = codex.entries;
@@ -57,8 +58,6 @@ export default async function SessionPage({ params }: SessionPageProps) {
         externalCwd = codex.cwd;
         cli = "codex";
       } else {
-        // Final fallback: Copilot CLI stores sessions at
-        // ~/.copilot/session-state/<sessionId>/events.jsonl.
         const copilot = await getCachedCopilotSessionLog(decodedSessionId);
         if (copilot) {
           entries = copilot.entries;
@@ -66,7 +65,15 @@ export default async function SessionPage({ params }: SessionPageProps) {
           externalCwd = copilot.cwd;
           cli = "copilot";
         } else {
-          error = "Session log file not found.";
+          const cursor = await getCachedCursorSessionLog(decodedSessionId);
+          if (cursor) {
+            entries = cursor.entries;
+            rawLines = cursor.rawLines;
+            externalCwd = cursor.cwd;
+            cli = "cursor";
+          } else {
+            error = "Session log file not found.";
+          }
         }
       }
     } else {
@@ -81,7 +88,9 @@ export default async function SessionPage({ params }: SessionPageProps) {
       ? `OpenAI Codex${externalCwd ? ` · ${externalCwd}` : ""}`
       : cli === "copilot"
         ? `GitHub Copilot${externalCwd ? ` · ${externalCwd}` : ""}`
-        : decodedName;
+        : cli === "cursor"
+          ? `Cursor Agent${externalCwd ? ` · ${externalCwd}` : ""}`
+          : decodedName;
 
   return (
     <main className="min-h-screen bg-background">
@@ -140,7 +149,12 @@ export default async function SessionPage({ params }: SessionPageProps) {
             entries={entries}
             projectName={
               isExternal
-                ? (externalCwd ?? (cli === "codex" ? "OpenAI Codex" : "GitHub Copilot"))
+                ? (externalCwd ??
+                    (cli === "codex"
+                      ? "OpenAI Codex"
+                      : cli === "copilot"
+                        ? "GitHub Copilot"
+                        : "Cursor Agent"))
                 : decodedName
             }
             sessionId={decodedSessionId}

@@ -247,6 +247,56 @@ describe("hooks/handler", () => {
       );
     });
 
+    it("canonicalizes Cursor camelCase event names to PascalCase before evaluating", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: "",
+        stderr: "",
+        policyName: null,
+        reason: null,
+        decision: "allow",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash", hook_event_name: "preToolUse" }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      // Cursor sends the camelCase event name on the --hook arg.
+      await handleHookEvent("preToolUse", "cursor");
+
+      // Internal evaluator + activity store key on PascalCase.
+      expect(evaluatePolicies).toHaveBeenCalledWith(
+        "PreToolUse",
+        expect.any(Object),
+        expect.any(Object),
+        expect.any(Object),
+      );
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({ integration: "cursor", eventType: "PreToolUse" }),
+      );
+    });
+
+    it("tags telemetry with cli=cursor when invoked with --cli cursor", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0,
+        stdout: '{"permission":"deny","user_message":"Blocked","agent_message":"Blocked"}',
+        stderr: "",
+        policyName: "block-sudo",
+        reason: "sudo blocked",
+        decision: "deny",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Bash" }));
+      const { trackHookEvent } = await import("../../src/hooks/hook-telemetry");
+
+      await handleHookEvent("preToolUse", "cursor");
+
+      expect(trackHookEvent).toHaveBeenCalledWith(
+        "test-instance-id",
+        "hook_policy_triggered",
+        expect.objectContaining({ cli: "cursor", event_type: "PreToolUse" }),
+      );
+    });
+
     it("fires telemetry with full payload for instruct decisions", async () => {
       const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
       vi.mocked(evaluatePolicies).mockResolvedValueOnce({
