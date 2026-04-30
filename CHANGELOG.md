@@ -4,6 +4,7 @@
 
 ### Features
 - Add GitHub Copilot CLI integration (beta) across hooks, activity dashboard, session fallback, and `/projects` listing. Also ships this repo's own `.github/hooks/failproofai.json` so contributors developing failproofai with the GitHub Copilot CLI get hooks active automatically, mirroring the existing `.claude/settings.json` and `.codex/hooks.json` (#236)
+- Honor `NO_COLOR` and add `--no-color` for CLI output; interactive policy/CLI selectors now auto-fallback to non-interactive behavior in no-color mode, ANSI styling is suppressed for warnings/help usage, and cursor-hide control is centralized with exit-time cursor restore safety (#251)
 
 ### Fixes
 - `failproofai policies --uninstall` interactive CLI selector now says "Remove Hooks" / "Choose where to remove from:" instead of "Install Hooks" / "Choose where to install:" (#236)
