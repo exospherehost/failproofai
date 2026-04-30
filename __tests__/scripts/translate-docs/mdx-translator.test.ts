@@ -1,6 +1,9 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { rewriteInternalLinks } from "@/scripts/translate-docs/mdx-translator";
+import {
+  rewriteInternalLinks,
+  sanitizeJsxAttributes,
+} from "@/scripts/translate-docs/mdx-translator";
 
 describe("rewriteInternalLinks", () => {
   it("rewrites MDX component href attributes with language prefix", () => {
@@ -67,5 +70,62 @@ See [config](/configuration) and [testing](/testing).
     const input = `[link](/getting-started#install)`;
     const result = rewriteInternalLinks(input, "es");
     expect(result).toBe(`[link](/es/getting-started#install)`);
+  });
+});
+
+describe("sanitizeJsxAttributes", () => {
+  it("strips stray trailing ASCII quotes after a JSX attribute close", () => {
+    // The exact failure mode that broke `mintlify validate` on de/dashboard.mdx
+    const input = `  <Tab title="Tab „Richtlinien"">`;
+    const result = sanitizeJsxAttributes(input);
+    expect(result).toBe(`  <Tab title="Tab Richtlinien">`);
+  });
+
+  it("strips trailing extras when attribute is followed by a self-close", () => {
+    const input = `<Tab title="Foo bar"" />`;
+    const result = sanitizeJsxAttributes(input);
+    expect(result).toBe(`<Tab title="Foo bar" />`);
+  });
+
+  it("strips trailing extras when attribute is followed by another attribute", () => {
+    const input = `<Card title="Hello"" icon="rocket">`;
+    const result = sanitizeJsxAttributes(input);
+    expect(result).toBe(`<Card title="Hello" icon="rocket">`);
+  });
+
+  it("leaves well-formed attributes untouched", () => {
+    const input = `<Tab title="Activity tab">\n<Card title="Hello" href="/foo">`;
+    expect(sanitizeJsxAttributes(input)).toBe(input);
+  });
+
+  it("preserves matched typographic quote pairs", () => {
+    // Japanese 「…」 has matched open/close so should NOT be stripped even if
+    // there were stray ASCII trailing quotes — though here there are none.
+    const input = `<Tab title="「ポリシー」タブ">`;
+    expect(sanitizeJsxAttributes(input)).toBe(input);
+  });
+
+  it("strips unmatched typographic opening quotes when extras are present", () => {
+    // German „ without a matching " (U+201D) — drop the dangling open
+    const input = `<Tab title="Tab „Aktivität"">`;
+    expect(sanitizeJsxAttributes(input)).toBe(`<Tab title="Tab Aktivität">`);
+  });
+
+  it("drops only the surplus opener when a matched pair is also present", () => {
+    // One properly matched „…“ German pair plus one dangling „ — keep the
+    // pair, strip only the unmatched trailing opener.
+    const input = `<Tab title="„Foo“ und „Bar"">`;
+    expect(sanitizeJsxAttributes(input)).toBe(`<Tab title="„Foo“ und Bar">`);
+  });
+
+  it("does not mangle empty attributes", () => {
+    const input = `<Tag attr="">`;
+    expect(sanitizeJsxAttributes(input)).toBe(input);
+  });
+
+  it("handles multiple malformed attributes on the same line", () => {
+    const input = `<Tabs><Tab title="A"" /><Tab title="B"" /></Tabs>`;
+    const result = sanitizeJsxAttributes(input);
+    expect(result).toBe(`<Tabs><Tab title="A" /><Tab title="B" /></Tabs>`);
   });
 });

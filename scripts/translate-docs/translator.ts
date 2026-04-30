@@ -15,7 +15,7 @@ const SYSTEM_PROMPT = `You are a professional technical documentation translator
 ## Rules
 
 1. **Preserve all code blocks exactly as-is** — never translate content inside backtick-fenced code blocks (\`\`\`...\`\`\`) or inline code (\`...\`).
-2. **Preserve MDX component syntax** — tags like <Card>, <CardGroup>, <CodeGroup>, <Steps>, <Step>, <Note>, <Tip>, <Tabs>, <Tab>, <Warning> must remain unchanged. Their attribute names (title, icon, href, cols) must remain in English. Only translate the text content of the \`title\` attribute and the text body between tags.
+2. **Preserve MDX component syntax** — tags like <Card>, <CardGroup>, <CodeGroup>, <Steps>, <Step>, <Note>, <Tip>, <Tabs>, <Tab>, <Warning> must remain unchanged. Their attribute names (title, icon, href, cols) must remain in English. Only translate the text content of the \`title\` attribute and the text body between tags. **Never put an ASCII straight \`"\` inside a \`title="…"\` (or any JSX attribute value)** — it terminates the attribute and breaks MDX parsing. If the target language would normally wrap a word in quotation marks (e.g. German „…", Japanese 「…」), drop the inner quotes inside attribute values and rely on the surrounding tag for emphasis.
 3. **Preserve YAML frontmatter keys** — only translate the string values of \`title\` and \`description\`. Keep the \`icon\` value unchanged.
 4. **Preserve all URLs and paths** — never modify href values, image paths, or links.
 5. **Preserve Markdown structure** — headers (#, ##), lists (-, *), tables (|), bold (**), italic (*), links ([text](url)) must keep their Markdown formatting.
