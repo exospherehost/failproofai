@@ -3165,16 +3165,39 @@ describe("hooks/builtin-policies", () => {
     function mockCiScenario(
       branch: string,
       ghRunListResult: string | Error,
-      options?: { checkRunsResult?: string | Error; statusesResult?: string | Error; headSha?: string },
+      options?: { checkRunsResult?: string | Error; statusesResult?: string | Error; headSha?: string | null },
     ) {
-      const headSha = options?.headSha ?? "deadbeef0000";
+      const headSha = options?.headSha === undefined ? "deadbeef0000" : options.headSha;
       const checkRunsResult = options?.checkRunsResult ?? "[]";
       const statusesResult = options?.statusesResult ?? "[]";
+
+      // Auto-inject headSha into mocked gh-run-list rows that don't already
+      // carry one. After the headSha-filter fix, the policy ignores rows
+      // whose headSha doesn't match the current HEAD; pre-existing tests
+      // that just pass `[{status,conclusion,name}]` rows are implicitly
+      // "all rows are for HEAD" — so we backfill.
+      let injectedRunListResult: string | Error = ghRunListResult;
+      if (typeof ghRunListResult === "string" && ghRunListResult.trim() && ghRunListResult !== "[]") {
+        try {
+          const rows = JSON.parse(ghRunListResult) as Array<Record<string, unknown>>;
+          if (Array.isArray(rows)) {
+            const enriched = rows.map((r) =>
+              "headSha" in r ? r : { ...r, headSha: headSha ?? "" },
+            );
+            injectedRunListResult = JSON.stringify(enriched);
+          }
+        } catch {
+          // Malformed-JSON tests (e.g. "not json") fall through unchanged.
+        }
+      }
 
       vi.mocked(execSync).mockImplementation((cmd: string) => {
         if (typeof cmd === "string" && cmd.includes("gh --version")) return "gh version 2.40.0\n";
         if (typeof cmd === "string" && cmd.includes("rev-parse --abbrev-ref")) return `${branch}\n`;
-        if (typeof cmd === "string" && cmd.includes("rev-parse HEAD")) return `${headSha}\n`;
+        if (typeof cmd === "string" && cmd.includes("rev-parse HEAD")) {
+          if (headSha === null) throw new Error("not a git repo");
+          return `${headSha}\n`;
+        }
         return "";
       });
 
@@ -3182,8 +3205,8 @@ describe("hooks/builtin-policies", () => {
         const argsArr = args ?? [];
         // gh run list
         if (file === "gh" && argsArr.includes("run")) {
-          if (ghRunListResult instanceof Error) throw ghRunListResult;
-          return ghRunListResult;
+          if (injectedRunListResult instanceof Error) throw injectedRunListResult;
+          return injectedRunListResult;
         }
         // gh api (check-runs vs statuses)
         if (file === "gh" && argsArr.includes("api")) {
@@ -3614,6 +3637,116 @@ describe("hooks/builtin-policies", () => {
       const result = await policy.fn(ctx);
       expect(result.decision).toBe("allow");
       expect(result.reason).toContain("All CI checks passed");
+    });
+
+    // -- HEAD-SHA filter regression tests --
+
+    it("ignores a stale failed run from a prior commit on the same branch", async () => {
+      // gh run list returns newest-first: the success run for HEAD comes first,
+      // followed by an older failure for a now-superseded commit. Without the
+      // headSha filter the policy denies; with it, only the HEAD success counts.
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "CI", headSha: "newhead00000" },
+          { status: "completed", conclusion: "failure", name: "CI", headSha: "oldcommit0000" },
+        ]),
+        { headSha: "newhead00000" },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+      expect(result.reason).toContain("All CI checks passed");
+    });
+
+    it("ignores a stale in-progress run from a prior commit on the same branch", async () => {
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "CI", headSha: "newhead00000" },
+          { status: "in_progress", conclusion: "", name: "CI", headSha: "oldcommit0000" },
+        ]),
+        { headSha: "newhead00000" },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+    });
+
+    it("deduplicates re-runs of the same workflow on HEAD — newest success wins", async () => {
+      // GitHub's "Re-run all jobs" creates a fresh run record with the same
+      // name + headSha. gh run list returns newest-first, so the dedupe
+      // takes the newer success and ignores the older failed attempt.
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "success", name: "CI", headSha: "newhead00000" },
+          { status: "completed", conclusion: "failure", name: "CI", headSha: "newhead00000" },
+        ]),
+        { headSha: "newhead00000" },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("allow");
+    });
+
+    it("dedupe — newer failure overrides older success on the same HEAD", async () => {
+      // Re-running a previously-green workflow that now fails should deny.
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "failure", name: "CI", headSha: "newhead00000" },
+          { status: "completed", conclusion: "success", name: "CI", headSha: "newhead00000" },
+        ]),
+        { headSha: "newhead00000" },
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("failing");
+    });
+
+    it("falls back to all runs when getHeadSha returns null (brand-new repo)", async () => {
+      // If `git rev-parse HEAD` throws (no commits yet, broken repo, etc.),
+      // skip the SHA filter and act on the unfiltered list — same as
+      // pre-fix behavior. Better than silently allowing.
+      mockCiScenario(
+        "feat/branch",
+        JSON.stringify([
+          { status: "completed", conclusion: "failure", name: "CI" },
+        ]),
+        { headSha: null }, // signals git rev-parse HEAD throws
+      );
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      const result = await policy.fn(ctx);
+      expect(result.decision).toBe("deny");
+      expect(result.reason).toContain("failing");
+    });
+
+    it("requests headSha in the --json projection (regression guard)", async () => {
+      mockCiScenario("feat/branch", JSON.stringify([
+        { status: "completed", conclusion: "success", name: "CI" },
+      ]));
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      await policy.fn(ctx);
+      expect(execFileSync).toHaveBeenCalledWith(
+        "gh",
+        expect.arrayContaining(["--json", expect.stringContaining("headSha")]),
+        expect.anything(),
+      );
+    });
+
+    it("uses --limit 20 for gh run list (regression guard against truncation)", async () => {
+      mockCiScenario("feat/branch", JSON.stringify([
+        { status: "completed", conclusion: "success", name: "CI" },
+      ]));
+      const ctx = makeCtx({ eventType: "Stop", session: { cwd: "/repo" } });
+      await policy.fn(ctx);
+      expect(execFileSync).toHaveBeenCalledWith(
+        "gh",
+        expect.arrayContaining(["--limit", "20"]),
+        expect.anything(),
+      );
     });
   });
 });

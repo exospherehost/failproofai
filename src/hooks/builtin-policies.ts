@@ -1370,17 +1370,44 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     const branch = getCurrentBranch(cwd);
     if (!branch || branch === "HEAD") return allow("Detached HEAD, skipping CI check.");
 
-    // 1. GitHub Actions workflow runs
+    // Resolve HEAD up front — the workflow-runs filter below uses it to
+    // ignore runs targeting prior commits on the same branch (otherwise a
+    // stale failure on commit X is still reported after the fix on Y lands).
+    // Third-party checks and commit statuses (queried by SHA below) already
+    // scope to HEAD via getThirdPartyCheckRuns / getCommitStatuses.
+    const sha = getHeadSha(cwd);
+
+    // 1. GitHub Actions workflow runs (filtered to current HEAD, deduped by name)
     let workflowRuns: CiCheck[] = [];
     try {
+      // --limit 20 (was 5): a busy branch can push the latest run for some
+      // workflow out of the top-5 window after the SHA filter. 20 covers
+      // ~4 commits worth of runs for a 5-workflow repo without being slow.
       const runsJson = execFileSync(
         "gh",
-        ["run", "list", "--branch", branch, "--limit", "5", "--json", "status,conclusion,name"],
+        ["run", "list", "--branch", branch, "--limit", "20", "--json", "status,conclusion,name,headSha"],
         { cwd, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], timeout: 15000 },
       ).trim();
 
       if (runsJson && runsJson !== "[]") {
-        workflowRuns = JSON.parse(runsJson) as CiCheck[];
+        const allWorkflowRuns = JSON.parse(runsJson) as Array<CiCheck & { headSha?: string }>;
+        // Filter to runs targeting the current HEAD commit only — not
+        // historical runs for prior commits on the same branch. When `sha`
+        // is unavailable (e.g. brand-new repo with no commits) fall back
+        // to the unfiltered list so the policy still has something to act on.
+        const headRuns = sha
+          ? allWorkflowRuns.filter((r) => r.headSha === sha)
+          : allWorkflowRuns;
+        // Dedupe by workflow name, keeping the first occurrence (gh run list
+        // returns newest-first). This handles GitHub's "Re-run all jobs" which
+        // creates a fresh run record with the same name + headSha — without
+        // dedupe the older failed record would still trip the deny.
+        const seen = new Set<string>();
+        workflowRuns = headRuns.filter((r) => {
+          if (seen.has(r.name)) return false;
+          seen.add(r.name);
+          return true;
+        });
       }
     } catch {
       // fail-open for workflow runs; continue to check third-party checks
@@ -1389,7 +1416,6 @@ function requireCiGreenBeforeStop(ctx: PolicyContext): PolicyResult {
     // 2. Third-party check runs (CodeRabbit, SonarCloud, Codecov, etc.)
     let thirdPartyChecks: CiCheck[] = [];
     let commitStatuses: CiCheck[] = [];
-    const sha = getHeadSha(cwd);
     if (sha) {
       thirdPartyChecks = getThirdPartyCheckRuns(cwd, sha);
       commitStatuses = getCommitStatuses(cwd, sha);
@@ -1884,7 +1910,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
   },
   {
     name: "require-ci-green-before-stop",
-    description: "Require CI checks to pass on the current branch before Claude stops",
+    description: "Require CI checks to pass on the current HEAD commit before Claude stops (ignores stale runs on prior commits)",
     fn: requireCiGreenBeforeStop,
     match: { events: ["Stop"] },
     defaultEnabled: false,
