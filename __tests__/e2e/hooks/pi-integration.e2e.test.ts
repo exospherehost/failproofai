@@ -97,9 +97,13 @@ describe("E2E: Pi integration — hook protocol (handler-only)", () => {
     const env = createPiEnv();
     try {
       writeConfig(env.cwd, ["block-rm-rf"]);
+      // `block-rm-rf` only triggers on single-component absolute paths
+      // (`/`, `/home`, `/etc`, `/tmp` — see the regex in builtin-policies.ts);
+      // multi-component paths like `/tmp/whatever` slip through. `/tmp` is
+      // the conventional "destructive target" in tests.
       const result = runHook(
         "user_bash",
-        PiPayloads.userBash("rm -rf /tmp/whatever", env.cwd),
+        PiPayloads.userBash("rm -rf /tmp", env.cwd),
         { homeDir: env.home, cli: "pi" },
       );
       assertPiDeny(result);
