@@ -5,7 +5,7 @@
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude", "codex", "copilot", "cursor"] as const;
+export const INTEGRATION_TYPES = ["claude", "codex", "copilot", "cursor", "pi"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CODEX_HOOK_SCOPES = ["user", "project"] as const;
@@ -92,6 +92,47 @@ export const CURSOR_EVENT_MAP: Record<CursorHookEventType, HookEventType> = {
   stop: "Stop",
 };
 
+// ── Pi (pi-coding-agent) ───────────────────────────────────────────────────
+//
+// Pi loads TypeScript extensions from packages registered in `.pi/settings.json`
+// (project, `<cwd>/.pi/settings.json`) or `~/.pi/agent/settings.json` (user-
+// scope — confirmed empirically; the bare `~/.pi/settings.json` does NOT
+// exist on a fresh install). Extensions are default-exported functions that
+// receive an ExtensionAPI and call `pi.on("<event>", handler)`. A handler can
+// `return { block: true, reason }` from `tool_call` / `user_bash` to veto the
+// tool call.
+//
+// Settings file schema is a FLAT string array — `{"packages": ["..."]}` —
+// where each entry is a path resolved relative to `.pi/` (so `../pi-extension`
+// for `<cwd>/pi-extension`). NOT an array of objects, so the
+// FAILPROOFAI_HOOK_MARKER convention used by Claude/Codex/Copilot/Cursor is
+// not applicable; failproofai's entry is identified by a path-substring match
+// (`source.includes("pi-extension") && source.includes("failproofai")`).
+//
+// Pi events arrive in camelCase (like Cursor): `event.toolName`,
+// `event.toolCallId`, `event.input`, `event.text`, `event.cwd`. The handler
+// canonicalizes Pi's underscore_lower_snake_case event names
+// (session_start / input / tool_call / user_bash) to PascalCase via
+// PI_EVENT_MAP before policy lookup.
+
+export const PI_HOOK_SCOPES = ["user", "project"] as const;
+export type PiHookScope = (typeof PI_HOOK_SCOPES)[number];
+
+export const PI_HOOK_EVENT_TYPES = [
+  "session_start",
+  "input",
+  "tool_call",
+  "user_bash",
+] as const;
+export type PiHookEventType = (typeof PI_HOOK_EVENT_TYPES)[number];
+
+export const PI_EVENT_MAP: Record<PiHookEventType, HookEventType> = {
+  session_start: "SessionStart",
+  input: "UserPromptSubmit",
+  tool_call: "PreToolUse",
+  user_bash: "PreToolUse",
+};
+
 export const HOOK_EVENT_TYPES = [
   "SessionStart",
   "SessionEnd",
@@ -144,7 +185,7 @@ export interface SessionMetadata {
   cwd?: string;
   permissionMode?: string;
   hookEventName?: string;
-  /** Which agent CLI fired this hook (claude | codex | copilot | cursor). Set by handler.ts from --cli. */
+  /** Which agent CLI fired this hook (claude | codex | copilot | cursor | pi). Set by handler.ts from --cli. */
   cli?: IntegrationType;
 }
 

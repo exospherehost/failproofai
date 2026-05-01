@@ -47,6 +47,10 @@ next-env.d.ts
 .cursor/*
 !.cursor/hooks.json
 
+# pi
+.pi/*
+!.pi/settings.json
+
 # custom hooks loader temp files
 *.__failproofai_tmp__.*
 

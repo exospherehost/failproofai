@@ -323,3 +323,79 @@ export const CopilotPayloads = {
     };
   },
 };
+
+/**
+ * Pi (pi-coding-agent) payload factories. The on-disk shape we forward to
+ * `failproofai --hook ... --cli pi` is the same as Claude's stdin shape
+ * (snake_case `tool_name`, `tool_input`, …) — the pi-extension shim does
+ * the camelCase-to-snake_case translation before spawning failproofai.
+ *
+ * These payload factories reproduce what the shim writes, NOT what Pi
+ * itself emits, because the e2e tests run against the bare failproofai
+ * binary and don't go through the shim. The hook_event_name is the Pi-side
+ * underscore_lower_snake_case form (`tool_call`, `user_bash`, `input`,
+ * `session_start`); the handler canonicalizes to PascalCase via PI_EVENT_MAP.
+ */
+const PI_SESSION_ID = "test-session-pi-001";
+
+export const PiPayloads = {
+  toolCall: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: PI_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_input: { command },
+      };
+    },
+    write(filePath: string, content: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: PI_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "Write",
+        tool_input: { file_path: filePath, content },
+      };
+    },
+    read(filePath: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: PI_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "Read",
+        tool_input: { file_path: filePath },
+      };
+    },
+  },
+  userBash(command: string, cwd: string): Record<string, unknown> {
+    return {
+      session_id: PI_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: { command },
+    };
+  },
+  input(prompt: string, cwd: string): Record<string, unknown> {
+    return {
+      session_id: PI_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "UserPromptSubmit",
+      prompt,
+    };
+  },
+  sessionStart(cwd: string): Record<string, unknown> {
+    return {
+      session_id: PI_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "SessionStart",
+    };
+  },
+};

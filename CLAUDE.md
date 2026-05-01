@@ -97,6 +97,51 @@ which writes a portable `npx -y failproofai --hook ... --cli cursor` command.
 Same self-reference caveat applies — do **not** install the standard `npx`
 form from inside this repo.
 
+### Pi hooks (`.pi/settings.json`)
+
+This repo also ships a `.pi/settings.json` for Pi (`@mariozechner/pi-coding-agent`)
+sessions. Pi's model differs from the other four CLIs in two important ways:
+
+**Direct settings-file write, not subcommand-based.** Pi exposes
+`pi install <source> [-l]` and `pi remove <source> [-l]` for managing
+extensions, but failproofai writes `.pi/settings.json` directly — same pattern
+as `.cursor/hooks.json` and `.codex/hooks.json`. This keeps install/uninstall
+fast (no subprocess), works without `pi` on PATH, and stays consistent with
+the other four integrations.
+
+**Settings file paths** (verified empirically against pi-coding-agent
+v0.71.1):
+
+| Scope   | Path                                |
+|---------|-------------------------------------|
+| user    | `~/.pi/agent/settings.json`         |
+| project | `<cwd>/.pi/settings.json`           |
+
+Note: `~/.pi/settings.json` does NOT exist on a fresh install; user-scope
+settings live one level deeper under `~/.pi/agent/`.
+
+**Schema** is a flat string array — `{"packages": ["./relative/path", ...]}`.
+Each entry is a path Pi resolves relative to the directory containing
+`settings.json` (so `<cwd>/.pi/` for project scope). For dogfood we write
+`"../pi-extension"` so each contributor's clone resolves to their own
+on-disk `<repo>/pi-extension/`.
+
+**The pi-extension package** ships inside the failproofai npm tarball at
+`pi-extension/` (sibling of `bin/`, `dist/`, etc.). Its `index.ts` is loaded
+by Pi at startup; the shim spawns `failproofai --hook <Event> --cli pi` per
+Pi event and translates Pi's `{toolName, input, ...}` event payload to the
+Claude-shape stdin JSON the handler expects. Pi spawns extensions with an
+undefined cwd contract, so the shim resolves the failproofai binary
+relatively from `import.meta.url`, NOT from `process.cwd()`.
+
+For production users (outside this repo), the recommended Pi install is:
+```bash
+failproofai policies --install --cli pi --scope project
+```
+which writes a `.pi/settings.json` referencing failproofai's bundled
+pi-extension. Same self-reference caveat applies — do **not** install the
+standard `npx` form from inside this repo.
+
 ## Workflow rules
 
 ### One PR per branch

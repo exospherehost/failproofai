@@ -12,11 +12,11 @@ import { hookLogWarn } from "./hook-logger";
 
 /**
  * Whether `resolved` lives under an agent CLI's home directory
- * (~/.claude/, ~/.codex/, ~/.copilot/, or ~/.cursor/). Used to whitelist
+ * (~/.claude/, ~/.codex/, ~/.copilot/, ~/.cursor/, or ~/.pi/). Used to whitelist
  * agent self-reads of their own config and transcripts.
  */
 function isAgentInternalPath(resolved: string): boolean {
-  for (const dir of [".claude", ".codex", ".copilot", ".cursor"]) {
+  for (const dir of [".claude", ".codex", ".copilot", ".cursor", ".pi"]) {
     const root = join(homedir(), dir);
     if (resolved === root || resolved.startsWith(root + "/")) return true;
   }
@@ -29,6 +29,9 @@ function isAgentInternalPath(resolved: string): boolean {
  *   • Codex:        `.codex/hooks.json`
  *   • Copilot CLI:  `.copilot/hooks/*.json`, `.github/hooks/*.json`
  *   • Cursor Agent: `.cursor/hooks.json`
+ *   • Pi:           `.pi/settings.json` (project) and `.pi/agent/settings.json`
+ *                   (user); also the Pi-managed extension dir
+ *                   `.pi/extensions/` / `.pi/agent/extensions/`.
  * These must NEVER be edited by the agent itself — that would let it disable
  * its own protections.
  */
@@ -38,6 +41,8 @@ function isAgentSettingsFile(resolved: string): boolean {
   if (/[\\/]\.copilot[\\/]hooks[\\/][^/\\]+\.json$/.test(resolved)) return true;
   if (/[\\/]\.github[\\/]hooks[\\/][^/\\]+\.json$/.test(resolved)) return true;
   if (/[\\/]\.cursor[\\/]hooks\.json$/.test(resolved)) return true;
+  if (/[\\/]\.pi[\\/](?:agent[\\/])?settings\.json$/.test(resolved)) return true;
+  if (/[\\/]\.pi[\\/](?:agent[\\/])?extensions[\\/]/.test(resolved)) return true;
   return false;
 }
 

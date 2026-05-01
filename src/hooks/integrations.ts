@@ -9,6 +9,7 @@
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import {
   HOOK_EVENT_TYPES,
@@ -20,6 +21,8 @@ import {
   COPILOT_HOOK_SCOPES,
   CURSOR_HOOK_EVENT_TYPES,
   CURSOR_HOOK_SCOPES,
+  PI_HOOK_EVENT_TYPES,
+  PI_HOOK_SCOPES,
   FAILPROOFAI_HOOK_MARKER,
   INTEGRATION_TYPES,
   type IntegrationType,
@@ -645,6 +648,188 @@ export const cursor: Integration = {
   },
 };
 
+// ── Pi (pi-coding-agent) integration ───────────────────────────────────────
+//
+// Pi loads TypeScript extension packages registered in `.pi/settings.json`.
+// Schema (verified empirically against pi-coding-agent v0.71.1):
+//
+//   {"packages": ["./relative/path", "/abs/path", "npm:@scope/name"]}
+//
+// Entries are PLAIN STRINGS — there's no per-entry object where the
+// FAILPROOFAI_HOOK_MARKER could live. We identify failproofai's entry by a
+// path-substring match (`includes("pi-extension") && includes("failproofai")`).
+//
+// Path semantics: a relative entry like `../pi-extension` is resolved relative
+// to the directory containing settings.json (i.e. `<cwd>/.pi/`). For dogfood
+// where the extension lives at `<cwd>/pi-extension/`, the correct entry is
+// `"../pi-extension"`. For user-scope global installs where failproofai lives
+// in the npm global root, we write the absolute path.
+//
+// Settings file paths (verified — `~/.pi/settings.json` does NOT exist on a
+// fresh install; user-scope is under `~/.pi/agent/`):
+//   user    → ~/.pi/agent/settings.json
+//   project → <cwd>/.pi/settings.json
+//
+// Pi events arrive as `tool_call` / `user_bash` / `input` / `session_start`
+// (underscore_lower_snake_case); handler.ts canonicalizes via PI_EVENT_MAP.
+// Tool-call payloads use camelCase: `event.toolName`, `event.input`,
+// `event.toolCallId`. `tool_call` handlers can `return { block: true, reason }`
+// to veto the tool call — this is how PreToolUse deny is enforced.
+//
+// Detected via the `pi` binary on PATH.
+
+interface PiSettingsFile {
+  packages?: string[];
+  [key: string]: unknown;
+}
+
+/** Returns the absolute path to the failproofai-shipped Pi extension package. */
+function getPiExtensionPath(): string {
+  // Resolve relative to the installed failproofai package root, falling back
+  // to FAILPROOFAI_PACKAGE_ROOT (set by bin/failproofai.mjs) for dev mode.
+  const fromEnv = process.env.FAILPROOFAI_PACKAGE_ROOT;
+  if (fromEnv) return resolve(fromEnv, "pi-extension");
+  // Fallback: walk up from this file (src/hooks/integrations.ts) two levels.
+  return resolve(fileURLToPath(import.meta.url), "..", "..", "..", "pi-extension");
+}
+
+/** True iff a Pi packages-array entry was written by failproofai. */
+function isFailproofaiPiEntry(source: unknown): boolean {
+  if (typeof source !== "string") return false;
+  // Path-substring match: matches the canonical `<failproofai>/pi-extension/`
+  // path AND a future npm-scoped `@failproofai/pi-extension` package.
+  return source.includes("pi-extension") && source.includes("failproofai");
+}
+
+export const pi: Integration = {
+  id: "pi",
+  displayName: "Pi",
+  scopes: PI_HOOK_SCOPES,
+  eventTypes: PI_HOOK_EVENT_TYPES,
+
+  getSettingsPath(scope, cwd) {
+    const base = cwd ? resolve(cwd) : process.cwd();
+    switch (scope) {
+      case "user":
+        return resolve(homedir(), ".pi", "agent", "settings.json");
+      case "project":
+        return resolve(base, ".pi", "settings.json");
+      case "local":
+        // Pi has no "local" scope; CLI rejects --cli pi --scope local before
+        // reaching here, but fall back to project so callers don't crash.
+        return resolve(base, ".pi", "settings.json");
+    }
+  },
+
+  readSettings(settingsPath) {
+    return readJsonFile(settingsPath);
+  },
+
+  writeSettings(settingsPath, settings) {
+    writeJsonFile(settingsPath, settings);
+  },
+
+  buildHookEntry(_binaryPath, _eventType, scope) {
+    // Pi registers extensions at the package level — one entry covers all
+    // events. The package's index.ts wires the four pi.on(...) handlers.
+    // The "entry" returned here is a sentinel object so the Integration
+    // interface's typing is satisfied; writeHookEntries resolves the actual
+    // string entry below.
+    return {
+      [FAILPROOFAI_HOOK_MARKER]: true,
+      _piPackagePath: getPiExtensionPath(),
+      _piScope: scope,
+    };
+  },
+
+  isFailproofaiHook(hook) {
+    if (hook[FAILPROOFAI_HOOK_MARKER] === true) return true;
+    // Pi entries are strings — also accept a {source} shape used by tests
+    if (typeof hook.source === "string") return isFailproofaiPiEntry(hook.source);
+    return false;
+  },
+
+  writeHookEntries(settings, _binaryPath, scope) {
+    const s = settings as PiSettingsFile;
+    if (!Array.isArray(s.packages)) s.packages = [];
+
+    const extPath = getPiExtensionPath();
+    // Project-scope writes a relative path (resolved by Pi at load time
+    // against `<cwd>/.pi/`) so a committed `.pi/settings.json` is portable
+    // across contributors. User-scope writes an absolute path because each
+    // user's failproofai install has its own absolute location.
+    const entry = scope === "project"
+      ? makePiProjectRelativeEntry(extPath)
+      : extPath;
+
+    // Idempotent: replace any existing failproofai entry, otherwise append.
+    const idx = s.packages.findIndex((p) => isFailproofaiPiEntry(p));
+    if (idx >= 0) {
+      s.packages[idx] = entry;
+    } else {
+      s.packages.push(entry);
+    }
+  },
+
+  removeHooksFromFile(settingsPath) {
+    if (!existsSync(settingsPath)) return 0;
+    const settings = this.readSettings(settingsPath) as PiSettingsFile;
+    if (!Array.isArray(settings.packages)) return 0;
+
+    const before = settings.packages.length;
+    settings.packages = settings.packages.filter((p) => !isFailproofaiPiEntry(p));
+    const removed = before - settings.packages.length;
+
+    if (settings.packages.length === 0) delete settings.packages;
+    this.writeSettings(settingsPath, settings as Record<string, unknown>);
+    return removed;
+  },
+
+  hooksInstalledInSettings(scope, cwd) {
+    const settingsPath = this.getSettingsPath(scope, cwd);
+    if (!existsSync(settingsPath)) return false;
+    try {
+      const settings = this.readSettings(settingsPath) as PiSettingsFile;
+      if (!Array.isArray(settings.packages)) return false;
+      return settings.packages.some((p) => isFailproofaiPiEntry(p));
+    } catch {
+      // Corrupt settings — treat as not installed
+      return false;
+    }
+  },
+
+  detectInstalled() {
+    return binaryExists("pi");
+  },
+};
+
+/**
+ * Compute a relative path from `<settings.json's parent>` to the extension
+ * directory, so the entry is portable across contributors who clone the repo
+ * to different absolute paths.
+ *
+ * For project scope, settings.json lives at `<cwd>/.pi/settings.json`, and
+ * the extension at `<cwd>/pi-extension/`. The relative path Pi expects
+ * (resolved against `<cwd>/.pi/`) is `../pi-extension`.
+ *
+ * If the extension path is not under the project root (e.g. failproofai is
+ * installed globally and being written to a project), falls back to the
+ * absolute path so resolution still works on this machine.
+ */
+function makePiProjectRelativeEntry(extPath: string): string {
+  const cwd = process.cwd();
+  const cwdResolved = resolve(cwd);
+  const extResolved = resolve(extPath);
+  if (extResolved.startsWith(cwdResolved + "/") || extResolved === cwdResolved) {
+    // Walk back up from <cwd>/.pi/ to <cwd>/, then forward to the extension.
+    const fromSettingsDir = "../" + extResolved.slice(cwdResolved.length + 1);
+    return fromSettingsDir;
+  }
+  // Extension lives outside the project — keep it absolute. Not portable, but
+  // works for the local user.
+  return extResolved;
+}
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 const INTEGRATIONS: Record<IntegrationType, Integration> = {
@@ -652,6 +837,7 @@ const INTEGRATIONS: Record<IntegrationType, Integration> = {
   codex,
   copilot,
   cursor,
+  pi,
 };
 
 export function getIntegration(id: IntegrationType): Integration {

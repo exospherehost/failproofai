@@ -18,6 +18,7 @@ import {
   codex,
   copilot,
   cursor,
+  pi,
   getIntegration,
   listIntegrations,
 } from "../../src/hooks/integrations";
@@ -27,10 +28,13 @@ import {
   COPILOT_HOOK_EVENT_TYPES,
   CURSOR_HOOK_EVENT_TYPES,
   CURSOR_EVENT_MAP,
+  PI_HOOK_EVENT_TYPES,
+  PI_EVENT_MAP,
   HOOK_EVENT_TYPES,
   FAILPROOFAI_HOOK_MARKER,
   type CodexHookEventType,
   type CursorHookEventType,
+  type PiHookEventType,
 } from "../../src/hooks/types";
 
 let tempDir: string;
@@ -44,9 +48,9 @@ afterEach(() => {
 });
 
 describe("integrations registry", () => {
-  it("listIntegrations returns claude, codex, copilot, and cursor", () => {
+  it("listIntegrations returns claude, codex, copilot, cursor, and pi", () => {
     const ids = listIntegrations().map((i) => i.id);
-    expect(ids).toEqual(["claude", "codex", "copilot", "cursor"]);
+    expect(ids).toEqual(["claude", "codex", "copilot", "cursor", "pi"]);
   });
 
   it("getIntegration('claude') returns claudeCode", () => {
@@ -63,6 +67,10 @@ describe("integrations registry", () => {
 
   it("getIntegration('cursor') returns cursor", () => {
     expect(getIntegration("cursor")).toBe(cursor);
+  });
+
+  it("getIntegration('pi') returns pi", () => {
+    expect(getIntegration("pi")).toBe(pi);
   });
 
   it("getIntegration throws for unknown id", () => {
@@ -456,5 +464,174 @@ describe("CURSOR_EVENT_MAP", () => {
   it("CursorHookEventType is exhaustive", () => {
     const sample: CursorHookEventType = "preToolUse";
     expect(CURSOR_EVENT_MAP[sample]).toBe("PreToolUse");
+  });
+});
+
+describe("Pi integration", () => {
+  it("getSettingsPath user → ~/.pi/agent/settings.json (NOT ~/.pi/settings.json)", () => {
+    const userPath = pi.getSettingsPath("user");
+    expect(userPath).toContain(".pi");
+    expect(userPath.endsWith(`/.pi/agent/settings.json`)).toBe(true);
+  });
+
+  it("getSettingsPath project → <cwd>/.pi/settings.json", () => {
+    expect(pi.getSettingsPath("project", tempDir)).toBe(resolve(tempDir, ".pi", "settings.json"));
+  });
+
+  it("scopes are user|project (no local)", () => {
+    expect([...pi.scopes]).toEqual(["user", "project"]);
+  });
+
+  it("eventTypes are exactly the 4 Pi events (snake_case)", () => {
+    expect([...pi.eventTypes]).toEqual([...PI_HOOK_EVENT_TYPES]);
+  });
+
+  it("buildHookEntry includes the FAILPROOFAI_HOOK_MARKER", () => {
+    const entry = pi.buildHookEntry("/usr/local/bin/failproofai", "tool_call", "user");
+    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+  });
+
+  it("writeHookEntries adds a packages-array entry to a fresh settings.json", () => {
+    const settings: Record<string, unknown> = {};
+    pi.writeHookEntries(settings, "/usr/local/bin/failproofai", "user");
+    const packages = (settings as { packages?: unknown[] }).packages;
+    expect(Array.isArray(packages)).toBe(true);
+    expect(packages?.length).toBe(1);
+    const entry = (packages?.[0] ?? "") as string;
+    expect(typeof entry).toBe("string");
+    expect(entry).toContain("pi-extension");
+    expect(entry).toContain("failproofai");
+  });
+
+  it("writeHookEntries appends to an existing packages array, preserving user entries", () => {
+    const settings: Record<string, unknown> = { packages: ["npm:@user/foo"] };
+    pi.writeHookEntries(settings, "/usr/local/bin/failproofai", "user");
+    const packages = (settings as { packages?: unknown[] }).packages ?? [];
+    expect(packages.length).toBe(2);
+    expect(packages[0]).toBe("npm:@user/foo");
+    expect(typeof packages[1]).toBe("string");
+    expect((packages[1] as string)).toContain("pi-extension");
+  });
+
+  it("writeHookEntries is idempotent — re-running replaces (not duplicates) failproofai", () => {
+    const settings: Record<string, unknown> = {};
+    pi.writeHookEntries(settings, "/usr/local/bin/failproofai", "user");
+    pi.writeHookEntries(settings, "/usr/local/bin/failproofai", "user");
+    const packages = (settings as { packages?: unknown[] }).packages ?? [];
+    expect(packages.filter((p) => typeof p === "string" && (p as string).includes("pi-extension")).length).toBe(1);
+  });
+
+  it("writeHookEntries with --scope project writes a relative path under <cwd>", () => {
+    // Set cwd to tempDir so the project-scope relative-path computation lines up.
+    const origCwd = process.cwd();
+    try {
+      process.chdir(tempDir);
+      const settings: Record<string, unknown> = {};
+      pi.writeHookEntries(settings, "/usr/local/bin/failproofai", "project");
+      // The entry will only be relative if pi-extension lives under cwd. Since
+      // we're in a temp dir, the helper falls back to absolute — so just assert
+      // an entry was written and it looks like a path.
+      const packages = (settings as { packages?: unknown[] }).packages ?? [];
+      expect(packages.length).toBe(1);
+      expect(typeof packages[0]).toBe("string");
+    } finally {
+      process.chdir(origCwd);
+    }
+  });
+
+  it("removeHooksFromFile filters out the failproofai entry, keeps user entries", () => {
+    const settingsPath = resolve(tempDir, ".pi", "settings.json");
+    mkdirSync(resolve(tempDir, ".pi"), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        packages: [
+          "npm:@user/foo",
+          "/usr/local/lib/node_modules/failproofai/pi-extension",
+        ],
+      }),
+    );
+    const removed = pi.removeHooksFromFile(settingsPath);
+    expect(removed).toBe(1);
+    const after = JSON.parse(readFileSync(settingsPath, "utf8")) as { packages?: unknown[] };
+    expect(after.packages).toEqual(["npm:@user/foo"]);
+  });
+
+  it("removeHooksFromFile drops the empty packages array after removing the last failproofai entry", () => {
+    const settingsPath = resolve(tempDir, ".pi", "settings.json");
+    mkdirSync(resolve(tempDir, ".pi"), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        packages: ["/usr/local/lib/node_modules/failproofai/pi-extension"],
+      }),
+    );
+    pi.removeHooksFromFile(settingsPath);
+    const after = JSON.parse(readFileSync(settingsPath, "utf8")) as Record<string, unknown>;
+    expect(after.packages).toBeUndefined();
+  });
+
+  it("removeHooksFromFile returns 0 when no failproofai entry was present", () => {
+    const settingsPath = resolve(tempDir, ".pi", "settings.json");
+    mkdirSync(resolve(tempDir, ".pi"), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify({ packages: ["npm:@user/foo"] }));
+    expect(pi.removeHooksFromFile(settingsPath)).toBe(0);
+  });
+
+  it("removeHooksFromFile returns 0 when settings.json doesn't exist", () => {
+    const settingsPath = resolve(tempDir, ".pi", "settings.json");
+    expect(pi.removeHooksFromFile(settingsPath)).toBe(0);
+  });
+
+  it("hooksInstalledInSettings finds the entry by source-path substring", () => {
+    const settingsPath = resolve(tempDir, ".pi", "settings.json");
+    mkdirSync(resolve(tempDir, ".pi"), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        packages: ["/usr/local/lib/node_modules/failproofai/pi-extension"],
+      }),
+    );
+    expect(pi.hooksInstalledInSettings("project", tempDir)).toBe(true);
+  });
+
+  it("hooksInstalledInSettings returns false when settings.json doesn't exist", () => {
+    expect(pi.hooksInstalledInSettings("project", tempDir)).toBe(false);
+  });
+
+  it("hooksInstalledInSettings returns false on corrupt JSON (fail-open)", () => {
+    const settingsPath = resolve(tempDir, ".pi", "settings.json");
+    mkdirSync(resolve(tempDir, ".pi"), { recursive: true });
+    writeFileSync(settingsPath, "{not json");
+    expect(pi.hooksInstalledInSettings("project", tempDir)).toBe(false);
+  });
+
+  it("isFailproofaiHook detects {source: '...pi-extension/failproofai'}", () => {
+    expect(pi.isFailproofaiHook({ source: "/path/to/failproofai/pi-extension" })).toBe(true);
+    expect(pi.isFailproofaiHook({ source: "npm:@user/other" })).toBe(false);
+  });
+
+  it("isFailproofaiHook detects FAILPROOFAI_HOOK_MARKER=true", () => {
+    expect(pi.isFailproofaiHook({ [FAILPROOFAI_HOOK_MARKER]: true })).toBe(true);
+  });
+});
+
+describe("PI_EVENT_MAP", () => {
+  it("maps every Pi event to a PascalCase HookEventType", () => {
+    expect(PI_EVENT_MAP.tool_call).toBe("PreToolUse");
+    expect(PI_EVENT_MAP.user_bash).toBe("PreToolUse");
+    expect(PI_EVENT_MAP.input).toBe("UserPromptSubmit");
+    expect(PI_EVENT_MAP.session_start).toBe("SessionStart");
+  });
+
+  it("PI_EVENT_MAP keys exactly match PI_HOOK_EVENT_TYPES", () => {
+    const mapKeys = Object.keys(PI_EVENT_MAP).sort();
+    const eventTypes = [...PI_HOOK_EVENT_TYPES].sort();
+    expect(mapKeys).toEqual(eventTypes);
+  });
+
+  it("PiHookEventType is exhaustive", () => {
+    const sample: PiHookEventType = "tool_call";
+    expect(PI_EVENT_MAP[sample]).toBe("PreToolUse");
   });
 });

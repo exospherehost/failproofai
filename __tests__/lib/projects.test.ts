@@ -32,15 +32,21 @@ vi.mock("@/lib/cursor-projects", () => ({
   getCursorProjects: vi.fn(async () => []),
 }));
 
+vi.mock("@/lib/pi-projects", () => ({
+  getPiProjects: vi.fn(async () => []),
+}));
+
 import { readdir, stat } from "fs/promises";
 import { extractSessionId, getProjectFolders, getSessionFiles, type ProjectFolder } from "@/lib/projects";
 import { getCodexProjects } from "@/lib/codex-projects";
 import { getCopilotProjects } from "@/lib/copilot-projects";
 import { getCursorProjects } from "@/lib/cursor-projects";
+import { getPiProjects } from "@/lib/pi-projects";
 
 const mockGetCodexProjects = vi.mocked(getCodexProjects);
 const mockGetCopilotProjects = vi.mocked(getCopilotProjects);
 const mockGetCursorProjects = vi.mocked(getCursorProjects);
+const mockGetPiProjects = vi.mocked(getPiProjects);
 
 const mockReaddir = vi.mocked(readdir);
 const mockStat = vi.mocked(stat);
@@ -319,6 +325,99 @@ describe("getProjectFolders", () => {
     expect(result).toHaveLength(1);
     expect(result[0].cli).toEqual(["cursor"]);
     expect(result[0].path).toBe("/home/u/cursor-only");
+  });
+
+  it("merges Claude + Codex + Copilot + Cursor + Pi rows that share an encoded name", async () => {
+    const claudeMtime = new Date("2024-01-01T00:00:00Z");
+    const codexMtime = new Date("2025-01-01T00:00:00Z");
+    const copilotMtime = new Date("2026-01-15T00:00:00Z");
+    const cursorMtime = new Date("2026-04-15T00:00:00Z");
+    const piMtime = new Date("2026-07-15T00:00:00Z");
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-five", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: claudeMtime } as any);
+    mockGetCodexProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-five",
+        path: "/home/u/five",
+        isDirectory: true,
+        lastModified: codexMtime,
+        lastModifiedFormatted: codexMtime.toISOString(),
+        cli: ["codex"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetCopilotProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-five",
+        path: "/home/u/five",
+        isDirectory: true,
+        lastModified: copilotMtime,
+        lastModifiedFormatted: copilotMtime.toISOString(),
+        cli: ["copilot"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetCursorProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-five",
+        path: "/home/u/five",
+        isDirectory: true,
+        lastModified: cursorMtime,
+        lastModifiedFormatted: cursorMtime.toISOString(),
+        cli: ["cursor"],
+      } satisfies ProjectFolder,
+    ]);
+    mockGetPiProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-five",
+        path: "/home/u/five",
+        isDirectory: true,
+        lastModified: piMtime,
+        lastModifiedFormatted: piMtime.toISOString(),
+        cli: ["pi"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["claude", "codex", "copilot", "cursor", "pi"]);
+    // Newest mtime wins (Pi in this case).
+    expect(result[0].lastModified.getTime()).toBe(piMtime.getTime());
+  });
+
+  it("includes Pi-only projects (no matching Claude/Codex/Copilot/Cursor folder)", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([] as any);
+    mockGetPiProjects.mockResolvedValueOnce([
+      {
+        name: "-home-u-pi-only",
+        path: "/home/u/pi-only",
+        isDirectory: true,
+        lastModified: new Date("2026-07-15T00:00:00Z"),
+        lastModifiedFormatted: "2026-07-15T00:00:00.000Z",
+        cli: ["pi"],
+      } satisfies ProjectFolder,
+    ]);
+
+    const result = await getProjectFolders();
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["pi"]);
+    expect(result[0].path).toBe("/home/u/pi-only");
+  });
+
+  it("falls back gracefully when getPiProjects rejects", async () => {
+    mockStat.mockResolvedValueOnce({ isDirectory: () => true } as any);
+    mockReaddir.mockResolvedValueOnce([
+      { name: "-home-u-claude", isDirectory: () => true, isFile: () => false } as any,
+    ] as any);
+    mockStat.mockResolvedValueOnce({ mtime: new Date("2026-04-01T00:00:00Z") } as any);
+    mockGetPiProjects.mockRejectedValueOnce(new Error("scan failed"));
+
+    const result = await getProjectFolders();
+    // Claude row still surfaces even though Pi scan blew up.
+    expect(result).toHaveLength(1);
+    expect(result[0].cli).toEqual(["claude"]);
   });
 
   it("falls back gracefully when getCursorProjects rejects", async () => {

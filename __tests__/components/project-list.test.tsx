@@ -161,6 +161,40 @@ describe("ProjectList", () => {
     expect(badgeNodes("Cursor Agent")).toHaveLength(1);
   });
 
+  it("renders a Pi badge for cli=['pi']", () => {
+    const folders: ProjectFolder[] = [
+      {
+        name: "-home-u-pi",
+        path: "/home/u/pi",
+        isDirectory: true,
+        lastModified: new Date(),
+        lastModifiedFormatted: "Jun 15, 2024",
+        cli: ["pi"],
+      },
+    ];
+    render(<ProjectList folders={folders} />);
+    expect(badgeNodes("Pi")).toHaveLength(1);
+  });
+
+  it("renders all five badges when cli=['claude','codex','copilot','cursor','pi']", () => {
+    const folders: ProjectFolder[] = [
+      {
+        name: "-home-u-five",
+        path: "/home/u/five",
+        isDirectory: true,
+        lastModified: new Date(),
+        lastModifiedFormatted: "Jun 15, 2024",
+        cli: ["claude", "codex", "copilot", "cursor", "pi"],
+      },
+    ];
+    render(<ProjectList folders={folders} />);
+    expect(badgeNodes("Claude Code")).toHaveLength(1);
+    expect(badgeNodes("OpenAI Codex")).toHaveLength(1);
+    expect(badgeNodes("GitHub Copilot")).toHaveLength(1);
+    expect(badgeNodes("Cursor Agent")).toHaveLength(1);
+    expect(badgeNodes("Pi")).toHaveLength(1);
+  });
+
   it("links to /project/[name]", () => {
     const folders = makeFolders(1);
     render(<ProjectList folders={folders} />);
@@ -200,6 +234,7 @@ describe("ProjectList", () => {
       "OpenAI Codex",
       "GitHub Copilot",
       "Cursor Agent",
+      "Pi",
     ]);
   });
 
