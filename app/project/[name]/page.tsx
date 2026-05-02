@@ -4,6 +4,7 @@ import { resolveProjectPath, getCachedSessionFiles, type SessionFile } from "@/l
 import { getCachedCodexSessionsByEncodedName } from "@/lib/codex-projects";
 import { getCachedCopilotSessionsByEncodedName } from "@/lib/copilot-projects";
 import { getCachedCursorSessionsByEncodedName } from "@/lib/cursor-projects";
+import { getCachedOpenCodeSessionsByEncodedName } from "@/lib/opencode-projects";
 import { logWarn } from "@/lib/logger";
 import { decodeFolderName } from "@/lib/paths";
 import { notFound } from "next/navigation";
@@ -43,20 +44,23 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   }
   // Note: decodeFolderName is lossy when cwds contain `-` (every `-` becomes `/`),
   // so each external CLI looks up sessions by re-encoding cwd and matching the slug.
-  const [codex, copilot, cursor] = await Promise.all([
+  const [codex, copilot, cursor, opencode] = await Promise.all([
     getCachedCodexSessionsByEncodedName(name),
     getCachedCopilotSessionsByEncodedName(name),
     getCachedCursorSessionsByEncodedName(name),
+    getCachedOpenCodeSessionsByEncodedName(name),
   ]);
   const codexSessions = codex.sessions;
   const copilotSessions = copilot.sessions;
   const cursorSessions = cursor.sessions;
+  const opencodeSessions = opencode.sessions;
 
   if (
     !claudeExists &&
     codexSessions.length === 0 &&
     copilotSessions.length === 0 &&
-    cursorSessions.length === 0
+    cursorSessions.length === 0 &&
+    opencodeSessions.length === 0
   ) {
     notFound();
   }
@@ -64,8 +68,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
   // Prefer a canonical cwd recovered from any external store when available —
   // `decodeFolderName(name)` is ambiguous for cwds containing `-` (every `-`
   // becomes `/`). Each external transcript records the literal cwd, so they
-  // round-trip correctly. First non-null wins (Codex → Copilot → Cursor).
-  const canonicalRoot = codex.cwd ?? copilot.cwd ?? cursor.cwd ?? decodedName;
+  // round-trip correctly. First non-null wins (Codex → Copilot → Cursor → OpenCode).
+  const canonicalRoot = codex.cwd ?? copilot.cwd ?? cursor.cwd ?? opencode.cwd ?? decodedName;
 
   // Project header metadata
   let lastModified: Date | null = null;
@@ -79,7 +83,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
       logWarn(`Failed to get stats for project ${decodedName}:`, error);
     }
   }
-  const newestExternal = [codexSessions[0], copilotSessions[0], cursorSessions[0]]
+  const newestExternal = [codexSessions[0], copilotSessions[0], cursorSessions[0], opencodeSessions[0]]
     .filter((s): s is SessionFile => !!s)
     .map((s) => s.lastModified)
     .reduce<Date | null>((acc, d) => (!acc || d.getTime() > acc.getTime() ? d : acc), null);
@@ -93,6 +97,7 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
     ...codexSessions,
     ...copilotSessions,
     ...cursorSessions,
+    ...opencodeSessions,
   ].sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
 
   // Path line: prefer the Claude storage dir if present (matches existing UX);

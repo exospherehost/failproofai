@@ -97,6 +97,37 @@ which writes a portable `npx -y failproofai --hook ... --cli cursor` command.
 Same self-reference caveat applies — do **not** install the standard `npx`
 form from inside this repo.
 
+### OpenCode hooks (`.opencode/`)
+
+This repo also ships a project-scope OpenCode (sst/opencode) plugin
+registration: a generated plugin shim at `.opencode/plugins/failproofai.mjs`
+and a matching entry in `.opencode/opencode.json`'s `plugin: []` array.
+
+OpenCode's extensibility model is fundamentally different from Claude /
+Codex / Copilot / Cursor: it has **no external-command hook system**.
+Plugins are in-process JS/TS modules loaded by opencode at startup. The
+shim subprocess-calls the failproofai binary (`bun bin/failproofai.mjs
+--hook ... --cli opencode` for dev) and translates the binary's existing
+Claude-shape JSON response back into plugin semantics — `throw new
+Error(reason)` for deny, `client.session.prompt(...)` for instruct,
+no-op for allow.
+
+A subtle live-verified gotcha (opencode v1.14.31): plugins are **not**
+auto-discovered from `.opencode/plugins/`. They must be explicitly
+registered in `opencode.json`'s `plugin` array. The install command
+takes care of this, but if you hand-edit either file the other must
+agree.
+
+For production users (outside this repo), the recommended OpenCode
+install is:
+```bash
+failproofai policies --install --cli opencode --scope project
+```
+which writes a portable `npx -y failproofai --hook ... --cli opencode`
+command into the shim. Same self-reference caveat applies — do **not**
+install the standard `npx` form from inside this repo (it would overwrite
+the dev `bun bin/failproofai.mjs` path).
+
 ## Workflow rules
 
 ### One PR per branch

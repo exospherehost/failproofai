@@ -47,6 +47,13 @@ next-env.d.ts
 .cursor/*
 !.cursor/hooks.json
 
+# opencode
+.opencode/*
+!.opencode/opencode.json
+!.opencode/plugins
+.opencode/plugins/*
+!.opencode/plugins/failproofai.mjs
+
 # custom hooks loader temp files
 *.__failproofai_tmp__.*
 

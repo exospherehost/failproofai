@@ -12,12 +12,23 @@ import { hookLogWarn } from "./hook-logger";
 
 /**
  * Whether `resolved` lives under an agent CLI's home directory
- * (~/.claude/, ~/.codex/, ~/.copilot/, or ~/.cursor/). Used to whitelist
- * agent self-reads of their own config and transcripts.
+ * (~/.claude/, ~/.codex/, ~/.copilot/, ~/.cursor/, or any of OpenCode's
+ * three home-side dirs). Used to whitelist agent self-reads of their own
+ * config and transcripts.
+ *
+ * OpenCode splits its data across three locations (verified live on
+ * opencode v1.14.31 via `opencode debug paths`):
+ *   • ~/.config/opencode/   — config + plugins
+ *   • ~/.local/share/opencode/ — sessions, snapshots, opencode.db (SQLite)
+ *   • ~/.opencode/          — legacy fallback path
  */
 function isAgentInternalPath(resolved: string): boolean {
-  for (const dir of [".claude", ".codex", ".copilot", ".cursor"]) {
+  for (const dir of [".claude", ".codex", ".copilot", ".cursor", ".opencode"]) {
     const root = join(homedir(), dir);
+    if (resolved === root || resolved.startsWith(root + "/")) return true;
+  }
+  for (const sub of [join(".config", "opencode"), join(".local", "share", "opencode")]) {
+    const root = join(homedir(), sub);
     if (resolved === root || resolved.startsWith(root + "/")) return true;
   }
   return false;
@@ -29,6 +40,10 @@ function isAgentInternalPath(resolved: string): boolean {
  *   • Codex:        `.codex/hooks.json`
  *   • Copilot CLI:  `.copilot/hooks/*.json`, `.github/hooks/*.json`
  *   • Cursor Agent: `.cursor/hooks.json`
+ *   • OpenCode:     `.opencode/opencode.{json,jsonc}`,
+ *                   `.opencode/plugins/*.{mjs,js,ts}`,
+ *                   `~/.config/opencode/{opencode.json,opencode.jsonc,config.json}`,
+ *                   `~/.config/opencode/plugins/*.{mjs,js,ts}`
  * These must NEVER be edited by the agent itself — that would let it disable
  * its own protections.
  */
@@ -38,6 +53,12 @@ function isAgentSettingsFile(resolved: string): boolean {
   if (/[\\/]\.copilot[\\/]hooks[\\/][^/\\]+\.json$/.test(resolved)) return true;
   if (/[\\/]\.github[\\/]hooks[\\/][^/\\]+\.json$/.test(resolved)) return true;
   if (/[\\/]\.cursor[\\/]hooks\.json$/.test(resolved)) return true;
+  // OpenCode: project config + plugins, user config + plugins, legacy config.
+  if (/[\\/]\.opencode[\\/]opencode\.jsonc?$/.test(resolved)) return true;
+  if (/[\\/]\.opencode[\\/]plugins[\\/][^/\\]+\.(?:mjs|js|ts)$/.test(resolved)) return true;
+  if (/[\\/]\.config[\\/]opencode[\\/]opencode\.jsonc?$/.test(resolved)) return true;
+  if (/[\\/]\.config[\\/]opencode[\\/]config\.json$/.test(resolved)) return true;
+  if (/[\\/]\.config[\\/]opencode[\\/]plugins[\\/][^/\\]+\.(?:mjs|js|ts)$/.test(resolved)) return true;
   return false;
 }
 

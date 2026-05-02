@@ -92,10 +92,14 @@ function SessionCell({
     (transcriptPath?.includes("/.copilot/session-state/") ?? false);
   const isCursor =
     integration === "cursor" || (transcriptPath?.includes("/.cursor/") ?? false);
-  if (isCodex || isCopilot || isCursor) {
+  const isOpenCode =
+    integration === "opencode" ||
+    (transcriptPath?.includes("/.local/share/opencode/") ?? false) ||
+    (transcriptPath?.includes("/.opencode/") ?? false);
+  if (isCodex || isCopilot || isCursor || isOpenCode) {
     // The session route auto-detects CLI by file location, so [name] only
     // affects the breadcrumb. Encode the cwd Claude-style when we have it.
-    const fallbackSeg = isCodex ? "codex" : isCopilot ? "copilot" : "cursor";
+    const fallbackSeg = isCodex ? "codex" : isCopilot ? "copilot" : isCursor ? "cursor" : "opencode";
     const projectSeg = cwd ? encodeCwdForUrl(cwd) : fallbackSeg;
     return (
       <Link

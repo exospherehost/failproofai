@@ -200,6 +200,7 @@ describe("ProjectList", () => {
       "OpenAI Codex",
       "GitHub Copilot",
       "Cursor Agent",
+      "OpenCode",
     ]);
   });
 

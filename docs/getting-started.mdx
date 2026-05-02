@@ -37,15 +37,16 @@ bun add -g failproofai
     failproofai policies --install
     ```
 
-    This writes hook entries into your installed agent CLIs (Claude Code's `~/.claude/settings.json`, OpenAI Codex's `~/.codex/hooks.json`, GitHub Copilot CLI's `~/.copilot/hooks/failproofai.json`, or Cursor Agent's `~/.cursor/hooks.json`). When more than one is present you'll be prompted; pass `--cli claude codex copilot cursor` (any subset) to skip the prompt.
+    This writes hook entries into your installed agent CLIs (Claude Code's `~/.claude/settings.json`, OpenAI Codex's `~/.codex/hooks.json`, GitHub Copilot CLI's `~/.copilot/hooks/failproofai.json`, Cursor Agent's `~/.cursor/hooks.json`, or — for OpenCode — a generated plugin shim at `~/.config/opencode/plugins/failproofai.mjs` plus a registration entry in `~/.config/opencode/opencode.json`'s `plugin` array). When more than one is present you'll be prompted; pass `--cli claude codex copilot cursor opencode` (any subset) to skip the prompt.
 
-    GitHub Copilot CLI and Cursor Agent support are **beta** — install with `--cli copilot` or `--cli cursor`.
+    GitHub Copilot CLI, Cursor Agent, and OpenCode support are **beta** — install with `--cli copilot`, `--cli cursor`, or `--cli opencode`.
 
     ```bash
     failproofai policies --install --scope project
     failproofai policies --install --cli codex --scope project
     failproofai policies --install --cli copilot --scope project
     failproofai policies --install --cli cursor --scope project
+    failproofai policies --install --cli opencode --scope project
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>

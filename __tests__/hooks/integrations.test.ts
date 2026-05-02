@@ -18,6 +18,7 @@ import {
   codex,
   copilot,
   cursor,
+  opencode,
   getIntegration,
   listIntegrations,
 } from "../../src/hooks/integrations";
@@ -27,11 +28,15 @@ import {
   COPILOT_HOOK_EVENT_TYPES,
   CURSOR_HOOK_EVENT_TYPES,
   CURSOR_EVENT_MAP,
+  OPENCODE_HOOK_EVENT_TYPES,
+  OPENCODE_EVENT_MAP,
   HOOK_EVENT_TYPES,
   FAILPROOFAI_HOOK_MARKER,
   type CodexHookEventType,
   type CursorHookEventType,
+  type OpenCodeHookEventType,
 } from "../../src/hooks/types";
+import { homedir } from "node:os";
 
 let tempDir: string;
 
@@ -44,9 +49,9 @@ afterEach(() => {
 });
 
 describe("integrations registry", () => {
-  it("listIntegrations returns claude, codex, copilot, and cursor", () => {
+  it("listIntegrations returns claude, codex, copilot, cursor, and opencode", () => {
     const ids = listIntegrations().map((i) => i.id);
-    expect(ids).toEqual(["claude", "codex", "copilot", "cursor"]);
+    expect(ids).toEqual(["claude", "codex", "copilot", "cursor", "opencode"]);
   });
 
   it("getIntegration('claude') returns claudeCode", () => {
@@ -63,6 +68,10 @@ describe("integrations registry", () => {
 
   it("getIntegration('cursor') returns cursor", () => {
     expect(getIntegration("cursor")).toBe(cursor);
+  });
+
+  it("getIntegration('opencode') returns opencode", () => {
+    expect(getIntegration("opencode")).toBe(opencode);
   });
 
   it("getIntegration throws for unknown id", () => {
@@ -456,5 +465,237 @@ describe("CURSOR_EVENT_MAP", () => {
   it("CursorHookEventType is exhaustive", () => {
     const sample: CursorHookEventType = "preToolUse";
     expect(CURSOR_EVENT_MAP[sample]).toBe("PreToolUse");
+  });
+});
+
+describe("OpenCode integration", () => {
+  it("getSettingsPath maps user and project to the expected files", () => {
+    expect(opencode.getSettingsPath("project", tempDir)).toBe(
+      resolve(tempDir, ".opencode", "opencode.json"),
+    );
+    expect(opencode.getSettingsPath("user")).toMatch(
+      new RegExp(`${[".config", "opencode", "opencode.json"].join("/")}$`),
+    );
+  });
+
+  it("getSettingsPath('local') falls back to project (no opencode local scope)", () => {
+    expect(opencode.getSettingsPath("local", tempDir)).toBe(
+      resolve(tempDir, ".opencode", "opencode.json"),
+    );
+  });
+
+  it("scopes are exactly user|project", () => {
+    expect(opencode.scopes).toEqual(["user", "project"]);
+    expect(opencode.scopes).not.toContain("local");
+  });
+
+  it("eventTypes are the OpenCode dotted/keyed events", () => {
+    expect(opencode.eventTypes).toEqual(OPENCODE_HOOK_EVENT_TYPES);
+    expect(opencode.eventTypes).toContain("tool.execute.before");
+    expect(opencode.eventTypes).toContain("tool.execute.after");
+    expect(opencode.eventTypes).toContain("session.created");
+    expect(opencode.eventTypes).toContain("session.deleted");
+    expect(opencode.eventTypes).toContain("session.idle");
+    expect(opencode.eventTypes).toContain("message.updated");
+    expect(opencode.eventTypes).toContain("permission.ask");
+  });
+
+  it("buildHookEntry returns a relative spec for project scope", () => {
+    const entry = opencode.buildHookEntry("/usr/bin/failproofai", "tool.execute.before", "project") as Record<string, unknown>;
+    expect(entry.spec).toBe("./plugins/failproofai.mjs");
+    expect(entry[FAILPROOFAI_HOOK_MARKER]).toBe(true);
+  });
+
+  it("buildHookEntry returns a file:// absolute URL for user scope", () => {
+    const entry = opencode.buildHookEntry("/abs/path/failproofai", "tool.execute.before", "user") as Record<string, unknown>;
+    const expectedAbs = resolve(homedir(), ".config", "opencode", "plugins", "failproofai.mjs");
+    expect(entry.spec).toBe(`file://${expectedAbs}`);
+  });
+
+  it("isFailproofaiHook accepts string entries", () => {
+    expect(opencode.isFailproofaiHook("./plugins/failproofai.mjs")).toBe(true);
+    expect(opencode.isFailproofaiHook("file:///home/u/somewhere/failproofai.mjs")).toBe(true);
+    expect(opencode.isFailproofaiHook("./plugins/some-other.mjs")).toBe(false);
+  });
+
+  it("isFailproofaiHook accepts [spec, options] tuple entries", () => {
+    expect(opencode.isFailproofaiHook(["./plugins/failproofai.mjs", { foo: 1 }])).toBe(true);
+    expect(opencode.isFailproofaiHook(["./plugins/some-other.mjs", { foo: 1 }])).toBe(false);
+  });
+
+  it("writeHookEntries writes the plugin file with the marker and hook keys", () => {
+    process.chdir(tempDir);
+    const settings: Record<string, unknown> = {};
+    opencode.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+
+    const pluginPath = resolve(tempDir, ".opencode", "plugins", "failproofai.mjs");
+    expect(existsSync(pluginPath)).toBe(true);
+    const content = readFileSync(pluginPath, "utf8");
+    expect(content).toContain(FAILPROOFAI_HOOK_MARKER);
+    expect(content).toContain('"tool.execute.before"');
+    expect(content).toContain('"tool.execute.after"');
+    expect(content).toContain('"permission.ask"');
+    expect(content).toContain('"session.created"');
+    expect(content).toContain('"session.idle"');
+    expect(content).toContain('"message.updated"');
+  });
+
+  it("writeHookEntries project-scope embeds npx, not the absolute binary", () => {
+    process.chdir(tempDir);
+    opencode.writeHookEntries({}, "/usr/bin/failproofai", "project");
+    const pluginPath = resolve(tempDir, ".opencode", "plugins", "failproofai.mjs");
+    const content = readFileSync(pluginPath, "utf8");
+    expect(content).toContain("npx");
+    expect(content).toContain("USE_NPX = true");
+    expect(content).not.toContain("/usr/bin/failproofai");
+  });
+
+  it("writeHookEntries adds our entry to the plugin array", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    opencode.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    opencode.writeSettings(path, settings);
+    const written = JSON.parse(readFileSync(path, "utf8"));
+    expect(written.plugin).toContain("./plugins/failproofai.mjs");
+  });
+
+  it("writeHookEntries is idempotent — second call yields identical bytes", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    opencode.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    opencode.writeSettings(path, settings);
+    const firstJson = readFileSync(path, "utf8");
+    const firstPlugin = readFileSync(resolve(tempDir, ".opencode", "plugins", "failproofai.mjs"), "utf8");
+
+    const settings2 = JSON.parse(firstJson);
+    opencode.writeHookEntries(settings2, "/usr/bin/failproofai", "project");
+    opencode.writeSettings(path, settings2);
+    expect(readFileSync(path, "utf8")).toBe(firstJson);
+    expect(readFileSync(resolve(tempDir, ".opencode", "plugins", "failproofai.mjs"), "utf8")).toBe(firstPlugin);
+  });
+
+  it("writeHookEntries preserves pre-existing plugin entries", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {
+      plugin: ["@some/npm-plugin", ["./plugins/other.mjs", { foo: 1 }]],
+    };
+    opencode.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    opencode.writeSettings(path, settings);
+    const written = JSON.parse(readFileSync(path, "utf8"));
+    expect(written.plugin).toContain("@some/npm-plugin");
+    expect(written.plugin).toContainEqual(["./plugins/other.mjs", { foo: 1 }]);
+    expect(written.plugin).toContain("./plugins/failproofai.mjs");
+    expect(written.plugin).toHaveLength(3);
+  });
+
+  it("writeHookEntries preserves the rest of opencode.json", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {
+      $schema: "https://opencode.ai/config.json",
+      agent: { mine: { prompt: "hello" } },
+      command: { foo: { template: "bar" } },
+    };
+    opencode.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    opencode.writeSettings(path, settings);
+    const written = JSON.parse(readFileSync(path, "utf8"));
+    expect(written.$schema).toBe("https://opencode.ai/config.json");
+    expect(written.agent).toEqual({ mine: { prompt: "hello" } });
+    expect(written.command).toEqual({ foo: { template: "bar" } });
+  });
+
+  it("removeHooksFromFile deletes our plugin entry AND the plugin file", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = {};
+    opencode.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    opencode.writeSettings(path, settings);
+    const pluginPath = resolve(tempDir, ".opencode", "plugins", "failproofai.mjs");
+    expect(existsSync(pluginPath)).toBe(true);
+
+    const removed = opencode.removeHooksFromFile(path);
+    expect(removed).toBeGreaterThanOrEqual(1);
+    expect(existsSync(pluginPath)).toBe(false);
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.plugin ?? []).not.toContain("./plugins/failproofai.mjs");
+  });
+
+  it("removeHooksFromFile does NOT delete a hand-written plugin file lacking the marker", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    const pluginPath = resolve(tempDir, ".opencode", "plugins", "failproofai.mjs");
+    mkdirSync(resolve(tempDir, ".opencode", "plugins"), { recursive: true });
+    writeFileSync(pluginPath, "// hand-written plugin without the marker\nexport default async () => ({});\n");
+    writeFileSync(path, JSON.stringify({ plugin: ["./plugins/other.mjs"] }));
+
+    opencode.removeHooksFromFile(path);
+    expect(existsSync(pluginPath)).toBe(true); // file untouched
+    const written = JSON.parse(readFileSync(path, "utf8"));
+    expect(written.plugin).toContain("./plugins/other.mjs"); // user's plugin preserved
+  });
+
+  it("removeHooksFromFile leaves other plugins in the array", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    const settings: Record<string, unknown> = { plugin: ["@some/npm-plugin"] };
+    opencode.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    opencode.writeSettings(path, settings);
+
+    opencode.removeHooksFromFile(path);
+    const after = JSON.parse(readFileSync(path, "utf8"));
+    expect(after.plugin).toContain("@some/npm-plugin");
+    expect(after.plugin).not.toContain("./plugins/failproofai.mjs");
+  });
+
+  it("hooksInstalledInSettings lifecycle: false → install → true → uninstall → false", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    expect(opencode.hooksInstalledInSettings("project", tempDir)).toBe(false);
+    const settings: Record<string, unknown> = {};
+    opencode.writeHookEntries(settings, "/usr/bin/failproofai", "project");
+    opencode.writeSettings(path, settings);
+    expect(opencode.hooksInstalledInSettings("project", tempDir)).toBe(true);
+    opencode.removeHooksFromFile(path);
+    expect(opencode.hooksInstalledInSettings("project", tempDir)).toBe(false);
+  });
+
+  it("hooksInstalledInSettings returns false when entry exists but plugin file is missing", () => {
+    process.chdir(tempDir);
+    const path = opencode.getSettingsPath("project", tempDir);
+    mkdirSync(resolve(tempDir, ".opencode"), { recursive: true });
+    writeFileSync(path, JSON.stringify({ plugin: ["./plugins/failproofai.mjs"] }));
+    expect(opencode.hooksInstalledInSettings("project", tempDir)).toBe(false);
+  });
+});
+
+describe("OPENCODE_EVENT_MAP", () => {
+  it("maps every OpenCode plugin event to a PascalCase HookEventType", () => {
+    expect(OPENCODE_EVENT_MAP["tool.execute.before"]).toBe("PreToolUse");
+    expect(OPENCODE_EVENT_MAP["tool.execute.after"]).toBe("PostToolUse");
+    expect(OPENCODE_EVENT_MAP["session.created"]).toBe("SessionStart");
+    expect(OPENCODE_EVENT_MAP["session.deleted"]).toBe("SessionEnd");
+    expect(OPENCODE_EVENT_MAP["session.idle"]).toBe("Stop");
+    expect(OPENCODE_EVENT_MAP["message.updated"]).toBe("UserPromptSubmit");
+    expect(OPENCODE_EVENT_MAP["permission.ask"]).toBe("PermissionRequest");
+  });
+
+  it("OPENCODE_EVENT_MAP keys exactly match OPENCODE_HOOK_EVENT_TYPES", () => {
+    const mapKeys = Object.keys(OPENCODE_EVENT_MAP).sort();
+    const eventTypes = [...OPENCODE_HOOK_EVENT_TYPES].sort();
+    expect(mapKeys).toEqual(eventTypes);
+  });
+
+  it("every mapped target is a valid HookEventType", () => {
+    for (const target of Object.values(OPENCODE_EVENT_MAP)) {
+      expect(HOOK_EVENT_TYPES).toContain(target);
+    }
+  });
+
+  it("OpenCodeHookEventType is exhaustive", () => {
+    const sample: OpenCodeHookEventType = "tool.execute.before";
+    expect(OPENCODE_EVENT_MAP[sample]).toBe("PreToolUse");
   });
 });

@@ -323,3 +323,97 @@ export const CopilotPayloads = {
     };
   },
 };
+
+/**
+ * OpenCode payload factories — for the e2e harness, which invokes the
+ * failproofai binary directly with `--cli opencode`. The plugin shim
+ * (`.opencode/plugins/failproofai.mjs`) is what translates plugin events
+ * into Claude-shape JSON before invoking the binary, so the binary itself
+ * sees Claude-shape PascalCase events. These factories therefore produce
+ * Claude-shape payloads. The shim's plugin-side translation is exercised
+ * separately in `__tests__/hooks/opencode-plugin-shim.test.ts`.
+ */
+const OPENCODE_SESSION_ID = "ses_test_opencode001";
+
+export const OpenCodePayloads = {
+  preToolUse: {
+    bash(command: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: OPENCODE_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "Bash",
+        tool_input: { command },
+      };
+    },
+    write(filePath: string, content: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: OPENCODE_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "Write",
+        tool_input: { file_path: filePath, content },
+      };
+    },
+    edit(filePath: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: OPENCODE_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "Edit",
+        tool_input: { file_path: filePath, old_string: "x", new_string: "y" },
+      };
+    },
+    read(filePath: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: OPENCODE_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "Read",
+        tool_input: { file_path: filePath },
+      };
+    },
+  },
+  postToolUse: {
+    bash(command: string, output: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: OPENCODE_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PostToolUse",
+        tool_name: "Bash",
+        tool_input: { command },
+        tool_response: output,
+      };
+    },
+  },
+  userPromptSubmit(prompt: string, cwd: string): Record<string, unknown> {
+    return {
+      session_id: OPENCODE_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "UserPromptSubmit",
+      prompt,
+    };
+  },
+  sessionStart(cwd: string): Record<string, unknown> {
+    return {
+      session_id: OPENCODE_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "SessionStart",
+    };
+  },
+  stop(cwd: string): Record<string, unknown> {
+    return {
+      session_id: OPENCODE_SESSION_ID,
+      transcript_path: TRANSCRIPT_PATH,
+      cwd,
+      hook_event_name: "Stop",
+    };
+  },
+};
