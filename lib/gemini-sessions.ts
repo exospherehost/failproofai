@@ -19,7 +19,7 @@
  * "system" entries; malformed lines are skipped without aborting; and the
  * loader fall-opens (returns null) on any I/O or parse failure.
  */
-import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
+import { closeSync, openSync, readFileSync, readSync, readdirSync, existsSync, statSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { join, resolve, sep } from "node:path";
 import { homedir } from "node:os";
@@ -38,7 +38,12 @@ import {
 // ── Paths ──
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const SESSION_FILE_RE = /^session-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2})-([0-9a-f]{8})\.jsonl$/i;
+/** Matches `session-<timestamp-of-arbitrary-shape>-<8-hex-uuid-prefix>.jsonl`.
+ *  Empirically gemini-cli v0.40.1 emits minute-precision (`YYYY-MM-DDTHH-mm`),
+ *  but the documented format includes seconds (`YYYY-MM-DDTHH-mm:ss`) and may
+ *  evolve further. The first-line `sessionId` validation in findGeminiTranscript
+ *  is the load-bearing safety check, so we accept any timestamp shape. */
+const SESSION_FILE_RE = /^session-(.+)-([0-9a-f]{8})\.jsonl$/i;
 
 /** Root directory for Gemini session state, honoring GEMINI_SESSIONS_DIR. */
 export function getGeminiSessionStateRoot(): string {
@@ -49,6 +54,38 @@ export function getGeminiSessionStateRoot(): string {
 /** Reject a sessionId that isn't a UUID — defends against path traversal. */
 function isSafeSessionId(sessionId: string): boolean {
   return UUID_RE.test(sessionId);
+}
+
+/**
+ * Read up to the first newline from `path` without loading the whole file.
+ * Used by `findGeminiTranscript` to inspect the JSONL metadata header on
+ * candidate matches; the typical header is well under 1KB and we cap at 4KB
+ * for safety so a degenerate single-line file can't blow memory.
+ *
+ * Returns the first line as a UTF-8 string, or null on read failure / empty
+ * file. If the first 4KB contain no newline, returns whatever was read so the
+ * JSON.parse caller can still attempt — JSON.parse will fail for a truncated
+ * object, which findGeminiTranscript treats as a malformed-header miss.
+ */
+function readFirstLineSync(path: string): string | null {
+  let fd: number;
+  try {
+    fd = openSync(path, "r");
+  } catch {
+    return null;
+  }
+  try {
+    const buf = Buffer.alloc(4096);
+    const bytesRead = readSync(fd, buf, 0, buf.length, 0);
+    if (bytesRead === 0) return null;
+    const text = buf.subarray(0, bytesRead).toString("utf-8");
+    const nl = text.indexOf("\n");
+    return nl >= 0 ? text.slice(0, nl) : text;
+  } catch {
+    return null;
+  } finally {
+    try { closeSync(fd); } catch { /* best-effort */ }
+  }
 }
 
 /**
@@ -88,9 +125,12 @@ export function findGeminiTranscript(sessionId: string): string | null {
       if (!candidate.startsWith(`${chatsDir}${sep}`)) continue;
       if (!existsSync(candidate)) continue;
       // Confirm the full sessionId — the 8-hex prefix isn't unique on its own.
+      // Read only the first ~4KB so large transcripts don't bloat memory; the
+      // metadata header sits on line 1 well within that bound. The full file
+      // is re-read in getGeminiSessionLog() once we've matched.
+      const firstLine = readFirstLineSync(candidate);
+      if (!firstLine) continue;
       try {
-        const head = readFileSync(candidate, "utf-8");
-        const firstLine = head.indexOf("\n") >= 0 ? head.slice(0, head.indexOf("\n")) : head;
         const meta = JSON.parse(firstLine) as { sessionId?: unknown };
         if (typeof meta.sessionId === "string" && meta.sessionId.toLowerCase() === sessionId.toLowerCase()) {
           return candidate;

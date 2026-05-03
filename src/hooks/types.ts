@@ -377,7 +377,15 @@ export interface SessionMetadata {
   transcriptPath?: string;
   cwd?: string;
   permissionMode?: string;
+  /** Read from the stdin payload's `hook_event_name` field. Carries the raw
+   *  agent-emitted event name (e.g. Gemini's `BeforeTool`, Cursor's
+   *  `preToolUse`, Pi's `tool_call`). May be undefined when stdin omits it. */
   hookEventName?: string;
+  /** The raw event name passed on the CLI's `--hook` flag, BEFORE any
+   *  per-CLI canonicalization to PascalCase (e.g. `BeforeTool` for Gemini,
+   *  `preToolUse` for Cursor). Use this for round-tripping the agent-side
+   *  event name in response shapes when stdin doesn't include `hook_event_name`. */
+  rawHookEventName?: string;
   /** Which agent CLI fired this hook (claude | codex | copilot | cursor | opencode | pi | gemini). Set by handler.ts from --cli. */
   cli?: IntegrationType;
 }

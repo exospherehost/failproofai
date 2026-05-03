@@ -144,6 +144,11 @@ export async function handleHookEvent(
     cwd: parsed.cwd as string | undefined,
     permissionMode: resolvePermissionMode(cli, parsed, sessionId),
     hookEventName: parsed.hook_event_name as string | undefined,
+    // Preserve the raw CLI-side event name (eventType arg) before
+    // canonicalization. Response shapes that round-trip the agent-emitted
+    // event name (e.g. Gemini's `hookSpecificOutput.hookEventName`) prefer
+    // this over the canonicalized form when stdin omits hook_event_name.
+    rawHookEventName: eventType,
     cli,
   };
 

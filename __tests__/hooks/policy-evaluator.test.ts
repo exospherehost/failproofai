@@ -891,5 +891,77 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toBe("");
     });
+
+    it("instruct falls back to session.rawHookEventName when stdin omits hook_event_name", async () => {
+      registerPolicy("advisor", "desc", () => ({ decision: "instruct", reason: "consider X" }), {
+        events: ["PreToolUse"],
+      });
+      const result = await evaluatePolicies(
+        "PreToolUse",
+        { tool_name: "Bash" },
+        // session.hookEventName intentionally undefined; rawHookEventName carries
+        // the raw CLI --hook arg as captured by handler.ts.
+        { sessionId: "g", cwd: "/tmp", cli: "gemini", rawHookEventName: "BeforeTool" },
+      );
+      const parsed = JSON.parse(result.stdout);
+      // Must use the raw Gemini event name, NOT the canonicalized "PreToolUse".
+      expect(parsed.hookSpecificOutput.hookEventName).toBe("BeforeTool");
+    });
+
+    it("allow-with-context also falls back to session.rawHookEventName", async () => {
+      registerPolicy("info", "desc", () => ({ decision: "allow", reason: "fyi" }), {
+        events: ["UserPromptSubmit"],
+      });
+      const result = await evaluatePolicies(
+        "UserPromptSubmit",
+        { prompt: "x" },
+        { sessionId: "g", cwd: "/tmp", cli: "gemini", rawHookEventName: "BeforeAgent" },
+      );
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.hookEventName).toBe("BeforeAgent");
+    });
+
+    it("session.hookEventName from stdin still wins over rawHookEventName when both are set", async () => {
+      registerPolicy("advisor", "desc", () => ({ decision: "instruct", reason: "x" }), {
+        events: ["PreToolUse"],
+      });
+      const result = await evaluatePolicies(
+        "PreToolUse",
+        { tool_name: "Bash" },
+        { sessionId: "g", cwd: "/tmp", cli: "gemini", hookEventName: "BeforeTool", rawHookEventName: "RawShouldLose" },
+      );
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.hookSpecificOutput.hookEventName).toBe("BeforeTool");
+    });
+
+    it("UserPromptSubmit deny on Gemini emits event-appropriate text (NOT 'Blocked unknown tool')", async () => {
+      registerPolicy("prompt-block", "desc", () => ({ decision: "deny", reason: "bad prompt" }), {
+        events: ["UserPromptSubmit"],
+      });
+      const result = await evaluatePolicies(
+        "UserPromptSubmit",
+        { prompt: "<bad>" },
+        geminiSession("BeforeAgent"),
+      );
+      const parsed = JSON.parse(result.stdout);
+      // Without ctx.toolName, the deny message used to say "Blocked unknown tool";
+      // now we branch on event type.
+      expect(parsed.reason).toMatch(/Blocked prompt/);
+      expect(parsed.reason).not.toMatch(/Blocked unknown tool/);
+    });
+
+    it("SessionStart deny emits 'Blocked session start' label, not 'unknown tool'", async () => {
+      registerPolicy("greet-block", "desc", () => ({ decision: "deny", reason: "no greeting" }), {
+        events: ["SessionStart"],
+      });
+      const result = await evaluatePolicies(
+        "SessionStart",
+        {},
+        geminiSession("SessionStart"),
+      );
+      const parsed = JSON.parse(result.stdout);
+      expect(parsed.reason).toMatch(/Blocked session start/);
+      expect(parsed.reason).not.toMatch(/Blocked unknown tool/);
+    });
   });
 });

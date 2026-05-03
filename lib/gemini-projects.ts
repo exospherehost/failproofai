@@ -110,19 +110,22 @@ async function scanGeminiSessions(): Promise<GeminiSessionMeta[]> {
   return out;
 }
 
-/** Returns one ProjectFolder per unique cwd that has at least one session file. */
+/** Returns one ProjectFolder per unique cwd that has at least one session file.
+ *  `name` is the encoded full-cwd slug (`encodeFolderName(cwd)`), matching the
+ *  routing scheme used by the dashboard's project URL — `mergeProjectFolders`
+ *  unions by `name`, and `getGeminiSessionsByEncodedName` looks up by the same
+ *  slug, so every cross-CLI merge and Gemini-only project link round-trips. */
 export async function getGeminiProjects(): Promise<ProjectFolder[]> {
   const sessions = await scanGeminiSessions();
-  const byCwd = new Map<string, { mtime: Date; basename: string }>();
+  const byCwd = new Map<string, { mtime: Date }>();
   for (const s of sessions) {
-    const basename = s.cwd.split("/").filter(Boolean).pop() ?? s.cwd;
     const existing = byCwd.get(s.cwd);
     if (!existing || s.fileMtime.getTime() > existing.mtime.getTime()) {
-      byCwd.set(s.cwd, { mtime: s.fileMtime, basename });
+      byCwd.set(s.cwd, { mtime: s.fileMtime });
     }
   }
-  const folders: ProjectFolder[] = [...byCwd.entries()].map(([cwd, { mtime, basename }]) => ({
-    name: basename,
+  const folders: ProjectFolder[] = [...byCwd.entries()].map(([cwd, { mtime }]) => ({
+    name: encodeFolderName(cwd),
     path: cwd,
     isDirectory: true,
     lastModified: mtime,

@@ -118,7 +118,24 @@ export async function evaluatePolicies(
       );
       hookLogInfo(`deny by "${policy.name}": ${reason}`);
 
-      const displayTool = ctx.toolName ?? "unknown tool";
+      // Pick a noun for the deny message that fits the event type. Tool events
+      // get the tool name; non-tool events (UserPromptSubmit, SessionStart,
+      // SessionEnd, Stop, …) use an event-appropriate label so we don't emit
+      // the misleading "Blocked unknown tool by failproofai because: ...".
+      let displayTool: string;
+      if (ctx.toolName) {
+        displayTool = ctx.toolName;
+      } else if (eventType === "UserPromptSubmit") {
+        displayTool = "prompt";
+      } else if (eventType === "SessionStart") {
+        displayTool = "session start";
+      } else if (eventType === "SessionEnd") {
+        displayTool = "session end";
+      } else if (eventType === "Stop") {
+        displayTool = "stop";
+      } else {
+        displayTool = "operation";
+      }
       const blockedMessage = `Blocked ${displayTool} by failproofai because: ${reason}, as per the policy configured by the user`;
 
       // Cursor's hook protocol expects a flat `{permission, user_message,
@@ -377,7 +394,13 @@ export async function evaluatePolicies(
         eventType === "PostToolUse" ||
         eventType === "SessionStart";
       if (supportsContext) {
-        const hookEventName = session?.hookEventName ?? eventType;
+        // Round-trip the agent-emitted event name so Gemini sees `BeforeTool`,
+        // `BeforeAgent`, etc. (NOT the canonical Claude form). Prefer the
+        // stdin payload's `hook_event_name` when present; fall back to the raw
+        // CLI `--hook` arg captured by handler.ts; only use the canonical
+        // event as a last resort (would never round-trip correctly, but better
+        // than emitting nothing).
+        const hookEventName = session?.hookEventName ?? session?.rawHookEventName ?? eventType;
         const response = {
           hookSpecificOutput: {
             hookEventName,
@@ -502,7 +525,8 @@ export async function evaluatePolicies(
         .map((e) => `[failproofai] ${e.policyName}: ${e.reason}`)
         .join("\n");
       if (supportsContext) {
-        const hookEventName = session?.hookEventName ?? eventType;
+        // Same fallback chain as the instruct path above — see comment there.
+        const hookEventName = session?.hookEventName ?? session?.rawHookEventName ?? eventType;
         const response = {
           hookSpecificOutput: {
             hookEventName,
