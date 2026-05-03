@@ -117,13 +117,16 @@ interface PiParseResult {
   cwd?: string;
 }
 
-/** Extract a plain-text summary of a Pi message content block. */
+/** Extract a plain-text summary of a Pi message content block. Concatenates
+ *  every `"text"` block (joined by blank lines) so multi-part user messages
+ *  aren't truncated to just the first text segment. */
 function extractMessageText(content: Array<Record<string, unknown>> | undefined): string {
   if (!Array.isArray(content)) return "";
+  const parts: string[] = [];
   for (const block of content) {
-    if (block?.type === "text" && typeof block.text === "string") return block.text;
+    if (block?.type === "text" && typeof block.text === "string") parts.push(block.text);
   }
-  return "";
+  return parts.join("\n\n");
 }
 
 /** Build a list of ContentBlocks for the assistant entry, preserving text and
