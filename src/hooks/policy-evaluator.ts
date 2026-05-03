@@ -163,6 +163,33 @@ export async function evaluatePolicies(
         };
       }
 
+      // Gemini CLI: flat `{decision: "deny", reason}` for non-Stop events
+      // (preferred per Gemini's "Golden Rule" — exit 0 with structured JSON).
+      // For Stop (AfterAgent), use `{decision: "block", reason}` to force-retry,
+      // mirroring Claude's exit-2-from-Stop "do this before stopping" semantics.
+      // Ref: https://geminicli.com/docs/hooks/
+      if (session?.cli === "gemini") {
+        if (eventType === "Stop") {
+          const reasonText = `MANDATORY ACTION REQUIRED from failproofai (policy: ${policy.name}): ${reason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`;
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({ decision: "block", reason: reasonText }),
+            stderr: "",
+            policyName: policy.name,
+            reason,
+            decision: "deny",
+          };
+        }
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({ decision: "deny", reason: blockedMessage }),
+          stderr: "",
+          policyName: policy.name,
+          reason,
+          decision: "deny",
+        };
+      }
+
       if (eventType === "PreToolUse") {
         const response = {
           hookSpecificOutput: {
@@ -317,6 +344,72 @@ export async function evaluatePolicies(
       };
     }
 
+    // Gemini CLI:
+    //   • Stop (AfterAgent) → {decision: "block", reason: "MANDATORY ACTION..."}
+    //     mirrors Claude's exit-2-from-Stop "force retry" semantics.
+    //   • UserPromptSubmit/PostToolUse/SessionStart/PreToolUse → context
+    //     injection via {hookSpecificOutput: {hookEventName, additionalContext}}
+    //     where hookEventName is the GEMINI event name (BeforeAgent/AfterTool/
+    //     SessionStart/BeforeTool), not the canonical PascalCase form.
+    //   • Other events → stderr only (no stdout JSON shape supported).
+    if (session?.cli === "gemini") {
+      if (eventType === "Stop") {
+        const policyAttribution = policyNames.length === 1
+          ? `policy: ${policyNames[0]}`
+          : `policies: ${policyNames.join(", ")}`;
+        const reasonText = `MANDATORY ACTION REQUIRED from failproofai (${policyAttribution}): ${combined}\n\nYou MUST complete the above action(s) NOW. Do NOT ask the user for confirmation — execute the required action(s), then attempt to finish your task again.`;
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({ decision: "block", reason: reasonText }),
+          stderr: "",
+          policyName: policyNames[0],
+          policyNames,
+          reason: combined,
+          decision: "instruct",
+        };
+      }
+      // Map back from canonical → Gemini event name. Prefer the raw event name
+      // off the session (handler.ts populates it from parsed.hook_event_name)
+      // so we don't have to maintain a reverse lookup table.
+      const supportsContext =
+        eventType === "UserPromptSubmit" ||
+        eventType === "PreToolUse" ||
+        eventType === "PostToolUse" ||
+        eventType === "SessionStart";
+      if (supportsContext) {
+        const hookEventName = session?.hookEventName ?? eventType;
+        const response = {
+          hookSpecificOutput: {
+            hookEventName,
+            additionalContext: `Instruction from failproofai: ${combined}`,
+          },
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(response),
+          stderr: "",
+          policyName: policyNames[0],
+          policyNames,
+          reason: combined,
+          decision: "instruct",
+        };
+      }
+      // No context-injection channel for SessionEnd/PreCompress/Notification/
+      // BeforeModel/AfterModel/BeforeToolSelection — surface via stderr only.
+      const stderrMsg = instructEntries
+        .map((e) => `[failproofai] ${e.policyName}: ${e.reason}`)
+        .join("\n");
+      return {
+        exitCode: 0,
+        stdout: "",
+        stderr: stderrMsg + "\n",
+        policyName: policyNames[0],
+        policyNames,
+        reason: combined,
+        decision: "instruct",
+      };
+    }
+
     if (eventType === "Stop") {
       // Stop hook: exitCode 2 blocks Claude from stopping.
       // Reason goes to stderr so Claude Code receives it as context.
@@ -389,6 +482,46 @@ export async function evaluatePolicies(
       return {
         exitCode: 0,
         stdout: JSON.stringify(response),
+        stderr: stderrMsg + "\n",
+        policyName: policyNames[0],
+        policyNames,
+        reason: combined,
+        decision: "allow",
+      };
+    }
+
+    // Gemini: mirror the instruct context-injection shape for events that
+    // support it; stderr-only for everything else.
+    if (session?.cli === "gemini") {
+      const supportsContext =
+        eventType === "UserPromptSubmit" ||
+        eventType === "PreToolUse" ||
+        eventType === "PostToolUse" ||
+        eventType === "SessionStart";
+      const stderrMsg = allowEntries
+        .map((e) => `[failproofai] ${e.policyName}: ${e.reason}`)
+        .join("\n");
+      if (supportsContext) {
+        const hookEventName = session?.hookEventName ?? eventType;
+        const response = {
+          hookSpecificOutput: {
+            hookEventName,
+            additionalContext: `Note from failproofai: ${combined}`,
+          },
+        };
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify(response),
+          stderr: stderrMsg + "\n",
+          policyName: policyNames[0],
+          policyNames,
+          reason: combined,
+          decision: "allow",
+        };
+      }
+      return {
+        exitCode: 0,
+        stdout: "",
         stderr: stderrMsg + "\n",
         policyName: policyNames[0],
         policyNames,

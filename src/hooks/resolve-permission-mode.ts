@@ -31,6 +31,11 @@
  *   • Pi (pi-coding-agent): no permission-mode concept in the extension API;
  *     `tool_call` handlers always run with the same authority. Falls back to
  *     "default" via the same final branch as Copilot/Cursor.
+ *
+ *   • Gemini CLI: hook payload doesn't carry a permission-mode field today.
+ *     Falls back to "default" via the same final branch as Copilot/Cursor/
+ *     OpenCode/Pi. Revisit when Gemini's hook protocol exposes a per-session
+ *     authority signal (the docs as of 2026-04-13 do not).
  */
 import { readFileSync } from "node:fs";
 import { findCodexTranscript } from "../../lib/codex-sessions";
@@ -49,7 +54,7 @@ export function resolvePermissionMode(
     return resolveCodexMode(sessionId) ?? "default";
   }
 
-  // copilot, cursor, opencode, pi, unknown integrations, or codex without a sessionId
+  // copilot, cursor, opencode, pi, gemini, unknown integrations, or codex without a sessionId
   return "default";
 }
 

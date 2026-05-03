@@ -1,11 +1,11 @@
 /**
- * Constants and interfaces for agent CLI hooks integrations (Claude Code, OpenAI Codex, GitHub Copilot, Cursor Agent, OpenCode, Pi, …).
+ * Constants and interfaces for agent CLI hooks integrations (Claude Code, OpenAI Codex, GitHub Copilot, Cursor Agent, OpenCode, Pi, Gemini CLI, …).
  */
 
 export const HOOK_SCOPES = ["user", "project", "local"] as const;
 export type HookScope = (typeof HOOK_SCOPES)[number];
 
-export const INTEGRATION_TYPES = ["claude", "codex", "copilot", "cursor", "opencode", "pi"] as const;
+export const INTEGRATION_TYPES = ["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini"] as const;
 export type IntegrationType = (typeof INTEGRATION_TYPES)[number];
 
 export const CODEX_HOOK_SCOPES = ["user", "project"] as const;
@@ -215,6 +215,117 @@ export const PI_EVENT_MAP: Record<PiHookEventType, HookEventType> = {
   agent_end: "Stop",
 };
 
+// ── Gemini CLI ─────────────────────────────────────────────────────────────
+//
+// Gemini CLI's hook contract is the closest thing to a Claude Code clone we've
+// seen: same `{matcher, hooks: [{type, command, timeout}]}` settings shape,
+// PascalCase event names, snake_case stdin payload field names (session_id,
+// tool_name, tool_input, hook_event_name, cwd, transcript_path), subprocess
+// execution model, and a `$CLAUDE_PROJECT_DIR` env-var alias on top of its own
+// `$GEMINI_PROJECT_DIR` for back-compat. The integration is modeled on
+// claudeCode in integrations.ts; only three translation layers differ:
+//
+//   1. Event names — Gemini uses BeforeTool/AfterTool/BeforeAgent/AfterAgent/
+//      PreCompress/Notification/SessionStart/SessionEnd/BeforeModel/AfterModel/
+//      BeforeToolSelection. We install all 11 events but only 8 have a Claude
+//      canonical equivalent; the other 3 (BeforeModel/AfterModel/
+//      BeforeToolSelection) pass through unchanged (no policy matches today,
+//      but the binary still records activity).
+//
+//   2. Tool names — Gemini's tools are snake_case (run_shell_command, read_file,
+//      write_file, replace, glob, grep_search, list_directory, web_fetch,
+//      google_web_search, write_todos, save_memory, read_many_files, ask_user).
+//      The handler canonicalizes via GEMINI_TOOL_MAP (run_shell_command → Bash,
+//      read_file → Read, etc.) so existing builtin policies fire unchanged.
+//      Unknown tools (extensions, MCP `mcp_*` names) pass through.
+//
+//   3. Response shape — Gemini emits flat `{decision: "deny", reason}` for
+//      blocks (NOT Claude's `{hookSpecificOutput: {permissionDecision: "deny",
+//      permissionDecisionReason}}`), and `{hookSpecificOutput: {hookEventName,
+//      additionalContext}}` for context injection on BeforeAgent / AfterTool /
+//      SessionStart only. policy-evaluator.ts handles this via a `cli ===
+//      "gemini"` branch.
+//
+// Settings paths:
+//   user    → ~/.gemini/settings.json
+//   project → <cwd>/.gemini/settings.json
+// Gemini also documents a system scope (/etc/gemini-cli/settings.json) but we
+// don't expose it (matches Codex/Copilot/Cursor/OpenCode/Pi: user|project only).
+//
+// **Per-event capability** (from Gemini docs as of 2026-04-13):
+//   • BeforeTool          → PreToolUse        · CAN block via `{decision: "deny"}`
+//                                              · CAN rewrite via `hookSpecificOutput.tool_input`
+//   • AfterTool           → PostToolUse       · CAN observe; `additionalContext` injection
+//   • BeforeAgent         → UserPromptSubmit  · CAN block; `additionalContext` injection
+//   • AfterAgent          → Stop              · CAN force-retry via `{decision: "block"}`
+//                                                (closest to Claude's exit-2-from-Stop)
+//   • SessionStart        → SessionStart      · `additionalContext` injection
+//   • SessionEnd          → SessionEnd        · observation only
+//   • PreCompress         → PreCompact        · observation only
+//   • Notification        → Notification      · observation only
+//   • BeforeModel         → BeforeModel       · Gemini-only; no canonical, observation
+//   • AfterModel          → AfterModel        · Gemini-only; no canonical, observation
+//   • BeforeToolSelection → BeforeToolSelection · Gemini-only; no canonical, observation
+//
+// Ref: https://geminicli.com/docs/hooks/
+
+export const GEMINI_HOOK_SCOPES = ["user", "project"] as const;
+export type GeminiHookScope = (typeof GEMINI_HOOK_SCOPES)[number];
+
+export const GEMINI_HOOK_EVENT_TYPES = [
+  "SessionStart",
+  "SessionEnd",
+  "BeforeAgent",
+  "AfterAgent",
+  "BeforeModel",
+  "AfterModel",
+  "BeforeToolSelection",
+  "BeforeTool",
+  "AfterTool",
+  "PreCompress",
+  "Notification",
+] as const;
+export type GeminiHookEventType = (typeof GEMINI_HOOK_EVENT_TYPES)[number];
+
+/** Gemini event → canonical PascalCase HookEventType. Three Gemini-only events
+ *  (BeforeModel, AfterModel, BeforeToolSelection) have no Claude equivalent and
+ *  pass through unchanged. */
+export const GEMINI_EVENT_MAP: Record<GeminiHookEventType, HookEventType> = {
+  SessionStart: "SessionStart",
+  SessionEnd: "SessionEnd",
+  BeforeAgent: "UserPromptSubmit",
+  AfterAgent: "Stop",
+  BeforeTool: "PreToolUse",
+  AfterTool: "PostToolUse",
+  PreCompress: "PreCompact",
+  Notification: "Notification",
+  // No canonical Claude equivalent — passthrough so the binary still records
+  // activity but `getPoliciesForEvent` returns [] (no-op fast path).
+  BeforeModel: "BeforeModel" as HookEventType,
+  AfterModel: "AfterModel" as HookEventType,
+  BeforeToolSelection: "BeforeToolSelection" as HookEventType,
+};
+
+/** Gemini's snake_case tool names → Claude PascalCase canonical names so existing
+ *  builtin policies (which match `toolName === "Bash"`, etc.) fire unchanged on
+ *  Gemini sessions. Unknown tools (MCP `mcp_*`, extensions, Skills) pass through
+ *  unchanged. Per https://geminicli.com/docs/reference/tools/ as of 2026-04-13. */
+export const GEMINI_TOOL_MAP: Record<string, string> = {
+  run_shell_command: "Bash",
+  read_file: "Read",
+  read_many_files: "Read",
+  write_file: "Write",
+  replace: "Edit",
+  glob: "Glob",
+  grep_search: "Grep",
+  list_directory: "LS",
+  web_fetch: "WebFetch",
+  google_web_search: "WebSearch",
+  write_todos: "TodoWrite",
+  save_memory: "Memory",
+  ask_user: "AskUser",
+};
+
 export const HOOK_EVENT_TYPES = [
   "SessionStart",
   "SessionEnd",
@@ -267,7 +378,7 @@ export interface SessionMetadata {
   cwd?: string;
   permissionMode?: string;
   hookEventName?: string;
-  /** Which agent CLI fired this hook (claude | codex | copilot | cursor | opencode | pi). Set by handler.ts from --cli. */
+  /** Which agent CLI fired this hook (claude | codex | copilot | cursor | opencode | pi | gemini). Set by handler.ts from --cli. */
   cli?: IntegrationType;
 }
 
