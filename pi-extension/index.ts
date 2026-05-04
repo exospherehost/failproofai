@@ -26,9 +26,10 @@
  * relative to this file via `import.meta.url`, NOT process.cwd().
  */
 import { spawnSync } from "node:child_process";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIST_BIN = resolve(HERE, "..", "dist", "cli.mjs");
@@ -118,6 +119,91 @@ function resolveCwd(eventCwd: string | undefined): string {
   return eventCwd ?? process.cwd();
 }
 
+/**
+ * Pi (verified empirically against pi-coding-agent v0.71.1) does NOT
+ * populate `event.sessionId` on any of its events — `session_start`,
+ * `tool_call`, `user_bash`, `input`, `tool_result`, `agent_end`,
+ * `session_shutdown` all leave it undefined. Without help the shim can't
+ * tag activity records with a session id, so the dashboard renders
+ * `Session ID: —` for every Pi row.
+ *
+ * What Pi DOES do: at session start it creates a JSONL transcript at
+ * `~/.pi/agent/sessions/<encodedCwd>/<isoTimestamp>_<uuid>.jsonl` where
+ * the filename encodes the sessionId. We discover ours by scanning the
+ * encoded-cwd directory for the most-recently-modified matching file.
+ *
+ * Strategy: scan once and cache. Pi runs one session per process so the
+ * cache is per-process and lives for the session's lifetime. If Pi ever
+ * multiplexes, we'd need a keyed map.
+ */
+const PI_FILE_RE = /^[\d-]+T[\d-]+Z_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
+
+/** Encode a cwd into Pi's on-disk session-dir name. Pi strips the leading
+ *  `/` before replacing remaining slashes with `-`, e.g.
+ *  `/home/u/repo` → `--home-u-repo--`. */
+function piEncodeCwd(cwd: string): string {
+  const inner = cwd.replace(/^\/+/, "").replace(/\//g, "-");
+  return `--${inner}--`;
+}
+
+/** Process start boundary — files older than this aren't from the current
+ *  Pi session. Captured at module load so cold-start in a cwd with stale
+ *  transcripts doesn't pin a previous session's UUID. We allow a small
+ *  tolerance below `processStartMs` because mtime resolution and clock
+ *  skew can put a "current" file's mtime a few hundred ms before module
+ *  load on slow startup. */
+const PROCESS_START_MS = Date.now();
+const STALE_TOLERANCE_MS = 2_000;
+
+/** Find the newest `<ts>_<uuid>.jsonl` file under `~/.pi/agent/sessions/<encodedCwd>/`
+ *  whose mtime indicates it belongs to the CURRENT Pi process (≥ process
+ *  start, with a small tolerance). Files older than that are stale
+ *  transcripts from prior sessions in the same cwd — caching their UUID
+ *  would cross-attribute every event of the new session.
+ *  Returns undefined when the dir doesn't exist, has no matching file, or
+ *  every matching file is stale. */
+function discoverPiSessionId(cwd: string): string | undefined {
+  const root = process.env.PI_SESSIONS_DIR || join(homedir(), ".pi", "agent", "sessions");
+  const dir = join(root, piEncodeCwd(cwd));
+  let entries: string[];
+  try { entries = readdirSync(dir); } catch { return undefined; }
+  const boundary = PROCESS_START_MS - STALE_TOLERANCE_MS;
+  let best: { sessionId: string; mtime: number } | undefined;
+  for (const name of entries) {
+    const m = PI_FILE_RE.exec(name);
+    if (!m) continue;
+    let mtime: number;
+    try { mtime = statSync(join(dir, name)).mtimeMs; } catch { continue; }
+    if (mtime < boundary) continue;
+    if (!best || mtime > best.mtime) best = { sessionId: m[1], mtime };
+  }
+  return best?.sessionId;
+}
+
+/** sessionId cache, keyed by cwd. Per-cwd so a multi-cwd Pi (extension running
+ *  across multiple workspace roots) can't cross-attribute. Cleared on
+ *  session_shutdown reasons `new`/`resume`/`fork` (Pi reuses the process). */
+const cachedSessionIdByCwd = new Map<string, string>();
+function resolveSessionId(eventSessionId: string | undefined, cwd: string): string | undefined {
+  if (eventSessionId) {
+    cachedSessionIdByCwd.set(cwd, eventSessionId);
+    return eventSessionId;
+  }
+  const cached = cachedSessionIdByCwd.get(cwd);
+  if (cached) return cached;
+  // Pi v0.71.1 never sets sessionId — discover from disk.
+  const discovered = discoverPiSessionId(cwd);
+  if (discovered) cachedSessionIdByCwd.set(cwd, discovered);
+  return discovered;
+}
+/** Clear the cached sessionId for a cwd. Called on session_shutdown reasons
+ *  that indicate a new session is starting in the same process (`new`,
+ *  `resume`, `fork`). Without this, the next session would inherit the prior
+ *  sessionId until disk discovery refreshed it. */
+function resetSessionIdCache(cwd: string): void {
+  cachedSessionIdByCwd.delete(cwd);
+}
+
 interface PiUserBashEvent {
   type?: string;
   command?: string;
@@ -180,7 +266,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const decision = callPolicy("tool_call", {
       tool_name: canonicalizeToolName(e.toolName),
       tool_input: e.input,
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PreToolUse",
     });
@@ -194,7 +280,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const decision = callPolicy("user_bash", {
       tool_name: "Bash",
       tool_input: { command: e.command },
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PreToolUse",
     });
@@ -208,7 +294,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const e = event as PiInputEvent;
     const decision = callPolicy("input", {
       prompt: e.text,
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "UserPromptSubmit",
     });
@@ -222,7 +308,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   pi.on("session_start", (event: unknown): unknown => {
     const e = event as PiSessionStartEvent;
     callPolicy("session_start", {
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       reason: e.reason,
       hook_event_name: "SessionStart",
@@ -242,7 +328,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
       tool_name: canonicalizeToolName(e.toolName),
       tool_input: e.input ?? {},
       tool_response: { content: e.content, isError: e.isError },
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PostToolUse",
     });
@@ -257,7 +343,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   pi.on("agent_end", (event: unknown): unknown => {
     const e = event as PiAgentEndEvent;
     callPolicy("agent_end", {
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "Stop",
     });
@@ -265,15 +351,23 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   });
 
   // session_shutdown → SessionEnd. Observation-only; emits a SessionEnd
-  // record so per-session telemetry has a clean close.
+  // record so per-session telemetry has a clean close. Reset the per-cwd
+  // sessionId cache for shutdown reasons that mean "Pi is starting a new
+  // session in the same process" — without the reset, the next session's
+  // events would inherit the prior session's id until disk discovery
+  // refreshed it.
   pi.on("session_shutdown", (event: unknown): unknown => {
     const e = event as PiSessionShutdownEvent;
+    const cwd = resolveCwd(e.cwd);
     callPolicy("session_shutdown", {
-      session_id: e.sessionId,
-      cwd: resolveCwd(e.cwd),
+      session_id: resolveSessionId(e.sessionId, cwd),
+      cwd,
       reason: e.reason,
       hook_event_name: "SessionEnd",
     });
+    if (e.reason === "new" || e.reason === "resume" || e.reason === "fork") {
+      resetSessionIdCache(cwd);
+    }
     return undefined;
   });
 }
