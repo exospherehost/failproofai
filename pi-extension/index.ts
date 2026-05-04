@@ -26,9 +26,10 @@
  * relative to this file via `import.meta.url`, NOT process.cwd().
  */
 import { spawnSync } from "node:child_process";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DIST_BIN = resolve(HERE, "..", "dist", "cli.mjs");
@@ -119,44 +120,63 @@ function resolveCwd(eventCwd: string | undefined): string {
 }
 
 /**
- * Pi's `tool_call` / `user_bash` / `input` / `tool_result` / `agent_end`
- * events don't reliably carry `sessionId` — only `session_start` does. We
- * cache the most-recent session_start sessionId in module scope and fall
- * back to it on every other event so activity records and dashboard
- * session-link generation get a stable id (instead of recording "—" for
- * every Pi row).
+ * Pi (verified empirically against pi-coding-agent v0.71.1) does NOT
+ * populate `event.sessionId` on any of its events — `session_start`,
+ * `tool_call`, `user_bash`, `input`, `tool_result`, `agent_end`,
+ * `session_shutdown` all leave it undefined. Without help the shim can't
+ * tag activity records with a session id, so the dashboard renders
+ * `Session ID: —` for every Pi row.
  *
- * pi-coding-agent v0.72.1 runs one Pi session per process, so the cached
- * value is always the live session — no risk of leaking another session's
- * id into the wrong record. If Pi ever multiplexes sessions, we'd need a
- * keyed map, but a single slot is correct for the current contract.
+ * What Pi DOES do: at session start it creates a JSONL transcript at
+ * `~/.pi/agent/sessions/<encodedCwd>/<isoTimestamp>_<uuid>.jsonl` where
+ * the filename encodes the sessionId. We discover ours by scanning the
+ * encoded-cwd directory for the most-recently-modified matching file.
+ *
+ * Strategy: scan once and cache. Pi runs one session per process so the
+ * cache is per-process and lives for the session's lifetime. If Pi ever
+ * multiplexes, we'd need a keyed map.
  */
+const PI_FILE_RE = /^[\d-]+T[\d-]+Z_([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i;
+
+/** Encode a cwd into Pi's on-disk session-dir name. Pi strips the leading
+ *  `/` before replacing remaining slashes with `-`, e.g.
+ *  `/home/u/repo` → `--home-u-repo--`. */
+function piEncodeCwd(cwd: string): string {
+  const inner = cwd.replace(/^\/+/, "").replace(/\//g, "-");
+  return `--${inner}--`;
+}
+
+/** Find the newest `<ts>_<uuid>.jsonl` file under `~/.pi/agent/sessions/<encodedCwd>/`
+ *  and return its sessionId. Returns undefined when the dir doesn't exist or
+ *  has no matching file. */
+function discoverPiSessionId(cwd: string): string | undefined {
+  const root = process.env.PI_SESSIONS_DIR || join(homedir(), ".pi", "agent", "sessions");
+  const dir = join(root, piEncodeCwd(cwd));
+  let entries: string[];
+  try { entries = readdirSync(dir); } catch { return undefined; }
+  let best: { sessionId: string; mtime: number } | undefined;
+  for (const name of entries) {
+    const m = PI_FILE_RE.exec(name);
+    if (!m) continue;
+    let mtime: number;
+    try { mtime = statSync(join(dir, name)).mtimeMs; } catch { continue; }
+    if (!best || mtime > best.mtime) best = { sessionId: m[1], mtime };
+  }
+  return best?.sessionId;
+}
+
 let cachedSessionId: string | undefined;
-function resolveSessionId(eventSessionId: string | undefined): string | undefined {
+function resolveSessionId(eventSessionId: string | undefined, cwd: string): string | undefined {
   if (eventSessionId) {
     cachedSessionId = eventSessionId;
     return eventSessionId;
   }
-  return cachedSessionId;
+  if (cachedSessionId) return cachedSessionId;
+  // Pi v0.71.1 never sets sessionId — discover from disk.
+  const discovered = discoverPiSessionId(cwd);
+  if (discovered) cachedSessionId = discovered;
+  return discovered;
 }
-
-/**
- * Best-effort transcript path for the current Pi session. Pi stores
- * transcripts at `~/.pi/agent/sessions/<encodedCwd>/<timestamp>_<sessionId>.jsonl`
- * where encodedCwd = `--<cwd-with-slashes-as-dashes>--`. The timestamp
- * prefix is the session-start ISO time, unknown to us without scanning the
- * directory. Rather than paying readdir on every hook, we leave
- * `transcript_path` undefined and rely on the dashboard's
- * `getCachedPiSessionsByEncodedName` to resolve sessionId → transcript on
- * demand. This function is exposed so a future change can flip to eager
- * resolution if needed.
- */
-function piEncodeCwd(cwd: string): string {
-  const inner = cwd.replace(/\//g, "-");
-  return `--${inner}--`;
-}
-// Marker so eslint / tree-shake doesn't drop the helper before it's used.
-void piEncodeCwd;
 
 interface PiUserBashEvent {
   type?: string;
@@ -220,7 +240,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const decision = callPolicy("tool_call", {
       tool_name: canonicalizeToolName(e.toolName),
       tool_input: e.input,
-      session_id: resolveSessionId(e.sessionId),
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PreToolUse",
     });
@@ -234,7 +254,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const decision = callPolicy("user_bash", {
       tool_name: "Bash",
       tool_input: { command: e.command },
-      session_id: resolveSessionId(e.sessionId),
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PreToolUse",
     });
@@ -248,7 +268,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const e = event as PiInputEvent;
     const decision = callPolicy("input", {
       prompt: e.text,
-      session_id: resolveSessionId(e.sessionId),
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "UserPromptSubmit",
     });
@@ -262,7 +282,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   pi.on("session_start", (event: unknown): unknown => {
     const e = event as PiSessionStartEvent;
     callPolicy("session_start", {
-      session_id: resolveSessionId(e.sessionId),
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       reason: e.reason,
       hook_event_name: "SessionStart",
@@ -282,7 +302,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
       tool_name: canonicalizeToolName(e.toolName),
       tool_input: e.input ?? {},
       tool_response: { content: e.content, isError: e.isError },
-      session_id: resolveSessionId(e.sessionId),
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PostToolUse",
     });
@@ -297,7 +317,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   pi.on("agent_end", (event: unknown): unknown => {
     const e = event as PiAgentEndEvent;
     callPolicy("agent_end", {
-      session_id: resolveSessionId(e.sessionId),
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "Stop",
     });
@@ -309,7 +329,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   pi.on("session_shutdown", (event: unknown): unknown => {
     const e = event as PiSessionShutdownEvent;
     callPolicy("session_shutdown", {
-      session_id: resolveSessionId(e.sessionId),
+      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       reason: e.reason,
       hook_event_name: "SessionEnd",
