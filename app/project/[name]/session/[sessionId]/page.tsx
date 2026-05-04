@@ -8,6 +8,7 @@ import { getCachedCopilotSessionLog } from "@/lib/copilot-sessions";
 import { getCachedCursorSessionLog } from "@/lib/cursor-sessions";
 import { getCachedOpenCodeSessionLog } from "@/lib/opencode-sessions";
 import { getCachedPiSessionLog } from "@/lib/pi-sessions";
+import { getCachedGeminiSessionLog } from "@/lib/gemini-sessions";
 import { decodeFolderName } from "@/lib/paths";
 import { baseSessionId } from "@/lib/utils/session-id";
 import { resolveProjectPath, UUID_RE } from "@/lib/projects";
@@ -43,7 +44,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
   let entries: LogEntry[] | null = null;
   let rawLines: Record<string, unknown>[] | null = null;
   let error: string | null = null;
-  let cli: "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" = "claude";
+  let cli: "claude" | "codex" | "copilot" | "cursor" | "opencode" | "pi" | "gemini" = "claude";
   let externalCwd: string | undefined;
 
   try {
@@ -92,7 +93,15 @@ export default async function SessionPage({ params }: SessionPageProps) {
                 externalCwd = pi.cwd;
                 cli = "pi";
               } else {
-                error = "Session log file not found.";
+                const gemini = await getCachedGeminiSessionLog(decodedSessionId);
+                if (gemini) {
+                  entries = gemini.entries;
+                  rawLines = gemini.rawLines;
+                  externalCwd = gemini.cwd;
+                  cli = "gemini";
+                } else {
+                  error = "Session log file not found.";
+                }
               }
             }
           }
@@ -116,7 +125,9 @@ export default async function SessionPage({ params }: SessionPageProps) {
             ? `OpenCode${externalCwd ? ` · ${externalCwd}` : ""}`
             : cli === "pi"
               ? `Pi${externalCwd ? ` · ${externalCwd}` : ""}`
-              : decodedName;
+              : cli === "gemini"
+                ? `Gemini CLI${externalCwd ? ` · ${externalCwd}` : ""}`
+                : decodedName;
 
   return (
     <main className="min-h-screen bg-background">
@@ -184,7 +195,9 @@ export default async function SessionPage({ params }: SessionPageProps) {
                           ? "Cursor Agent"
                           : cli === "opencode"
                             ? "OpenCode"
-                            : "Pi"))
+                            : cli === "pi"
+                              ? "Pi"
+                              : "Gemini CLI"))
                 : decodedName
             }
             sessionId={decodedSessionId}

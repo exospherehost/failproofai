@@ -12,8 +12,8 @@ import { hookLogWarn } from "./hook-logger";
 
 /**
  * Whether `resolved` lives under an agent CLI's home directory
- * (~/.claude/, ~/.codex/, ~/.copilot/, ~/.cursor/, ~/.pi/, or any of
- * OpenCode's three home-side dirs). Used to whitelist agent self-reads of
+ * (~/.claude/, ~/.codex/, ~/.copilot/, ~/.cursor/, ~/.pi/, ~/.gemini/, or any
+ * of OpenCode's three home-side dirs). Used to whitelist agent self-reads of
  * their own config and transcripts.
  *
  * OpenCode splits its data across three locations (verified live on
@@ -29,7 +29,7 @@ function isAgentInternalPath(resolved: string): boolean {
   // convention. Comparing both sides under a single forward-slash form
   // avoids per-OS branching.
   const normResolved = resolved.replaceAll("\\", "/");
-  for (const dir of [".claude", ".codex", ".copilot", ".cursor", ".opencode", ".pi"]) {
+  for (const dir of [".claude", ".codex", ".copilot", ".cursor", ".opencode", ".pi", ".gemini"]) {
     const root = join(homedir(), dir).replaceAll("\\", "/");
     if (normResolved === root || normResolved.startsWith(root + "/")) return true;
   }
@@ -53,6 +53,9 @@ function isAgentInternalPath(resolved: string): boolean {
  *   • Pi:           `.pi/settings.json` (project) and `.pi/agent/settings.json`
  *                   (user); also the Pi-managed extension dir
  *                   `.pi/extensions/` / `.pi/agent/extensions/`.
+ *   • Gemini CLI:   `.gemini/settings.json` (both project and user scope —
+ *                   user is `~/.gemini/settings.json`); also the Gemini-managed
+ *                   hooks scripts dir `.gemini/hooks/`.
  * These must NEVER be edited by the agent itself — that would let it disable
  * its own protections.
  */
@@ -71,6 +74,9 @@ function isAgentSettingsFile(resolved: string): boolean {
   // Pi: settings + extensions dirs (project and user-scope variants).
   if (/[\\/]\.pi[\\/](?:agent[\\/])?settings\.json$/.test(resolved)) return true;
   if (/[\\/]\.pi[\\/](?:agent[\\/])?extensions[\\/]/.test(resolved)) return true;
+  // Gemini: settings.json + hooks dir referenced by `command: $GEMINI_PROJECT_DIR/.gemini/hooks/...`.
+  if (/[\\/]\.gemini[\\/]settings\.json$/.test(resolved)) return true;
+  if (/[\\/]\.gemini[\\/]hooks[\\/]/.test(resolved)) return true;
   return false;
 }
 

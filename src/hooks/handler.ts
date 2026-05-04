@@ -12,8 +12,9 @@ import type {
   CodexHookEventType,
   CursorHookEventType,
   PiHookEventType,
+  GeminiHookEventType,
 } from "./types";
-import { CODEX_EVENT_MAP, CURSOR_EVENT_MAP, PI_EVENT_MAP } from "./types";
+import { CODEX_EVENT_MAP, CURSOR_EVENT_MAP, PI_EVENT_MAP, GEMINI_EVENT_MAP, GEMINI_TOOL_MAP } from "./types";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
 import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
@@ -33,8 +34,10 @@ import { hookLogInfo, hookLogWarn } from "./hook-logger";
  * `beforeSubmitPrompt`); Pi sends underscore_lower_snake_case (`tool_call`,
  * `session_start`); Claude Code sends PascalCase. Copilot CLI is installed
  * in "VS Code compatible" PascalCase mode (see integrations.ts), so its events
- * arrive PascalCase already. The internal registry, builtin policies, and
- * policy.match.events all key on PascalCase.
+ * arrive PascalCase already. Gemini also sends PascalCase but with different
+ * names (`BeforeTool`, `BeforeAgent`, `AfterAgent`); we map via GEMINI_EVENT_MAP.
+ * The internal registry, builtin policies, and policy.match.events all key on
+ * PascalCase.
  */
 function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType {
   if (cli === "codex") {
@@ -49,9 +52,32 @@ function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType
     const mapped = PI_EVENT_MAP[raw as PiHookEventType];
     if (mapped) return mapped;
   }
+  if (cli === "gemini") {
+    const mapped = GEMINI_EVENT_MAP[raw as GeminiHookEventType];
+    if (mapped) return mapped;
+  }
   // claude / copilot / unknown — already PascalCase, pass through.
   // HOOK_EVENT_TYPES type-checks downstream.
   return raw as HookEventType;
+}
+
+/**
+ * Canonicalize a per-CLI tool name to the Claude PascalCase form that builtin
+ * policies match on (e.g. `Bash`, `Read`, `Write`, `Edit`). Today only Gemini
+ * needs this — its tools are snake_case (`run_shell_command`, `read_file`,
+ * `write_file`, `replace`, …). Other CLIs pass through unchanged: Claude /
+ * Codex / Copilot already use PascalCase, and Cursor / Pi pre-canonicalize
+ * inside their own plugin shims before the payload reaches this binary.
+ *
+ * Unknown tool names (MCP `mcp_*`, third-party extensions, Skills) pass
+ * through unchanged so non-builtin tooling isn't lost.
+ */
+function canonicalizeToolName(raw: string | undefined, cli: IntegrationType): string | undefined {
+  if (!raw) return raw;
+  if (cli === "gemini") {
+    return GEMINI_TOOL_MAP[raw] ?? raw;
+  }
+  return raw;
 }
 
 export async function handleHookEvent(
@@ -99,6 +125,17 @@ export async function handleHookEvent(
   // Canonicalize event name (Codex sends snake_case; internals expect PascalCase)
   const canonicalEventType = canonicalizeEventType(eventType, cli);
 
+  // Canonicalize tool name in place so both the policy-registry tool-name
+  // filter and policy bodies (`ctx.toolName === "Bash"`) see the canonical
+  // form. Today only Gemini's snake_case names need translation; other CLIs
+  // are no-ops here. Mutating `parsed.tool_name` keeps the activity store +
+  // telemetry tagging consistent (they read from `parsed.tool_name`).
+  const rawToolName = parsed.tool_name as string | undefined;
+  const canonicalToolName = canonicalizeToolName(rawToolName, cli);
+  if (canonicalToolName !== rawToolName) {
+    parsed.tool_name = canonicalToolName;
+  }
+
   // Extract session metadata from payload
   const sessionId = parsed.session_id as string | undefined;
   const session: SessionMetadata = {
@@ -107,6 +144,11 @@ export async function handleHookEvent(
     cwd: parsed.cwd as string | undefined,
     permissionMode: resolvePermissionMode(cli, parsed, sessionId),
     hookEventName: parsed.hook_event_name as string | undefined,
+    // Preserve the raw CLI-side event name (eventType arg) before
+    // canonicalization. Response shapes that round-trip the agent-emitted
+    // event name (e.g. Gemini's `hookSpecificOutput.hookEventName`) prefer
+    // this over the canonicalized form when stdin omits hook_event_name.
+    rawHookEventName: eventType,
     cli,
   };
 

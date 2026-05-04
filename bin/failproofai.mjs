@@ -43,7 +43,7 @@ const hookIdx = args.indexOf("--hook");
 if (hookIdx >= 0) {
   if (!args[hookIdx + 1]) {
     console.error("Error: Missing event type after --hook");
-    console.error("Usage: failproofai --hook <event> [--cli <claude|codex|copilot|cursor|opencode|pi>]");
+    console.error("Usage: failproofai --hook <event> [--cli <claude|codex|copilot|cursor|opencode|pi|gemini>]");
     process.exit(1);
   }
   const eventType = args[hookIdx + 1];
@@ -59,6 +59,7 @@ if (hookIdx >= 0) {
       || cliArg === "cursor"
       || cliArg === "opencode"
       || cliArg === "pi"
+      || cliArg === "gemini"
     )
       ? cliArg
       : "claude";
@@ -112,18 +113,18 @@ COMMANDS
   policies, p                    List all available policies and their status
   policies --install, -i         Enable policies in agent CLI settings
     [names...]                     Specific policy names to enable
-    --cli claude|codex|copilot|cursor|opencode|pi
+    --cli claude|codex|copilot|cursor|opencode|pi|gemini
                                    Agent CLI(s) to install for; space-separated
-                                   (e.g. --cli claude codex copilot cursor opencode pi) or repeated.
+                                   (e.g. --cli claude codex copilot cursor opencode pi gemini) or repeated.
                                    Default: detect installed CLIs and prompt.
     --scope user|project|local     Config scope to write to (default: user)
-                                   (Codex / Copilot / Cursor / OpenCode / Pi support user|project only)
+                                   (Codex / Copilot / Cursor / OpenCode / Pi / Gemini support user|project only)
     --beta                         Include beta policies
     --custom, -c <path>            Path to a JS file of custom policies
 
   policies --uninstall, -u       Disable policies or remove hooks
     [names...]                     Specific policy names to disable
-    --cli claude|codex|copilot|cursor|opencode|pi
+    --cli claude|codex|copilot|cursor|opencode|pi|gemini
                                    Agent CLI(s) to uninstall from
     --scope user|project|local|all Config scope to remove from (default: user)
     --beta                         Remove only beta policies
@@ -154,7 +155,8 @@ EXAMPLES
   failproofai policies --install --cli cursor --scope project
   failproofai policies --install --cli opencode --scope project
   failproofai policies --install --cli pi --scope project
-  failproofai policies --install --cli claude codex copilot cursor opencode pi
+  failproofai policies --install --cli gemini --scope project
+  failproofai policies --install --cli claude codex copilot cursor opencode pi gemini
   failproofai policies --install --custom ./my-policies.js
   failproofai policies -i -c ./my-policies.js
   failproofai policies --uninstall block-sudo
@@ -163,6 +165,7 @@ EXAMPLES
   failproofai policies --uninstall --cli cursor
   failproofai policies --uninstall --cli opencode
   failproofai policies --uninstall --cli pi
+  failproofai policies --uninstall --cli gemini
   failproofai policies --uninstall --custom
 
 LINKS
@@ -202,20 +205,20 @@ USAGE
 
 OPTIONS (install)
   [names...]                     Specific policy names to enable (omit for interactive)
-  --cli claude|codex|copilot|cursor|opencode|pi
+  --cli claude|codex|copilot|cursor|opencode|pi|gemini
                                  Agent CLI(s) to install for; space-separated
-                                 (e.g. --cli claude codex copilot cursor opencode pi) or repeated.
+                                 (e.g. --cli claude codex copilot cursor opencode pi gemini) or repeated.
                                  Omit to detect installed CLIs and prompt (or
                                  auto-pick if only one is found).
   --scope user|project|local     Config scope to write to (default: user)
-                                 (Codex / Copilot / Cursor / OpenCode / Pi support user|project only)
+                                 (Codex / Copilot / Cursor / OpenCode / Pi / Gemini support user|project only)
   --beta                         Include beta policies
   --custom, -c <path>            Path to a JS file of custom policies
                                  (skips interactive prompt; validates file first)
 
 OPTIONS (uninstall)
   [names...]                     Specific policy names to disable (omit to remove hooks)
-  --cli claude|codex|copilot|cursor|opencode|pi
+  --cli claude|codex|copilot|cursor|opencode|pi|gemini
                                  Agent CLI(s) to uninstall from
   --scope user|project|local|all Config scope to remove from (default: user)
   --beta                         Remove only beta policies
@@ -230,7 +233,8 @@ EXAMPLES
   failproofai policies --install --cli cursor --scope project
   failproofai policies --install --cli opencode --scope project
   failproofai policies --install --cli pi --scope project
-  failproofai policies --install --cli claude codex copilot cursor opencode pi
+  failproofai policies --install --cli gemini --scope project
+  failproofai policies --install --cli claude codex copilot cursor opencode pi gemini
   failproofai policies --install --custom ./my-policies.js
   failproofai policies -i -c ./my-policies.js
   failproofai policies --uninstall block-sudo
@@ -270,7 +274,7 @@ EXAMPLES
       //   --cli claude codex copilot
       //   --cli claude --cli codex
       // Values are consumed greedily until the next flag or end of argv.
-      const VALID_CLIS = new Set(["claude", "codex", "copilot", "cursor", "opencode", "pi"]);
+      const VALID_CLIS = new Set(["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini"]);
       const cliFlagValues = [];
       const cliConsumedIdxs = new Set();
       const cliFlagIdxs = subArgs.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
@@ -287,7 +291,7 @@ EXAMPLES
           consumed++;
         }
         if (consumed === 0) {
-          throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex copilot cursor opencode pi (or any subset)");
+          throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex copilot cursor opencode pi gemini (or any subset)");
         }
       }
 
@@ -350,7 +354,7 @@ EXAMPLES
       }
 
       // --cli accepts one or more space-separated values; same parser as install.
-      const VALID_CLIS = new Set(["claude", "codex", "copilot", "cursor", "opencode", "pi"]);
+      const VALID_CLIS = new Set(["claude", "codex", "copilot", "cursor", "opencode", "pi", "gemini"]);
       const cliFlagValues = [];
       const cliConsumedIdxs = new Set();
       const cliFlagIdxs = subArgs.map((a, i) => (a === "--cli" ? i : -1)).filter((i) => i >= 0);
@@ -367,7 +371,7 @@ EXAMPLES
           consumed++;
         }
         if (consumed === 0) {
-          throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex copilot cursor opencode pi (or any subset)");
+          throw new CliError("Missing value(s) for --cli. Usage: --cli claude codex copilot cursor opencode pi gemini (or any subset)");
         }
       }
 
