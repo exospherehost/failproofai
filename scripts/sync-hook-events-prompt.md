@@ -148,7 +148,7 @@ The `prBody` MUST be a Markdown string containing, in order:
 3. **Reviewer checklist** — for every newly-added event in a CLI that has an
    `*EVENT_MAP`, an unchecked checkbox reminding the reviewer to add the
    mapping. Use `"???"` as the canonical value placeholder; **do not guess**:
-   ```
+   ```text
    - [ ] Add `<event>: "???"` to `<MAP_NAME>` in `src/hooks/types.ts`
          (canonical Claude `HookEventType` chosen by reviewer)
    ```
