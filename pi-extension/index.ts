@@ -146,20 +146,35 @@ function piEncodeCwd(cwd: string): string {
   return `--${inner}--`;
 }
 
+/** Process start boundary — files older than this aren't from the current
+ *  Pi session. Captured at module load so cold-start in a cwd with stale
+ *  transcripts doesn't pin a previous session's UUID. We allow a small
+ *  tolerance below `processStartMs` because mtime resolution and clock
+ *  skew can put a "current" file's mtime a few hundred ms before module
+ *  load on slow startup. */
+const PROCESS_START_MS = Date.now();
+const STALE_TOLERANCE_MS = 2_000;
+
 /** Find the newest `<ts>_<uuid>.jsonl` file under `~/.pi/agent/sessions/<encodedCwd>/`
- *  and return its sessionId. Returns undefined when the dir doesn't exist or
- *  has no matching file. */
+ *  whose mtime indicates it belongs to the CURRENT Pi process (≥ process
+ *  start, with a small tolerance). Files older than that are stale
+ *  transcripts from prior sessions in the same cwd — caching their UUID
+ *  would cross-attribute every event of the new session.
+ *  Returns undefined when the dir doesn't exist, has no matching file, or
+ *  every matching file is stale. */
 function discoverPiSessionId(cwd: string): string | undefined {
   const root = process.env.PI_SESSIONS_DIR || join(homedir(), ".pi", "agent", "sessions");
   const dir = join(root, piEncodeCwd(cwd));
   let entries: string[];
   try { entries = readdirSync(dir); } catch { return undefined; }
+  const boundary = PROCESS_START_MS - STALE_TOLERANCE_MS;
   let best: { sessionId: string; mtime: number } | undefined;
   for (const name of entries) {
     const m = PI_FILE_RE.exec(name);
     if (!m) continue;
     let mtime: number;
     try { mtime = statSync(join(dir, name)).mtimeMs; } catch { continue; }
+    if (mtime < boundary) continue;
     if (!best || mtime > best.mtime) best = { sessionId: m[1], mtime };
   }
   return best?.sessionId;

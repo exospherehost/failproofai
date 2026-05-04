@@ -75,8 +75,11 @@ describe("pi-extension shim — sessionId resolution via on-disk discovery", () 
   });
 
   it("picks the newest file when multiple sessions exist for a cwd", () => {
-    writeSessionFile("/proj", "33333333-3333-3333-3333-333333333333", "2026-05-01T00-00-00-000Z", new Date("2026-05-01T00:00:00Z"));
-    writeSessionFile("/proj", "44444444-4444-4444-4444-444444444444", "2026-05-04T20-00-00-000Z", new Date("2026-05-04T20:00:00Z"));
+    // Both files must be after PROCESS_START_MS (- 2s tolerance) to be
+    // considered current; we still want one to be older than the other.
+    const now = Date.now();
+    writeSessionFile("/proj", "33333333-3333-3333-3333-333333333333", "2026-05-01T00-00-00-000Z", new Date(now));
+    writeSessionFile("/proj", "44444444-4444-4444-4444-444444444444", "2026-05-04T20-00-00-000Z", new Date(now + 5_000));
     handlers.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/proj" });
     expect(captured.at(-1)?.payload.session_id).toBe("44444444-4444-4444-4444-444444444444");
   });
@@ -104,13 +107,14 @@ describe("pi-extension shim — sessionId resolution via on-disk discovery", () 
   it("clears the per-cwd cache on session_shutdown reason=new/resume/fork", () => {
     const sid1 = "11111111-1111-1111-1111-111111111111";
     const sid2 = "22222222-2222-2222-2222-222222222222";
-    writeSessionFile("/proj", sid1, "2026-05-01T00-00-00-000Z", new Date("2026-05-01T00:00:00Z"));
+    const now = Date.now();
+    writeSessionFile("/proj", sid1, "2026-05-01T00-00-00-000Z", new Date(now));
     handlers.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/proj" });
     expect(captured.at(-1)?.payload.session_id).toBe(sid1);
     // Pi shuts down with reason="new" — next event in same process should
     // re-discover (a newer file got added) instead of returning the cache.
     handlers.session_shutdown({ type: "session_shutdown", reason: "new", cwd: "/proj" });
-    writeSessionFile("/proj", sid2, "2026-05-04T00-00-00-000Z", new Date("2026-05-04T00:00:00Z"));
+    writeSessionFile("/proj", sid2, "2026-05-04T00-00-00-000Z", new Date(now + 10_000));
     handlers.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/proj" });
     expect(captured.at(-1)?.payload.session_id).toBe(sid2);
   });
@@ -123,6 +127,33 @@ describe("pi-extension shim — sessionId resolution via on-disk discovery", () 
     handlers.session_shutdown({ type: "session_shutdown", reason: "quit", cwd: "/proj" });
     // After quit, the SessionEnd record itself uses the cached id (good).
     expect(captured.at(-1)?.payload.session_id).toBe(sid);
+  });
+
+  it("ignores stale pre-existing transcripts on cold start (CodeRabbit follow-up)", async () => {
+    // Set up: transcript dir already has an OLD session file, mtime well
+    // before this test's module-load time. The shim must NOT cache that
+    // UUID — every event before the current session's file appears should
+    // return undefined, and only the new file should populate the cache.
+    const oldSid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
+    const newSid = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+    // Old file: mtime ~1 hour before now (well past STALE_TOLERANCE_MS=2s).
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    writeSessionFile("/cold-start-cwd", oldSid, "2026-05-01T00-00-00-000Z", oneHourAgo);
+
+    // Re-import the shim so PROCESS_START_MS is "now" relative to the old file.
+    vi.resetModules();
+    const mod = await import("../../pi-extension/index");
+    const handlers2: Record<string, (event: unknown) => unknown> = {};
+    mod.default({ on: (name, fn) => { handlers2[name] = fn; } });
+    captured.length = 0;
+
+    handlers2.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/cold-start-cwd" });
+    expect(captured.at(-1)?.payload.session_id).toBeUndefined();
+
+    // Now Pi creates the current session's file (mtime "now").
+    writeSessionFile("/cold-start-cwd", newSid, "2026-05-04T20-00-00-000Z", new Date());
+    handlers2.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/cold-start-cwd" });
+    expect(captured.at(-1)?.payload.session_id).toBe(newSid);
   });
 
   it("isolates caches per cwd — sessionId from /proj-A doesn't bleed into /proj-B", () => {
