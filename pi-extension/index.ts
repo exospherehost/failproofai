@@ -165,17 +165,28 @@ function discoverPiSessionId(cwd: string): string | undefined {
   return best?.sessionId;
 }
 
-let cachedSessionId: string | undefined;
+/** sessionId cache, keyed by cwd. Per-cwd so a multi-cwd Pi (extension running
+ *  across multiple workspace roots) can't cross-attribute. Cleared on
+ *  session_shutdown reasons `new`/`resume`/`fork` (Pi reuses the process). */
+const cachedSessionIdByCwd = new Map<string, string>();
 function resolveSessionId(eventSessionId: string | undefined, cwd: string): string | undefined {
   if (eventSessionId) {
-    cachedSessionId = eventSessionId;
+    cachedSessionIdByCwd.set(cwd, eventSessionId);
     return eventSessionId;
   }
-  if (cachedSessionId) return cachedSessionId;
+  const cached = cachedSessionIdByCwd.get(cwd);
+  if (cached) return cached;
   // Pi v0.71.1 never sets sessionId — discover from disk.
   const discovered = discoverPiSessionId(cwd);
-  if (discovered) cachedSessionId = discovered;
+  if (discovered) cachedSessionIdByCwd.set(cwd, discovered);
   return discovered;
+}
+/** Clear the cached sessionId for a cwd. Called on session_shutdown reasons
+ *  that indicate a new session is starting in the same process (`new`,
+ *  `resume`, `fork`). Without this, the next session would inherit the prior
+ *  sessionId until disk discovery refreshed it. */
+function resetSessionIdCache(cwd: string): void {
+  cachedSessionIdByCwd.delete(cwd);
 }
 
 interface PiUserBashEvent {
@@ -325,15 +336,23 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   });
 
   // session_shutdown → SessionEnd. Observation-only; emits a SessionEnd
-  // record so per-session telemetry has a clean close.
+  // record so per-session telemetry has a clean close. Reset the per-cwd
+  // sessionId cache for shutdown reasons that mean "Pi is starting a new
+  // session in the same process" — without the reset, the next session's
+  // events would inherit the prior session's id until disk discovery
+  // refreshed it.
   pi.on("session_shutdown", (event: unknown): unknown => {
     const e = event as PiSessionShutdownEvent;
+    const cwd = resolveCwd(e.cwd);
     callPolicy("session_shutdown", {
-      session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
-      cwd: resolveCwd(e.cwd),
+      session_id: resolveSessionId(e.sessionId, cwd),
+      cwd,
       reason: e.reason,
       hook_event_name: "SessionEnd",
     });
+    if (e.reason === "new" || e.reason === "resume" || e.reason === "fork") {
+      resetSessionIdCache(cwd);
+    }
     return undefined;
   });
 }

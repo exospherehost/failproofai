@@ -101,6 +101,41 @@ describe("pi-extension shim — sessionId resolution via on-disk discovery", () 
     expect(captured.at(-1)?.payload.session_id).toBe(sid);
   });
 
+  it("clears the per-cwd cache on session_shutdown reason=new/resume/fork", () => {
+    const sid1 = "11111111-1111-1111-1111-111111111111";
+    const sid2 = "22222222-2222-2222-2222-222222222222";
+    writeSessionFile("/proj", sid1, "2026-05-01T00-00-00-000Z", new Date("2026-05-01T00:00:00Z"));
+    handlers.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/proj" });
+    expect(captured.at(-1)?.payload.session_id).toBe(sid1);
+    // Pi shuts down with reason="new" — next event in same process should
+    // re-discover (a newer file got added) instead of returning the cache.
+    handlers.session_shutdown({ type: "session_shutdown", reason: "new", cwd: "/proj" });
+    writeSessionFile("/proj", sid2, "2026-05-04T00-00-00-000Z", new Date("2026-05-04T00:00:00Z"));
+    handlers.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/proj" });
+    expect(captured.at(-1)?.payload.session_id).toBe(sid2);
+  });
+
+  it("does NOT clear the cache on session_shutdown reason=quit", () => {
+    const sid = "33333333-3333-3333-3333-333333333333";
+    writeSessionFile("/proj", sid);
+    handlers.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/proj" });
+    expect(captured.at(-1)?.payload.session_id).toBe(sid);
+    handlers.session_shutdown({ type: "session_shutdown", reason: "quit", cwd: "/proj" });
+    // After quit, the SessionEnd record itself uses the cached id (good).
+    expect(captured.at(-1)?.payload.session_id).toBe(sid);
+  });
+
+  it("isolates caches per cwd — sessionId from /proj-A doesn't bleed into /proj-B", () => {
+    const a = "44444444-4444-4444-4444-444444444444";
+    const b = "55555555-5555-5555-5555-555555555555";
+    writeSessionFile("/proj-A", a);
+    writeSessionFile("/proj-B", b);
+    handlers.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/proj-A" });
+    expect(captured.at(-1)?.payload.session_id).toBe(a);
+    handlers.tool_call({ type: "tool_call", toolName: "bash", input: {}, cwd: "/proj-B" });
+    expect(captured.at(-1)?.payload.session_id).toBe(b);
+  });
+
   // Cleanup
   afterEach(() => {
     if (originalEnv === undefined) delete process.env.PI_SESSIONS_DIR;
