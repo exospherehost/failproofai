@@ -56,8 +56,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "$BRANCH"
-          git add src/hooks/types.ts __tests__/hooks/manager.test.ts
-          git commit -m "feat: sync hook event types with Claude Code docs"
+          git add src/hooks/types.ts __tests__/hooks/manager.test.ts __tests__/hooks/integrations.test.ts
+          git commit -m "feat: sync hook event types with upstream agent CLI docs"
           git push origin "$BRANCH"
 
           PR_TITLE=$(echo "$RESULT" | jq -r '.prTitle')
