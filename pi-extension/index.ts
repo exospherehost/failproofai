@@ -118,6 +118,46 @@ function resolveCwd(eventCwd: string | undefined): string {
   return eventCwd ?? process.cwd();
 }
 
+/**
+ * Pi's `tool_call` / `user_bash` / `input` / `tool_result` / `agent_end`
+ * events don't reliably carry `sessionId` — only `session_start` does. We
+ * cache the most-recent session_start sessionId in module scope and fall
+ * back to it on every other event so activity records and dashboard
+ * session-link generation get a stable id (instead of recording "—" for
+ * every Pi row).
+ *
+ * pi-coding-agent v0.72.1 runs one Pi session per process, so the cached
+ * value is always the live session — no risk of leaking another session's
+ * id into the wrong record. If Pi ever multiplexes sessions, we'd need a
+ * keyed map, but a single slot is correct for the current contract.
+ */
+let cachedSessionId: string | undefined;
+function resolveSessionId(eventSessionId: string | undefined): string | undefined {
+  if (eventSessionId) {
+    cachedSessionId = eventSessionId;
+    return eventSessionId;
+  }
+  return cachedSessionId;
+}
+
+/**
+ * Best-effort transcript path for the current Pi session. Pi stores
+ * transcripts at `~/.pi/agent/sessions/<encodedCwd>/<timestamp>_<sessionId>.jsonl`
+ * where encodedCwd = `--<cwd-with-slashes-as-dashes>--`. The timestamp
+ * prefix is the session-start ISO time, unknown to us without scanning the
+ * directory. Rather than paying readdir on every hook, we leave
+ * `transcript_path` undefined and rely on the dashboard's
+ * `getCachedPiSessionsByEncodedName` to resolve sessionId → transcript on
+ * demand. This function is exposed so a future change can flip to eager
+ * resolution if needed.
+ */
+function piEncodeCwd(cwd: string): string {
+  const inner = cwd.replace(/\//g, "-");
+  return `--${inner}--`;
+}
+// Marker so eslint / tree-shake doesn't drop the helper before it's used.
+void piEncodeCwd;
+
 interface PiUserBashEvent {
   type?: string;
   command?: string;
@@ -180,7 +220,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const decision = callPolicy("tool_call", {
       tool_name: canonicalizeToolName(e.toolName),
       tool_input: e.input,
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PreToolUse",
     });
@@ -194,7 +234,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const decision = callPolicy("user_bash", {
       tool_name: "Bash",
       tool_input: { command: e.command },
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PreToolUse",
     });
@@ -208,7 +248,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
     const e = event as PiInputEvent;
     const decision = callPolicy("input", {
       prompt: e.text,
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "UserPromptSubmit",
     });
@@ -222,7 +262,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   pi.on("session_start", (event: unknown): unknown => {
     const e = event as PiSessionStartEvent;
     callPolicy("session_start", {
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId),
       cwd: resolveCwd(e.cwd),
       reason: e.reason,
       hook_event_name: "SessionStart",
@@ -242,7 +282,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
       tool_name: canonicalizeToolName(e.toolName),
       tool_input: e.input ?? {},
       tool_response: { content: e.content, isError: e.isError },
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PostToolUse",
     });
@@ -257,7 +297,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   pi.on("agent_end", (event: unknown): unknown => {
     const e = event as PiAgentEndEvent;
     callPolicy("agent_end", {
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "Stop",
     });
@@ -269,7 +309,7 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   pi.on("session_shutdown", (event: unknown): unknown => {
     const e = event as PiSessionShutdownEvent;
     callPolicy("session_shutdown", {
-      session_id: e.sessionId,
+      session_id: resolveSessionId(e.sessionId),
       cwd: resolveCwd(e.cwd),
       reason: e.reason,
       hook_event_name: "SessionEnd",
