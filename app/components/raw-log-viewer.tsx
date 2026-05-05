@@ -5,7 +5,7 @@
  */
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { ChevronDown, Wrench } from "lucide-react";
 import type { LogEntry, ToolUseBlock } from "@/lib/log-entries";
@@ -209,9 +209,29 @@ function VirtualizedEntryList({ entries, entriesBySource, projectName, sessionId
   const [highlightedUuid, setHighlightedUuid] = useState<string | null>(() => parseHashUuid());
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const hasScrolledRef = useRef(false);
+  const listRef = useRef<HTMLDivElement>(null);
 
-  const listCallbackRef = useCallback((node: HTMLDivElement | null) => {
-    if (node) setScrollMargin(node.offsetTop);
+  // Keep `scrollMargin` in sync with the list's actual document offset.
+  // A one-shot callback ref would go stale whenever something above the list
+  // shifts (async hook-activity panel mounting, subagent collapse/expand,
+  // window resize) — leaving the virtualizer to render items at the wrong
+  // y-offset and exposing the page background under the (otherwise empty)
+  // virtualized container.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const update = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      setScrollMargin((prev) => (prev === top ? prev : top));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(document.body);
+    window.addEventListener("resize", update);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", update);
+    };
   }, []);
 
   const segments = useMemo(() => computeSegments(entries), [entries]);
@@ -337,7 +357,7 @@ function VirtualizedEntryList({ entries, entriesBySource, projectName, sessionId
   }, [highlightedUuid, parentUuidForSubagent, uuidToIndex, virtualizer]);
 
   return (
-    <div ref={listCallbackRef}>
+    <div ref={listRef}>
       <div
         style={{
           height: `${virtualizer.getTotalSize()}px`,
