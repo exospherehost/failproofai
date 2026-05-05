@@ -515,13 +515,13 @@ To allow pushing to all branches (effectively disabling this policy without remo
 ### `block-work-on-main`
 
 **Event:** PreToolUse (Bash)  
-**Default:** Denies checking out `main` or `master` branches directly.
+**Default:** Denies `git commit`, `git merge`, `git rebase`, and `git cherry-pick` while the working tree is on `main` or `master`. Branch creation and switching (`git checkout`, `git checkout -b`, `git switch`, `git switch -c`) are not affected.
 
 **Parameters:**
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `protectedBranches` | `string[]` | `["main", "master"]` | Branch names that cannot be checked out directly. |
+| `protectedBranches` | `string[]` | `["main", "master"]` | Branch names on which commit/merge/rebase/cherry-pick is denied. |
 
 ---
 
