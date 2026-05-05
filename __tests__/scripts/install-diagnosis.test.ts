@@ -126,6 +126,51 @@ describe("diagnoseShadow", () => {
     expect(diag.npmGlobalVersion).toBe("0.0.10-beta.0");
     expect(diag.shadowDescription).toContain("0.0.9-beta.3");
     expect(diag.shadowDescription).toContain("0.0.10-beta.0");
+    // The dev-tree package root is NOT under ~/.bun, but the bin we invoke is —
+    // recommendation must use that signal to produce the bun-style cleanup.
+    expect(diag.recommendation).toContain("~/.bun/bin/failproofai");
+  });
+
+  it("flags shadow at runtime when the running binary IS PATH-first but a different npm global exists", async () => {
+    // Scenario: user runs the stale bun-linked binary. selfPackageRoot ===
+    // pathFirstPath. There's also a (newer) npm global install they wanted.
+    const { existsSync, readFileSync, realpathSync } = await import("node:fs");
+    const { spawnSync } = await import("node:child_process");
+
+    vi.mocked(realpathSync).mockImplementation((p: any) => {
+      if (p === `${FAKE_HOME}/.bun/bin/failproofai`) return BUN_BIN_REAL_TARGET;
+      return p;
+    });
+    vi.mocked(existsSync).mockImplementation(existsForPaths(new Set([
+      `${BUN_LINKED_PKG}/package.json`,
+      BUN_LINKED_PKG,
+      `${NPM_GLOBAL_PKG}/package.json`,
+      NPM_GLOBAL_PKG,
+      BUN_BIN_REAL_TARGET,
+    ])));
+    vi.mocked(readFileSync).mockImplementation(readForPackageJsons(new Map([
+      [`${BUN_LINKED_PKG}/package.json`, { name: "failproofai", version: "0.0.9-beta.3" }],
+      [`${NPM_GLOBAL_PKG}/package.json`, { name: "failproofai", version: "0.0.10-beta.0" }],
+    ])));
+    vi.mocked(spawnSync).mockImplementation(((cmd: any, args: any) => {
+      if (cmd === "sh" && args[1].startsWith("command -v")) {
+        return { status: 0, stdout: `${FAKE_HOME}/.bun/bin/failproofai\n`, stderr: "", signal: null, output: [] as any, pid: 0 };
+      }
+      if (cmd === "npm") {
+        return { status: 0, stdout: `${NPM_GLOBAL_ROOT}\n`, stderr: "", signal: null, output: [] as any, pid: 0 };
+      }
+      return { status: 1, stdout: "", stderr: "", signal: null, output: [] as any, pid: 0 };
+    }) as any);
+
+    const { diagnoseShadow } = await import("../../scripts/install-diagnosis.mjs");
+    // Caller's selfPackageRoot equals pathFirstPath — the launch.ts case where
+    // the running binary IS the shadow.
+    const diag = diagnoseShadow({ selfPackageRoot: BUN_LINKED_PKG, selfVersion: "0.0.9-beta.3" });
+
+    expect(diag.shadowed).toBe(true);
+    expect(diag.pathFirstPath).toBe(BUN_LINKED_PKG);
+    expect(diag.npmGlobalPath).toBe(NPM_GLOBAL_PKG);
+    expect(diag.recommendation).toContain("~/.bun/bin/failproofai");
   });
 
   it("recommends `rm ~/.bun/bin/...` when the shadow lives under ~/.bun", async () => {

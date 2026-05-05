@@ -102,14 +102,17 @@ function locateBunGlobal() {
 
 /**
  * Build a copy-pasteable cleanup command for the offending install.
- * Bun-link symlinks live under ~/.bun — we recommend `bun unlink` (cleaner than `rm`)
- * plus removing the bin symlink. For npm, plain `npm rm -g` is enough.
+ *
+ * The signal we trust is `pathFirstBin` — the un-resolved binary location PATH
+ * pointed to. For bun-link shadows the realpath'd package root is the dev tree
+ * (not under ~/.bun/), so checking the package root would mis-classify those
+ * shadows as npm and recommend the wrong cleanup.
  */
-function buildRecommendation(pathFirstPackageRoot) {
-  if (!pathFirstPackageRoot) return null;
-  const isBun =
-    pathFirstPackageRoot.includes(`${homedir()}/.bun/`) ||
-    pathFirstPackageRoot.includes("/.bun/install/global/");
+function buildRecommendation(pathFirstBin) {
+  if (!pathFirstBin) return null;
+  const bunBinPrefix = resolve(homedir(), ".bun", "bin") + "/";
+  const bunGlobalPrefix = resolve(homedir(), ".bun", "install", "global") + "/";
+  const isBun = pathFirstBin.startsWith(bunBinPrefix) || pathFirstBin.startsWith(bunGlobalPrefix);
   if (isBun) {
     return `rm -f ~/.bun/bin/${PKG_NAME} && rm -rf ~/.bun/install/global/node_modules/${PKG_NAME}`;
   }
@@ -143,16 +146,22 @@ export function diagnoseShadow(self) {
   const bunGlobalPath = locateBunGlobal();
   const bunGlobalVersion = readPackageVersion(bunGlobalPath);
 
-  // "Shadow" = PATH resolves to a different package root than `self`, OR (when
-  // selfVersion is known) PATH-resolved version disagrees with self's version.
-  // We only flag it when we actually found a PATH copy AND a self copy to compare.
+  // "Shadow" covers two scenarios:
+  //   1. Postinstall case — `selfPackageRoot` is the just-installed copy and
+  //      PATH resolves elsewhere. Flag when the two roots differ.
+  //   2. Runtime case — the running binary IS the shadow (so selfPackageRoot
+  //      === pathFirstPackageRoot), but a *different* failproofai install
+  //      exists at the npm or bun global. Flag when one of those differs from
+  //      pathFirstPackageRoot.
   let shadowed = false;
-  if (selfPackageRoot && pathFirstPackageRoot) {
-    if (pathFirstPackageRoot !== selfPackageRoot) shadowed = true;
-    else if (selfVersion && pathFirstVersion && pathFirstVersion !== selfVersion) shadowed = true;
+  if (selfPackageRoot && pathFirstPackageRoot && pathFirstPackageRoot !== selfPackageRoot) {
+    shadowed = true;
+  } else if (pathFirstPackageRoot) {
+    if (npmGlobalPath && npmGlobalPath !== pathFirstPackageRoot) shadowed = true;
+    else if (bunGlobalPath && bunGlobalPath !== pathFirstPackageRoot) shadowed = true;
   }
 
-  const recommendation = shadowed ? buildRecommendation(pathFirstPackageRoot) : null;
+  const recommendation = shadowed ? buildRecommendation(pathFirstBin) : null;
 
   // A short human-readable summary used by callers that want a one-liner.
   let shadowDescription = null;

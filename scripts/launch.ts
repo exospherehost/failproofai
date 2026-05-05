@@ -58,8 +58,19 @@ export function launch(mode: "dev" | "start"): void {
       try {
         const diag = diagnoseShadow({ selfPackageRoot: packageRoot, selfVersion: version });
         if (diag.shadowed) {
-          const newer = diag.npmGlobalPath ?? diag.bunGlobalPath ?? "(unknown)";
-          const newerVer = diag.npmGlobalVersion ?? diag.bunGlobalVersion ?? "?";
+          // Pick whichever alternate install exists at npm/bun globals AND
+          // differs from PATH-first. In the runtime stale-binary scenario the
+          // running install IS the PATH-first one, so we'd otherwise point the
+          // user back at themselves.
+          const alt =
+            (diag.npmGlobalPath && diag.npmGlobalPath !== diag.pathFirstPath
+              ? { path: diag.npmGlobalPath, version: diag.npmGlobalVersion }
+              : null)
+            ?? (diag.bunGlobalPath && diag.bunGlobalPath !== diag.pathFirstPath
+              ? { path: diag.bunGlobalPath, version: diag.bunGlobalVersion }
+              : null);
+          const newer = alt?.path ?? "(unknown)";
+          const newerVer = alt?.version ?? "?";
           shadowMessage =
             `\nError: failproofai on your PATH is a stale install that no longer has its build output.\n` +
             `  Running:    ${diag.pathFirstPath}` + (diag.pathFirstVersion ? `  (v${diag.pathFirstVersion})` : "") + `\n` +
