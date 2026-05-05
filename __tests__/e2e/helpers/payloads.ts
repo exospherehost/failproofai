@@ -299,6 +299,22 @@ export const CopilotPayloads = {
         tool_input: { file_path: filePath },
       };
     },
+    // Copilot's `view` reads files OR lists directory contents depending on
+    // whether `path` resolves to a file or a dir — verified empirically
+    // against Copilot CLI 1.0.39 (`{"toolName":"view","arguments":{"path":"/some/dir"}}`).
+    // Canonicalizes to `Read`; the block-read-outside-cwd policy reads
+    // tool_input.path as a fallback to file_path so directory listings get
+    // covered by the same path check.
+    view(path: string, cwd: string): Record<string, unknown> {
+      return {
+        session_id: COPILOT_SESSION_ID,
+        transcript_path: TRANSCRIPT_PATH,
+        cwd,
+        hook_event_name: "PreToolUse",
+        tool_name: "view",
+        tool_input: { path },
+      };
+    },
   },
   postToolUse: {
     bash(command: string, output: string, cwd: string): Record<string, unknown> {

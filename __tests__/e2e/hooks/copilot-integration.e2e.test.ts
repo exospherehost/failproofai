@@ -178,6 +178,28 @@ describe("E2E: Copilot integration — hook protocol", () => {
       env.cleanup();
     }
   });
+
+  // Regression for #295: Copilot uses a single `view` tool for both file
+  // reads AND directory listings. Without `view → Read` in COPILOT_TOOL_MAP
+  // the case-sensitive registry filter skips `block-read-outside-cwd`
+  // entirely. Real session evidence: ~/.copilot/session-state/.../events.jsonl
+  // shows `{"toolName":"view","arguments":{"path":"/home/nivedit"}}` — i.e.
+  // listing $HOME via a single `view` call instead of `bash ls`.
+  it("blocks `view` of a path outside cwd under Copilot (regression for #295)", () => {
+    const env = createCopilotEnv();
+    try {
+      writeConfig(env.cwd, ["block-read-outside-cwd"]);
+      const outsidePath = "/etc";
+      const result = runHook(
+        "PreToolUse",
+        CopilotPayloads.preToolUse.view(outsidePath, env.cwd),
+        { homeDir: env.home, cli: "copilot" },
+      );
+      assertPreToolUseDeny(result);
+    } finally {
+      env.cleanup();
+    }
+  });
 });
 
 describe("E2E: Copilot integration — install/uninstall", () => {

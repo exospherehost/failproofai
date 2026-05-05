@@ -14,7 +14,16 @@ import type {
   PiHookEventType,
   GeminiHookEventType,
 } from "./types";
-import { CODEX_EVENT_MAP, CURSOR_EVENT_MAP, PI_EVENT_MAP, GEMINI_EVENT_MAP, GEMINI_TOOL_MAP, COPILOT_TOOL_MAP } from "./types";
+import {
+  CODEX_EVENT_MAP,
+  CURSOR_EVENT_MAP,
+  PI_EVENT_MAP,
+  GEMINI_EVENT_MAP,
+  GEMINI_TOOL_MAP,
+  COPILOT_TOOL_MAP,
+  CURSOR_TOOL_MAP,
+  CODEX_TOOL_MAP,
+} from "./types";
 import type { PolicyFunction, PolicyResult } from "./policy-types";
 import { readMergedHooksConfig } from "./hooks-config";
 import { registerBuiltinPolicies } from "./builtin-policies";
@@ -71,10 +80,12 @@ function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType
  *
  * Per-CLI tool-name shapes (verified from in-repo evidence and vendor docs):
  *   • Claude:   PascalCase native — passthrough
- *   • Codex:    PascalCase per current install — passthrough (no map until
- *               empirical evidence shows otherwise)
- *   • Copilot:  lowercase IDs (`bash`, `read`, …) — COPILOT_TOOL_MAP
- *   • Cursor:   PascalCase per Cursor docs — passthrough
+ *   • Codex:    `Bash` PascalCase passthrough; `apply_patch` → `Edit`,
+ *               `write_stdin` → `Bash` via CODEX_TOOL_MAP
+ *   • Copilot:  lowercase IDs (`bash`, `read`, `view`, …) — COPILOT_TOOL_MAP
+ *   • Cursor:   PascalCase per Cursor docs but uses `Shell` for the bash-
+ *               equivalent — CURSOR_TOOL_MAP rewrites `Shell → Bash`; other
+ *               tool names already canonical and pass through
  *   • OpenCode: handled in the OpenCode plugin shim (in-process,
  *               self-contained) before the JSON crosses to this binary
  *   • Pi:       handled in the Pi extension shim (same)
@@ -85,12 +96,10 @@ function canonicalizeEventType(raw: string, cli: IntegrationType): HookEventType
  */
 function canonicalizeToolName(raw: string | undefined, cli: IntegrationType): string | undefined {
   if (!raw) return raw;
-  if (cli === "copilot") {
-    return COPILOT_TOOL_MAP[raw] ?? raw;
-  }
-  if (cli === "gemini") {
-    return GEMINI_TOOL_MAP[raw] ?? raw;
-  }
+  if (cli === "copilot") return COPILOT_TOOL_MAP[raw] ?? raw;
+  if (cli === "cursor") return CURSOR_TOOL_MAP[raw] ?? raw;
+  if (cli === "codex") return CODEX_TOOL_MAP[raw] ?? raw;
+  if (cli === "gemini") return GEMINI_TOOL_MAP[raw] ?? raw;
   return raw;
 }
 

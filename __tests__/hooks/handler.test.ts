@@ -272,15 +272,33 @@ describe("hooks/handler", () => {
 
     it("canonicalizes every Copilot tool name in COPILOT_TOOL_MAP", async () => {
       const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      // `view → Read` is listed first because it's the regression that drove
+      // this audit (Copilot uses `view` for both file reads and directory
+      // listings, so without canonicalization `block-read-outside-cwd` no-ops).
       const cases: Array<[string, string]> = [
+        ["view", "Read"],
         ["bash", "Bash"],
+        ["powershell", "Bash"],
+        ["list_bash", "Bash"],
+        ["read_bash", "Bash"],
+        ["stop_bash", "Bash"],
+        ["write_bash", "Bash"],
+        ["list_powershell", "Bash"],
+        ["read_powershell", "Bash"],
+        ["stop_powershell", "Bash"],
+        ["write_powershell", "Bash"],
         ["read", "Read"],
+        ["show_file", "Read"],
         ["write", "Write"],
+        ["create", "Write"],
         ["edit", "Edit"],
+        ["apply_patch", "Edit"],
         ["str_replace_editor", "Edit"],
         ["glob", "Glob"],
         ["grep", "Grep"],
+        ["rg", "Grep"],
         ["ls", "LS"],
+        ["web_fetch", "WebFetch"],
       ];
       for (const [raw, canonical] of cases) {
         vi.mocked(evaluatePolicies).mockResolvedValueOnce({
@@ -312,6 +330,86 @@ describe("hooks/handler", () => {
         expect.any(Object),
         expect.any(Object),
       );
+    });
+
+    it("canonicalizes Cursor 'Shell' → 'Bash' so Bash builtins fire under Cursor", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+        exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow",
+      });
+      mockStdin(JSON.stringify({ tool_name: "Shell", hook_event_name: "preToolUse" }));
+      const { persistHookActivity } = await import("../../src/hooks/hook-activity-store");
+
+      await handleHookEvent("preToolUse", "cursor");
+
+      // Pre-fix: case-sensitive `Array.includes` would skip every builtin
+      // matching `["Bash"]` because Cursor sent `Shell`.
+      expect(evaluatePolicies).toHaveBeenCalledWith(
+        "PreToolUse",
+        expect.objectContaining({ tool_name: "Bash" }),
+        expect.any(Object),
+        expect.any(Object),
+      );
+      expect(persistHookActivity).toHaveBeenCalledWith(
+        expect.objectContaining({ integration: "cursor", toolName: "Bash" }),
+      );
+    });
+
+    it("passes through other Cursor tool names (Read/Write/Grep already canonical, MCP:* unchanged)", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      const cases: string[] = ["Read", "Write", "Grep", "Delete", "Task", "MCP:linear/create_issue"];
+      for (const raw of cases) {
+        vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+          exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow",
+        });
+        mockStdin(JSON.stringify({ tool_name: raw, hook_event_name: "preToolUse" }));
+        await handleHookEvent("preToolUse", "cursor");
+        expect(evaluatePolicies).toHaveBeenLastCalledWith(
+          "PreToolUse",
+          expect.objectContaining({ tool_name: raw }),
+          expect.any(Object),
+          expect.any(Object),
+        );
+      }
+    });
+
+    it("canonicalizes Codex 'apply_patch' → 'Edit' and 'write_stdin' → 'Bash'", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      const cases: Array<[string, string]> = [
+        ["apply_patch", "Edit"],
+        ["write_stdin", "Bash"],
+      ];
+      for (const [raw, canonical] of cases) {
+        vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+          exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow",
+        });
+        mockStdin(JSON.stringify({ tool_name: raw, hook_event_name: "pre_tool_use" }));
+        await handleHookEvent("pre_tool_use", "codex");
+        expect(evaluatePolicies).toHaveBeenLastCalledWith(
+          "PreToolUse",
+          expect.objectContaining({ tool_name: canonical }),
+          expect.any(Object),
+          expect.any(Object),
+        );
+      }
+    });
+
+    it("passes through Codex Bash + MCP tool names unchanged (already canonical / no canonical equivalent)", async () => {
+      const { evaluatePolicies } = await import("../../src/hooks/policy-evaluator");
+      const cases: string[] = ["Bash", "mcp__filesystem__read_file"];
+      for (const raw of cases) {
+        vi.mocked(evaluatePolicies).mockResolvedValueOnce({
+          exitCode: 0, stdout: "", stderr: "", policyName: null, reason: null, decision: "allow",
+        });
+        mockStdin(JSON.stringify({ tool_name: raw, hook_event_name: "pre_tool_use" }));
+        await handleHookEvent("pre_tool_use", "codex");
+        expect(evaluatePolicies).toHaveBeenLastCalledWith(
+          "PreToolUse",
+          expect.objectContaining({ tool_name: raw }),
+          expect.any(Object),
+          expect.any(Object),
+        );
+      }
     });
 
     it("canonicalizes Cursor camelCase event names to PascalCase before evaluating", async () => {

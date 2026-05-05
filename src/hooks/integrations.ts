@@ -736,10 +736,12 @@ const TOOL_NAME_MAP = {
   read: "Read",
   write: "Write",
   edit: "Edit",
+  apply_patch: "Edit",
   glob: "Glob",
   grep: "Grep",
   list: "LS",
   webfetch: "WebFetch",
+  websearch: "WebSearch",
   todowrite: "TodoWrite",
   todoread: "TodoRead",
 };

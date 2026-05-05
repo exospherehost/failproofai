@@ -30,6 +30,21 @@ export const CODEX_EVENT_MAP: Record<CodexHookEventType, HookEventType> = {
   stop: "Stop",
 };
 
+/**
+ * Codex's per-tool canonicalization. Per
+ * https://developers.openai.com/codex/hooks the hook payload reports
+ * `tool_name: "Bash"` already PascalCase (passthrough) and `tool_name:
+ * "apply_patch"` for file edits even when matchers say `Edit`/`Write`.
+ * Local Codex sessions also expose `write_stdin` (sends input to a running
+ * shell — same risk class as Bash). Map the two non-canonical names so
+ * builtin policies fire; everything else (MCP `mcp__*`, future tools)
+ * passes through.
+ */
+export const CODEX_TOOL_MAP: Record<string, string> = {
+  apply_patch: "Edit",
+  write_stdin: "Bash",
+};
+
 // ── GitHub Copilot CLI ─────────────────────────────────────────────────────
 //
 // Copilot CLI accepts two payload formats. We install with PascalCase event
@@ -76,13 +91,39 @@ export type CopilotHookEventType = (typeof COPILOT_HOOK_EVENT_TYPES)[number];
  */
 export const COPILOT_TOOL_MAP: Record<string, string> = {
   bash: "Bash",
+  // Windows shell + the *_bash / *_powershell session-management tools all
+  // execute or interact with shell commands, so they map to the same risk
+  // class as bash. Without this `block-sudo`, `block-rm-rf`,
+  // `block-read-outside-cwd` (Bash branch), etc. silently no-op for any
+  // command Copilot routes through powershell or a long-lived shell session.
+  powershell: "Bash",
+  list_bash: "Bash",
+  read_bash: "Bash",
+  stop_bash: "Bash",
+  write_bash: "Bash",
+  list_powershell: "Bash",
+  read_powershell: "Bash",
+  stop_powershell: "Bash",
+  write_powershell: "Bash",
   read: "Read",
+  // `view` reads files OR lists directories
+  // (`{"toolName":"view","arguments":{"path":"/some/dir"}}` — verified
+  // empirically against Copilot CLI 1.0.39). Mapping to Read makes
+  // block-read-outside-cwd fire on `view` calls; the policy reads
+  // toolInput.path as a fallback to file_path so directory listings get
+  // covered by the same path check.
+  view: "Read",
+  show_file: "Read",
   write: "Write",
+  create: "Write",
   edit: "Edit",
+  apply_patch: "Edit",
   str_replace_editor: "Edit",
   glob: "Glob",
   grep: "Grep",
+  rg: "Grep",
   ls: "LS",
+  web_fetch: "WebFetch",
 };
 
 // ── Cursor Agent CLI ───────────────────────────────────────────────────────
@@ -120,6 +161,19 @@ export const CURSOR_EVENT_MAP: Record<CursorHookEventType, HookEventType> = {
   preToolUse: "PreToolUse",
   postToolUse: "PostToolUse",
   stop: "Stop",
+};
+
+/**
+ * Cursor delivers PascalCase tool names per https://cursor.com/docs/hooks
+ * (`Shell | Read | Write | Grep | Delete | Task | MCP:*`). All but `Shell`
+ * are already canonical (`Read`, `Write`, `Grep` match Claude verbatim) or
+ * have no Claude equivalent (`Delete`, `Task`, `MCP:*`) so passthrough is
+ * fine. `Shell` is Cursor's name for what Claude calls `Bash`; without this
+ * map every Bash builtin (`block-sudo`, `block-rm-rf`,
+ * `block-read-outside-cwd`, …) silently no-ops on Cursor sessions.
+ */
+export const CURSOR_TOOL_MAP: Record<string, string> = {
+  Shell: "Bash",
 };
 
 // ── OpenCode (sst/opencode) ─────────────────────────────────────────────────
@@ -193,10 +247,12 @@ export const OPENCODE_TOOL_MAP: Record<string, string> = {
   read: "Read",
   write: "Write",
   edit: "Edit",
+  apply_patch: "Edit",
   glob: "Glob",
   grep: "Grep",
   list: "LS",
   webfetch: "WebFetch",
+  websearch: "WebSearch",
   todowrite: "TodoWrite",
   todoread: "TodoRead",
 };
