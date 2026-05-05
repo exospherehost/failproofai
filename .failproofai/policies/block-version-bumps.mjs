@@ -21,9 +21,19 @@ import { customPolicies, allow, deny } from "failproofai";
 import { execSync } from "node:child_process";
 
 const VERSION_KEY_RE = /["']version["']\s*:/;
+// Standalone semver-quoted value: matches `"0.0.10-beta.0"` but NOT `"react": "0.0.10-beta.0"`
+// (the surrounding key would prevent the ^ / $ anchors from matching). Range-prefixed
+// dep versions like `"^1.2.3"` also fall through because the leading `"` is followed by `^`,
+// not a digit. So a value-only Edit on the package's own version is the only thing this
+// catches without false-positiving on dep edits.
+const STANDALONE_SEMVER_VALUE_RE = /^["']\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?["']$/;
 const PKG_JSON_PATH_RE = /(^|[\\/])package\.json$/;
 const VERSION_CMD_RE = /\b(npm|yarn|pnpm|bun(?:\s+pm)?)\s+version\b/;
-const VERSION_FILE_MUNGE_RE = /\b(sed|awk|jq)\b[^|;&]*package\.json[^|;&]*version/;
+// Lookaheads catch both orderings: `sed -i 's/.../.../' package.json` AND
+// `jq '.version="x"' package.json`. Both must appear within the same shell segment.
+const VERSION_FILE_MUNGE_RE =
+  /\b(sed|awk|jq)\b(?=[^|;&]*package\.json)(?=[^|;&]*\bversion\b)/;
+const CUT_BRANCH_RE = /^luv-cut-\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 function isOnCutBranch(cwd) {
   if (!cwd) return false;
@@ -33,10 +43,25 @@ function isOnCutBranch(cwd) {
       encoding: "utf8",
       timeout: 3000,
     }).trim();
-    return /^luv-cut-/.test(branch);
+    return CUT_BRANCH_RE.test(branch);
   } catch {
     return false;
   }
+}
+
+function editTouchesVersion(oldStr, newStr) {
+  const o = String(oldStr ?? "");
+  const n = String(newStr ?? "");
+  if (VERSION_KEY_RE.test(o) || VERSION_KEY_RE.test(n)) return true;
+  // Value-only swap: both sides are bare semver-quoted values that differ.
+  // Catches `Edit { old_string: '"0.0.9-beta.3"', new_string: '"0.0.10-beta.0"' }`.
+  const trimO = o.trim();
+  const trimN = n.trim();
+  return (
+    STANDALONE_SEMVER_VALUE_RE.test(trimO) &&
+    STANDALONE_SEMVER_VALUE_RE.test(trimN) &&
+    trimO !== trimN
+  );
 }
 
 const DENY_REASON =
@@ -72,16 +97,10 @@ customPolicies.add({
       if (ctx.toolName === "Write") {
         touchesVersion = VERSION_KEY_RE.test(String(ctx.toolInput?.content ?? ""));
       } else if (ctx.toolName === "Edit") {
-        touchesVersion =
-          VERSION_KEY_RE.test(String(ctx.toolInput?.old_string ?? "")) ||
-          VERSION_KEY_RE.test(String(ctx.toolInput?.new_string ?? ""));
+        touchesVersion = editTouchesVersion(ctx.toolInput?.old_string, ctx.toolInput?.new_string);
       } else {
         const edits = Array.isArray(ctx.toolInput?.edits) ? ctx.toolInput.edits : [];
-        touchesVersion = edits.some(
-          (e) =>
-            VERSION_KEY_RE.test(String(e?.old_string ?? "")) ||
-            VERSION_KEY_RE.test(String(e?.new_string ?? "")),
-        );
+        touchesVersion = edits.some((e) => editTouchesVersion(e?.old_string, e?.new_string));
       }
 
       if (!touchesVersion) return allow();
