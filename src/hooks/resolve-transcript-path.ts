@@ -43,9 +43,10 @@ export function resolveTranscriptPath(
   parsed: Record<string, unknown>,
   sessionId: string | undefined,
 ): string | undefined {
-  const stdinPath = parsed.transcript_path as string | undefined;
+  const stdinPath =
+    typeof parsed.transcript_path === "string" ? parsed.transcript_path : undefined;
   if (stdinPath) return stdinPath;
-  if (!sessionId) return undefined;
+  if (typeof sessionId !== "string" || sessionId.length === 0) return undefined;
 
   switch (integration) {
     case "claude":

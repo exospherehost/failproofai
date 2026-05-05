@@ -122,6 +122,34 @@ describe("resolveTranscriptPath", () => {
     });
   });
 
+  describe("runtime type guards", () => {
+    it("ignores a non-string parsed.transcript_path and falls back to discovery", () => {
+      vi.mocked(findCopilotTranscript).mockReturnValue("/from/disk.jsonl");
+      const out = resolveTranscriptPath(
+        "copilot",
+        { transcript_path: 42 as unknown as string },
+        "sess-x",
+      );
+      expect(out).toBe("/from/disk.jsonl");
+    });
+
+    it("returns undefined when sessionId is empty string (not just falsy nullish)", () => {
+      const out = resolveTranscriptPath("copilot", {}, "");
+      expect(out).toBeUndefined();
+      expect(findCopilotTranscript).not.toHaveBeenCalled();
+    });
+
+    it("returns undefined when sessionId is non-string", () => {
+      const out = resolveTranscriptPath(
+        "copilot",
+        {},
+        123 as unknown as string,
+      );
+      expect(out).toBeUndefined();
+      expect(findCopilotTranscript).not.toHaveBeenCalled();
+    });
+  });
+
   describe("stdin precedence beats fallback", () => {
     it("trusts stdin even when discovery would have returned a different path", () => {
       vi.mocked(findCopilotTranscript).mockReturnValue("/from/disk.jsonl");
