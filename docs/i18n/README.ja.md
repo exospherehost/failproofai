@@ -23,7 +23,7 @@
 
 **翻訳**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-**Claude Code**、**OpenAI Codex**、**GitHub Copilot CLI** _(ベータ)_、**Agents SDK** に対応した、AIエージェントを安定・確実・自律的に動作させるためのポリシー管理ツールです。
+AIエージェントを信頼性高く、目的に沿って、自律的に動作させるためのポリシー管理をもっとも手軽に実現するツールです。**Claude Code**、**OpenAI Codex**、**GitHub Copilot CLI** _(ベータ)_、**Cursor Agent** _(ベータ)_、**OpenCode** _(ベータ)_、**Pi** _(ベータ)_、**Gemini CLI** _(ベータ)_、そして **Agents SDK** に対応しています。
 
 <p align="center">
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
@@ -50,17 +50,44 @@
     </picture>
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <strong>+ 随時追加予定</strong>
+  <a href="https://cursor.com/docs/hooks" title="Cursor Agent CLI">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/cursor-dark.svg" />
+      <img src="assets/logos/cursor-light.svg" alt="Cursor Agent" width="64" height="64" />
+    </picture>
+  </a>
+</p>
+<p align="center">
+  <a href="https://opencode.ai/docs/plugins/" title="OpenCode">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/opencode-dark.svg" />
+      <img src="assets/logos/opencode-light.svg" alt="OpenCode" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://pi.dev" title="Pi (pi-coding-agent)">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/pi-dark.svg" />
+      <img src="assets/logos/pi-light.svg" alt="Pi" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://geminicli.com/" title="Gemini CLI">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/gemini-dark.svg" />
+      <img src="assets/logos/gemini-light.svg" alt="Gemini CLI" width="64" height="64" />
+    </picture>
+  </a>
 </p>
 
-> 1つ・2つ、またはすべてにフックをインストール: `failproofai policies --install --cli copilot`（または `--cli claude codex copilot`）。`--cli` を省略すると、インストール済みのCLIを自動検出してプロンプトを表示します。**GitHub Copilot CLIのサポートはベータ版です。**
+> 1つまたは複数のCLIに対してフックをインストールできます: `failproofai policies --install --cli opencode pi gemini`（または `--cli claude codex copilot cursor opencode pi gemini`）。`--cli` を省略すると、インストール済みのCLIを自動検出してプロンプトが表示されます。**GitHub Copilot CLI、Cursor Agent、OpenCode、Pi、Gemini CLIのサポートはベータ版です。テストは継続中です。**
 
-- **39種類のビルトインポリシー** - よくあるエージェントの失敗パターンをすぐに検出。破壊的なコマンドのブロック、シークレット漏洩の防止、エージェントをプロジェクト境界内に制限、ループの検出など。
-- **カスタムポリシー** - JavaScriptで独自の信頼性ルールを記述。`allow`/`deny`/`instruct` APIを使って規約を強制、ドリフトを防止、操作をゲート、外部システムと連携。
-- **簡単な設定** - コードを書かずにポリシーを調整。許可リスト、保護ブランチ、しきい値をプロジェクト単位またはグローバルで設定可能。3スコープの設定が自動でマージされます。
-- **エージェントモニター** - 離席中にエージェントが何をしたか確認。セッションを閲覧し、すべてのツール呼び出しを検査、ポリシーが発動した箇所を正確にレビュー。
+- **39種類の組み込みポリシー** - エージェントのよくある障害パターンをすぐに検出。破壊的なコマンドのブロック、シークレットの漏洩防止、エージェントをプロジェクト内に限定、ループの検出など。
+- **カスタムポリシー** - JavaScriptで独自の信頼性ルールを作成。`allow`/`deny`/`instruct` APIを使って規約の強制、ドリフトの防止、操作のゲーティング、外部システムとの連携が可能。
+- **簡単な設定** - コードを書かずにどのポリシーも調整可能。許可リスト、保護ブランチ、しきい値をプロジェクトごとまたはグローバルに設定。3スコープの設定が自動マージされます。
+- **エージェントモニター** - 不在時にエージェントが何をしたかを確認。セッションの閲覧、すべてのツール呼び出しの検査、ポリシーが発動した箇所の確認。
 
-すべてローカルで動作し、データが外部に送信されることはありません。
+すべてローカルで動作し、データは一切外部に送信されません。
 
 ---
 
@@ -83,23 +110,23 @@ bun add -g failproofai
 
 ## クイックスタート
 
-### 1. ポリシーをグローバルに有効化
+### 1. ポリシーをグローバルに有効化する
 
 ```bash
 failproofai policies --install
 ```
 
-`~/.claude/settings.json` にフックエントリを書き込みます。これ以降、Claude Code は各ツール呼び出しの前後に failproofai を実行します。
+`~/.claude/settings.json` にフックエントリを書き込みます。これにより、Claude Code は各ツール呼び出しの前後に failproofai を起動するようになります。
 
-### 2. ダッシュボードを起動
+### 2. ダッシュボードを起動する
 
 ```bash
 failproofai
 ```
 
-`http://localhost:8020` が開きます。セッションの閲覧、ログの検査、ポリシーの管理が行えます。
+`http://localhost:8020` を開きます。セッションの閲覧、ログの検査、ポリシーの管理が行えます。
 
-### 3. 有効なポリシーを確認
+### 3. アクティブな内容を確認する
 
 ```bash
 failproofai policies
@@ -117,17 +144,17 @@ failproofai policies
 | プロジェクト | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | ローカル | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
-### 特定のポリシーをインストール
+### 特定のポリシーをインストールする
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 ```
 
-### ポリシーを削除
+### ポリシーを削除する
 
 ```bash
 failproofai policies --uninstall
-# または特定のスコープを指定:
+# または特定のスコープの場合:
 failproofai policies --uninstall --scope project
 ```
 
@@ -135,7 +162,7 @@ failproofai policies --uninstall --scope project
 
 ## 設定
 
-ポリシーの設定は `~/.failproofai/policies-config.json`（グローバル）またはプロジェクト内の `.failproofai/policies-config.json`（プロジェクト単位）に保存されます。
+ポリシー設定は `~/.failproofai/policies-config.json`（グローバル）またはプロジェクト内の `.failproofai/policies-config.json`（プロジェクト単位）に保存されます。
 
 ```json
 {
@@ -168,29 +195,29 @@ failproofai policies --uninstall --scope project
 }
 ```
 
-**3つの設定スコープ**は自動的にマージされます（プロジェクト → ローカル → グローバル）。完全なマージルールは [docs/configuration.mdx](docs/configuration.mdx) を参照してください。
+**3つの設定スコープ**は自動的にマージされます（プロジェクト → ローカル → グローバル）。完全なマージルールについては [docs/configuration.mdx](docs/configuration.mdx) を参照してください。
 
 ---
 
-## ビルトインポリシー
+## 組み込みポリシー
 
 | ポリシー | 説明 | 設定可能なパラメータ |
 |--------|-------------|:---:|
-| `block-sudo` | エージェントによる特権システムコマンドの実行を防止 | `allowPatterns` |
-| `block-rm-rf` | 誤ったファイルの再帰的削除を防止 | `allowPaths` |
-| `block-curl-pipe-sh` | 信頼できないスクリプトをシェルにパイプすることを防止 | |
+| `block-sudo` | エージェントが特権システムコマンドを実行するのを防止 | `allowPatterns` |
+| `block-rm-rf` | 誤った再帰的ファイル削除を防止 | `allowPaths` |
+| `block-curl-pipe-sh` | エージェントが信頼できないスクリプトをシェルにパイプするのを防止 | |
 | `block-failproofai-commands` | 自己アンインストールを防止 | |
 | `sanitize-jwt` | JWTトークンがエージェントのコンテキストに漏洩するのを防止 | |
 | `sanitize-api-keys` | APIキーがエージェントのコンテキストに漏洩するのを防止 | `additionalPatterns` |
 | `sanitize-connection-strings` | データベース認証情報がエージェントのコンテキストに漏洩するのを防止 | |
 | `sanitize-private-key-content` | 出力からPEM秘密鍵ブロックを削除 | |
 | `sanitize-bearer-tokens` | 出力からAuthorization Bearerトークンを削除 | |
-| `block-env-files` | エージェントが.envファイルを読み取ることを防止 | |
-| `protect-env-vars` | エージェントが環境変数を出力することを防止 | |
-| `block-read-outside-cwd` | エージェントをプロジェクト境界内に制限 | `allowPaths` |
-| `block-secrets-write` | 秘密鍵・証明書ファイルへの書き込みを防止 | `additionalPatterns` |
+| `block-env-files` | エージェントが.envファイルを読み取るのを防止 | |
+| `protect-env-vars` | エージェントが環境変数を出力するのを防止 | |
+| `block-read-outside-cwd` | エージェントをプロジェクト境界内に限定 | `allowPaths` |
+| `block-secrets-write` | 秘密鍵や証明書ファイルへの書き込みを防止 | `additionalPatterns` |
 | `block-push-master` | main/masterへの誤ったプッシュを防止 | `protectedBranches` |
-| `block-work-on-main` | 保護ブランチでのエージェント作業を防止 | `protectedBranches` |
+| `block-work-on-main` | エージェントが保護ブランチで作業するのを防止 | `protectedBranches` |
 | `block-force-push` | `git push --force` を防止 | |
 | `warn-git-amend` | コミット修正前にエージェントへ警告 | |
 | `warn-git-stash-drop` | スタッシュ削除前にエージェントへ警告 | |
@@ -203,13 +230,13 @@ failproofai policies --uninstall --scope project
 | `warn-global-package-install` | 意図しないグローバルパッケージのインストールを検出 | |
 | …その他 | | |
 
-全ポリシーの詳細とパラメータリファレンス: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
+ポリシーの詳細とパラメータリファレンス: [docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
 ---
 
 ## カスタムポリシー
 
-エージェントを安定・確実に保つ独自のポリシーを記述できます:
+エージェントを信頼性高く、目的に沿って動作させるための独自ポリシーを作成できます:
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
@@ -227,7 +254,7 @@ customPolicies.add({
 });
 ```
 
-インストール方法:
+以下のコマンドでインストールします:
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -235,49 +262,49 @@ failproofai policies --install --custom ./my-policies.js
 
 ### 判定ヘルパー
 
-| 関数 | 効果 |
+| 関数 | 動作 |
 |----------|--------|
 | `allow()` | 操作を許可 |
-| `allow(message)` | 許可し、Claude に情報コンテキストを送信 |
-| `deny(message)` | 操作をブロック。メッセージが Claude に表示される |
-| `instruct(message)` | Claude のプロンプトにコンテキストを追加。ブロックはしない |
+| `allow(message)` | 許可し、情報コンテキストをClaudeに送信 |
+| `deny(message)` | 操作をブロック。メッセージがClaudeに表示される |
+| `instruct(message)` | Claudeのプロンプトにコンテキストを追加。ブロックはしない |
 
-### コンテキストオブジェクト (`ctx`)
+### コンテキストオブジェクト（`ctx`）
 
 | フィールド | 型 | 説明 |
 |-------|------|-------------|
 | `eventType` | `string` | `"PreToolUse"`、`"PostToolUse"`、`"Notification"`、`"Stop"` |
 | `toolName` | `string` | 呼び出されるツール（`"Bash"`、`"Write"`、`"Read"` など） |
-| `toolInput` | `object` | ツールへの入力パラメータ |
+| `toolInput` | `object` | ツールの入力パラメータ |
 | `payload` | `object` | 生のイベントペイロード全体 |
 | `session.cwd` | `string` | Claude Code セッションの作業ディレクトリ |
 | `session.sessionId` | `string` | セッション識別子 |
 | `session.transcriptPath` | `string` | セッションのトランスクリプトファイルへのパス |
 
-カスタムフックは、推移的なローカルインポート、async/await、`process.env` へのアクセスをサポートしています。エラーはフェイルオープン方式で処理されます（`~/.failproofai/hook.log` にログが記録され、ビルトインポリシーは継続して動作します）。完全なガイドは [docs/custom-hooks.mdx](docs/custom-hooks.mdx) を参照してください。
+カスタムフックは推移的なローカルインポート、async/await、`process.env` へのアクセスをサポートしています。エラーはフェイルオープン（`~/.failproofai/hook.log` にログ記録、組み込みポリシーは継続実行）です。詳細は [docs/custom-hooks.mdx](docs/custom-hooks.mdx) を参照してください。
 
 ### 規約ベースのポリシー
 
-`.failproofai/policies/` ディレクトリに `*policies.{js,mjs,ts}` ファイルを配置するだけで自動的に読み込まれます。フラグや設定変更は不要です。このディレクトリをgitにコミットすれば、チーム全員が同じ品質基準を自動的に適用できます。
+`.failproofai/policies/` ディレクトリに `*policies.{js,mjs,ts}` ファイルを配置するだけで自動的に読み込まれます。フラグや設定変更は不要です。そのディレクトリをgitにコミットすれば、チームメンバー全員が同じ品質基準を自動的に適用できます。
 
 ```text
 # プロジェクトレベル — gitにコミット済み、チームで共有
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# ユーザーレベル — 個人用、全プロジェクトに適用
+# ユーザーレベル — 個人用、すべてのプロジェクトに適用
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-両方のレベルが読み込まれます（ユニオン）。ファイルは各ディレクトリ内でアルファベット順に読み込まれます。`01-`、`02-` などのプレフィックスで順序を制御できます。チームが新たな失敗パターンを発見したら、ポリシーを追加してプッシュするだけで、次回のプル時に全員へ反映されます。すぐに使えるサンプルは [examples/convention-policies/](examples/convention-policies/) を参照してください。
+両方のレベルが読み込まれます（和集合）。ファイルは各ディレクトリ内でアルファベット順に読み込まれます。`01-`、`02-` などのプレフィックスで順序を制御できます。チームが新しい障害パターンを発見したらポリシーを追加してプッシュするだけで、全員が次回のプル時に更新を受け取れます。すぐに使えるサンプルは [examples/convention-policies/](examples/convention-policies/) を参照してください。
 
 ---
 
 ## テレメトリー
 
-Failproof AI は機能の利用状況を把握するために、PostHog を通じて匿名の利用テレメトリーを収集しています。セッションの内容、ファイル名、ツールへの入力、個人情報は一切送信されません。
+Failproof AI は機能の利用状況を把握するために、PostHog を通じて匿名の使用テレメトリを収集します。セッションの内容、ファイル名、ツールの入力、個人情報は一切送信されません。
 
-無効にする方法:
+無効化する方法:
 
 ```bash
 FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
@@ -290,21 +317,21 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | ガイド | 説明 |
 |-------|-------------|
 | [はじめに](docs/getting-started.mdx) | インストールと最初のステップ |
-| [ビルトインポリシー](docs/built-in-policies.mdx) | パラメータ付き39種類のビルトインポリシー一覧 |
-| [カスタムポリシー](docs/custom-policies.mdx) | 独自ポリシーの書き方 |
+| [組み込みポリシー](docs/built-in-policies.mdx) | パラメータ付き39種類の組み込みポリシー一覧 |
+| [カスタムポリシー](docs/custom-policies.mdx) | 独自ポリシーの作成方法 |
 | [設定](docs/configuration.mdx) | 設定ファイルの形式とスコープのマージ |
-| [ダッシュボード](docs/dashboard.mdx) | セッションの監視とポリシーアクティビティのレビュー |
+| [ダッシュボード](docs/dashboard.mdx) | セッションの監視とポリシーアクティビティの確認 |
 | [アーキテクチャ](docs/architecture.mdx) | フックシステムの仕組み |
-| [テスト](docs/testing.mdx) | テストの実行と新しいテストの作成 |
+| [テスト](docs/testing.mdx) | テストの実行と新規テストの作成 |
 
-### ドキュメントをローカルで実行
+### ドキュメントをローカルで実行する
 
 ```bash
 docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-`http://localhost:3000` でMintlifyのドキュメントサイトが開きます。docsディレクトリをマウントすると、変更を監視します:
+`http://localhost:3000` でMintlifyドキュメントサイトが開きます。docsディレクトリをマウントすると、コンテナは変更を監視します:
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -312,11 +339,11 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
-## failproofai コントリビューターへの注意
+## failproofaiコントリビューターへの注意事項
 
-このリポジトリの `.claude/settings.json` は、標準の `npx -y failproofai` コマンドの代わりに `bun ./bin/failproofai.mjs --hook <EventType>` を使用しています。これは、failproofai プロジェクト内で `npx -y failproofai` を実行すると自己参照の競合が発生するためです。
+このリポジトリの `.claude/settings.json` は、標準の `npx -y failproofai` コマンドの代わりに `bun ./bin/failproofai.mjs --hook <EventType>` を使用しています。これは、failproofai プロジェクト自体の中で `npx -y failproofai` を実行すると自己参照の競合が発生するためです。
 
-他のすべてのリポジトリでは、以下のコマンドでインストールされる `npx -y failproofai` の使用を推奨します:
+他のすべてのリポジトリでは、推奨される方法は `npx -y failproofai` であり、以下でインストールできます:
 
 ```bash
 failproofai policies --install --scope project
@@ -334,4 +361,4 @@ failproofai policies --install --scope project
 
 ---
 
-**ExosphereHost: Reliability Research Lab for Your Agents** によって構築・維持されています。エージェント、ソフトウェア、専門知識を通じて、企業やスタートアップのAIエージェントの信頼性向上を支援しています。詳細は [exosphere.host](https://exosphere.host) をご覧ください。
+**ExosphereHost: Reliability Research Lab for Your Agents** によって構築・維持されています。エージェント、ソフトウェア、専門知識を通じて、企業およびスタートアップのAIエージェントの信頼性向上を支援しています。詳細は [exosphere.host](https://exosphere.host) をご覧ください。

@@ -23,13 +23,13 @@
 
 **其他语言版本**: [简体中文](docs/i18n/README.zh.md) | [日本語](docs/i18n/README.ja.md) | [한국어](docs/i18n/README.ko.md) | [Español](docs/i18n/README.es.md) | [Português](docs/i18n/README.pt-br.md) | [Deutsch](docs/i18n/README.de.md) | [Français](docs/i18n/README.fr.md) | [Русский](docs/i18n/README.ru.md) | [हिन्दी](docs/i18n/README.hi.md) | [Türkçe](docs/i18n/README.tr.md) | [Tiếng Việt](docs/i18n/README.vi.md) | [Italiano](docs/i18n/README.it.md) | [العربية](docs/i18n/README.ar.md) | [עברית](docs/i18n/README.he.md)
 
-管理策略的最简单方式，让您的 AI 智能体保持可靠、专注任务并自主运行——适用于 **Claude Code**、**OpenAI Codex**、**GitHub Copilot CLI** _（测试版）_ 以及 **Agents SDK**。
+管理策略的最简单方式，让您的 AI 智能体保持可靠、专注任务并自主运行——支持 **Claude Code**、**OpenAI Codex**、**GitHub Copilot CLI** _(测试版)_、**Cursor Agent** _(测试版)_、**OpenCode** _(测试版)_、**Pi** _(测试版)_、**Gemini CLI** _(测试版)_ 以及 **Agents SDK**。
 
 <p align="center">
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-## 支持的智能体 CLI
+## 支持的 Agent CLI
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -50,17 +50,44 @@
     </picture>
   </a>
   &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-  <strong>+ 更多支持即将推出</strong>
+  <a href="https://cursor.com/docs/hooks" title="Cursor Agent CLI">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/cursor-dark.svg" />
+      <img src="assets/logos/cursor-light.svg" alt="Cursor Agent" width="64" height="64" />
+    </picture>
+  </a>
+</p>
+<p align="center">
+  <a href="https://opencode.ai/docs/plugins/" title="OpenCode">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/opencode-dark.svg" />
+      <img src="assets/logos/opencode-light.svg" alt="OpenCode" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://pi.dev" title="Pi (pi-coding-agent)">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/pi-dark.svg" />
+      <img src="assets/logos/pi-light.svg" alt="Pi" width="64" height="64" />
+    </picture>
+  </a>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://geminicli.com/" title="Gemini CLI">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="assets/logos/gemini-dark.svg" />
+      <img src="assets/logos/gemini-light.svg" alt="Gemini CLI" width="64" height="64" />
+    </picture>
+  </a>
 </p>
 
-> 可以为其中一个、两个或全部三个 CLI 安装钩子：`failproofai policies --install --cli copilot`（或 `--cli claude codex copilot`）。省略 `--cli` 将自动检测已安装的 CLI 并提示选择。**GitHub Copilot CLI 支持目前处于测试阶段。**
+> 可为其中一个或多个 CLI 安装 hooks：`failproofai policies --install --cli opencode pi gemini`（或 `--cli claude codex copilot cursor opencode pi gemini`）。省略 `--cli` 则自动检测已安装的 CLI 并提示选择。**GitHub Copilot CLI、Cursor Agent、OpenCode、Pi 和 Gemini CLI 支持目前处于测试阶段——测试仍在持续进行中。**
 
-- **39 个内置策略** - 开箱即用，覆盖常见的智能体故障模式。阻止破坏性命令、防止密钥泄露、将智能体限制在项目边界内、检测循环等。
-- **自定义策略** - 用 JavaScript 编写您自己的可靠性规则。使用 `allow`/`deny`/`instruct` API 强制执行规范、防止偏离、把控操作权限，或与外部系统集成。
-- **简便配置** - 无需编写代码即可调整任何策略。按项目或全局设置允许列表、受保护分支、阈值。三层配置作用域自动合并。
-- **智能体监控** - 查看智能体在您离开期间的操作记录。浏览会话、检查每次工具调用，并精确回顾策略触发位置。
+- **39 个内置策略** - 开箱即用，捕获常见的智能体故障模式。拦截破坏性命令、防止密钥泄露、将智能体限制在项目范围内、检测循环等。
+- **自定义策略** - 用 JavaScript 编写您自己的可靠性规则。使用 `allow`/`deny`/`instruct` API 来执行规范、防止偏离、控制操作，或与外部系统集成。
+- **简易配置** - 无需编写代码即可调整任意策略。按项目或全局设置允许列表、受保护分支和阈值。三个作用域的配置自动合并。
+- **智能体监控** - 查看智能体在您离开时所做的操作。浏览会话、检查每次工具调用，并精确查看策略触发的位置。
 
-一切均在本地运行——数据不会离开您的机器。
+所有内容均在本地运行——数据不会离开您的机器。
 
 ---
 
@@ -89,7 +116,7 @@ bun add -g failproofai
 failproofai policies --install
 ```
 
-将钩子条目写入 `~/.claude/settings.json`。此后 Claude Code 将在每次工具调用前后调用 failproofai。
+将 hook 条目写入 `~/.claude/settings.json`。此后 Claude Code 将在每次工具调用前后调用 failproofai。
 
 ### 2. 启动控制面板
 
@@ -112,7 +139,7 @@ failproofai policies
 ### 作用域
 
 | 作用域 | 命令 | 写入位置 |
-|--------|------|----------|
+|-------|---------|-----------------|
 | 全局（默认） | `failproofai policies --install` | `~/.claude/settings.json` |
 | 项目 | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | 本地 | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
@@ -135,7 +162,7 @@ failproofai policies --uninstall --scope project
 
 ## 配置
 
-策略配置存放于 `~/.failproofai/policies-config.json`（全局）或项目中的 `.failproofai/policies-config.json`（按项目）。
+策略配置存储在 `~/.failproofai/policies-config.json`（全局）或项目根目录下的 `.failproofai/policies-config.json`（按项目）中。
 
 ```json
 {
@@ -168,48 +195,48 @@ failproofai policies --uninstall --scope project
 }
 ```
 
-**三个配置作用域**会自动合并（项目 → 本地 → 全局）。完整的合并规则请参阅 [docs/configuration.mdx](docs/configuration.mdx)。
+**三个配置作用域**自动合并（项目 → 本地 → 全局）。完整合并规则请参阅 [docs/configuration.mdx](docs/configuration.mdx)。
 
 ---
 
 ## 内置策略
 
 | 策略 | 描述 | 可配置项 |
-|------|------|:--------:|
-| `block-sudo` | 阻止智能体运行特权系统命令 | `allowPatterns` |
+|--------|-------------|:---:|
+| `block-sudo` | 防止智能体运行特权系统命令 | `allowPatterns` |
 | `block-rm-rf` | 防止意外递归删除文件 | `allowPaths` |
-| `block-curl-pipe-sh` | 阻止智能体将不受信任的脚本通过管道传入 shell | |
+| `block-curl-pipe-sh` | 防止智能体将不可信脚本通过管道传输到 shell | |
 | `block-failproofai-commands` | 防止自我卸载 | |
-| `sanitize-jwt` | 阻止 JWT 令牌泄露到智能体上下文中 | |
-| `sanitize-api-keys` | 阻止 API 密钥泄露到智能体上下文中 | `additionalPatterns` |
-| `sanitize-connection-strings` | 阻止数据库凭据泄露到智能体上下文中 | |
-| `sanitize-private-key-content` | 从输出中脱敏 PEM 私钥块 | |
-| `sanitize-bearer-tokens` | 从输出中脱敏 Authorization Bearer 令牌 | |
+| `sanitize-jwt` | 阻止 JWT 令牌泄露到智能体上下文 | |
+| `sanitize-api-keys` | 阻止 API 密钥泄露到智能体上下文 | `additionalPatterns` |
+| `sanitize-connection-strings` | 阻止数据库凭据泄露到智能体上下文 | |
+| `sanitize-private-key-content` | 从输出中清除 PEM 私钥块 | |
+| `sanitize-bearer-tokens` | 从输出中清除 Authorization Bearer 令牌 | |
 | `block-env-files` | 阻止智能体读取 .env 文件 | |
 | `protect-env-vars` | 防止智能体打印环境变量 | |
 | `block-read-outside-cwd` | 将智能体限制在项目边界内 | `allowPaths` |
-| `block-secrets-write` | 防止向私钥和证书文件写入内容 | `additionalPatterns` |
+| `block-secrets-write` | 防止写入私钥和证书文件 | `additionalPatterns` |
 | `block-push-master` | 防止意外推送到 main/master 分支 | `protectedBranches` |
 | `block-work-on-main` | 阻止智能体在受保护分支上操作 | `protectedBranches` |
 | `block-force-push` | 防止 `git push --force` | |
 | `warn-git-amend` | 在修改提交前提醒智能体 | |
-| `warn-git-stash-drop` | 在丢弃暂存区前提醒智能体 | |
-| `warn-all-files-staged` | 捕获意外的 `git add -A` 操作 | |
+| `warn-git-stash-drop` | 在丢弃 stash 前提醒智能体 | |
+| `warn-all-files-staged` | 捕获意外的 `git add -A` | |
 | `warn-destructive-sql` | 在执行前捕获 DROP/DELETE SQL | |
 | `warn-schema-alteration` | 在执行前捕获 ALTER TABLE | |
 | `warn-large-file-write` | 捕获意外的大文件写入 | `thresholdKb` |
 | `warn-package-publish` | 捕获意外的 `npm publish` | |
 | `warn-background-process` | 捕获意外的后台进程启动 | |
 | `warn-global-package-install` | 捕获意外的全局包安装 | |
-| ……及更多 | | |
+| ……以及更多 | | |
 
-完整策略详情及参数参考：[docs/built-in-policies.mdx](docs/built-in-policies.mdx)
+完整策略详情和参数参考：[docs/built-in-policies.mdx](docs/built-in-policies.mdx)
 
 ---
 
 ## 自定义策略
 
-编写您自己的策略，使智能体保持可靠并专注于任务：
+编写您自己的策略，使智能体保持可靠且专注：
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
@@ -227,7 +254,7 @@ customPolicies.add({
 });
 ```
 
-使用以下命令安装：
+通过以下命令安装：
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -236,16 +263,16 @@ failproofai policies --install --custom ./my-policies.js
 ### 决策辅助函数
 
 | 函数 | 效果 |
-|------|------|
+|----------|--------|
 | `allow()` | 允许该操作 |
-| `allow(message)` | 允许操作并向 Claude 发送信息性上下文 |
-| `deny(message)` | 阻止操作；消息将显示给 Claude |
-| `instruct(message)` | 向 Claude 的提示词添加上下文；不会阻止操作 |
+| `allow(message)` | 允许并向 Claude 发送信息性上下文 |
+| `deny(message)` | 阻止该操作；消息显示给 Claude |
+| `instruct(message)` | 向 Claude 的提示词添加上下文；不阻止操作 |
 
 ### 上下文对象（`ctx`）
 
 | 字段 | 类型 | 描述 |
-|------|------|------|
+|-------|------|-------------|
 | `eventType` | `string` | `"PreToolUse"`、`"PostToolUse"`、`"Notification"`、`"Stop"` |
 | `toolName` | `string` | 被调用的工具（`"Bash"`、`"Write"`、`"Read"` 等） |
 | `toolInput` | `object` | 工具的输入参数 |
@@ -254,30 +281,30 @@ failproofai policies --install --custom ./my-policies.js
 | `session.sessionId` | `string` | 会话标识符 |
 | `session.transcriptPath` | `string` | 会话记录文件的路径 |
 
-自定义钩子支持传递本地导入、async/await 以及对 `process.env` 的访问。错误采用故障开放处理（记录到 `~/.failproofai/hook.log`，内置策略继续运行）。完整指南请参阅 [docs/custom-hooks.mdx](docs/custom-hooks.mdx)。
+自定义 hooks 支持传递式本地导入、async/await 以及访问 `process.env`。错误采用故障开放模式（记录到 `~/.failproofai/hook.log`，内置策略继续运行）。完整指南请参阅 [docs/custom-hooks.mdx](docs/custom-hooks.mdx)。
 
 ### 基于约定的策略
 
-将 `*policies.{js,mjs,ts}` 文件放入 `.failproofai/policies/` 目录，它们会被自动加载——无需任何标志或配置更改。将该目录提交到 git，团队中每位成员都能自动获得相同的质量标准。
+将 `*policies.{js,mjs,ts}` 文件放入 `.failproofai/policies/` 目录，它们会自动加载——无需任何标志或配置更改。将该目录提交到 git，团队所有成员都将自动获得相同的质量标准。
 
 ```text
-# 项目级别——提交到 git，与团队共享
+# 项目级——提交到 git，与团队共享
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# 用户级别——个人使用，适用于所有项目
+# 用户级——个人配置，适用于所有项目
 ~/.failproofai/policies/my-policies.mjs
 ```
 
-两个级别均会加载（取并集）。文件在各目录内按字母顺序加载。可以使用 `01-`、`02-` 等前缀来控制加载顺序。随着团队发现新的故障模式，添加策略并推送——每位成员下次拉取时即可获得更新。现成可用的示例请参阅 [examples/convention-policies/](examples/convention-policies/)。
+两个级别均会加载（取并集）。文件在各目录内按字母顺序加载。使用 `01-`、`02-` 等前缀来控制加载顺序。当团队发现新的故障模式时，添加一个策略并推送——每个人在下次拉取时即可获得更新。现成可用的示例请参阅 [examples/convention-policies/](examples/convention-policies/)。
 
 ---
 
 ## 遥测
 
-Failproof AI 通过 PostHog 收集匿名使用遥测数据，以了解功能使用情况。不会发送任何会话内容、文件名、工具输入或个人信息。
+Failproof AI 通过 PostHog 收集匿名使用遥测数据，以了解功能使用情况。绝不会发送任何会话内容、文件名、工具输入或个人信息。
 
-禁用遥测：
+禁用方法：
 
 ```bash
 FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
@@ -288,13 +315,13 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 ## 文档
 
 | 指南 | 描述 |
-|------|------|
-| [快速入门](docs/getting-started.mdx) | 安装与初步使用 |
+|-------|-------------|
+| [快速入门](docs/getting-started.mdx) | 安装与初始步骤 |
 | [内置策略](docs/built-in-policies.mdx) | 全部 39 个内置策略及其参数 |
 | [自定义策略](docs/custom-policies.mdx) | 编写您自己的策略 |
 | [配置](docs/configuration.mdx) | 配置文件格式与作用域合并 |
 | [控制面板](docs/dashboard.mdx) | 监控会话并查看策略活动 |
-| [架构](docs/architecture.mdx) | 钩子系统的工作原理 |
+| [架构](docs/architecture.mdx) | hook 系统的工作原理 |
 | [测试](docs/testing.mdx) | 运行测试与编写新测试 |
 
 ### 本地运行文档
@@ -304,7 +331,7 @@ docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-在 `http://localhost:3000` 打开 Mintlify 文档站点。如果挂载 docs 目录，容器将监听文件变更：
+在 `http://localhost:3000` 打开 Mintlify 文档站点。如果挂载文档目录，容器会监听变化：
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
@@ -312,11 +339,11 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
-## failproofai 贡献者须知
+## 给 failproofai 贡献者的说明
 
-本仓库的 `.claude/settings.json` 使用 `bun ./bin/failproofai.mjs --hook <EventType>` 而非标准的 `npx -y failproofai` 命令。这是因为在 failproofai 项目内部运行 `npx -y failproofai` 会产生自我引用冲突。
+本仓库的 `.claude/settings.json` 使用 `bun ./bin/failproofai.mjs --hook <EventType>` 而非标准的 `npx -y failproofai` 命令。这是因为在 failproofai 项目本身内运行 `npx -y failproofai` 会产生自引用冲突。
 
-对于所有其他仓库，推荐的方式是 `npx -y failproofai`，通过以下命令安装：
+对于所有其他仓库，推荐的方式是使用 `npx -y failproofai`，通过以下命令安装：
 
 ```bash
 failproofai policies --install --scope project
@@ -334,4 +361,4 @@ failproofai policies --install --scope project
 
 ---
 
-由 **ExosphereHost：智能体可靠性研究实验室** 构建并维护。我们通过自有智能体、软件和专业知识，帮助企业和初创公司提升 AI 智能体的可靠性。了解更多请访问 [exosphere.host](https://exosphere.host)。
+由 **ExosphereHost: 智能体可靠性研究实验室** 构建并维护。我们通过自研智能体、软件和专业知识，帮助企业和初创公司提升 AI 智能体的可靠性。了解更多请访问 [exosphere.host](https://exosphere.host)。
