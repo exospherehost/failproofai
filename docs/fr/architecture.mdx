@@ -159,7 +159,7 @@ Logique de fusion :
 - `customPoliciesPath` — le premier fichier qui le définit est prioritaire
 - `llm` — le premier fichier qui le définit est prioritaire
 
-Le tableau de bord web utilise `readHooksConfig()` (global uniquement) pour la lecture et l'écriture, car il n'est pas invoqué avec un répertoire de travail de projet.
+Le tableau de bord web utilise `readHooksConfig()` (global uniquement) pour la lecture et l'écriture, car il n'est pas invoqué avec un cwd de projet.
 
 ---
 
@@ -318,14 +318,14 @@ failproofai/
 │   ├── install-prompt.ts         # Invite de sélection interactive des politiques
 │   ├── hook-logger.ts            # Journalisation vers hook.log
 │   ├── hook-activity-store.ts    # Persistance de l'activité vers hook-activity.jsonl
-│   └── llm-client.ts             # Client API LLM (pour les politiques basées sur l'IA)
+│   └── llm-client.ts             # Client API LLM (pour les politiques alimentées par IA)
 ├── app/                          # Tableau de bord Next.js (pages + server actions)
 ├── lib/                          # Utilitaires partagés
 │   ├── projects.ts               # Énumération des projets Claude depuis le système de fichiers
 │   ├── log-entries.ts            # Analyse du format JSONL des transcriptions Claude
 │   ├── paths.ts                  # Résolution des chemins système
 │   └── ...
-├── components/                   # Composants UI React partagés
+├── components/                   # Composants React UI partagés
 ├── contexts/                     # Fournisseurs de contexte React (thème, actualisation automatique, télémétrie)
 ├── examples/                     # Exemples de fichiers de hooks personnalisés
 └── __tests__/                    # Tests unitaires et E2E

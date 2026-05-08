@@ -15,7 +15,7 @@ Richtlinien sind in Kategorien gruppiert:
 | Kategorie | Richtlinien | Hook-Typ |
 |-----------|-------------|----------|
 | [Gefährliche Befehle](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
-| [Infra-Befehle](#infra-commands) | block-kubectl, block-terraform, block-aws-cli, block-gcloud, block-az-cli, block-helm, block-gh-pipeline | PreToolUse |
+| [Infrastrukturbefehle](#infra-commands) | block-kubectl, block-terraform, block-aws-cli, block-gcloud, block-az-cli, block-helm, block-gh-pipeline | PreToolUse |
 | [Geheimnisse (Sanitizer)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
 | [Umgebung](#environment) | block-env-files, protect-env-vars | PreToolUse |
 | [Dateizugriff](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
@@ -29,7 +29,7 @@ Richtlinien sind in Kategorien gruppiert:
 - **`warn-`** — gibt dem Agenten zusätzlichen Kontext zur Selbstkorrektur.
 - **`sanitize-`** — bereinigt sensible Daten aus der Tool-Ausgabe, bevor der Agent sie sieht.
 
-### Namespaces
+### Namensräume
 
 Jede Richtlinie befindet sich in einem `<namespace>/<name>`-Slot. Integrierte Richtlinien gehören zum
 **`exospherehost/`**-Namespace – zum Beispiel `exospherehost/sanitize-jwt`. Der
@@ -141,7 +141,7 @@ Keine Parameter.
 
 ---
 
-## Infra-Befehle
+## Infrastrukturbefehle
 
 Verhindert, dass Coding-Agenten Infrastruktur-CLIs ausführen oder CI/CD-Pipelines auslösen. Alle Richtlinien dieser Kategorie sind **opt-in** (`defaultEnabled: false`) – Agenten, die `kubectl`, `terraform` usw. legitim aufrufen müssen, werden nicht beeinträchtigt, es sei denn, die Richtlinie ist aktiviert. Wenn aktiviert, wird jeder Aufruf der entsprechenden CLI verweigert, sofern der Befehl nicht einem Eintrag in `allowPatterns` entspricht.
 
@@ -349,7 +349,7 @@ Keine Parameter.
 ### `sanitize-api-keys`
 
 **Ereignis:** PostToolUse (alle Tools)  
-**Standard:** Schwärzt gängige API-Key-Formate: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), AWS-Zugriffsschlüssel (`AKIA`), Stripe-Schlüssel (`sk_live_`, `sk_test_`) und Google-API-Schlüssel (`AIza`).
+**Standard:** Schwärzt gängige API-Key-Formate: Anthropic (`sk-ant-`), OpenAI (`sk-`), GitHub PATs (`ghp_`), AWS-Zugriffsschlüssel (`AKIA`), Stripe-Schlüssel (`sk_live_`, `sk_test_`) und Google API-Schlüssel (`AIza`).
 
 **Parameter:**
 

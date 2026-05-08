@@ -46,7 +46,7 @@ Wenn Sie `failproofai policies --install` ausführen, werden folgende Einträge 
 
 Claude Code ruft dann `failproofai --hook PreToolUse` als Subprozess vor jedem Werkzeugaufruf auf und übergibt dabei einen JSON-Payload über stdin.
 
-### Payload-Format
+### Nutzlastformat
 
 ```json
 {
@@ -118,7 +118,7 @@ Der Handler erzwingt ein stdin-Limit von 1 MB. Payloads, die dieses Limit übers
 - Wenn mehrere Policies `allow` mit einer Nachricht zurückgeben, werden ihre Nachrichten mit Zeilenumbrüchen zu einem einzigen `additionalContext`-String zusammengefügt
 - Wenn keine Policy eine Nachricht liefert, ist stdout leer (wie zuvor)
 
-### Verarbeitungspipeline
+### Verarbeitungs-Pipeline
 
 `src/hooks/handler.ts` implementiert die vollständige Pipeline:
 
@@ -139,7 +139,7 @@ stdin JSON
   → beenden
 ```
 
-Der gesamte Prozess läuft bei typischen Payloads ohne LLM-Aufrufe in unter 100 ms ab.
+Der gesamte Prozess läuft bei typischen Nutzlasten in unter 100 ms ohne LLM-Aufrufe.
 
 ---
 
@@ -149,8 +149,8 @@ Der gesamte Prozess läuft bei typischen Payloads ohne LLM-Aufrufe in unter 100 
 
 ```text
 [1] {cwd}/.failproofai/policies-config.json        ← Projekt  (höchste Priorität)
-[2] {cwd}/.failproofai/policies-config.local.json  ← lokal
-[3] ~/.failproofai/policies-config.json             ← global   (niedrigste Priorität)
+[2] {cwd}/.failproofai/policies-config.local.json  ← Lokal
+[3] ~/.failproofai/policies-config.json             ← Global   (niedrigste Priorität)
 ```
 
 Zusammenführungslogik:
@@ -233,7 +233,7 @@ export function clearCustomHooks(): void { ... }  // used in tests
 4. Transitive lokale Importe rekursiv umschreiben, um ESM-Kompatibilität sicherzustellen.
 5. Temporäre `.mjs`-Dateien schreiben und die Einstiegsdatei per `import()` laden.
 6. `getCustomHooks()` aufrufen, um registrierte Hooks abzurufen.
-7. Alle temporären Dateien in einem `finally`-Block bereinigen.
+7. Alle temporären Dateien in einem `finally`-Block aufräumen.
 
 Bei einem Fehler (Datei nicht gefunden, Syntaxfehler, Importfehler) wird der Fehler in `~/.failproofai/hook.log` protokolliert und der Loader gibt ein leeres Array zurück. Integrierte Policies sind davon nicht betroffen.
 

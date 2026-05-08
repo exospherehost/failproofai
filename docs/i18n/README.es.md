@@ -94,7 +94,7 @@ Todo se ejecuta localmente — ningún dato sale de tu máquina.
 ## Requisitos
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0 (opcional — solo necesario para desarrollo o compilación desde el código fuente)
+- Bun >= 1.3.0 (opcional — solo necesario para desarrollo / compilación desde el código fuente)
 
 ---
 
@@ -136,11 +136,11 @@ failproofai policies
 
 ## Instalación de políticas
 
-### Niveles de alcance
+### Ámbitos
 
-| Alcance | Comando | Dónde escribe |
-|---------|---------|---------------|
-| Global (por defecto) | `failproofai policies --install` | `~/.claude/settings.json` |
+| Ámbito | Comando | Dónde escribe |
+|--------|---------|---------------|
+| Global (predeterminado) | `failproofai policies --install` | `~/.claude/settings.json` |
 | Proyecto | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | Local | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
@@ -154,7 +154,7 @@ failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 
 ```bash
 failproofai policies --uninstall
-# o para un alcance específico:
+# o para un ámbito específico:
 failproofai policies --uninstall --scope project
 ```
 
@@ -162,7 +162,7 @@ failproofai policies --uninstall --scope project
 
 ## Configuración
 
-La configuración de políticas se encuentra en `~/.failproofai/policies-config.json` (global) o en `.failproofai/policies-config.json` dentro de tu proyecto (por proyecto).
+La configuración de políticas reside en `~/.failproofai/policies-config.json` (global) o en `.failproofai/policies-config.json` dentro de tu proyecto (por proyecto).
 
 ```json
 {
@@ -274,7 +274,7 @@ failproofai policies --install --custom ./my-policies.js
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
 | `eventType` | `string` | `"PreToolUse"`, `"PostToolUse"`, `"Notification"`, `"Stop"` |
-| `toolName` | `string` | Herramienta que se está llamando (`"Bash"`, `"Write"`, `"Read"`, …) |
+| `toolName` | `string` | Herramienta invocada (`"Bash"`, `"Write"`, `"Read"`, …) |
 | `toolInput` | `object` | Parámetros de entrada de la herramienta |
 | `payload` | `object` | Payload completo del evento en bruto |
 | `session.cwd` | `string` | Directorio de trabajo de la sesión de Claude Code |
@@ -288,11 +288,11 @@ Los hooks personalizados admiten importaciones locales transitivas, async/await 
 Coloca archivos `*policies.{js,mjs,ts}` en `.failproofai/policies/` y se cargarán automáticamente — sin flags ni cambios de configuración. Confirma el directorio en git y cada miembro del equipo obtendrá automáticamente los mismos estándares de calidad.
 
 ```text
-# Nivel de proyecto — confirmado en git, compartido con el equipo
+# Nivel de proyecto — incluido en git, compartido con el equipo
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# Nivel de usuario — personal, se aplica a todos los proyectos
+# Nivel de usuario — personal, aplica a todos los proyectos
 ~/.failproofai/policies/my-policies.mjs
 ```
 
@@ -341,7 +341,7 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ## Nota para los colaboradores de failproofai
 
-El archivo `.claude/settings.json` de este repositorio usa `bun ./bin/failproofai.mjs --hook <EventType>` en lugar del comando estándar `npx -y failproofai`. Esto se debe a que ejecutar `npx -y failproofai` dentro del propio proyecto failproofai genera un conflicto de autoreferencia.
+El archivo `.claude/settings.json` de este repositorio usa `bun ./bin/failproofai.mjs --hook <EventType>` en lugar del comando estándar `npx -y failproofai`. Esto se debe a que ejecutar `npx -y failproofai` dentro del propio proyecto failproofai genera un conflicto de auto-referencia.
 
 Para todos los demás repositorios, el enfoque recomendado es `npx -y failproofai`, instalado mediante:
 
@@ -349,7 +349,7 @@ Para todos los demás repositorios, el enfoque recomendado es `npx -y failproofa
 failproofai policies --install --scope project
 ```
 
-## Contribuir
+## Cómo contribuir
 
 Consulta [CONTRIBUTING.md](CONTRIBUTING.md).
 

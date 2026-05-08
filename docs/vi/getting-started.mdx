@@ -1,4 +1,5 @@
 ---
+---
 title: Bắt đầu
 description: "Cài đặt failproofai, bật các chính sách và để các agent của bạn chạy một cách đáng tin cậy"
 icon: rocket
@@ -124,7 +125,7 @@ Cách nhanh nhất để thiết lập các tiêu chuẩn chất lượng trên 
       fn: async (ctx) => {
         if (ctx.toolName !== "Bash") return allow();
         if (/git\s+commit/.test(ctx.toolInput?.command ?? "")) {
-          return instruct("Run tests before committing.");
+          return instruct("Chạy kiểm thử trước khi commit.");
         }
         return allow();
       },
@@ -134,7 +135,7 @@ Cách nhanh nhất để thiết lập các tiêu chuẩn chất lượng trên 
   <Step title="Commit vào git">
     ```bash
     git add .failproofai/policies/
-    git commit -m "Add team quality policies"
+    git commit -m "Thêm các chính sách chất lượng của nhóm"
     ```
 
     Mỗi thành viên trong nhóm có cài đặt failproofai sẽ nhận các chính sách này một cách tự động. Không cần thiết lập theo từng nhà phát triển.
@@ -167,16 +168,16 @@ Tất cả cấu hình và nhật ký được giữ trên máy của bạn:
 failproofai policies --uninstall
 ```
 
-Xóa các mục hook khỏi `~/.claude/settings.json`. Các tệp cấu hình trong `~/.failproofai/` được giữ lại.
+Xóa các hook entries từ `~/.claude/settings.json`. Các tệp cấu hình trong `~/.failproofai/` được giữ lại.
 
 ---
 
-## Bước tiếp theo
+## Các bước tiếp theo
 
 <CardGroup cols={2}>
 
 <Card title="Cấu hình" icon="gear" href="/vi/configuration">
-  Phạm vi và định dạng tệp cấu hình
+  Các phạm vi và định dạng tệp cấu hình
 </Card>
 
 <Card title="Các chính sách tích hợp" icon="shield" href="/vi/built-in-policies">

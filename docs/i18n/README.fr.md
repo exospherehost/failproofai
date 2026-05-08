@@ -116,7 +116,7 @@ bun add -g failproofai
 failproofai policies --install
 ```
 
-Écrit les entrées de hook dans `~/.claude/settings.json`. Claude Code invoquera désormais failproofai avant et après chaque appel d'outil.
+Écrit les entrées de hooks dans `~/.claude/settings.json`. Claude Code invoquera désormais failproofai avant et après chaque appel d'outil.
 
 ### 2. Lancer le tableau de bord
 
@@ -142,7 +142,7 @@ failproofai policies
 |--------|---------|-----------------|
 | Global (par défaut) | `failproofai policies --install` | `~/.claude/settings.json` |
 | Projet | `failproofai policies --install --scope project` | `.claude/settings.json` |
-| Local | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
+| Locale | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
 ### Installer des politiques spécifiques
 
@@ -162,7 +162,7 @@ failproofai policies --uninstall --scope project
 
 ## Configuration
 
-La configuration des politiques se trouve dans `~/.failproofai/policies-config.json` (global) ou `.failproofai/policies-config.json` dans votre projet (par projet).
+La configuration des politiques se trouve dans `~/.failproofai/policies-config.json` (globale) ou `.failproofai/policies-config.json` dans votre projet (par projet).
 
 ```json
 {
@@ -207,9 +207,9 @@ La configuration des politiques se trouve dans `~/.failproofai/policies-config.j
 | `block-rm-rf` | Empêche la suppression récursive accidentelle de fichiers | `allowPaths` |
 | `block-curl-pipe-sh` | Empêche les agents de rediriger des scripts non fiables vers le shell | |
 | `block-failproofai-commands` | Empêche la désinstallation automatique | |
-| `sanitize-jwt` | Empêche les jetons JWT de fuir dans le contexte de l'agent | |
-| `sanitize-api-keys` | Empêche les clés API de fuir dans le contexte de l'agent | `additionalPatterns` |
-| `sanitize-connection-strings` | Empêche les identifiants de base de données de fuir dans le contexte de l'agent | |
+| `sanitize-jwt` | Empêche les jetons JWT de fuiter dans le contexte de l'agent | |
+| `sanitize-api-keys` | Empêche les clés API de fuiter dans le contexte de l'agent | `additionalPatterns` |
+| `sanitize-connection-strings` | Empêche les identifiants de base de données de fuiter dans le contexte de l'agent | |
 | `sanitize-private-key-content` | Masque les blocs de clés privées PEM dans la sortie | |
 | `sanitize-bearer-tokens` | Masque les jetons Authorization Bearer dans la sortie | |
 | `block-env-files` | Empêche les agents de lire les fichiers .env | |
@@ -219,8 +219,8 @@ La configuration des politiques se trouve dans `~/.failproofai/policies-config.j
 | `block-push-master` | Empêche les poussées accidentelles vers main/master | `protectedBranches` |
 | `block-work-on-main` | Maintient les agents hors des branches protégées | `protectedBranches` |
 | `block-force-push` | Empêche `git push --force` | |
-| `warn-git-amend` | Avertit les agents avant de modifier des commits | |
-| `warn-git-stash-drop` | Avertit les agents avant de supprimer des stashes | |
+| `warn-git-amend` | Rappelle aux agents avant de modifier des commits | |
+| `warn-git-stash-drop` | Rappelle aux agents avant de supprimer des stashs | |
 | `warn-all-files-staged` | Détecte les `git add -A` accidentels | |
 | `warn-destructive-sql` | Détecte les instructions DROP/DELETE SQL avant exécution | |
 | `warn-schema-alteration` | Détecte les ALTER TABLE avant exécution | |
@@ -339,7 +339,7 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
-## Note pour les contributeurs de failproofai
+## Note pour les contributeurs failproofai
 
 Le fichier `.claude/settings.json` de ce dépôt utilise `bun ./bin/failproofai.mjs --hook <EventType>` au lieu de la commande standard `npx -y failproofai`. En effet, exécuter `npx -y failproofai` à l'intérieur du projet failproofai lui-même crée un conflit d'auto-référence.
 
@@ -349,7 +349,7 @@ Pour tous les autres dépôts, l'approche recommandée est `npx -y failproofai`,
 failproofai policies --install --scope project
 ```
 
-## Contribuer
+## Contribution
 
 Consultez [CONTRIBUTING.md](CONTRIBUTING.md).
 

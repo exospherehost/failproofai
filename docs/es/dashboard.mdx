@@ -39,7 +39,7 @@ Lista todas las sesiones dentro de un proyecto. Cada sesión muestra:
 - ID de sesión
 - Marcas de tiempo de inicio y fin
 - Número de llamadas a herramientas
-- Recuento de actividad de hooks (políticas que se activaron)
+- Conteo de actividad de hooks (políticas que se activaron)
 
 Usa el filtro de rango de fechas y la búsqueda por ID de sesión para acotar la lista. Las sesiones están paginadas.
 
@@ -51,9 +51,9 @@ El visor de sesión responde la pregunta clave sobre los agentes autónomos: ¿q
 
 - **Mensajes** - Respuestas de texto de Claude y prompts del usuario
 - **Llamadas a herramientas** - Cada herramienta que Claude invocó, con su entrada y salida
-- **Actividad de políticas** - Para cada llamada a herramienta, qué políticas se activaron y qué decisión devolvieron
+- **Actividad de políticas** - Para cada llamada a herramienta, qué políticas se activaron y qué decisión retornaron
 
-La barra de estadísticas en la parte superior muestra la duración de la sesión, el total de llamadas a herramientas y un resumen de las decisiones de los hooks (recuentos de allow / deny / instruct).
+La barra de estadísticas en la parte superior muestra la duración de la sesión, el total de llamadas a herramientas y un resumen de las decisiones de los hooks (conteos de allow / deny / instruct).
 
 Haz clic en el botón **Download Logs** para exportar la sesión. Para sesiones de Claude Code, Codex, Copilot, Cursor, Pi y Gemini obtienes la transcripción JSONL original en disco byte a byte; para OpenCode (cuyas sesiones residen en SQLite, no en disco) obtienes un documento JSON que refleja las tablas subyacentes `session` / `messages` / `parts`.
 

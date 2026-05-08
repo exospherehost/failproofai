@@ -23,7 +23,7 @@ icon: gear
 
 ### قواعد الدمج
 
-**`enabledPolicies`** - اتحاد جميع النطاقات الثلاثة. السياسة المفعلة في أي مستوى تكون نشطة.
+**`enabledPolicies`** - اتحاد جميع النطاقات الثلاثة. أي سياسة مفعلة في أي مستوى تكون نشطة.
 
 ```text
 project:  ["block-sudo"]
@@ -43,8 +43,8 @@ resolved: { allowPatterns: ["sudo apt-get update"] }   ← المشروع يفو
 ```
 
 ```text
-project:  (no block-sudo entry)
-local:    (no block-sudo entry)
+project:  (لا توجد إدخالة block-sudo)
+local:    (لا توجد إدخالة block-sudo)
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
 resolved: { allowPatterns: ["sudo systemctl status"] }  ← ينتقل إلى العام
@@ -129,14 +129,14 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← ينتقل إلى ا
 {
   "policyParams": {
     "block-force-push": {
-      "hint": "Try creating a fresh branch instead."
+      "hint": "حاول إنشاء فرع جديد بدلاً من ذلك."
     },
     "block-sudo": {
       "allowPatterns": ["sudo apt-get"],
-      "hint": "Use apt-get directly without sudo."
+      "hint": "استخدم apt-get مباشرة بدون sudo."
     },
     "custom/my-policy": {
-      "hint": "Ask the user for approval first."
+      "hint": "اطلب موافقة المستخدم أولاً."
     }
   }
 }
@@ -154,9 +154,9 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← ينتقل إلى ا
 
 يتم تحميل الملف بشكل جديد في كل حدث هوك - لا توجد ذاكرة تخزين مؤقت. انظر [السياسات المخصصة](/ar/custom-policies) لتفاصيل التأليف.
 
-### السياسات القائمة على الاتفاقية
+### سياسات قائمة على الاتفاقية
 
-بالإضافة إلى `customPoliciesPath` الصريح، يقوم failproofai تلقائياً باكتشاف وتحميل ملفات السياسات من مجلدات `.failproofai/policies/`:
+بالإضافة إلى `customPoliciesPath` الصريح، يكتشف failproofai تلقائياً ويحمل ملفات السياسة من مجلدات `.failproofai/policies/`:
 
 | المستوى | المجلد | النطاق |
 |-------|-----------|-------|

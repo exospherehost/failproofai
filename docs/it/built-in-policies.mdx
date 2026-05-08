@@ -69,9 +69,9 @@ Blocca le invocazioni che includono la parola chiave `sudo`. L'abbinamento di pa
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefissi di comando esatti che sono consentiti. Ogni voce viene confrontata con i token argv analizzati. |
+| `allowPatterns` | `string[]` | `[]` | Prefissi di comando esatti consentiti. Ogni voce viene confrontata con i token argv analizzati. |
 
 **Esempio:**
 
@@ -100,7 +100,7 @@ I pattern vengono confrontati con token analizzati, non con la stringa di comand
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPaths` | `string[]` | `[]` | Percorsi che sono sicuri per eliminare ricorsivamente (ad esempio `/tmp`). |
 
@@ -149,9 +149,9 @@ La grammatica di pattern è la stessa di [`block-sudo`](#block-sudo): i token ve
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefissi di comando kubectl che sono consentiti. |
+| `allowPatterns` | `string[]` | `[]` | Prefissi di comando kubectl consentiti. |
 
 **Esempio:**
 
@@ -176,9 +176,9 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefissi di comando terraform/tofu che sono consentiti. |
+| `allowPatterns` | `string[]` | `[]` | Prefissi di comando terraform/tofu consentiti. |
 
 **Esempio:**
 
@@ -201,7 +201,7 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | Prefissi di comando CLI aws che sono consentiti. |
 
@@ -226,9 +226,9 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefissi di comando gcloud che sono consentiti. |
+| `allowPatterns` | `string[]` | `[]` | Prefissi di comando gcloud consentiti. |
 
 **Esempio:**
 
@@ -251,7 +251,7 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | Prefissi di comando CLI az che sono consentiti. |
 
@@ -276,9 +276,9 @@ Con questa configurazione, `kubectl get pods` è consentito ma `kubectl apply -f
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Prefissi di comando helm che sono consentiti. |
+| `allowPatterns` | `string[]` | `[]` | Prefissi di comando helm consentiti. |
 
 **Esempio:**
 
@@ -310,9 +310,9 @@ I sottocomandi `gh` di sola lettura come `gh pr view`, `gh pr list`, `gh run lis
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
-| `allowPatterns` | `string[]` | `[]` | Invocazioni script specifiche da consentire anche se sarebbero altrimenti negate. |
+| `allowPatterns` | `string[]` | `[]` | Invocazioni specifiche scritte per consentire anche se verrebbero negate. |
 
 **Esempio:**
 
@@ -348,7 +348,7 @@ Nessun parametro.
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Pattern regex aggiuntivi da trattare come secret. |
 
@@ -431,7 +431,7 @@ Mantieni gli agenti che lavorano all'interno dei limiti del progetto e lontani d
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `allowPaths` | `string[]` | `[]` | Prefissi di percorso assoluto consentiti anche se al di fuori della radice del progetto. |
 
@@ -456,7 +456,7 @@ Mantieni gli agenti che lavorano all'interno dei limiti del progetto e lontani d
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `additionalPatterns` | `string[]` | `[]` | Pattern di nome file aggiuntivi (stile glob) da bloccare. |
 
@@ -485,7 +485,7 @@ Previeni push accidentali, force-push e errori di ramo difficili da annullare.
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | Nomi di ramo che non possono essere pushati direttamente. |
 
@@ -514,7 +514,7 @@ Per consentire il push su tutti i rami (disabilitando effettivamente questa poli
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | Nomi di ramo su cui commit/merge/rebase/cherry-pick viene negato. |
 
@@ -599,7 +599,7 @@ Fornisci agli agenti contesto extra prima di operazioni potenzialmente rischiose
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `thresholdKb` | `number` | `1024` | Soglia di dimensione del file in kilobyte sopra la quale viene emesso un avviso. |
 
@@ -686,7 +686,7 @@ Con questa configurazione, `pip install flask` e `pdm install flask` sono entram
 
 ## Comportamento dell'IA
 
-Rileva quando gli agenti rimangono bloccati o si comportano inaspettatamente.
+Rileva quando gli agenti rimangono bloccati o si comportano in modo inaspettato.
 
 ### `warn-repeated-tool-calls`
 
@@ -719,7 +719,7 @@ Nessun parametro.
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `remote` | `string` | `"origin"` | Nome del remote su cui fare il push. |
 
@@ -764,7 +764,7 @@ Salta completamente (consente) quando: `gh` non è installato, non esiste nessun
 
 **Parametri:**
 
-| Param | Tipo | Predefinito | Descrizione |
+| Parametro | Tipo | Predefinito | Descrizione |
 |-------|------|---------|-------------|
 | `baseBranch` | `string` | `"main"` | Ramo base da verificare per i conflitti. |
 
@@ -807,4 +807,4 @@ Rimuovi una politica specifica da `enabledPolicies` nella tua configurazione, o 
 }
 ```
 
-Le politiche non elencate in `enabledPolicies` non vengono eseguite, anche se esistono voci `policyParams` per loro.
+I criteri non elencati in `enabledPolicies` non vengono eseguiti, anche se esistono voci `policyParams` per loro.

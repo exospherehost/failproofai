@@ -20,7 +20,7 @@ Entrambi i sottosistemi condividono i file di configurazione in `~/.failproofai/
 
 ---
 
-## Hook handler
+## Gestore dei hook
 
 ### Integrazione con Claude Code
 
@@ -67,7 +67,7 @@ Il gestore applica un limite di stdin di 1 MB. I payload che superano questo lim
 
 ### Formato della risposta
 
-**Deny (PreToolUse):**
+**Nega (PreToolUse):**
 ```json
 {
   "hookSpecificOutput": {
@@ -77,7 +77,7 @@ Il gestore applica un limite di stdin di 1 MB. I payload che superano questo lim
 }
 ```
 
-**Deny (PostToolUse):**
+**Nega (PostToolUse):**
 ```json
 {
   "hookSpecificOutput": {
@@ -99,11 +99,11 @@ Il gestore applica un limite di stdin di 1 MB. I payload che superano questo lim
 - Exit code: `2`
 - Motivo scritto su stderr (non stdout)
 
-**Allow:**
+**Consenti:**
 - Exit code: `0`
 - Stdout vuoto
 
-**Allow con messaggio:**
+**Consenti con messaggio:**
 
 `allow(message)` consente a una policy di inviare un contesto informativo a Claude anche quando l'operazione è consentita. Il gestore dei hook scrive il seguente JSON su **stdout** (non in un file di configurazione — questa è la risposta del gestore a Claude Code, proprio come le risposte deny e instruct sopra):
 
@@ -140,7 +140,7 @@ stdin JSON
   → exit
 ```
 
-L'intero processo viene eseguito in meno di 100ms per payload tipici senza chiamate LLM.
+L'intero processo viene eseguito in meno di 100ms per i payload tipici senza chiamate LLM.
 
 ---
 
@@ -164,7 +164,7 @@ La dashboard web utilizza `readHooksConfig()` (solo globale) per la lettura e la
 
 ---
 
-## Valutazione delle policy
+## Valutazione della policy
 
 `src/hooks/policy-evaluator.ts` esegue le policy in ordine.
 
@@ -291,7 +291,7 @@ app/
 - La pagina Policies utilizza Server Actions per tutte le mutazioni (toggle, aggiornamento params, install/remove).
 - Il visualizzatore di sessione analizza il formato di trascritto JSONL di Claude e renderizza una timeline di messaggi e chiamate di strumenti.
 
-**Decisioni di progettazione chiave:**
+**Decisioni di design chiave:**
 
 - Nessun database - tutto lo stato persistente si trova in file semplici (`~/.failproofai/`, `~/.claude/projects/`).
 - Server Actions per le mutazioni - nessuna API REST necessaria per le operazioni CRUD.

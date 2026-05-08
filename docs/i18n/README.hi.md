@@ -108,7 +108,7 @@ bun add -g failproofai
 
 ---
 
-## त्वरित शुरुआत
+## त्वरित प्रारंभ
 
 ### 1. नीतियों को वैश्विक रूप से सक्षम करें
 
@@ -126,7 +126,7 @@ failproofai
 
 `http://localhost:8020` खोलता है - सेशन ब्राउज़ करें, लॉग निरीक्षण करें, नीतियां प्रबंधित करें।
 
-### 3. जांचें कि क्या सक्रिय है
+### 3. देखें कि क्या सक्रिय है
 
 ```bash
 failproofai policies
@@ -134,7 +134,7 @@ failproofai policies
 
 ---
 
-## नीति स्थापन
+## नीति स्थापना
 
 ### दायरे
 
@@ -144,7 +144,7 @@ failproofai policies
 | प्रोजेक्ट | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | स्थानीय | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
-### विशिष्ट नीतियां स्थापित करें
+### विशिष्ट नीतियों को इंस्टॉल करें
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
@@ -201,7 +201,7 @@ failproofai policies --uninstall --scope project
 
 ## बिल्ट-इन नीतियां
 
-| नीति | विवरण | कॉन्फ़िगरेबल |
+| नीति | विवरण | कॉन्फ़िगर योग्य |
 |--------|-------------|:---:|
 | `block-sudo` | एजेंट्स को विशेषाधिकार प्राप्त सिस्टम कमांड चलाने से रोकें | `allowPatterns` |
 | `block-rm-rf` | आकस्मिक पुनरावर्ती फ़ाइल विलोपन को रोकें | `allowPaths` |
@@ -254,7 +254,7 @@ customPolicies.add({
 });
 ```
 
-इसके साथ स्थापित करें:
+निम्नलिखित के साथ इंस्टॉल करें:
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -292,7 +292,7 @@ failproofai policies --install --custom ./my-policies.js
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# उपयोगकर्ता स्तर — व्यक्तिगत, सभी प्रोजेक्ट्स पर लागू होता है
+# उपयोगकर्ता स्तर — व्यक्तिगत, सभी प्रोजेक्ट पर लागू होता है
 ~/.failproofai/policies/my-policies.mjs
 ```
 

@@ -83,14 +83,14 @@ Claude Code  →  failproofai --hook PreToolUse  →  stdin JSON'ını okur
                                                  kararı stdout'a yazar
 ```
 
-Her politika üç karardan birini döndürür:
+Her ilke üç karardan birini döndürür:
 
 - **allow** - aracı normal şekilde devam eder
 - **deny** - işlem engellenir, aracıya neden olduğu söylenir
 - **instruct** - aracının istemesine ek bağlam eklenir
 
 <Note>
-Politikalar yerel işleminizde çalışır. Hiçbir şey uzak bir hizmete gönderilmez.
+İlkeler yerel işleminizde çalışır. Uzak bir hizmete hiçbir şey gönderilmez.
 </Note>
 
 ---
@@ -100,7 +100,7 @@ Politikalar yerel işleminizde çalışır. Hiçbir şey uzak bir hizmete gönde
 Takımınız genelinde kalite standartları oluşturmanın en hızlı yolu `.failproofai/policies/` kurallarıdır. Bu dizine politika dosyalarını bırakın ve otomatik olarak yüklenir — flag yok, yapılandırma değişikliği yok, kurulum komutu yok.
 
 <Steps>
-  <Step title="Politikalar dizinini oluşturun">
+  <Step title="İlkeler dizinini oluşturun">
     ```bash
     mkdir -p .failproofai/policies
     ```
@@ -179,12 +179,12 @@ failproofai policies --uninstall
   Kapsamlar ve yapılandırma dosyası formatı
 </Card>
 
-<Card title="Yerleşik politikalar" icon="shield" href="/tr/built-in-policies">
-  Tüm 26 politika ve parametreleri
+<Card title="Yerleşik ilkeler" icon="shield" href="/tr/built-in-policies">
+  26 ilkenin tümü parametrelerle
 </Card>
 
-<Card title="Özel politikalar" icon="code" href="/tr/custom-policies">
-  JavaScript'te kendi politikalarınızı yazın
+<Card title="Özel ilkeler" icon="code" href="/tr/custom-policies">
+  JavaScript'te kendi ilkelerinizi yazın
 </Card>
 
 <Card title="Aracı izleyici" icon="chart-line" href="/tr/dashboard">

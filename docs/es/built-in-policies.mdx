@@ -397,7 +397,7 @@ Sin parámetros.
 
 ## Entorno
 
-Protege la configuración sensible del entorno para que los agentes no puedan leerla ni exponerla.
+Protege la configuración de entorno sensible para que los agentes no puedan leerla ni exponerla.
 
 ### `block-env-files`
 
@@ -679,7 +679,7 @@ La lista de bloqueo integrada cubre: pip, pip3, npm, npx, yarn, pnpm, pnpx, bun,
 }
 ```
 
-Con esta configuración, tanto `pip install flask` como `pdm install flask` son denegados con un mensaje que indica a Claude que use `uv` o `bun` en su lugar. Comandos como `uv pip install flask` están permitidos porque `uv` está en la lista de permitidos y se comprueba primero.
+Con esta configuración, tanto `pip install flask` como `pdm install flask` son denegados con un mensaje indicando a Claude que use `uv` o `bun` en su lugar. Comandos como `uv pip install flask` están permitidos porque `uv` está en la lista de permitidos y se comprueba primero.
 
 ---
 
@@ -745,7 +745,7 @@ Sin parámetros.
 
 <Note>
 Esta política requiere que [GitHub CLI](https://cli.github.com/) (`gh`) esté instalado y autenticado.
-Ejecuta `gh auth login` con un token de acceso personal que tenga el scope `repo` para acceso de lectura a los pull requests. Si `gh` no está instalado o no está autenticado, la política falla de forma abierta e informa a Claude del motivo.
+Ejecuta `gh auth login` con un token de acceso personal que tenga el alcance `repo` para acceso de lectura a las pull requests. Si `gh` no está instalado o no está autenticado, la política falla de forma abierta e informa del motivo a Claude.
 </Note>
 
 ---

@@ -87,7 +87,7 @@ A maneira mais fácil de gerenciar políticas que mantêm seus agentes de IA con
 - **Configuração Simples** - Ajuste qualquer política sem escrever código. Defina listas de permissões, branches protegidas e limites por projeto ou globalmente. Três escopos de configuração são mesclados automaticamente.
 - **Monitor de Agentes** - Veja o que seus agentes fizeram enquanto você estava ausente. Navegue pelas sessões, inspecione cada chamada de ferramenta e revise exatamente onde as políticas foram acionadas.
 
-Tudo roda localmente — nenhum dado sai da sua máquina.
+Tudo é executado localmente — nenhum dado sai da sua máquina.
 
 ---
 
@@ -110,13 +110,13 @@ bun add -g failproofai
 
 ## Início rápido
 
-### 1. Ative as políticas globalmente
+### 1. Habilitar políticas globalmente
 
 ```bash
 failproofai policies --install
 ```
 
-Insere entradas de hook em `~/.claude/settings.json`. Claude Code passará a invocar o failproofai antes e depois de cada chamada de ferramenta.
+Escreve entradas de hook em `~/.claude/settings.json`. Claude Code passará a invocar failproofai antes e depois de cada chamada de ferramenta.
 
 ### 2. Inicie o painel
 
@@ -124,9 +124,9 @@ Insere entradas de hook em `~/.claude/settings.json`. Claude Code passará a inv
 failproofai
 ```
 
-Abre `http://localhost:8020` — navegue pelas sessões, inspecione logs e gerencie políticas.
+Abre `http://localhost:8020` - navegue pelas sessões, inspecione logs, gerencie políticas.
 
-### 3. Verifique o que está ativo
+### 3. Verificar o que está ativo
 
 ```bash
 failproofai policies
@@ -260,7 +260,7 @@ Instale com:
 failproofai policies --install --custom ./my-policies.js
 ```
 
-### Funções de decisão
+### Funções auxiliares de decisão
 
 | Função | Efeito |
 |--------|--------|
@@ -281,7 +281,7 @@ failproofai policies --install --custom ./my-policies.js
 | `session.sessionId` | `string` | Identificador da sessão |
 | `session.transcriptPath` | `string` | Caminho para o arquivo de transcrição da sessão |
 
-Hooks personalizados suportam importações locais transitivas, async/await e acesso a `process.env`. Erros são fail-open (registrados em `~/.failproofai/hook.log`, as políticas integradas continuam). Consulte [docs/custom-hooks.mdx](docs/custom-hooks.mdx) para o guia completo.
+Hooks personalizados suportam importações locais transitivas, async/await e acesso a `process.env`. Erros são fail-open (registrados em `~/.failproofai/hook.log`, as políticas integradas continuam funcionando). Consulte [docs/custom-hooks.mdx](docs/custom-hooks.mdx) para o guia completo.
 
 ### Políticas baseadas em convenção
 
@@ -320,18 +320,18 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | [Políticas Integradas](docs/built-in-policies.mdx) | Todas as 39 políticas integradas com parâmetros |
 | [Políticas Personalizadas](docs/custom-policies.mdx) | Escreva suas próprias políticas |
 | [Configuração](docs/configuration.mdx) | Formato do arquivo de configuração e mesclagem de escopos |
-| [Painel](docs/dashboard.mdx) | Monitore sessões e revise a atividade de políticas |
+| [Painel](docs/dashboard.mdx) | Monitore sessões e revise a atividade das políticas |
 | [Arquitetura](docs/architecture.mdx) | Como o sistema de hooks funciona |
 | [Testes](docs/testing.mdx) | Executando testes e escrevendo novos |
 
-### Execute a documentação localmente
+### Executar a documentação localmente
 
 ```bash
 docker build -f Dockerfile.docs -t failproofai-docs .
 docker run --rm -p 3000:3000 failproofai-docs
 ```
 
-Abre o site de documentação Mintlify em `http://localhost:3000`. O container detecta alterações se você montar o diretório de docs:
+Abre o site de documentação Mintlify em `http://localhost:3000`. O container observa alterações se você montar o diretório de documentação:
 
 ```bash
 docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs

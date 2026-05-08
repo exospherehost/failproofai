@@ -100,7 +100,7 @@
 
 ---
 
-## התקנה
+## התקן
 
 ```bash
 npm install -g failproofai
@@ -187,7 +187,7 @@ failproofai policies --uninstall --scope project
     },
     "sanitize-api-keys": {
       "additionalPatterns": [
-        { "regex": "myco_[A-Za-z0-9]{32}", "label": "מפתח API של MyCo" }
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
       ]
     },
     "warn-large-file-write": {
@@ -294,7 +294,7 @@ hook מותאם אישית תומך בייבוא מקומי חולף, async/awai
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# רמת משתמש — אישי, חל על כל הפרויקטים
+# רמת משתמש — אישית, חלה על כל הפרוייקטים
 ~/.failproofai/policies/my-policies.mjs
 ```
 
@@ -302,11 +302,11 @@ hook מותאם אישית תומך בייבוא מקומי חולף, async/awai
 
 ---
 
-## טלמטריה
+## טלימטריה
 
 Failproof AI אוגר טלמטריה שימוש אנונימית דרך PostHog כדי להבין שימוש בתכונות. לא תוכן הפעלה, שמות קבצים, קלטי כלים או מידע אישי נשלחים אי פעם.
 
-השבת זאת:
+השבית זאת:
 
 ```bash
 FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
@@ -314,7 +314,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 
 ---
 
-## תיעוד
+## דוקומנטציה
 
 | מדריך | תיאור |
 |-------|-------------|
@@ -357,7 +357,7 @@ failproofai policies --install --scope project
 
 ---
 
-## רישיון
+## ראשון
 
 ראה [LICENSE](LICENSE).
 

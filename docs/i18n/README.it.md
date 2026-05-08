@@ -29,7 +29,7 @@ Il modo più semplice per gestire le policy che mantengono i tuoi agenti AI affi
   <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
-## CLI agenti supportati
+## CLI degli agenti supportati
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -87,7 +87,7 @@ Il modo più semplice per gestire le policy che mantengono i tuoi agenti AI affi
 - **Configurazione Facile** - Regola qualsiasi policy senza scrivere codice. Imposta allowlist, rami protetti, soglie per progetto o globalmente. Tre livelli di config si uniscono automaticamente.
 - **Monitoraggio Agente** - Vedi cosa hanno fatto i tuoi agenti mentre eri assente. Sfoglia le sessioni, ispeziona ogni chiamata di strumento e rivedi esattamente dove le policy sono state applicate.
 
-Tutto viene eseguito localmente - nessun dato lascia la tua macchina.
+Tutto viene eseguito localmente - nessun dato esce dalla tua macchina.
 
 ---
 
@@ -110,7 +110,7 @@ bun add -g failproofai
 
 ## Inizio rapido
 
-### 1. Abilita le policy globalmente
+### 1. Abilita le politiche globalmente
 
 ```bash
 failproofai policies --install
@@ -126,7 +126,7 @@ failproofai
 
 Apre `http://localhost:8020` - sfoglia le sessioni, ispeziona i log, gestisci le policy.
 
-### 3. Controlla cosa è attivo
+### 3. Verifica cosa è attivo
 
 ```bash
 failproofai policies
@@ -144,7 +144,7 @@ failproofai policies
 | Progetto | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | Locale | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
-### Installa policy specifiche
+### Installa politiche specifiche
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
@@ -199,7 +199,7 @@ La configurazione delle policy si trova in `~/.failproofai/policies-config.json`
 
 ---
 
-## Policy integrate
+## Politiche incorporate
 
 | Policy | Descrizione | Configurabile |
 |--------|-------------|:---:|
@@ -234,9 +234,9 @@ Dettagli completi delle policy e riferimento dei parametri: [docs/built-in-polic
 
 ---
 
-## Policy personalizzate
+## Politiche personalizzate
 
-Scrivi le tue policy per mantenere gli agenti affidabili e focalizzati:
+Scrivi le tue politiche per mantenere gli agenti affidabili e concentrati:
 
 ```js
 import { customPolicies, allow, deny, instruct } from "failproofai";
@@ -260,7 +260,7 @@ Installa con:
 failproofai policies --install --custom ./my-policies.js
 ```
 
-### Helper di decisione
+### Funzioni di supporto decisionale
 
 | Funzione | Effetto |
 |----------|---------|
@@ -281,7 +281,7 @@ failproofai policies --install --custom ./my-policies.js
 | `session.sessionId` | `string` | Identificatore di sessione |
 | `session.transcriptPath` | `string` | Percorso al file transcript della sessione |
 
-I hook personalizzati supportano import locali transitivi, async/await e accesso a `process.env`. Gli errori sono fail-open (registrati in `~/.failproofai/hook.log`, le policy integrate continuano). Vedi [docs/custom-hooks.mdx](docs/custom-hooks.mdx) per la guida completa.
+I hook personalizzati supportano importazioni locali transitive, async/await e accesso a `process.env`. Gli errori sono fail-open (registrati in `~/.failproofai/hook.log`, le politiche incorporate continuano). Vedi [docs/custom-hooks.mdx](docs/custom-hooks.mdx) per la guida completa.
 
 ### Policy basate su convenzioni
 
@@ -339,7 +339,7 @@ docker run --rm -p 3000:3000 -v $(pwd)/docs:/app/docs failproofai-docs
 
 ---
 
-## Nota per i contributori di failproofai
+## Nota per i collaboratori di failproofai
 
 Il `.claude/settings.json` di questo repository utilizza `bun ./bin/failproofai.mjs --hook <EventType>` invece del comando standard `npx -y failproofai`. Questo perché l'esecuzione di `npx -y failproofai` all'interno del progetto failproofai stesso crea un conflitto auto-referenziato.
 

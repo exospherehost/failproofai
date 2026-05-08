@@ -8,7 +8,7 @@ Este documento explica como o failproofai funciona internamente: como o sistema 
 
 ---
 
-## Visão geral
+## Visão Geral
 
 O failproofai possui dois subsistemas independentes:
 
@@ -19,7 +19,7 @@ Ambos os subsistemas compartilham arquivos de configuração em `~/.failproofai/
 
 ---
 
-## Handler de hooks
+## Hook handler
 
 ### Integração com o Claude Code
 
@@ -66,7 +66,7 @@ O handler impõe um limite de 1 MB para o stdin. Payloads que excedam esse limit
 
 ### Formato da resposta
 
-**Negar (PreToolUse):**
+**Deny (PreToolUse):**
 ```json
 {
   "hookSpecificOutput": {
@@ -76,7 +76,7 @@ O handler impõe um limite de 1 MB para o stdin. Payloads que excedam esse limit
 }
 ```
 
-**Negar (PostToolUse):**
+**Deny (PostToolUse):**
 ```json
 {
   "hookSpecificOutput": {
@@ -85,7 +85,7 @@ O handler impõe um limite de 1 MB para o stdin. Payloads que excedam esse limit
 }
 ```
 
-**Instruir (qualquer evento exceto Stop):**
+**Instruct (qualquer evento exceto Stop):**
 ```json
 {
   "hookSpecificOutput": {
@@ -98,11 +98,11 @@ O handler impõe um limite de 1 MB para o stdin. Payloads que excedam esse limit
 - Código de saída: `2`
 - Motivo gravado em stderr (não em stdout)
 
-**Permitir:**
+**Allow:**
 - Código de saída: `0`
 - stdout vazio
 
-**Permitir com mensagem:**
+**Allow com mensagem:**
 
 `allow(message)` permite que uma política envie contexto informativo de volta ao Claude mesmo quando a operação é permitida. O handler de hooks grava o seguinte JSON no **stdout** (não em um arquivo de configuração — esta é a resposta do handler ao Claude Code, assim como as respostas de deny e instruct acima):
 
@@ -159,7 +159,7 @@ Lógica de mesclagem:
 - `customPoliciesPath` - o primeiro arquivo que o definir prevalece
 - `llm` - o primeiro arquivo que o definir prevalece
 
-O dashboard web usa `readHooksConfig()` (somente global) para leitura e escrita, pois não é invocado com um cwd de projeto.
+O dashboard web usa `readHooksConfig()` (apenas global) para leitura e escrita, pois não é invocado com um cwd de projeto.
 
 ---
 
@@ -173,7 +173,7 @@ Para cada política:
 2. Lê `policyParams[policy.name]` da configuração mesclada.
 3. Mescla os valores fornecidos pelo usuário sobre os padrões do esquema para produzir `ctx.params`.
 4. Chama `policy.fn(ctx)` com o contexto resolvido.
-5. Se o resultado for `deny`, para imediatamente e retorna essa decisão.
+5. Se o resultado for `deny`, interrompe imediatamente e retorna essa decisão.
 6. Se o resultado for `instruct`, acumula a mensagem e continua.
 7. Se o resultado for `allow`, continua para a próxima política.
 
@@ -204,7 +204,7 @@ interface BuiltinPolicyDefinition {
 }
 ```
 
-Políticas que aceitam `params` declaram um `PolicyParamsSchema` com tipos e valores padrão para cada parâmetro. O avaliador de políticas injeta os valores resolvidos em `ctx.params` antes de chamar `fn`. As funções de política leem `ctx.params` sem verificações de nulo porque os padrões são sempre aplicados primeiro.
+Políticas que aceitam `params` declaram um `PolicyParamsSchema` com tipos e valores padrão para cada parâmetro. O avaliador de políticas injeta os valores resolvidos em `ctx.params` antes de chamar `fn`. As funções de política leem `ctx.params` sem verificações de nulo, pois os padrões são sempre aplicados primeiro.
 
 A correspondência de padrões dentro das políticas usa tokens de comando analisados (argv), não correspondência de strings brutas. Isso previne bypass via injeção de operadores shell (por exemplo, um padrão para `sudo systemctl status *` não pode ser contornado acrescentando `; rm -rf /` ao comando).
 
@@ -241,7 +241,7 @@ As políticas personalizadas são avaliadas após todas as políticas embutidas.
 
 ---
 
-## Registro de atividade
+## Log de atividades
 
 Após cada evento de hook, o handler acrescenta uma linha JSONL a `~/.failproofai/hook-activity.jsonl`:
 
@@ -273,7 +273,7 @@ app/
   project/[name]/page.tsx     ← Server component: lista sessões de um projeto
   project/[name]/session/
     [sessionId]/page.tsx      ← Server component: renderiza o visualizador de sessão
-  policies/page.tsx           ← Client component: gerenciamento de políticas + log de atividade
+  policies/page.tsx           ← Client component: gerenciamento de políticas + log de atividades
   actions/
     get-hooks-config.ts       ← Lê configuração + lista de políticas
     update-hooks-config.ts    ← Ativa/desativa política
@@ -290,7 +290,7 @@ app/
 - A página de Políticas usa Server Actions para todas as mutações (ativar/desativar, atualização de parâmetros, instalar/remover).
 - O visualizador de sessão analisa o formato de transcrição JSONL do Claude e renderiza uma linha do tempo de mensagens e chamadas de ferramentas.
 
-**Principais decisões de design:**
+**Decisões de design principais:**
 
 - Sem banco de dados - todo o estado persistente está em arquivos simples (`~/.failproofai/`, `~/.claude/projects/`).
 - Server Actions para mutações - sem necessidade de API REST para operações CRUD.

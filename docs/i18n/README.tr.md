@@ -98,7 +98,7 @@ Her şey yerel olarak çalışır - veri makinenizi terk etmez.
 
 ---
 
-## Yükle
+## Yükleme
 
 ```bash
 npm install -g failproofai
@@ -144,13 +144,13 @@ failproofai policies
 | Proje | `failproofai policies --install --scope project` | `.claude/settings.json` |
 | Yerel | `failproofai policies --install --scope local` | `.claude/settings.local.json` |
 
-### Belirli politikaları yükle
+### Belirli politikaları yükleyin
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 ```
 
-### Politikaları kaldır
+### Politikaları kaldırın
 
 ```bash
 failproofai policies --uninstall
@@ -324,7 +324,7 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 | [Architecture](docs/architecture.mdx) | Hook sistemi nasıl çalışır |
 | [Testing](docs/testing.mdx) | Testleri çalıştırın ve yeni olanlar yazın |
 
-### Belgeleri yerel olarak çalıştır
+### Dokümanları yerel olarak çalıştırın
 
 ```bash
 docker build -f Dockerfile.docs -t failproofai-docs .

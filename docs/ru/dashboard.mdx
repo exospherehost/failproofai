@@ -31,7 +31,7 @@ failproofai
 - Значок CLI — `Claude Code` (оранжевый), `OpenAI Codex` (фиолетовый), `GitHub Copilot` (синий), `Cursor Agent` (изумрудный), `OpenCode` (янтарный), `Pi` (розовый) и/или `Gemini CLI` (небесный)
 - Дату последней активности сеанса
 
-Нажмите на проект, чтобы увидеть его сеансы.
+Нажмите на проект, чтобы увидеть его сессии.
 
 ### Сеансы
 
@@ -102,7 +102,7 @@ FAILPROOFAI_DISABLE_PAGES=policies failproofai
 
 ---
 
-## Настройка пути к проектам
+## Настройка пути проектов
 
 По умолчанию панель управления читает из стандартного каталога проектов Claude Code. Переопределите его для пользовательских конфигураций:
 
@@ -132,7 +132,7 @@ npm run dev -- --allowed-origins dashboard.example.com
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-Вы также можете установить переменную окружения `FAILPROOFAI_ALLOWED_DEV_ORIGINS`:
+Вы также можете вместо этого установить переменную окружения `FAILPROOFAI_ALLOWED_DEV_ORIGINS`:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev

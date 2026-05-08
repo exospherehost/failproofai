@@ -1,5 +1,4 @@
 ---
----
 title: البدء السريع
 description: "ثبّت failproofai وفعّل السياسات واترك وكلاءك يعملون بموثوقية"
 icon: rocket
@@ -53,14 +52,14 @@ bun add -g failproofai
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>
-  <Step title="تحقق">
+  <Step title="التحقق">
     ```bash
     failproofai policies
     ```
 
     يعرض كل سياسة وما إذا كانت مفعلة وأي معاملات مكونة.
   </Step>
-  <Step title="شغّل لوحة التحكم">
+  <Step title="تشغيل لوحة التحكم">
     ```bash
     failproofai
     ```
@@ -162,7 +161,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  يقرأ JSON من stdin
 
 ---
 
-## الإلغاء
+## إلغاء التثبيت
 
 ```bash
 failproofai policies --uninstall

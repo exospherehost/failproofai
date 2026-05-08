@@ -22,8 +22,8 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 | [الوصول إلى الملفات](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [قاعدة البيانات](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
-| [التحذيرات](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
-| [مديري الحزم](#package-managers) | prefer-package-manager | PreToolUse |
+| [تحذيرات](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
+| [مديرو الحزم](#package-managers) | prefer-package-manager | PreToolUse |
 | [سير العمل](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-no-conflicts-before-stop, require-ci-green-before-stop | Stop |
 
 - **`block-`** — توقف الوكيل عن المتابعة.
@@ -64,7 +64,7 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 ### `block-sudo`
 
 **الحدث:** PreToolUse (Bash)  
-**الافتراضي:** ينكر أي أمر `sudo`.
+**الإعداد الافتراضي:** يرفض أي أمر `sudo`.
 
 يحجب عمليات استدعاء تتضمن كلمة `sudo`. يتم مطابقة الأنماط على رموز الأوامر المحللة، وليس على السلسلة الخام، لمنع التجاوز عبر حقن عامل shell.
 
@@ -131,13 +131,13 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 ### `block-failproofai-commands`
 
 **الحدث:** PreToolUse (Bash)  
-**الافتراضي:** ينكر الأوامر التي ستقوم بإلغاء تثبيت أو تعطيل failproofai نفسه (مثل `npm uninstall failproofai`، `failproofai policies --uninstall`).
+**الإعداد الافتراضي:** يرفض الأوامر التي ستلغي أو تعطل failproofai نفسه (مثل `npm uninstall failproofai` و`failproofai policies --uninstall`).
 
 بلا معاملات.
 
 ---
 
-## أوامر البنية التحتية
+## أوامر البنية الأساسية
 
 منع وكلاء الترميز من تشغيل CLIs البنية التحتية أو تشغيل خطوط أنابيب CI/CD. جميع السياسات في هذه الفئة هي **اختيارية** (`defaultEnabled: false`) — الوكلاء الذين يحتاجون بشكل شرعي إلى استدعاء `kubectl`، `terraform`، إلخ لن يتم الإخلال بهم إلا إذا قمت بتفعيل السياسة. عند التفعيل، يتم رفض كل استدعاء للـ CLI المطابق ما لم تطابق الأمر إدخالاً في `allowPatterns`.
 
@@ -146,7 +146,7 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 ### `block-kubectl`
 
 **الحدث:** PreToolUse (Bash)  
-**الافتراضي:** ينكر أي استدعاء `kubectl`.
+**الإعداد الافتراضي:** يرفض أي استدعاء `kubectl`.
 
 **المعاملات:**
 
@@ -173,7 +173,7 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 ### `block-terraform`
 
 **الحدث:** PreToolUse (Bash)  
-**الافتراضي:** ينكر أي استدعاء `terraform` أو `tofu` (OpenTofu).
+**الإعداد الافتراضي:** يرفض أي استدعاء `terraform` أو `tofu` (OpenTofu).
 
 **المعاملات:**
 
@@ -273,7 +273,7 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 ### `block-helm`
 
 **الحدث:** PreToolUse (Bash)  
-**الافتراضي:** ينكر أي استدعاء `helm`.
+**الإعداد الافتراضي:** يرفض أي استدعاء `helm`.
 
 **المعاملات:**
 
@@ -298,7 +298,7 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 ### `block-gh-pipeline`
 
 **الحدث:** PreToolUse (Bash)  
-**الافتراضي:** ينكر أوامر فرعية `gh` CLI التالية التي تغير الحالة أو تشغل خطوط الأنابيب:
+**الإعداد الافتراضي:** يرفض أوامر فرعية `gh` CLI التالية التي تغير الحالة أو تشغل خطوط أنابيب:
 
 - `gh workflow run`, `gh workflow enable`, `gh workflow disable`
 - `gh run rerun`, `gh run cancel`
@@ -649,7 +649,7 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 
 ---
 
-## مديري الحزم
+## مديرو الحزم
 
 فرض مديري الحزم المسموح بهم للوكيل لاستخدامهم.
 
@@ -667,7 +667,7 @@ failproofai يأتي مع 39 سياسة مدمجة تكتشف أنماط فشل 
 
 قائمة الحجب المدمجة تغطي: pip, pip3, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo. استخدم `blocked` لإضافة مديري حزم ليسوا في هذه القائمة.
 
-**مثال التكوين:**
+**إعدادات المثال:**
 
 ```json
 {

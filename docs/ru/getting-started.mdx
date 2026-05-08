@@ -52,7 +52,7 @@ bun add -g failproofai
     failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
     ```
   </Step>
-  <Step title="Проверьте">
+  <Step title="Проверка">
     ```bash
     failproofai policies
     ```
@@ -79,11 +79,11 @@ bun add -g failproofai
 
 ```text
 Claude Code  →  failproofai --hook PreToolUse  →  читает JSON из stdin
-                                                 оценивает политики
-                                                 записывает решение в stdout
+                                                  вычисляет политики
+                                                  записывает решение в stdout
 ```
 
-Каждая политика возвращает одно из трех решений:
+Каждая политика возвращает одно из трёх решений:
 
 - **allow** — агент продолжает работу нормально
 - **deny** — действие блокируется, агенту объясняется причина
@@ -95,12 +95,12 @@ Claude Code  →  failproofai --hook PreToolUse  →  читает JSON из std
 
 ---
 
-## Установите командные политики с помощью политик на основе соглашений
+## Установите командные политики с помощью соглашения о структуре
 
 Самый быстрый способ установить стандарты качества в вашей команде — это соглашение `.failproofai/policies/`. Добавьте файлы политик в этот каталог, и они будут загружаться автоматически — без флагов, без изменения конфигурации, без команд установки.
 
 <Steps>
-  <Step title="Создайте каталог политик">
+  <Step title="Создайте директорию политик">
     ```bash
     mkdir -p .failproofai/policies
     ```
@@ -131,7 +131,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  читает JSON из std
     });
     ```
   </Step>
-  <Step title="Закоммитьте в git">
+  <Step title="Зафиксируйте в git">
     ```bash
     git add .failproofai/policies/
     git commit -m "Add team quality policies"
@@ -147,7 +147,7 @@ Claude Code  →  failproofai --hook PreToolUse  →  читает JSON из std
 
 ---
 
-## Хранение данных
+## Хранилище данных
 
 Вся конфигурация и логи остаются на вашей машине:
 

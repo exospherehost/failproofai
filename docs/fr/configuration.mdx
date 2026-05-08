@@ -18,7 +18,7 @@ Il existe trois niveaux de configuration, évalués par ordre de priorité :
 | **local** | `.failproofai/policies-config.local.json` | Substitutions personnelles par dépôt, ignorées par git |
 | **global** | `~/.failproofai/policies-config.json` | Valeurs par défaut au niveau utilisateur pour tous les projets |
 
-Lorsque failproofai reçoit un événement de hook, il charge et fusionne les trois fichiers existants pour le répertoire de travail courant.
+Lorsque failproofai reçoit un événement de hook, il charge et fusionne les trois fichiers qui existent pour le répertoire de travail courant.
 
 ### Règles de fusion
 
@@ -42,8 +42,8 @@ resolved: { allowPatterns: ["sudo apt-get update"] }   ← project l'emporte, gl
 ```
 
 ```text
-project:  (pas d'entrée block-sudo)
-local:    (pas d'entrée block-sudo)
+project:  (aucune entrée block-sudo)
+local:    (aucune entrée block-sudo)
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
 resolved: { allowPatterns: ["sudo systemctl status"] }  ← propagation jusqu'à global
@@ -151,11 +151,11 @@ Type : `string` (chemin absolu)
 
 Chemin vers un fichier JavaScript contenant des politiques de hook personnalisées. Ce champ est défini automatiquement par `failproofai policies --install --custom <path>` (le chemin est résolu en absolu avant d'être stocké).
 
-Le fichier est rechargé à chaque événement de hook — il n'y a pas de mise en cache. Consultez [Politiques personnalisées](/fr/custom-policies) pour les détails de création.
+Le fichier est chargé à nouveau à chaque événement de hook — il n'y a pas de mise en cache. Consultez [Politiques personnalisées](/fr/custom-policies) pour les détails de création.
 
-### Politiques basées sur les conventions
+### Politiques basées sur des conventions
 
-En plus du `customPoliciesPath` explicite, failproofai découvre et charge automatiquement les fichiers de politique depuis les répertoires `.failproofai/policies/` :
+En plus du `customPoliciesPath` explicite, failproofai découvre et charge automatiquement les fichiers de politiques depuis les répertoires `.failproofai/policies/` :
 
 | Niveau | Répertoire | Portée |
 |--------|------------|--------|
@@ -168,7 +168,7 @@ En plus du `customPoliciesPath` explicite, failproofai découvre et charge autom
 
 **Chargement par union :** Les répertoires de convention du projet et de l'utilisateur sont tous deux analysés. Tous les fichiers correspondants des deux niveaux sont chargés (contrairement à `customPoliciesPath` qui utilise la règle du premier niveau gagnant).
 
-Consultez [Politiques personnalisées](/fr/custom-policies) pour plus de détails et d'exemples.
+Consultez [Politiques personnalisées](/fr/custom-policies) pour plus de détails et des exemples.
 
 ### `llm`
 
@@ -220,7 +220,7 @@ Lorsque `--cli` est omis, `failproofai` détecte quelles CLIs d'agent sont insta
 - **Plusieurs CLIs détectées** lors d'une exécution non interactive (CI, pas de TTY) — installe pour toutes les CLIs détectées sans demander confirmation.
 - **Aucune détectée** — revient à `claude`, avec un avertissement indiquant qu'aucun binaire d'agent n'a été trouvé dans PATH ; la commande de hook est tout de même écrite afin qu'elle s'active dès que vous en installez un.
 
-Vous pouvez modifier `policies-config.json` directement à tout moment ; les modifications prennent effet immédiatement au prochain événement de hook, sans redémarrage nécessaire.
+Vous pouvez modifier `policies-config.json` directement à tout moment ; les modifications prennent effet immédiatement au prochain événement de hook sans redémarrage.
 
 ---
 

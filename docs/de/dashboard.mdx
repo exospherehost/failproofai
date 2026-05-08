@@ -43,9 +43,9 @@ Listet alle Sitzungen innerhalb eines Projekts auf. Jede Sitzung zeigt:
 
 Verwenden Sie den Datumsbereichsfilter und die Sitzungs-ID-Suche, um die Liste einzugrenzen. Sitzungen sind paginiert.
 
-Klicken Sie auf eine Sitzung, um den Sitzungs-Viewer zu öffnen.
+Klicke auf eine Sitzung, um den Sitzungsbetrachter zu öffnen.
 
-### Sitzungs-Viewer
+### Sitzungsbetrachter
 
 Der Sitzungs-Viewer beantwortet die entscheidende Frage für autonome Agenten: Was hat der Agent getan, und hat er den richtigen Kurs gehalten? Ein CLI-Badge neben dem Header zeigt an, ob es sich um ein Claude Code-, OpenAI Codex-, GitHub Copilot CLI-, Cursor Agent-, OpenCode-, Pi- oder Gemini CLI-Transkript handelt. Er zeigt eine Zeitleiste aller Ereignisse in einer Sitzung:
 
@@ -86,7 +86,7 @@ Das Dashboard verfügt über eine Umschalttaste für die automatische Aktualisie
 
 ## Seiten deaktivieren
 
-Wenn Sie nur bestimmte Teile des Dashboards benötigen, setzen Sie `FAILPROOFAI_DISABLE_PAGES` auf eine kommagetrennte Liste von Seitennamen:
+Wenn du nur bestimmte Teile des Dashboards benötigst, setze `FAILPROOFAI_DISABLE_PAGES` auf eine kommagetrennte Liste von Seitennamen:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -104,7 +104,7 @@ Das Dashboard unterstützt helles und dunkles Design. Umschalten über die Schal
 
 ## Projektpfad konfigurieren
 
-Standardmäßig liest das Dashboard aus dem Standardverzeichnis für Claude Code-Projekte. Überschreiben Sie es für benutzerdefinierte Setups:
+Standardmäßig liest das Dashboard aus dem regulären Claude Code-Projektverzeichnis. Überschreibe es für benutzerdefinierte Setups:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -126,7 +126,7 @@ Dies ist Next.js, das den Cross-Origin-Zugriff auf seinen HMR-WebSocket (Hot Mod
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-Für mehrere Hosts oder IPs übergeben Sie eine kommagetrennte Liste:
+Für mehrere Hosts oder IPs übergib eine kommagetrennte Liste:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5

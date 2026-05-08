@@ -57,14 +57,14 @@ bun add -g failproofai
     failproofai policies
     ```
 
-    Exibe todas as políticas, se estão ativas e quaisquer parâmetros configurados.
+    Exibe todas as políticas, se estão ativas e quais parâmetros foram configurados.
   </Step>
   <Step title="Abrir o painel de controle">
     ```bash
     failproofai
     ```
 
-    Abre um painel local em `http://localhost:8020` onde você pode navegar por sessões, inspecionar chamadas de ferramentas e gerenciar políticas.
+    Abre um painel local em `http://localhost:8020` onde você pode navegar pelas sessões, inspecionar chamadas de ferramentas e gerenciar políticas.
   </Step>
   <Step title="Executar seu agente">
     Inicie o Claude Code normalmente. Se o agente tentar algo arriscado, o failproofai o intercepta automaticamente. Deixe-o em execução sem supervisão e revise o que aconteceu no painel de controle.
@@ -75,7 +75,7 @@ bun add -g failproofai
 
 ## Como as políticas funcionam
 
-Toda vez que um agente executa uma ferramenta, o Claude Code chama o failproofai como subprocesso:
+Toda vez que um agente executa uma ferramenta, o Claude Code chama o failproofai como um subprocesso:
 
 ```text
 Claude Code  →  failproofai --hook PreToolUse  →  reads stdin JSON
@@ -95,7 +95,7 @@ As políticas são executadas no seu processo local. Nenhuma informação é env
 
 ---
 
-## Configurar políticas de equipe com políticas baseadas em convenção
+## Configure políticas de equipe com políticas baseadas em convenção
 
 A maneira mais rápida de estabelecer padrões de qualidade em toda a equipe é a convenção `.failproofai/policies/`. Coloque arquivos de política nesse diretório e eles são carregados automaticamente — sem flags, sem alterações de configuração, sem comandos de instalação.
 
@@ -176,11 +176,11 @@ Remove as entradas de hook do `~/.claude/settings.json`. Os arquivos de configur
 <CardGroup cols={2}>
 
 <Card title="Configuração" icon="gear" href="/pt-br/configuration">
-  Escopos e formato do arquivo de configuração
+  Escopos e formato dos arquivos de configuração
 </Card>
 
 <Card title="Políticas integradas" icon="shield" href="/pt-br/built-in-policies">
-  Todas as 26 políticas com parâmetros
+  Todas as 26 políticas com seus parâmetros
 </Card>
 
 <Card title="Políticas personalizadas" icon="code" href="/pt-br/custom-policies">

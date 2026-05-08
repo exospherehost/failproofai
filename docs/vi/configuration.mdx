@@ -42,8 +42,8 @@ resolved: { allowPatterns: ["sudo apt-get update"] }   ← project thắng, glob
 ```
 
 ```text
-project:  (không có mục block-sudo)
-local:    (không có mục block-sudo)
+project:  (no block-sudo entry)
+local:    (no block-sudo entry)
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
 resolved: { allowPatterns: ["sudo systemctl status"] }  ← rơi xuống global
@@ -100,7 +100,7 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← rơi xuống global
 
 ### `enabledPolicies`
 
-Loại: `string[]`
+Kiểu: `string[]`
 
 Danh sách tên chính sách cần bật. Tên phải khớp chính xác các định danh chính sách được hiển thị bởi `failproofai policies`. Xem [Built-in Policies](/vi/built-in-policies) để biết danh sách đầy đủ.
 
@@ -108,7 +108,7 @@ Các chính sách không có trong `enabledPolicies` không hoạt động, ngay
 
 ### `policyParams`
 
-Loại: `Record<string, Record<string, unknown>>`
+Kiểu: `Record<string, Record<string, unknown>>`
 
 Ghi đè tham số cho mỗi chính sách. Khóa bên ngoài là tên chính sách; các khóa bên trong là cụ thể cho từng chính sách. Mỗi chính sách có tài liệu về các tham số khả dụng của nó trong [Built-in Policies](/vi/built-in-policies).
 
@@ -118,7 +118,7 @@ Các khóa không xác định trong khối params của một chính sách đư
 
 #### `hint` (xuyên suốt)
 
-Loại: `string` (tùy chọn)
+Kiểu: `string` (tùy chọn)
 
 Một thông báo được nối thêm vào lý do khi chính sách trả về `deny` hoặc `instruct`. Sử dụng nó để cung cấp cho Claude hướng dẫn hành động mà không cần sửa đổi chính sách.
 
@@ -128,11 +128,11 @@ Hoạt động với bất kỳ loại chính sách nào — tích hợp sẵn, 
 {
   "policyParams": {
     "block-force-push": {
-      "hint": "Hãy thử tạo một nhánh mới thay vào đó."
+      "hint": "Try creating a fresh branch instead."
     },
     "block-sudo": {
       "allowPatterns": ["sudo apt-get"],
-      "hint": "Sử dụng apt-get trực tiếp mà không cần sudo."
+      "hint": "Use apt-get directly without sudo."
     },
     "custom/my-policy": {
       "hint": "Yêu cầu người dùng phê duyệt trước."
@@ -141,13 +141,13 @@ Hoạt động với bất kỳ loại chính sách nào — tích hợp sẵn, 
 }
 ```
 
-Khi `block-force-push` từ chối, Claude thấy: *"Force-pushing bị chặn. Hãy thử tạo một nhánh mới thay vào đó."*
+Khi `block-force-push` từ chối, Claude sẽ thấy: *Force-pushing is blocked. Try creating a fresh branch instead.*
 
 Các giá trị không phải chuỗi và chuỗi trống được im lặng bỏ qua. Nếu `hint` không được đặt, hành vi không thay đổi (tương thích ngược).
 
 ### `customPoliciesPath`
 
-Loại: `string` (đường dẫn tuyệt đối)
+Kiểu: `string` (đường dẫn tuyệt đối)
 
 Đường dẫn tới tệp JavaScript chứa các chính sách hook tùy chỉnh. Điều này được đặt tự động bởi `failproofai policies --install --custom <path>` (đường dẫn được giải quyết thành tuyệt đối trước khi được lưu trữ).
 
@@ -155,7 +155,7 @@ Tệp được tải mới trên mọi sự kiện hook - không có bộ nhớ 
 
 ### Các chính sách dựa trên quy ước
 
-Ngoài `customPoliciesPath` rõ ràng, failproofai tự động phát hiện và tải các tệp chính sách từ các thư mục `.failproofai/policies/`:
+Ngoài `customPoliciesPath` rõ ràng, failproofai tự động khám phá và tải các tệp chính sách từ các thư mục `.failproofai/policies/`:
 
 | Mức độ | Thư mục | Phạm vi |
 |-------|-----------|-------|
@@ -168,13 +168,13 @@ Ngoài `customPoliciesPath` rõ ràng, failproofai tự động phát hiện và
 
 **Tải union:** Cả hai thư mục quy ước dự án và người dùng được quét. Tất cả các tệp phù hợp từ cả hai mức đều được tải (không giống như `customPoliciesPath` sử dụng phạm vi đầu tiên thắng).
 
-Xem [Custom Policies](/vi/custom-policies) để biết thêm chi tiết và ví dụ.
+Xem [Chính sách tùy chỉnh](/vi/custom-policies) để biết thêm chi tiết và ví dụ.
 
 ### `llm`
 
-Loại: `object` (tùy chọn)
+Kiểu: `object` (tùy chọn)
 
-Cấu hình máy khách LLM cho các chính sách thực hiện các cuộc gọi AI. Không bắt buộc cho hầu hết các thiết lập.
+Cấu hình client LLM cho các chính sách thực hiện các cuộc gọi AI. Không bắt buộc cho hầu hết các thiết lập.
 
 ```json
 {

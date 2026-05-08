@@ -38,7 +38,7 @@ resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← união sem dup
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo apt-get update"] }   ← project vence, global é ignorado
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← project vence, global ignorado
 ```
 
 ```text
@@ -49,9 +49,9 @@ global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 resolved: { allowPatterns: ["sudo systemctl status"] }  ← cai para global
 ```
 
-**`customPoliciesPath`** — o primeiro escopo que o define vence.
+**`customPoliciesPath`** — o primeiro escopo que o definir vence.
 
-**`llm`** — o primeiro escopo que o define vence.
+**`llm`** — o primeiro escopo que o definir vence.
 
 ---
 
@@ -104,7 +104,7 @@ Tipo: `string[]`
 
 Lista de nomes de políticas a habilitar. Os nomes devem corresponder exatamente aos identificadores de política exibidos por `failproofai policies`. Consulte [Políticas Integradas](/pt-br/built-in-policies) para a lista completa.
 
-Políticas que não estão em `enabledPolicies` ficam inativas, mesmo que tenham entradas em `policyParams`.
+Políticas que não estão em `enabledPolicies` ficam inativas, mesmo que possuam entradas em `policyParams`.
 
 ### `policyParams`
 
@@ -149,13 +149,13 @@ Valores não-string e strings vazias são silenciosamente ignorados. Se `hint` n
 
 Tipo: `string` (caminho absoluto)
 
-Caminho para um arquivo JavaScript contendo políticas de hook personalizadas. Isso é definido automaticamente por `failproofai policies --install --custom <path>` (o caminho é resolvido para absoluto antes de ser armazenado).
+Caminho para um arquivo JavaScript contendo políticas de hook personalizadas. Este valor é definido automaticamente por `failproofai policies --install --custom <path>` (o caminho é resolvido para absoluto antes de ser armazenado).
 
 O arquivo é carregado novamente a cada evento de hook — não há cache. Consulte [Políticas Personalizadas](/pt-br/custom-policies) para detalhes de criação.
 
 ### Políticas baseadas em convenção
 
-Além do `customPoliciesPath` explícito, failproofai descobre e carrega automaticamente arquivos de política dos diretórios `.failproofai/policies/`:
+Além do `customPoliciesPath` explícito, o failproofai descobre e carrega automaticamente arquivos de política dos diretórios `.failproofai/policies/`:
 
 | Nível | Diretório | Escopo |
 |-------|-----------|--------|
@@ -224,7 +224,7 @@ Você pode editar `policies-config.json` diretamente a qualquer momento; as alte
 
 ---
 
-## Exemplo: configuração no nível do projeto com padrões da equipe
+## Exemplo: configuração em nível de projeto com padrões do time
 
 Faça commit de `.failproofai/policies-config.json` no seu repositório:
 
@@ -245,4 +245,4 @@ Faça commit de `.failproofai/policies-config.json` no seu repositório:
 }
 ```
 
-Cada desenvolvedor pode então criar `.failproofai/policies-config.local.json` (ignorado pelo git) para substituições pessoais sem afetar os colegas de equipe.
+Cada desenvolvedor pode então criar `.failproofai/policies-config.local.json` (ignorado pelo git) para substituições pessoais sem afetar os colegas de time.

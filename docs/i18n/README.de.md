@@ -94,7 +94,7 @@ Alles läuft lokal – keine Daten verlassen deinen Rechner.
 ## Voraussetzungen
 
 - Node.js >= 20.9.0
-- Bun >= 1.3.0 (optional – nur für die Entwicklung / das Bauen aus dem Quellcode erforderlich)
+- Bun >= 1.3.0 (optional – nur für Entwicklung / Build aus dem Quellcode erforderlich)
 
 ---
 
@@ -220,7 +220,7 @@ Die Richtlinienkonfiguration befindet sich in `~/.failproofai/policies-config.js
 | `block-work-on-main` | Hält Agenten von geschützten Branches fern | `protectedBranches` |
 | `block-force-push` | Verhindert `git push --force` | |
 | `warn-git-amend` | Erinnert Agenten vor dem Ändern von Commits | |
-| `warn-git-stash-drop` | Erinnert Agenten vor dem Verwerfen von Stashes | |
+| `warn-git-stash-drop` | Erinnert Agenten vor dem Löschen von Stashes | |
 | `warn-all-files-staged` | Erkennt versehentliches `git add -A` | |
 | `warn-destructive-sql` | Erkennt DROP/DELETE-SQL vor der Ausführung | |
 | `warn-schema-alteration` | Erkennt ALTER TABLE vor der Ausführung | |
@@ -254,7 +254,7 @@ customPolicies.add({
 });
 ```
 
-Installation mit:
+Installieren mit:
 
 ```bash
 failproofai policies --install --custom ./my-policies.js
@@ -288,11 +288,11 @@ Benutzerdefinierte Hooks unterstützen transitive lokale Importe, async/await un
 Lege `*policies.{js,mjs,ts}`-Dateien in `.failproofai/policies/` ab – sie werden automatisch geladen, ohne Flags oder Konfigurationsänderungen. Committe das Verzeichnis in Git und alle Teammitglieder erhalten automatisch dieselben Qualitätsstandards.
 
 ```text
-# Projektebene — in Git eingecheckt, mit dem Team geteilt
+# Projektebene – in Git eingecheckt, mit dem Team geteilt
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# Benutzerebene — persönlich, gilt für alle Projekte
+# Benutzerebene – persönlich, gilt für alle Projekte
 ~/.failproofai/policies/my-policies.mjs
 ```
 

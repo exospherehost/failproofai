@@ -226,7 +226,7 @@ export function getCustomHooks(): CustomHook[] { ... }
 export function clearCustomHooks(): void { ... }  // used in tests
 ```
 
-يحمل `src/hooks/custom-hooks-loader.ts` ملف السياسة الخاص بالمستخدم:
+يحمل `src/hooks/custom-hooks-loader.ts` ملف سياسة المستخدم:
 
 1. اقرأ `customPoliciesPath` من الإعدادات؛ تخطَ إذا كان غائبًا.
 2. اجعل المسار مطلقًا؛ تحقق من وجود الملف.
@@ -244,7 +244,7 @@ export function clearCustomHooks(): void { ... }  // used in tests
 
 ## تسجيل النشاط
 
-بعد كل حدث خطاف، يلحق المعالج سطر JSONL بـ `~/.failproofai/hook-activity.jsonl`:
+بعد كل حدث خطاف، يضيف المعالج سطر JSONL إلى `~/.failproofai/hook-activity.jsonl`:
 
 ```json
 {

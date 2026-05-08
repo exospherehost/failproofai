@@ -1,10 +1,10 @@
 ---
 title: Politiques intégrées
-description: "Les 39 politiques intégrées qui interceptent les modes de défaillance courants des agents"
+description: "Les 39 politiques intégrées qui interceptent les modes d'échec courants des agents"
 icon: shield
 ---
 
-failproofai est livré avec 39 politiques intégrées qui interceptent les modes de défaillance courants des agents. Chaque politique se déclenche sur un type d'événement de hook et un nom d'outil spécifiques. Dix-neuf politiques acceptent des paramètres qui vous permettent d'ajuster leur comportement sans écrire de code. Cinq politiques de workflow imposent un pipeline commit → push → PR → CI avant que Claude ne s'arrête.
+failproofai est livré avec 39 politiques intégrées qui interceptent les modes d'échec courants des agents. Chaque politique se déclenche sur un type d'événement de hook spécifique et un nom d'outil. Dix-neuf politiques acceptent des paramètres qui permettent d'ajuster leur comportement sans écrire de code. Cinq politiques de workflow imposent un pipeline commit → push → PR → CI avant que Claude ne s'arrête.
 
 ---
 
@@ -62,7 +62,7 @@ Empêche les agents d'exécuter des opérations difficiles à annuler ou suscept
 ### `block-sudo`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Refuse toute commande `sudo`.
+**Défaut :** Bloque toute commande `sudo`.
 
 Bloque les invocations contenant le mot-clé `sudo`. La correspondance de motif s'effectue sur les tokens de commande analysés, et non sur la chaîne brute, pour éviter les contournements par injection d'opérateurs shell.
 
@@ -84,7 +84,7 @@ Bloque les invocations contenant le mot-clé `sudo`. La correspondance de motif 
 }
 ```
 
-Avec cette configuration, `sudo systemctl status nginx` est autorisé, mais `sudo rm /etc/hosts` est refusé.
+Avec cette configuration, `sudo systemctl status nginx` est autorisé, mais `sudo rm /etc/hosts` est bloqué.
 
 <Note>
 Les motifs sont comparés aux tokens analysés, et non à la chaîne de commande brute. Cela empêche les contournements via des opérateurs shell ajoutés (p. ex. `sudo systemctl status x; rm -rf /` ne correspond pas à `sudo systemctl status *`).
@@ -164,7 +164,7 @@ La grammaire des motifs est identique à celle de [`block-sudo`](#block-sudo) : 
 }
 ```
 
-Avec cette configuration, `kubectl get pods` est autorisé mais `kubectl apply -f deploy.yaml` est refusé.
+Avec cette configuration, `kubectl get pods` est autorisé mais `kubectl apply -f deploy.yaml` est bloqué.
 
 ---
 
@@ -402,7 +402,7 @@ Protège la configuration d'environnement sensible contre la lecture ou l'exposi
 ### `block-env-files`
 
 **Événement :** PreToolUse (Bash, Read)  
-**Par défaut :** Refuse la lecture des fichiers `.env` via `cat .env`, les appels à l'outil `Read` avec `.env` comme chemin de fichier, etc.
+**Défaut :** Bloque la lecture des fichiers `.env` via `cat .env`, les appels à l'outil `Read` avec `.env` comme chemin de fichier, etc.
 
 Ne bloque pas `.envrc` ni les autres fichiers liés à l'environnement — uniquement les fichiers nommés exactement `.env`.
 
@@ -413,7 +413,7 @@ Aucun paramètre.
 ### `protect-env-vars`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Refuse les commandes qui affichent les variables d'environnement : `printenv`, `env`, `echo $VAR`.
+**Défaut :** Bloque les commandes qui affichent les variables d'environnement : `printenv`, `env`, `echo $VAR`.
 
 Aucun paramètre.
 
@@ -451,7 +451,7 @@ Maintient les agents dans les limites du projet et à l'écart des fichiers sens
 ### `block-secrets-write`
 
 **Événement :** PreToolUse (Write, Edit)  
-**Par défaut :** Refuse les écritures dans les fichiers couramment utilisés pour les clés privées et les certificats : `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
+**Défaut :** Bloque les écritures dans les fichiers couramment utilisés pour les clés privées et les certificats : `id_rsa`, `id_ed25519`, `*.key`, `*.pem`, `*.p12`, `*.pfx`.
 
 **Paramètres :**
 
@@ -480,7 +480,7 @@ Maintient les agents dans les limites du projet et à l'écart des fichiers sens
 ### `block-push-master`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Refuse `git push origin main` et `git push origin master`.
+**Défaut :** Bloque `git push origin main` et `git push origin master`.
 
 **Paramètres :**
 
@@ -522,7 +522,7 @@ Pour autoriser le push sur toutes les branches (ce qui désactive effectivement 
 ### `block-force-push`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Refuse `git push --force` et `git push -f`.
+**Défaut :** Bloque `git push --force` et `git push -f`.
 
 Aucun paramètre spécifique à la politique. Utilisez le [`hint`](/fr/configuration#hint-cross-cutting) transversal pour suggérer des alternatives :
 
@@ -550,7 +550,7 @@ Aucun paramètre.
 ### `warn-git-stash-drop`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Demande à Claude de confirmer avant d'exécuter `git stash drop`. Ne bloque pas la commande.
+**Défaut :** Demande à Claude de confirmer avant d'exécuter `git stash drop`. Ne bloque pas la commande.
 
 Aucun paramètre.
 
@@ -559,7 +559,7 @@ Aucun paramètre.
 ### `warn-all-files-staged`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Demande à Claude de vérifier ce qu'il indexe lorsqu'il exécute `git add -A` ou `git add .`. Ne bloque pas la commande.
+**Défaut :** Demande à Claude de vérifier ce qu'il indexe lors de l'exécution de `git add -A` ou `git add .`. Ne bloque pas la commande.
 
 Aucun paramètre.
 
@@ -581,7 +581,7 @@ Aucun paramètre.
 ### `warn-schema-alteration`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Demande à Claude de confirmer avant d'exécuter des instructions `ALTER TABLE`.
+**Défaut :** Demande à Claude de confirmer avant d'exécuter des instructions `ALTER TABLE`.
 
 Aucun paramètre.
 
@@ -594,7 +594,7 @@ Fournit aux agents un contexte supplémentaire avant des opérations potentielle
 ### `warn-large-file-write`
 
 **Événement :** PreToolUse (Write)  
-**Par défaut :** Demande à Claude de confirmer avant d'écrire des fichiers de plus de 1024 Ko.
+**Défaut :** Demande à Claude de confirmer avant d'écrire des fichiers de plus de 1024 Ko.
 
 **Paramètres :**
 
@@ -623,7 +623,7 @@ Le gestionnaire de hook impose une limite de 1 Mo sur stdin pour les charges uti
 ### `warn-package-publish`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Demande à Claude de confirmer avant d'exécuter `npm publish`.
+**Défaut :** Demande à Claude de confirmer avant d'exécuter `npm publish`.
 
 Aucun paramètre.
 
@@ -632,7 +632,7 @@ Aucun paramètre.
 ### `warn-background-process`
 
 **Événement :** PreToolUse (Bash)  
-**Par défaut :** Demande à Claude d'être prudent lors du lancement de processus en arrière-plan via `nohup`, `&`, `disown` ou `screen`.
+**Défaut :** Demande à Claude d'être prudent lors du lancement de processus en arrière-plan via `nohup`, `&`, `disown` ou `screen`.
 
 Aucun paramètre.
 

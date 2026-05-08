@@ -1,6 +1,5 @@
 ---
----
-title: لوحة التحكم
+title: لوحة المعلومات
 description: "مراقبة جلسات الوكيل، ومراجعة استدعاءات الأدوات، وإدارة السياسات"
 icon: chart-line
 ---
@@ -9,7 +8,7 @@ icon: chart-line
 
 ---
 
-## بدء لوحة التحكم
+## بدء لوحة المعلومات
 
 ```bash
 failproofai
@@ -17,7 +16,7 @@ failproofai
 
 يُفتح على `http://localhost:8020`.
 
-تقرأ لوحة التحكم مباشرة من نظام الملفات - مجلدات مشاريع Claude Code وملفات إعدادات failproofai. لا يتم كتابة أي شيء إلى خدمة بعيدة.
+تقرأ لوحة المعلومات مباشرة من نظام الملفات - مجلدات مشاريع Claude Code وملفات تكوين failproofai. لا يتم كتابة أي شيء إلى خدمة بعيدة.
 
 ---
 
@@ -93,7 +92,7 @@ failproofai
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
 ```
 
-القيم الصحيحة: `policies`، `projects`.
+القيم الصحيحة: `policies` و `projects`.
 
 ---
 
@@ -133,7 +132,7 @@ npm run dev -- --allowed-origins dashboard.example.com
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-يمكنك أيضاً ضبط متغير البيئة `FAILPROOFAI_ALLOWED_DEV_ORIGINS` بدلاً من ذلك:
+يمكنك أيضًا تعيين متغير البيئة `FAILPROOFAI_ALLOWED_DEV_ORIGINS` بدلاً من ذلك:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev

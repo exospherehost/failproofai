@@ -117,7 +117,7 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 जब डैशबोर्ड को **dev mode** (`npm run dev`) में चलाते हैं और `localhost` के अलावा किसी होस्टनाम से एक्सेस करते हैं - उदाहरण के लिए, एक कस्टम डोमेन, एक दूरस्थ IP, या एक टनल URL - आप इस तरह एक चेतावनी देख सकते हैं:
 
 ```text
-⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
+⚠ "dashboard.example.com" से Next.js dev संसाधन /_next/webpack-hmr के लिए अवरोधित क्रॉस-ऑरिजिन अनुरोध।
 ```
 
 यह Next.js अपने HMR (hot module reload) websocket के cross-origin एक्सेस को ब्लॉक कर रहा है, जो एक dev-only सुविधा है। अपने होस्ट को अनुमति देने के लिए, `--allowed-origins` फ़्लैग का उपयोग करें:
@@ -132,7 +132,7 @@ npm run dev -- --allowed-origins dashboard.example.com
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-आप इसके बजाय `FAILPROOFAI_ALLOWED_DEV_ORIGINS` पर्यावरण चर भी सेट कर सकते हैं:
+आप `FAILPROOFAI_ALLOWED_DEV_ORIGINS` पर्यावरण चर को भी सेट कर सकते हैं:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev

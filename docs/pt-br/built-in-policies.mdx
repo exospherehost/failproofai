@@ -8,17 +8,17 @@ failproofai vem com 39 políticas integradas que detectam falhas comuns de agent
 
 ---
 
-## Visão geral
+## Visão Geral
 
 As políticas são agrupadas em categorias:
 
 | Categoria | Políticas | Tipo de hook |
 |----------|----------|-----------|
-| [Comandos perigosos](#dangerous-commands) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
-| [Comandos de infraestrutura](#infra-commands) | block-kubectl, block-terraform, block-aws-cli, block-gcloud, block-az-cli, block-helm, block-gh-pipeline | PreToolUse |
-| [Segredos (sanitizadores)](#secrets-sanitizers) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
-| [Ambiente](#environment) | block-env-files, protect-env-vars | PreToolUse |
-| [Acesso a arquivos](#file-access) | block-read-outside-cwd, block-secrets-write | PreToolUse |
+| [Comandos perigosos](#comandos-perigosos) | block-sudo, block-rm-rf, block-curl-pipe-sh, block-failproofai-commands | PreToolUse |
+| [Comandos de infraestrutura](#comandos-de-infraestrutura) | block-kubectl, block-terraform, block-aws-cli, block-gcloud, block-az-cli, block-helm, block-gh-pipeline | PreToolUse |
+| [Segredos (sanitizadores)](#segredos-sanitizadores) | sanitize-jwt, sanitize-api-keys, sanitize-connection-strings, sanitize-private-key-content, sanitize-bearer-tokens | PostToolUse |
+| [Ambiente](#ambiente) | block-env-files, protect-env-vars | PreToolUse |
+| [Acesso a arquivos](#acesso-a-arquivos) | block-read-outside-cwd, block-secrets-write | PreToolUse |
 | [Git](#git) | block-push-master, block-work-on-main, block-force-push, warn-git-amend, warn-git-stash-drop, warn-all-files-staged | PreToolUse |
 | [Banco de dados](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [Avisos](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
@@ -27,7 +27,7 @@ As políticas são agrupadas em categorias:
 
 - **`block-`** — impede o agente de prosseguir.
 - **`warn-`** — fornece contexto adicional ao agente para que ele possa se autocorrigir.
-- **`sanitize-`** — remove dados sensíveis da saída da ferramenta antes que o agente os veja.
+- **`sanitize-`** — remove dados sensíveis da saída da ferramenta antes que o agente a veja.
 
 ### Namespaces
 
@@ -340,7 +340,7 @@ Impede agentes de vazar credenciais para seu contexto ou saída. As políticas d
 ### `sanitize-jwt`
 
 **Evento:** PostToolUse (todas as ferramentas)  
-**Padrão:** Oculta tokens JWT (três segmentos base64url separados por `.`).
+**Padrão:** Redige tokens JWT (três segmentos base64url separados por `.`).
 
 Sem parâmetros.
 
@@ -355,7 +355,7 @@ Sem parâmetros.
 
 | Parâmetro | Tipo | Padrão | Descrição |
 |-------|------|---------|-------------|
-| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Padrões regex adicionais para tratar como segredos. |
+| `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | Padrões regex adicionais a serem tratados como segredos. |
 
 **Exemplo:**
 
@@ -395,7 +395,7 @@ Sem parâmetros.
 ### `sanitize-bearer-tokens`
 
 **Evento:** PostToolUse (todas as ferramentas)  
-**Padrão:** Oculta cabeçalhos `Authorization: Bearer <token>` onde o token tem 20 ou mais caracteres.
+**Padrão:** Redige cabeçalhos `Authorization: Bearer <token>` onde o token tem 20 ou mais caracteres.
 
 Sem parâmetros.
 
@@ -530,7 +530,7 @@ Para permitir push em todos os branches (desativando efetivamente esta política
 **Evento:** PreToolUse (Bash)  
 **Padrão:** Nega `git push --force` e `git push -f`.
 
-Sem parâmetros específicos da política. Use o [`hint`](/pt-br/configuration#hint-cross-cutting) transversal para sugerir alternativas:
+Sem parâmetros específicos de política. Use o [`hint`](/pt-br/configuration#hint-cross-cutting) transversal para sugerir alternativas:
 
 ```json
 {
@@ -711,7 +711,7 @@ Todas as políticas de fluxo de trabalho são **fail-open**: se a ferramenta nec
 ### `require-commit-before-stop`
 
 **Evento:** Stop  
-**Padrão:** Nega a parada quando há alterações não commitadas (arquivos modificados, em stage ou não rastreados). Retorna uma mensagem informativa quando o diretório de trabalho está limpo.
+**Padrão:** Nega a parada quando há alterações não commitadas (arquivos modificados, staged ou não rastreados). Retorna uma mensagem informativa quando o diretório de trabalho está limpo.
 
 Sem parâmetros.
 
@@ -771,7 +771,7 @@ Ignora completamente (permite) quando: `gh` não está instalado, não existe PR
 
 | Parâmetro | Tipo | Padrão | Descrição |
 |-------|------|---------|-------------|
-| `baseBranch` | `string` | `"main"` | Branch base para verificar conflitos. |
+| `baseBranch` | `string` | `"main"` | Branch base contra o qual verificar conflitos. |
 
 <Note>
 O GitHub CLI (`gh`) é necessário para esta política. A política usa `gh pr view` para confirmar
@@ -785,7 +785,7 @@ o escopo `repo` para acesso de leitura a pull requests.
 ### `require-ci-green-before-stop`
 
 **Evento:** Stop  
-**Padrão:** Nega a parada quando as verificações de CI estão falhando ou ainda em execução no branch atual. Verifica tanto as execuções de workflow do GitHub Actions quanto as verificações de bots de terceiros (ex.: CodeRabbit, SonarCloud, Codecov). Trata conclusões `skipped` e `cancelled` como sucesso. Retorna uma mensagem informativa quando todas as verificações passam.
+**Padrão:** Nega a parada quando verificações de CI estão falhando ou ainda em execução no branch atual. Verifica tanto as execuções de workflow do GitHub Actions quanto as verificações de bots de terceiros (ex.: CodeRabbit, SonarCloud, Codecov). Trata conclusões `skipped` e `cancelled` como sucesso. Retorna uma mensagem informativa quando todas as verificações passam.
 
 Sem parâmetros.
 

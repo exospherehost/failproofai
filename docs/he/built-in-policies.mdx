@@ -23,13 +23,13 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 | [בסיס נתונים](#database) | warn-destructive-sql, warn-schema-alteration | PreToolUse |
 | [אזהרות](#warnings) | warn-large-file-write, warn-package-publish, warn-background-process, warn-global-package-install | PreToolUse |
 | [מנהלי חבילות](#package-managers) | prefer-package-manager | PreToolUse |
-| [Workflow](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-no-conflicts-before-stop, require-ci-green-before-stop | Stop |
+| [זרימת עבודה](#workflow) | require-commit-before-stop, require-push-before-stop, require-pr-before-stop, require-no-conflicts-before-stop, require-ci-green-before-stop | Stop |
 
 - **`block-`** — עצור את הסוכן מהמשך.
 - **`warn-`** — תן לסוכן הקשר נוסף כדי שיוכל לתקן את עצמו.
 - **`sanitize-`** — נקה נתונים רגישים מפלט הכלי לפני שהסוכן רואה אותו.
 
-### Namespaces
+### מרחבי שמות
 
 כל מדיניות חיה בחריץ `<namespace>/<name>`. מדיניויות מובנות שייכות ל-namespace **`exospherehost/`** — לדוגמה, `exospherehost/sanitize-jwt`. ה-namespace מונע התנגשויות כאשר אתה גם טוען מדיניויות מותאמות או של צד שלישי עם שמות קצרים דומים.
 
@@ -68,7 +68,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | קידומות פקודה מדויקות המותרות. כל entry מתואמת כנגד אסימוני argv המפוענחים. |
 
@@ -99,7 +99,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPaths` | `string[]` | `[]` | נתיבים בטוחים למחיקה רקורסיבית (למשל `/tmp`). |
 
@@ -148,7 +148,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | קידומות פקודה kubectl המותרות. |
 
@@ -175,7 +175,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | קידומות פקודה terraform/tofu המותרות. |
 
@@ -200,7 +200,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | קידומות פקודה aws CLI המותרות. |
 
@@ -225,7 +225,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | קידומות פקודה gcloud המותרות. |
 
@@ -250,7 +250,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | קידומות פקודה az CLI המותרות. |
 
@@ -275,7 +275,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | קידומות פקודה helm המותרות. |
 
@@ -309,7 +309,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPatterns` | `string[]` | `[]` | הפעלות scripted ספציפיות להתיר גם כי אחרת היו כבויות. |
 
@@ -347,7 +347,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `additionalPatterns` | `{ regex: string; label: string }[]` | `[]` | דפוסי regex נוספים להתייחס אליהם כסודות. |
 
@@ -397,7 +397,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 ## סביבה
 
-הגן על תצורת סביבה רגישה מקריאה או חשיפה על ידי סוכנים.
+הגן על תצורת סביבה רגישה מהיווצרות קריאה או חשיפה על ידי סוכנים.
 
 ### `block-env-files`
 
@@ -430,7 +430,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `allowPaths` | `string[]` | `[]` | קידומות נתיב מוחלט המותרות גם אם בחוץ שורש הפרויקט. |
 
@@ -455,7 +455,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `additionalPatterns` | `string[]` | `[]` | דפוסי שם קובץ נוספים (glob-style) לחסימה. |
 
@@ -484,7 +484,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | שמות branch שלא ניתן לדחוף אליהם ישירות. |
 
@@ -513,7 +513,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `protectedBranches` | `string[]` | `["main", "master"]` | שמות branch שעליהם commit/merge/rebase/cherry-pick כבוי. |
 
@@ -598,7 +598,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `thresholdKb` | `number` | `1024` | סף גודל קובץ בקילוביטים שמעליו מונפקת אזהרה. |
 
@@ -658,7 +658,7 @@ failproofai משלחת עם 39 מדיניויות מובנות התופסות מ
 
 Detects: pip, pip3, python -m pip, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, poetry, pipenv, conda, cargo.
 
-| Parameter | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-----------|------|---------|-------------|
 | `allowed` | string[] | `[]` | שמות מנהל חבילות מותרים. כל מנהל זוהה שלא ברשימה זו כבוי. כאשר ריק, המדיניות היא no-op. |
 | `blocked` | string[] | `[]` | שמות מנהל נוספים לחסימה מעבר לרשימה המובנית (למשל `['pdm', 'pipx']`). |
@@ -696,7 +696,7 @@ Detects: pip, pip3, python -m pip, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, po
 
 ---
 
-## Workflow
+## זרימת עבודה
 
 אֶנְפּוֹר disicpline end-of-session workflow. מדיניויות אלה מופעלות על אירוע **Stop** וכבויות Claude מעצירה עד שכל תנאי מתקיימים. הם עוקבים אחר שרשרת תלות טבעית: commit → push → PR → CI. אם מדיניות כבויה, מדיניויות מאוחרות יותר בשרשרת דילוגות (deny short-circuits).
 
@@ -718,7 +718,7 @@ Detects: pip, pip3, python -m pip, npm, npx, yarn, pnpm, pnpx, bun, bunx, uv, po
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `remote` | `string` | `"origin"` | שם remote לדחוף אליו. |
 
@@ -763,7 +763,7 @@ pull requests. אם `gh` לא מותקן או לא מאומת, המדיניות 
 
 **Parameters:**
 
-| Param | Type | Default | Description |
+| פרמטר | סוג | ברירת מחדל | תיאור |
 |-------|------|---------|-------------|
 | `baseBranch` | `string` | `"main"` | Base branch to check for conflicts against. |
 

@@ -28,7 +28,7 @@
 الطريقة الأسهل لإدارة السياسات التي تحافظ على موثوقية وكلائك الذكيين والعاملين بشكل مستقل - لـ **Claude Code**, **OpenAI Codex**, **GitHub Copilot CLI** _(تجريبي)_, **Cursor Agent** _(تجريبي)_, **OpenCode** _(تجريبي)_, **Pi** _(تجريبي)_, **Gemini CLI** _(تجريبي)_ و **Agents SDK**.
 
 <p align="center">
-  <img src="failproofai-hq.gif" alt="Failproof AI in action" width="800" />
+  <img src="failproofai-hq.gif" alt="Failproof AI في العمل" width="800" />
 </p>
 
 ## واجهات برمجة التطبيقات للوكلاء المدعومة
@@ -89,7 +89,7 @@
 - **تكوين سهل** - اضبط أي سياسة بدون كتابة أكواد. عيّن قوائم السماح والفروع المحمية والعتبات لكل مشروع أو عام. يتم دمج تكوين النطاق الثلاثي تلقائياً.
 - **مراقب الوكيل** - انظر ماذا فعل وكلاؤك بينما كنت بعيداً. استعرض الجلسات وفتش كل استدعاء أداة وراجع بالضبط حيث تم تفعيل السياسات.
 
-كل شيء يعمل محلياً - لا تترك البيانات جهازك.
+كل شيء يعمل محلياً - لا تترك أي بيانات آلتك.
 
 ---
 
@@ -162,7 +162,7 @@ failproofai policies --uninstall --scope project
 
 ---
 
-## التكوين
+## الإعدادات
 
 تعيش تكوين السياسة في `~/.failproofai/policies-config.json` (عام) أو `.failproofai/policies-config.json` في مشروعك (لكل مشروع).
 
@@ -179,15 +179,15 @@ failproofai policies --uninstall --scope project
   "policyParams": {
     "block-sudo": {
       "allowPatterns": ["sudo systemctl status", "sudo journalctl"],
-      "hint": "Use apt-get directly without sudo."
+      "hint": "استخدم apt-get مباشرة بدون sudo."
     },
     "block-push-master": {
       "protectedBranches": ["main", "release", "prod"],
-      "hint": "Try creating a fresh branch instead."
+      "hint": "حاول إنشاء فرع جديد بدلاً من ذلك."
     },
     "sanitize-api-keys": {
       "additionalPatterns": [
-        { "regex": "myco_[A-Za-z0-9]{32}", "label": "MyCo API key" }
+        { "regex": "myco_[A-Za-z0-9]{32}", "label": "مفتاح API لـ MyCo" }
       ]
     },
     "warn-large-file-write": {
@@ -245,12 +245,12 @@ import { customPolicies, allow, deny, instruct } from "failproofai";
 
 customPolicies.add({
   name: "no-production-writes",
-  description: "Block writes to paths containing 'production'",
+  description: "حجب الكتابة إلى المسارات التي تحتوي على 'production'",
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (!["Write", "Edit"].includes(ctx.toolName ?? "")) return allow();
     const path = ctx.toolInput?.file_path ?? "";
-    if (path.includes("production")) return deny("Writes to production paths are blocked");
+    if (path.includes("production")) return deny("الكتابة إلى مسارات الإنتاج محظورة");
     return allow();
   },
 });
@@ -278,10 +278,10 @@ failproofai policies --install --custom ./my-policies.js
 | `eventType` | `string` | `PreToolUse`, `PostToolUse`, `Notification`, `Stop` |
 | `toolName` | `string` | الأداة التي يتم استدعاؤها (`Bash`, `Write`, `Read`, …) |
 | `toolInput` | `object` | معاملات إدخال الأداة |
-| `payload` | `object` | حمل الحدث الخام الكامل |
+| `payload` | `object` | حمولة الحدث الخام الكاملة |
 | `session.cwd` | `string` | دليل العمل لجلسة Claude Code |
-| `session.sessionId` | `string` | معرف الجلسة |
-| `session.transcriptPath` | `string` | المسار إلى ملف نسخة الجلسة |
+| `session.sessionId` | `string` | معرّف الجلسة |
+| `session.transcriptPath` | `string` | المسار إلى ملف نسخ جلسة الجلسة |
 
 تدعم الخطافات المخصصة الاستيراد المحلي المتكرر وasync/await والوصول إلى `process.env`. الأخطاء تفشل مفتوحة (مسجلة في `~/.failproofai/hook.log`، السياسات المدمجة تستمر). انظر [docs/custom-hooks.mdx](docs/custom-hooks.mdx) للدليل الكامل.
 

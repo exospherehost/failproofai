@@ -154,7 +154,7 @@ failproofai policies --install block-sudo block-rm-rf sanitize-api-keys
 
 ```bash
 failproofai policies --uninstall
-# или для конкретной области:
+# или для конкретной области видимости:
 failproofai policies --uninstall --scope project
 ```
 
@@ -263,10 +263,10 @@ failproofai policies --install --custom ./my-policies.js
 ### Вспомогательные функции принятия решений
 
 | Функция | Эффект |
-|---------|--------|
+|----------|--------|
 | `allow()` | Разрешить операцию |
 | `allow(message)` | Разрешить и отправить информационный контекст Claude |
-| `deny(message)` | Заблокировать операцию; сообщение показано Claude |
+| `deny(message)` | Блокировать операцию; сообщение показано Claude |
 | `instruct(message)` | Добавить контекст в подсказку Claude; не блокирует |
 
 ### Объект контекста (`ctx`)
@@ -279,7 +279,7 @@ failproofai policies --install --custom ./my-policies.js
 | `payload` | `object` | Полный сырой payload события |
 | `session.cwd` | `string` | Рабочая директория сессии Claude Code |
 | `session.sessionId` | `string` | Идентификатор сессии |
-| `session.transcriptPath` | `string` | Путь к файлу транскрипта сессии |
+| `session.transcriptPath` | `string` | Путь к файлу стенограммы сессии |
 
 Пользовательские хуки поддерживают переходные локальные импорты, async/await и доступ к `process.env`. Ошибки работают с открытым отказом (логируются в `~/.failproofai/hook.log`, встроенные политики продолжают работу). См. [docs/custom-hooks.mdx](docs/custom-hooks.mdx) для полного руководства.
 
@@ -304,7 +304,7 @@ failproofai policies --install --custom ./my-policies.js
 
 Failproof AI собирает анонимную телеметрию использования через PostHog для понимания использования функций. Содержимое сессии, имена файлов, входные данные инструментов или личная информация никогда не отправляются.
 
-Отключите это:
+Отключить:
 
 ```bash
 FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
@@ -315,8 +315,8 @@ FAILPROOFAI_TELEMETRY_DISABLED=1 failproofai
 ## Документация
 
 | Руководство | Описание |
-|-------------|---------|
-| [Начало работы](docs/getting-started.mdx) | Установка и первые шаги |
+|-------|-------------|
+| [Быстрый старт](docs/getting-started.mdx) | Установка и первые шаги |
 | [Встроенные политики](docs/built-in-policies.mdx) | Все 39 встроенных политик с параметрами |
 | [Пользовательские политики](docs/custom-policies.mdx) | Напишите свои политики |
 | [Конфигурация](docs/configuration.mdx) | Формат файла конфигурации и объединение областей |

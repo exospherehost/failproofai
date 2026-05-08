@@ -22,7 +22,7 @@ failproofai
 
 ## עמודים
 
-### Projects
+### פרויקטים
 
 מפרט את כל פרויקטי Claude Code, OpenAI Codex, GitHub Copilot CLI _(beta)_, Cursor Agent _(beta)_, OpenCode _(beta)_, Pi _(beta)_, ו-Gemini CLI _(beta)_ שנמצאו במחשב שלך. פרויקטי Claude מתגלים מ-`~/.claude/projects/` (או הנתיב המוגדר על ידי `CLAUDE_PROJECTS_PATH`); פרויקטי Codex מתגלים על ידי סריקת כל תמלול תחת `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` וקיבוץ לפי `cwd` המתועד בתיעוד הראשון של כל הפעלה; פרויקטי Copilot CLI מתגלים על ידי סריקת כל `~/.copilot/session-state/<sessionId>/workspace.yaml` (ניתן להגדרה דרך `COPILOT_HOME`) וקיבוץ לפי שדה `cwd` שלו; פרויקטי Cursor Agent מתגלים על ידי סריקת מטא-נתונים לכל הפעלה תחת `~/.cursor/agent-sessions/<sessionId>/` (ניתן להגדרה דרך `CURSOR_HOME`, עם `conversations/` ו-`sessions/` כחיפוש גישה חלופי) עבור סקלאר `cwd` ב-`meta.json` / `session.json` / `workspace.yaml`; פרויקטי OpenCode מתגלים על ידי שאילתה של בסיס הנתונים SQLite שלו ב-`~/.local/share/opencode/opencode.db` דרך `opencode db --format json` (אנחנו קוראים את הטבלאות `session` ו-`project` וקיבוץ לפי `project_id`); פרויקטי Pi מתגלים על ידי סריקת תמלולי JSONL לכל הפעלה תחת `~/.pi/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl` (ניתן להגדרה דרך `PI_SESSIONS_DIR`) והוצאת `cwd` מתיעוד הראשון של כל הפעלה; פרויקטי Gemini CLI מתגלים על ידי סריקת `~/.gemini/tmp/<basename>/chats/session-<timestamp>-<uuid-prefix>.jsonl` (ניתן להגדרה דרך `GEMINI_SESSIONS_DIR`) והחזרת cwd הקנוני מסימן המסמן `.project_root` הסמוך. פרויקט ששימש ממספר CLIs מופיע כשורה יחידה עם כל התגי התאמה. השתמש בתפריט הנפתח **CLI** מעל הטבלה לסינון לפי סוכן CLI ספציפי; ה-URL שומר את הבחירה שלך כ-`?cli=claude|codex|copilot|cursor|opencode|pi|gemini`.
 
@@ -33,7 +33,7 @@ failproofai
 
 לחץ על פרויקט כדי לראות את ההפעלות שלו.
 
-### Sessions
+### הפעלות
 
 מפרט את כל ההפעלות בתוך פרויקט. כל הפעלה מציגה:
 - מזהה ההפעלה
@@ -57,7 +57,7 @@ failproofai
 
 לחץ על כפתור **Download Logs** לייצוא ההפעלה. עבור Claude Code, Codex, Copilot, Cursor, Pi, ו-Gemini sessions אתה מקבל את תמלול JSONL המקורי על הדיסק בתוך בתים; עבור OpenCode (שההפעלות שלו גרות ב-SQLite, לא על הדיסק) אתה מקבל מסמך JSON המשקף את הטבלאות `session` / `messages` / `parts` שלו.
 
-### Policies
+### מדיניויות
 
 עמוד בשתי לשוניות לניהול מדיניות וביקורת פעילות.
 
@@ -92,7 +92,7 @@ failproofai
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
 ```
 
-ערכים תקפים: `policies`, `projects`.
+ערכים חוקיים: `policies`, `projects`.
 
 ---
 

@@ -39,7 +39,7 @@ Liste toutes les sessions d'un projet. Chaque session affiche :
 - L'identifiant de session
 - Les horodatages de début et de fin
 - Le nombre d'appels d'outils
-- Le nombre d'activités de hook (politiques déclenchées)
+- Le nombre d'activités de hooks (politiques déclenchées)
 
 Utilisez le filtre de plage de dates et la recherche par identifiant de session pour affiner la liste. Les sessions sont paginées.
 
@@ -112,7 +112,7 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## Accéder depuis un hôte autre que localhost
+## Accès depuis un hôte non-localhost
 
 Lorsque vous exécutez le dashboard en **mode développement** (`npm run dev`) et y accédez depuis un nom d'hôte autre que `localhost` — par exemple, un domaine personnalisé, une IP distante ou une URL tunnelisée — vous pourriez voir un avertissement du type :
 
@@ -126,7 +126,7 @@ Il s'agit de Next.js qui bloque l'accès cross-origin à son websocket HMR (rech
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-Pour plusieurs hôtes ou adresses IP, passez une liste séparée par des virgules :
+Pour plusieurs hôtes ou IPs, passez une liste séparée par des virgules :
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
