@@ -82,7 +82,10 @@ export function stripStrayTrailingFence(content: string): string {
   const lines = content.split("\n");
   const fenceLineIndices: number[] = [];
   for (let i = 0; i < lines.length; i++) {
-    if (/^```/.test(lines[i])) fenceLineIndices.push(i);
+    // Match exactly three backticks at start of line — `^```(?!`)` excludes
+    // longer-fence markers (```` etc.) so an inner ``` *inside* a quad-tick
+    // block isn't miscounted as a marker.
+    if (/^```(?!`)/.test(lines[i])) fenceLineIndices.push(i);
   }
   if (fenceLineIndices.length % 2 === 0) return content;
   const dropIdx = fenceLineIndices[fenceLineIndices.length - 1];

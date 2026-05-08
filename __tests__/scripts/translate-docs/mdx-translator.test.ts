@@ -165,4 +165,11 @@ describe("stripStrayTrailingFence", () => {
     const input = "```ts\nfoo\n```\n\n```bash\nbar\n```\n";
     expect(stripStrayTrailingFence(input)).toBe(input);
   });
+
+  it("does not count quad-tick fence markers as triple-tick fences", () => {
+    // 4-tick block ```` ... ```` legally contains ``` as content; only the
+    // 4-tick lines are real markers and should not be counted by the helper.
+    const input = "````\ninner ``` content\n````\n";
+    expect(stripStrayTrailingFence(input)).toBe(input);
+  });
 });
