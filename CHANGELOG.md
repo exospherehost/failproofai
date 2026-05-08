@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.10-beta.5 — 2026-05-08
+
 ### Features
 - `policies --install`: redesign the multi-CLI selection menu in `src/hooks/install-prompt.ts` so it groups options into a `Detected (N)` section (with a `★ Install for all N detected` aggregate row) and, for the install action only, a `Not installed (M) · install hooks ahead of time` section listing every undetected supported CLI as a forward-install option. Markers are colored — yellow `★` for the aggregate row, green `●` for detected rows, dim `○` for undetected — and labels for undetected CLIs render dim so the visual hierarchy matches the semantic one. Replaces the previous flat "All / Claude Code only / Codex only / …" list whose lone right-aligned description on the "All" row left odd column widths. The uninstall flow continues to show only detected CLIs (you cannot remove from what was never installed) and now reads "Remove from all N detected" on its aggregate row. Refactor extracts the option-building logic into a new exported `buildCliMenuOptions(detected, action)` helper so the layout rules (aggregate row only when `detected.length > 1`, undetected only when `action === "install"`) are unit-testable without driving the keypress loop. Also syncs `docs/configuration.mdx` to describe the new sectioned layout (#302).
 
