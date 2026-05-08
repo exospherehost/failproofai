@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { LANGUAGES, getLanguageByCode } from "./config";
 import { translateContent } from "./translator";
+import { stripStrayTrailingFence } from "./mdx-translator";
 import { readCache, writeCache, isCached, setCacheEntry } from "./cache";
 import type { TranslationResult, TranslationCache } from "./types";
 
@@ -102,7 +103,12 @@ export async function translateReadme(
   const rtlOpen = langConfig.rtl ? `<div dir="rtl">\n\n` : "";
   const rtlClose = langConfig.rtl ? `\n\n</div>` : "";
 
-  const output = `${disclaimer}\n\n${langSelector}\n\n---\n${rtlOpen}\n${translated}\n${rtlClose}`;
+  // Drop any stray trailing fence the model hallucinated — would otherwise
+  // open an unclosed code block that swallows the wrapping `</div>` for RTL
+  // pages and break Mintlify's MDX parser.
+  const cleaned = stripStrayTrailingFence(translated);
+
+  const output = `${disclaimer}\n\n${langSelector}\n\n---\n${rtlOpen}\n${cleaned}\n${rtlClose}`;
 
   // Write output
   mkdirSync(I18N_DIR, { recursive: true });

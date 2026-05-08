@@ -68,6 +68,29 @@ export function sanitizeJsxAttributes(content: string): string {
 }
 
 /**
+ * Drop a stray trailing code-fence line that the model sometimes appends to
+ * the very end of long translations (empirically observed on streamed Sonnet
+ * runs of large pages, e.g. README.he.md / README.tr.md after the streaming
+ * switch). Only fires when the total count of fence-lines is odd — the last
+ * unmatched fence is stripped, preserving every balanced pair before it.
+ *
+ * The Mintlify MDX parser interprets an unmatched ``` as opening a code
+ * block that consumes everything to EOF, including the wrapper `</div>` for
+ * RTL pages, which surfaces as `Expected a closing tag for <div>`.
+ */
+export function stripStrayTrailingFence(content: string): string {
+  const lines = content.split("\n");
+  const fenceLineIndices: number[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (/^```/.test(lines[i])) fenceLineIndices.push(i);
+  }
+  if (fenceLineIndices.length % 2 === 0) return content;
+  const dropIdx = fenceLineIndices[fenceLineIndices.length - 1];
+  lines.splice(dropIdx, 1);
+  return lines.join("\n");
+}
+
+/**
  * Rewrite internal doc links to include the language prefix.
  * e.g. href="/built-in-policies" -> href="/es/built-in-policies"
  *      [Getting started](/getting-started) -> [Getting started](/es/getting-started)
@@ -147,8 +170,10 @@ export async function translateMdxPage(
     options.model,
   );
 
-  // Strip stray quote artifacts from JSX attribute values, then rewrite links
-  const sanitized = sanitizeJsxAttributes(translated);
+  // Strip stray quote artifacts from JSX attribute values, drop any
+  // unmatched trailing code fence the model sometimes hallucinates, then
+  // rewrite links.
+  const sanitized = stripStrayTrailingFence(sanitizeJsxAttributes(translated));
   const withLinks = rewriteInternalLinks(sanitized, lang);
 
   // Write output
