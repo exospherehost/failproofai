@@ -362,4 +362,3 @@ failproofai policies --install --scope project
 ---
 
 **ExosphereHost: Ajanlarınız için Güvenilirlik Araştırması Laboratuvarı** tarafından oluşturulmuş ve yönetilmektedir. Kuruluşlar ve yeni başlayanların AI ajanlarının güvenilirliğini kendi ajanları, yazılımı ve uzmanlığı aracılığıyla artırmasına yardımcı oluyoruz. Daha fazla bilgi için [exosphere.host](https://exosphere.host) adresini ziyaret edin.
-```

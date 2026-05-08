@@ -364,7 +364,6 @@ failproofai policies --install --scope project
 ---
 
 בנוי ותחזוקה על ידי **ExosphereHost: Reliability Research Lab for Your Agents**. אנחנו עוזרים לארגונים וסטארטאפים לשפר את האמינות של סוכניהם בינות דרך סוכנים, תוכנה ומומחיות משלנו. למד עוד ב-[exosphere.host](https://exosphere.host).
-```
 
 
 </div>

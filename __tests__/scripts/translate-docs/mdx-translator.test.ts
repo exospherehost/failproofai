@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   rewriteInternalLinks,
   sanitizeJsxAttributes,
+  stripStrayTrailingFence,
 } from "@/scripts/translate-docs/mdx-translator";
 
 describe("rewriteInternalLinks", () => {
@@ -127,5 +128,41 @@ describe("sanitizeJsxAttributes", () => {
     const input = `<Tabs><Tab title="A"" /><Tab title="B"" /></Tabs>`;
     const result = sanitizeJsxAttributes(input);
     expect(result).toBe(`<Tabs><Tab title="A" /><Tab title="B" /></Tabs>`);
+  });
+});
+
+describe("stripStrayTrailingFence", () => {
+  it("leaves balanced fences untouched", () => {
+    const input = "intro\n\n```ts\nconst x = 1;\n```\n\noutro\n";
+    expect(stripStrayTrailingFence(input)).toBe(input);
+  });
+
+  it("returns input unchanged when no fences", () => {
+    const input = "Just some prose with `inline code` and no fences.\n";
+    expect(stripStrayTrailingFence(input)).toBe(input);
+  });
+
+  it("strips a stray trailing fence after a balanced pair", () => {
+    const input = "intro\n\n```ts\nconst x = 1;\n```\n\noutro\n```\n";
+    const expected = "intro\n\n```ts\nconst x = 1;\n```\n\noutro\n";
+    expect(stripStrayTrailingFence(input)).toBe(expected);
+  });
+
+  it("strips the lone fence when there's only one (odd count of one)", () => {
+    const input = "preamble\n\n```\nuncertain\nepilogue\n";
+    expect(stripStrayTrailingFence(input)).toBe(
+      "preamble\n\nuncertain\nepilogue\n",
+    );
+  });
+
+  it("only matches fence markers at start of line", () => {
+    // An inline ``` mid-line is not a fence marker; should not be counted.
+    const input = "text with embedded ```not-a-fence``` mid-line\n";
+    expect(stripStrayTrailingFence(input)).toBe(input);
+  });
+
+  it("preserves balanced pairs with language tags", () => {
+    const input = "```ts\nfoo\n```\n\n```bash\nbar\n```\n";
+    expect(stripStrayTrailingFence(input)).toBe(input);
   });
 });
