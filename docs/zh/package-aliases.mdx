@@ -1,16 +1,16 @@
 ---
 title: 包别名
-description: "已注册的防拼写错误别名及其工作原理"
+description: "已注册的防错别字别名及其工作原理"
 icon: copy
 ---
 
 ## 官方包
 
-npm 的正式包名为 **`failproofai`**：
+正式的 npm 包名为 **`failproofai`**：
 
 ```bash
 npm install -g failproofai
-# or
+# 或
 bun add -g failproofai
 ```
 
@@ -18,15 +18,15 @@ bun add -g failproofai
 
 ## 为什么我们持有这些别名
 
-供应链攻击中，拼写抢注（typosquatting）是一种常见手段——恶意攻击者注册一个与热门包名仅有一个按键之差的包名，不知情的用户在安装时一旦输错，便会运行攻击者控制的代码，并获得完整的系统访问权限。这正是 Failproof AI 所要防范的威胁。
+错别字抢注是一种常见的供应链攻击手段——恶意行为者注册一个与热门包名仅差一个按键的包名。不慎输错安装命令的用户最终会以完整的系统权限运行攻击者控制的代码，这正是 Failproof AI 旨在防范的威胁。
 
-为消除这一攻击面，**我们在 npm 上抢先注册了 `failproofai` 的所有常见拼写错误和格式变体**。这些包名均无法被第三方注册。每个别名都是一个轻量代理，安装后会自动委托给真正的 `failproofai` 包。
+为了消除这一攻击面，**我们在 npm 上抢先注册了 `failproofai` 所有常见的拼写错误和格式变体**。这些名称均无法被第三方注册。每一个都是一个轻量级代理，安装后会委托给真正的 `failproofai` 包。
 
 ---
 
 ## 已注册的别名
 
-**格式变体** —— "failproof ai" 的不同写法：
+**格式变体** — "failproof ai"的不同写法：
 
 | 包名 | 状态 |
 |---------|--------|
@@ -37,7 +37,7 @@ bun add -g failproofai
 | `fail_proof_ai` | ⏳ 等待 npm 审核 |
 | `fail-proofai` | ⏳ 等待 npm 审核 |
 
-**`failprof*` 拼写错误** —— "proof" 中缺少一个 `o`：
+**`failprof*` 拼写错误** — "proof"中少了一个 `o`：
 
 | 包名 | 状态 |
 |---------|--------|
@@ -47,7 +47,7 @@ bun add -g failproofai
 | `fail-prof-ai` | ⏳ 等待 npm 审核 |
 | `failprof_ai` | ⏳ 等待 npm 审核 |
 
-**`faliproof*` 拼写错误** —— `a` 和 `i` 互换位置：
+**`faliproof*` 拼写错误** — `a` 和 `i` 位置互换：
 
 | 包名 | 状态 |
 |---------|--------|
@@ -55,28 +55,28 @@ bun add -g failproofai
 | `faliproof-ai` | ✅ 已发布 |
 | `faliproofai` | ⏳ 等待 npm 审核 |
 
-> **为什么显示"等待审核"？** npm 的防滥用政策会拦截那些在去除标点符号并经过相似度检测后与已有包名规范化为同一字符串的新包名。我们已联系 npm 支持团队，申请以防抢注为由保留这些名称，获批后将正式激活。
+> **为什么显示等待审核？** npm 的垃圾防护策略会拦截那些在去除标点符号并进行相似度检查后与已有包名规范化结果相同的名称。我们已联系 npm 支持团队，申请以反抢注为由保留这些名称，审批通过后将予以激活。
 
-您可以通过以下命令验证任意已发布的别名均归我们所有：
+您可以验证任何已发布的别名是否由我们持有：
 
 ```bash
 npm info failproof
-# Look for: "ExosphereHost Inc." in the maintainers field
+# 查找：maintainers 字段中的 "ExosphereHost Inc."
 ```
 
 ---
 
 ## 别名的工作原理
 
-每个别名包的工作方式如下：
+每个别名包：
 
-1. 将 `failproofai` 列为依赖项——安装时会运行真正的包（包括其 `postinstall` 钩子配置）
-2. 暴露一个与自身同名的可执行文件（例如 `failprof-ai`），将所有参数代理转发给 `failproofai` 二进制文件
+1. 将 `failproofai` 列为依赖项——这样在安装时会运行真正的包（包括其 `postinstall` 钩子设置）
+2. 暴露一个与自身同名的二进制文件（例如 `failprof-ai`），将所有参数代理到 `failproofai` 二进制文件
 
-代理逻辑仅为两行 Node 脚本，没有任何业务逻辑、网络请求，也不会收集 `failproofai` 本身行为之外的任何数据。
+代理是一个两行的 Node 脚本，没有任何逻辑、网络请求，也不收集 `failproofai` 本身之外的任何数据。
 
 ---
 
-## 如果您发现我们遗漏的包名
+## 如果您发现我们遗漏的名称
 
-请在 [exospherehost/failproofai](https://github.com/exospherehost/failproofai/issues) 提交 issue，我们会及时注册。
+请在 [exospherehost/failproofai](https://github.com/exospherehost/failproofai/issues) 提交 issue，我们会进行注册。
