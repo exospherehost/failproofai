@@ -40,6 +40,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
+      # Cap matrix fan-out so the LiteLLM proxy at ANTHROPIC_BASE_URL
+      # never sees the full 14-way burst. With 4 jobs x MAX_CONCURRENT=2
+      # = 8 simultaneous requests, well under the proxy's empirical
+      # connection-drop knee point (see scripts/translate-docs/cli.ts).
+      max-parallel: 4
       matrix:
         lang: ${{ fromJson(needs.prepare.outputs.languages) }}
 
