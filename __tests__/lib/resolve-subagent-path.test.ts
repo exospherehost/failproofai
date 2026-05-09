@@ -50,6 +50,17 @@ describe("resolveSubagentPath", () => {
     await expect(resolveSubagentPath(projectsPath, projectName, sessionId, agentId)).resolves.toBe(candidate);
   });
 
+  it("returns candidate 1 when all candidate paths exist", async () => {
+    const candidate1 = join(projectsPath, projectName, `agent-${agentId}.jsonl`);
+    const candidate2 = join(projectsPath, projectName, sessionId, `agent-${agentId}.jsonl`);
+    const candidate3 = join(projectsPath, projectName, sessionId, "subagents", `agent-${agentId}.jsonl`);
+    await touch(candidate3);
+    await touch(candidate2);
+    await touch(candidate1);
+
+    await expect(resolveSubagentPath(projectsPath, projectName, sessionId, agentId)).resolves.toBe(candidate1);
+  });
+
   it("returns null when none of the candidate paths exist", async () => {
     await expect(resolveSubagentPath(projectsPath, projectName, sessionId, agentId)).resolves.toBeNull();
   });
@@ -58,6 +69,7 @@ describe("resolveSubagentPath", () => {
     const traversalAgentId = "../../../../escape";
     const escapedCandidate = join(projectsPath, projectName, `agent-${traversalAgentId}.jsonl`);
     expect(relative(projectsPath, escapedCandidate).startsWith("..")).toBe(true);
+    expect(relative(fixtureRoot, escapedCandidate).startsWith("..")).toBe(false);
     await touch(escapedCandidate);
 
     await expect(resolveSubagentPath(projectsPath, projectName, sessionId, traversalAgentId)).resolves.toBeNull();
