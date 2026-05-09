@@ -251,6 +251,63 @@ describe("hooks/policy-evaluator", () => {
     expect(parsed.followup_message).toContain("subagent verification pending");
   });
 
+  it("OpenCode Stop + instruct emits {hookSpecificOutput.additionalContext} JSON on stdout (NOT exit 2)", async () => {
+    // Mirrors the Copilot/Cursor instruct-on-Stop fixes: without a per-CLI
+    // branch, opencode instruct verdicts fall through to exit-2 + stderr,
+    // which the OpenCode shim throws from inside session.idle — a no-op
+    // because the agent has already gone idle. The shim's only working
+    // force-retry channel is hookSpecificOutput.additionalContext routed
+    // through client.session.prompt.
+    registerPolicy("verify", "desc", () => ({
+      decision: "instruct",
+      reason: "needs verification",
+    }), { events: ["Stop"] });
+
+    const result = await evaluatePolicies("Stop", {}, { cli: "opencode" });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.decision).toBe("instruct");
+    const parsed = JSON.parse(result.stdout) as { hookSpecificOutput?: { additionalContext?: string } };
+    expect(parsed.hookSpecificOutput?.additionalContext).toContain("MANDATORY ACTION REQUIRED");
+    expect(parsed.hookSpecificOutput?.additionalContext).toContain("needs verification");
+  });
+
+  it("OpenCode SubagentStop + instruct also emits {hookSpecificOutput.additionalContext} JSON", async () => {
+    // Forward-compat parity with the SubagentStop deny test — see comment
+    // there for why we widen even though OpenCode doesn't yet expose
+    // subagent boundaries to plugins.
+    registerPolicy("verify", "desc", () => ({
+      decision: "instruct",
+      reason: "subagent verification pending",
+    }), { events: ["SubagentStop"] });
+
+    const result = await evaluatePolicies("SubagentStop", {}, { cli: "opencode" });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.decision).toBe("instruct");
+    const parsed = JSON.parse(result.stdout) as { hookSpecificOutput?: { additionalContext?: string } };
+    expect(parsed.hookSpecificOutput?.additionalContext).toContain("subagent verification pending");
+  });
+
+  it("Gemini Stop + instruct emits {decision:'block', reason} JSON on stdout (force-retry via AfterAgent)", async () => {
+    // Confirms the existing cli==="gemini" Stop arm in the instruct path
+    // emits the documented force-retry shape. Pairs with the deny-path
+    // test in the "Stop event deny format" describe block.
+    registerPolicy("verify", "desc", () => ({
+      decision: "instruct",
+      reason: "needs verification",
+    }), { events: ["Stop"] });
+
+    const result = await evaluatePolicies("Stop", {}, { cli: "gemini" });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.decision).toBe("instruct");
+    const parsed = JSON.parse(result.stdout) as { decision?: string; reason?: string };
+    expect(parsed.decision).toBe("block");
+    expect(parsed.reason).toContain("MANDATORY ACTION REQUIRED");
+    expect(parsed.reason).toContain("needs verification");
+  });
+
   it("accumulates multiple instruct messages", async () => {
     registerPolicy("first", "desc", () => ({
       decision: "instruct",
@@ -604,6 +661,93 @@ describe("hooks/policy-evaluator", () => {
 
       await evaluatePolicies("Stop", {});
       expect(secondPolicyCalled.value).toBe(false);
+    });
+
+    it("OpenCode Stop deny emits {hookSpecificOutput.additionalContext} JSON on stdout (NOT exit 2)", async () => {
+      // OpenCode's `session.idle` event is notification-only — by the time
+      // the plugin handler fires, the agent has already gone idle and a
+      // thrown error from the handler does not force-retry. The shim's only
+      // working force-retry channel is `client.session.prompt(...)`, which
+      // it routes through `hookSpecificOutput.additionalContext`. Without
+      // this branch, the 5 require-*-before-stop builtins were
+      // observation-only on OpenCode — the deny was logged in the dashboard
+      // but the agent stopped silently.
+      registerPolicy("stop-blocker", "desc", () => ({
+        decision: "deny",
+        reason: "changes not committed",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {}, { cli: "opencode" });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      const parsed = JSON.parse(result.stdout) as { hookSpecificOutput?: { additionalContext?: string; permissionDecision?: string } };
+      expect(parsed.hookSpecificOutput?.additionalContext).toContain("MANDATORY ACTION REQUIRED");
+      expect(parsed.hookSpecificOutput?.additionalContext).toContain("changes not committed");
+      // Load-bearing: must NOT emit exit-2 (the shim would `throw` from
+      // session.idle, which OpenCode logs but ignores) or
+      // permissionDecision: "deny" (the shim would also throw on that path).
+      expect(parsed.hookSpecificOutput?.permissionDecision).toBeUndefined();
+      expect(result.decision).toBe("deny");
+    });
+
+    it("OpenCode SubagentStop deny also emits {hookSpecificOutput.additionalContext} JSON (forward-compat)", async () => {
+      // OpenCode does not yet expose subagent boundaries to plugins, but
+      // custom policies subscribing to SubagentStop should still get the
+      // force-retry shape if OpenCode adds the bus event later. Mirrors the
+      // Cursor + Copilot SubagentStop widening.
+      registerPolicy("subagent-blocker", "desc", () => ({
+        decision: "deny",
+        reason: "subagent left work undone",
+      }), { events: ["SubagentStop"] });
+
+      const result = await evaluatePolicies("SubagentStop", {}, { cli: "opencode" });
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout) as { hookSpecificOutput?: { additionalContext?: string } };
+      expect(parsed.hookSpecificOutput?.additionalContext).toContain("MANDATORY ACTION REQUIRED");
+      expect(parsed.hookSpecificOutput?.additionalContext).toContain("subagent left work undone");
+      expect(result.decision).toBe("deny");
+    });
+
+    it("OpenCode PreToolUse deny still uses Claude permissionDecision shape (regression: tool-event path unchanged)", async () => {
+      // The Stop arm is added INSIDE the cli==="opencode" branch so the
+      // generic Claude shape below it is unchanged for tool events. The
+      // shim's applyDecision throws on permissionDecision: "deny" — that's
+      // the working path for tool events.
+      registerPolicy("tool-blocker", "desc", () => ({
+        decision: "deny",
+        reason: "blocked tool",
+      }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies(
+        "PreToolUse",
+        { tool_name: "Bash", tool_input: { command: "ls" } },
+        { cli: "opencode" },
+      );
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout) as { hookSpecificOutput?: { permissionDecision?: string; additionalContext?: string } };
+      expect(parsed.hookSpecificOutput?.permissionDecision).toBe("deny");
+      // No additionalContext on tool events — that's a Stop-only shape.
+      expect(parsed.hookSpecificOutput?.additionalContext).toBeUndefined();
+    });
+
+    it("Gemini Stop deny emits {decision:'block', reason} JSON on stdout (force-retry via AfterAgent)", async () => {
+      // Per Gemini's hooks docs (https://geminicli.com/docs/hooks/), the
+      // AfterAgent hook (canonical "Stop") force-retries when the hook
+      // returns `{decision: "block", reason}` on stdout. Exit-2 is per-
+      // action only ("turn continues") and would NOT trigger the retry.
+      registerPolicy("stop-blocker", "desc", () => ({
+        decision: "deny",
+        reason: "tests not run",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {}, { cli: "gemini" });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      const parsed = JSON.parse(result.stdout) as { decision?: string; reason?: string };
+      expect(parsed.decision).toBe("block");
+      expect(parsed.reason).toContain("MANDATORY ACTION REQUIRED");
+      expect(parsed.reason).toContain("tests not run");
+      expect(result.decision).toBe("deny");
     });
   });
 

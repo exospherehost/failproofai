@@ -767,7 +767,7 @@ function runFailproofai(eventName, payload, directory) {
   return { exitCode: r.status ?? 0, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 
-function applyDecision(result, ctx) {
+async function applyDecision(result, ctx, eventName) {
   // Deny path 1: exit 2 (Claude Stop-style or any non-Pre/Post deny).
   if (result.exitCode === 2) {
     throw new Error((result.stderr || "").trim() || "Blocked by failproofai");
@@ -784,14 +784,22 @@ function applyDecision(result, ctx) {
   if (out && out.decision && out.decision.behavior === "deny") {
     throw new Error((out.decision.message) || "Blocked by failproofai");
   }
-  // Instruct: forward the additional context as a prompt to the session.
+  // Forward additional context as a prompt to the session. For Stop /
+  // SubagentStop the prompt is the only force-retry channel (session.idle
+  // already fired), so AWAIT to ensure the SDK round-trip completes before
+  // the plugin handler returns. For tool events keep fire-and-forget so we
+  // don't add latency to every tool call.
   const ctxText = out && out.additionalContext;
   if (ctxText && ctx && ctx.client && ctx.sessionID) {
-    // Fire-and-forget: don't block the tool call on the SDK round-trip.
-    Promise.resolve(ctx.client.session.prompt({
+    const prompt = ctx.client.session.prompt({
       path: { id: ctx.sessionID },
       body: { parts: [{ type: "text", text: ctxText }] },
-    })).catch(() => {});
+    });
+    if (eventName === "Stop" || eventName === "SubagentStop") {
+      try { await prompt; } catch { /* swallow — agent is exiting anyway */ }
+    } else {
+      Promise.resolve(prompt).catch(() => {});
+    }
   }
 }
 
@@ -824,7 +832,7 @@ export default async function failproofaiPlugin({ client, directory }) {
         const r = runFailproofai("UserPromptSubmit", {
           session_id: sessionID, cwd: directory, hook_event_name: "UserPromptSubmit", prompt,
         }, directory);
-        applyDecision(r, { client, sessionID });
+        await applyDecision(r, { client, sessionID }, "UserPromptSubmit");
         return;
       }
 
@@ -835,7 +843,7 @@ export default async function failproofaiPlugin({ client, directory }) {
       const r = runFailproofai(claudeEvent, {
         session_id: sessionID, cwd: directory, hook_event_name: claudeEvent,
       }, directory);
-      applyDecision(r, { client, sessionID });
+      await applyDecision(r, { client, sessionID }, claudeEvent);
     },
 
     // First-class PreToolUse hook. Note: tool args live on output.args (mutable).
@@ -847,7 +855,7 @@ export default async function failproofaiPlugin({ client, directory }) {
         tool_input: output.args,
         hook_event_name: "PreToolUse",
       }, directory);
-      applyDecision(r, { client, sessionID: input.sessionID });
+      await applyDecision(r, { client, sessionID: input.sessionID }, "PreToolUse");
     },
 
     // First-class PostToolUse hook. Note: tool args live on input.args here.
@@ -860,7 +868,7 @@ export default async function failproofaiPlugin({ client, directory }) {
         tool_response: { title: output.title, output: output.output, metadata: output.metadata },
         hook_event_name: "PostToolUse",
       }, directory);
-      applyDecision(r, { client, sessionID: input.sessionID });
+      await applyDecision(r, { client, sessionID: input.sessionID }, "PostToolUse");
     },
 
     // Cleaner deny UX for prompted tools — mutate output.status instead of throwing.
@@ -873,7 +881,7 @@ export default async function failproofaiPlugin({ client, directory }) {
         hook_event_name: "PermissionRequest",
       }, directory);
       try {
-        applyDecision(r, { client, sessionID: input.sessionID });
+        await applyDecision(r, { client, sessionID: input.sessionID }, "PermissionRequest");
       } catch {
         output.status = "deny";
       }

@@ -385,6 +385,68 @@ describe("OpenCode plugin shim — translation of binary response to plugin acti
     await hooks["permission.ask"]!({ tool: "bash", sessionID: "s" }, out);
     expect(out.status).toBe("deny");
   });
+
+  it("event session.idle + additionalContext → AWAITS client.session.prompt (Stop force-retry)", async () => {
+    // For Stop events the prompt is the only force-retry channel — it MUST
+    // land before the plugin handler returns or OpenCode tears down the
+    // plugin context. Verify by making session.prompt return a Promise that
+    // resolves on a tick we control: if the handler awaits, it won't return
+    // until we tick.
+    let resolvePrompt: () => void = () => {};
+    const promptPromise = new Promise<void>((res) => { resolvePrompt = res; });
+    const client = { session: { prompt: vi.fn().mockReturnValue(promptPromise) } };
+
+    responses.push({
+      status: 0,
+      stdout: JSON.stringify({ hookSpecificOutput: { additionalContext: "Run tests before stopping" } }),
+      stderr: "",
+    });
+    const { plugin } = await setup();
+    const hooks = await plugin({ client, directory: "/repo" });
+
+    // Fire the handler and observe that it does NOT resolve until prompt resolves.
+    let handlerSettled = false;
+    const handlerDone = (async () => {
+      await hooks.event!({ event: { type: "session.idle", properties: { sessionID: "ses_1" } } });
+      handlerSettled = true;
+    })();
+
+    // Yield to the microtask queue; the handler should still be pending.
+    await new Promise((r) => setImmediate(r));
+    expect(handlerSettled).toBe(false);
+    expect(client.session.prompt).toHaveBeenCalledTimes(1);
+    const arg = client.session.prompt.mock.calls[0][0] as { path: { id: string }; body: { parts: Array<{ type: string; text: string }> } };
+    expect(arg.path.id).toBe("ses_1");
+    expect(arg.body.parts[0]).toEqual({ type: "text", text: "Run tests before stopping" });
+
+    // Resolve the SDK call; the handler should now finish.
+    resolvePrompt();
+    await handlerDone;
+    expect(handlerSettled).toBe(true);
+  });
+
+  it("event session.idle + SDK rejection on prompt is swallowed (agent already exiting)", async () => {
+    responses.push({
+      status: 0,
+      stdout: JSON.stringify({ hookSpecificOutput: { additionalContext: "..." } }),
+      stderr: "",
+    });
+    const client = { session: { prompt: vi.fn().mockRejectedValue(new Error("network")) } };
+    const { plugin } = await setup();
+    const hooks = await plugin({ client, directory: "/repo" });
+    await expect(
+      hooks.event!({ event: { type: "session.idle", properties: { sessionID: "ses_1" } } }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("event session.idle + exit 2 → still throws (back-compat with stale binaries)", async () => {
+    responses.push({ status: 2, stdout: "", stderr: "MANDATORY: commit before stopping" });
+    const { plugin } = await setup();
+    const hooks = await plugin({ client: fakeClient(), directory: "/repo" });
+    await expect(
+      hooks.event!({ event: { type: "session.idle", properties: { sessionID: "ses_1" } } }),
+    ).rejects.toThrow(/MANDATORY: commit before stopping/);
+  });
 });
 
 describe("OpenCode plugin shim — spawn options and registration", () => {

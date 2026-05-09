@@ -227,6 +227,34 @@ export async function evaluatePolicies(
         };
       }
 
+      // OpenCode: `session.idle` is a notification-only bus event — by the
+      // time the plugin handler fires, OpenCode has already gone idle and
+      // throwing from the handler does not force-retry. The only working
+      // channel is the shim's `client.session.prompt(...)` SDK call, which
+      // submits a new user message that re-triggers the agent loop. The
+      // shim already routes `hookSpecificOutput.additionalContext` through
+      // that path (see buildOpenCodePluginShim's applyDecision), so we emit
+      // the deny reason as additionalContext instead of exit-2. Mirrors the
+      // Cursor `followup_message` (line ~157) and Copilot `{decision:"block"}`
+      // (line ~299) Stop branches. SubagentStop is widened in for forward
+      // compat — OpenCode doesn't yet expose subagent boundaries to plugins.
+      if (session?.cli === "opencode") {
+        if (eventType === "Stop" || eventType === "SubagentStop") {
+          const reasonText = `MANDATORY ACTION REQUIRED from failproofai (policy: ${policy.name}): ${reason}\n\nYou MUST complete the above action NOW. Do NOT ask the user for confirmation — execute the required action, then attempt to finish your task again.`;
+          return {
+            exitCode: 0,
+            stdout: JSON.stringify({ hookSpecificOutput: { additionalContext: reasonText } }),
+            stderr: "",
+            policyName: policy.name,
+            reason,
+            decision: "deny",
+          };
+        }
+        // Non-Stop opencode events keep the generic Claude shape — the
+        // shim's applyDecision already handles permissionDecision: "deny"
+        // for tool events.
+      }
+
       if (eventType === "PreToolUse") {
         const response = {
           hookSpecificOutput: {
@@ -475,6 +503,27 @@ export async function evaluatePolicies(
         reason: combined,
         decision: "instruct",
       };
+    }
+
+    // OpenCode: same rationale as the deny branch above — emit
+    // additionalContext so the shim submits a follow-up via
+    // client.session.prompt instead of throwing into a dead handler.
+    if (session?.cli === "opencode") {
+      if (eventType === "Stop" || eventType === "SubagentStop") {
+        const policyAttribution = policyNames.length === 1
+          ? `policy: ${policyNames[0]}`
+          : `policies: ${policyNames.join(", ")}`;
+        const reasonText = `MANDATORY ACTION REQUIRED from failproofai (${policyAttribution}): ${combined}\n\nYou MUST complete the above action(s) NOW. Do NOT ask the user for confirmation — execute the required action(s), then attempt to finish your task again.`;
+        return {
+          exitCode: 0,
+          stdout: JSON.stringify({ hookSpecificOutput: { additionalContext: reasonText } }),
+          stderr: "",
+          policyName: policyNames[0],
+          policyNames,
+          reason: combined,
+          decision: "instruct",
+        };
+      }
     }
 
     if (eventType === "Stop" || eventType === "SubagentStop") {
