@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Docs
+- `README.md`: replace the top-of-file ASCII-art wordmark with the hosted PNG logo wordmark at `https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png` so the README header matches the branded wordmark used elsewhere (#323).
+
 ## 0.0.10-beta.7 — 2026-05-08
 
 ### Fixes
