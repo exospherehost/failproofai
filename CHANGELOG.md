@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Docs
-- `README.md` + all 14 `docs/i18n/README.*.md` translations: replace the top-of-file ASCII-art wordmark with the hosted PNG logo wordmark at `https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png` so the README header matches the branded wordmark used elsewhere. Translations updated in-place (rather than waiting on the auto-translate workflow) so all language editions stay visually consistent on the next push (#322).
+- `README.md` and all 14 `docs/i18n/README.*.md` files now use the hosted PNG wordmark instead of the ASCII header for consistent branding (#322).
 
 ## 0.0.10-beta.7 — 2026-05-08
 
