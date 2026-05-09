@@ -50,7 +50,6 @@ export function launch(mode: "dev" | "start"): void {
 
   if (!claudeProjectsPath) {
     claudeProjectsPath = getDefaultClaudeProjectsPath();
-    console.log(`Using default .claude projects path: ${claudeProjectsPath}`);
   } else {
     console.log(`Using custom .claude projects path: ${claudeProjectsPath}`);
   }

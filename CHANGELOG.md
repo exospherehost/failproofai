@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Features
-- `scripts/launch.ts`: redesign the dashboard-startup ASCII banner to mirror the hosted PNG wordmark — hand-crafted chunky pixel-block lowercase "failproof ai" compressed with Unicode 2x2 quadrant block characters (▖▗▘▙▚▛▜▝▞▟ + ▀ ▄ █ ▌ ▐) and horizontally scaled 4:3 so the full wordmark fits in ~75 cols × ~10 rows (clean on any standard ≥80-col terminal), with a plain-text fallback for narrower windows (#322).
+- `scripts/launch.ts`: redesign the dashboard-startup ASCII banner to mirror the hosted PNG wordmark — hand-crafted chunky pixel-block lowercase "failproof ai" compressed with Unicode 2x2 quadrant block characters (▖▗▘▙▚▛▜▝▞▟ + ▀ ▄ █ ▌ ▐) and horizontally scaled 4:3 so the full wordmark fits in ~75 cols × ~10 rows (clean on any standard ≥80-col terminal), with a plain-text fallback for narrower windows. Also drops the "Using default .claude projects path: …" log line at startup — it printed unconditionally on every dashboard launch and added no signal (the custom-path log is kept since that one only fires when the user explicitly set a non-default path) (#322).
 
 ## 0.0.10-beta.8 — 2026-05-08
 
