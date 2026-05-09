@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.0.10-beta.9 — 2026-05-09
+
 ### Features
 - Restyle dashboard to match the failproofai brand (near-black canvas, pink primary `#e4587d`, Geist Mono, wordmark navbar) and drop light mode entirely (#332).
 - `scripts/launch.ts`: redesign the dashboard-startup ASCII banner to mirror the hosted PNG wordmark — hand-crafted chunky pixel-block lowercase "failproof ai" compressed with Unicode 2x2 quadrant block characters (▖▗▘▙▚▛▜▝▞▟ + ▀ ▄ █ ▌ ▐) and horizontally scaled 4:3 so the full wordmark fits in ~75 cols × ~10 rows (clean on any standard ≥80-col terminal), with a plain-text fallback for narrower windows. Also drops the "Using default .claude projects path: …" log line at startup — it printed unconditionally on every dashboard launch and added no signal (#322).
