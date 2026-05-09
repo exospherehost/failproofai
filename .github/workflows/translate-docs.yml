@@ -179,33 +179,62 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Create PR if translations changed
+      - name: Create or update PR with translations
         if: steps.changes.outputs.changed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          EXISTING=$(gh pr list --base main --search "[auto] update translations" --state open --json number --jq length)
-          if [ "$EXISTING" -gt 0 ]; then
-            echo "Translation PR already open. Skipping."
+          # When an auto-translation PR is already open, push to its branch
+          # instead of dropping these translations. Previously this step
+          # exited early if any open PR matched, which combined with the
+          # cache-save above meant lost translations were never re-attempted
+          # (cache marked them done, file changes were never committed).
+          EXISTING_PR=$(gh pr list --base main --search "[auto] update translations" --state open --json number,headRefName --limit 1)
+          EXISTING_COUNT=$(echo "$EXISTING_PR" | jq length)
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ "$EXISTING_COUNT" -gt 0 ]; then
+            EXISTING_BRANCH=$(echo "$EXISTING_PR" | jq -r '.[0].headRefName')
+            EXISTING_NUMBER=$(echo "$EXISTING_PR" | jq -r '.[0].number')
+            echo "Updating existing PR #$EXISTING_NUMBER on branch $EXISTING_BRANCH"
+
+            # Snapshot freshly-generated translations and the merged cache,
+            # then switch branches and replay them on top so newer English
+            # source wins over whatever the existing PR branch had.
+            git reset HEAD
+            tar -czf /tmp/translations.tar.gz docs/ scripts/translate-docs/.translation-cache.json
+            git fetch origin "$EXISTING_BRANCH"
+            git checkout -f -B "$EXISTING_BRANCH" "origin/$EXISTING_BRANCH"
+            tar -xzf /tmp/translations.tar.gz
+            rm /tmp/translations.tar.gz
+            BRANCH="$EXISTING_BRANCH"
+          else
+            BRANCH="auto/translate-docs-$(date +%Y%m%d-%H%M)"
+            git checkout -b "$BRANCH"
+          fi
+
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No new translation changes to push. Done."
             exit 0
           fi
 
-          BRANCH="auto/translate-docs-$(date +%Y%m%d-%H%M)"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout -b "$BRANCH"
           git commit -m "docs: update translations for changed English sources"
           git push origin "$BRANCH"
 
-          PR_BODY="## Summary
+          if [ "$EXISTING_COUNT" -eq 0 ]; then
+            PR_BODY="## Summary
 
-          Automated translation update triggered by changes to English documentation sources.
+            Automated translation update triggered by changes to English documentation sources.
 
-          - Only changed pages were re-translated (content-hash cache)
-          - All 14 languages across 3 tiers (parallel matrix)"
+            - Only changed pages were re-translated (content-hash cache)
+            - All 14 languages across 3 tiers (parallel matrix)"
 
-          gh pr create \
-            --title "[auto] update translations" \
-            --body "$PR_BODY" \
-            --base main \
-            --head "$BRANCH"
+            gh pr create \
+              --title "[auto] update translations" \
+              --body "$PR_BODY" \
+              --base main \
+              --head "$BRANCH"
+          fi
