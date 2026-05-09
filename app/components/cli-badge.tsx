@@ -11,7 +11,7 @@ export function CliBadge({ cli }: { cli: ProjectCli }) {
   const classes = getCliBadgeClasses(cli);
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-medium border ${classes}`}
+      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[0.6rem] font-mono font-medium uppercase tracking-wider border ${classes}`}
       title={`Agent CLI: ${label}`}
     >
       {label}

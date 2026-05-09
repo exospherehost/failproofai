@@ -25,7 +25,7 @@ describe("Button", () => {
     render(<Button variant="outline">Outline</Button>);
     const btn = screen.getByText("Outline");
     expect(btn.className).toContain("border");
-    expect(btn.className).toContain("bg-background");
+    expect(btn.className).toContain("bg-transparent");
   });
 
   it("applies correct classes for icon size", () => {

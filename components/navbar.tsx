@@ -1,12 +1,10 @@
-/** Top navigation bar with logo, app title, and theme toggle. */
+/** Top navigation bar — wordmark, primary nav, refresh + reach-developers controls. */
 "use client";
 
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { FolderOpen, Shield } from "lucide-react";
-import { Logo } from "@/components/logo";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { ReachDevelopers } from "@/components/reach-developers";
 import { RefreshButton } from "@/app/components/refresh-button";
 
@@ -15,11 +13,13 @@ const NAV_LINKS = [
   { href: "/projects", label: "Projects", icon: FolderOpen },
 ];
 
+const WORDMARK_SRC = "https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png";
+
 export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages = [] }) => {
   const pathname = usePathname();
 
   return (
-    <header className="relative z-50 border-b border-border bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+    <header className="relative z-50 border-b border-border bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/60">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
@@ -27,15 +27,19 @@ export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages =
               href="https://github.com/exospherehost/failproofai"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              className="flex items-center hover:opacity-80 transition-opacity"
+              aria-label="failproof ai · GitHub"
             >
-              <Logo width={28} height={28} className="flex-shrink-0" />
-              <h1 className="text-lg font-semibold text-foreground leading-tight tracking-tight">
-                Failproof AI
-              </h1>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={WORDMARK_SRC}
+                alt="failproof ai"
+                style={{ height: 24, width: "auto" }}
+                className="select-none"
+              />
             </a>
             {process.env.NEXT_PUBLIC_APP_VERSION && (
-              <span className="text-[0.6rem] font-mono leading-none text-muted-foreground/70 border border-border/60 rounded-md px-1.5 py-0.5 select-none tracking-wide">
+              <span className="font-mono text-[0.6rem] leading-none text-muted-foreground/70 border border-border/60 rounded px-1.5 py-0.5 select-none tracking-wider uppercase">
                 v{process.env.NEXT_PUBLIC_APP_VERSION}
               </span>
             )}
@@ -63,10 +67,8 @@ export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages =
                     <Icon className={`w-4 h-4 ${active ? "text-primary" : ""}`} />
                     {label}
                     <span
-                      className={`absolute inset-x-1 bottom-0 h-[2px] rounded-full transition-all ${
-                        active
-                          ? "bg-primary"
-                          : "bg-transparent group-hover:bg-muted"
+                      className={`absolute inset-x-1 bottom-0 h-[2px] transition-all ${
+                        active ? "bg-primary" : "bg-transparent"
                       }`}
                     />
                   </Link>
@@ -78,7 +80,6 @@ export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages =
             <RefreshButton />
             <div className="w-px h-6 bg-border mx-1" />
             <ReachDevelopers />
-            <ThemeToggle />
           </div>
         </div>
       </div>

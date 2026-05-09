@@ -1,19 +1,24 @@
 /**
- * Root layout — wraps every page with the theme provider and navbar.
+ * Root layout — single dark theme, no toggle.
  *
- * An inline `<script>` in `<head>` reads the user's theme preference
- * from `localStorage` (or falls back to `prefers-color-scheme`) and
- * applies the `light`/`dark` class to `<html>` *before* first paint,
- * preventing a flash of the wrong theme.
+ * An inline `<script>` in `<head>` adds the `dark` class to `<html>` before
+ * first paint so any consumers reading `document.documentElement.classList`
+ * see it synchronously. Light mode was removed in #332.
  */
 import type { Metadata } from "next";
+import { Geist_Mono } from "next/font/google";
 import { PostHogProvider } from "@/contexts/PostHogContext";
 import { GlobalErrorListeners } from "@/app/components/global-error-listeners";
-import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AutoRefreshProvider } from "@/contexts/AutoRefreshContext";
 import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/app/components/toast";
 import "./globals.css";
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Failproof AI - Hooks & Project Monitor",
@@ -31,29 +36,11 @@ export default function RootLayout({
   const disabledPages = (process.env.FAILPROOFAI_DISABLE_PAGES ?? "")
     .split(",").map((s) => s.trim()).filter(Boolean);
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={geistMono.variable} suppressHydrationWarning>
       <head>
         <script
           dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  // Ensure we don't add duplicate classes
-                  document.documentElement.classList.remove('light', 'dark');
-                  
-                  var theme = localStorage.getItem('theme');
-                  if (theme && (theme === 'light' || theme === 'dark')) {
-                    document.documentElement.classList.add(theme);
-                  } else {
-                    document.documentElement.classList.add('dark');
-                  }
-                } catch (e) {
-                  // Fallback to dark theme if there's any error
-                  document.documentElement.classList.remove('light', 'dark');
-                  document.documentElement.classList.add('dark');
-                }
-              })();
-            `,
+            __html: `document.documentElement.classList.add('dark');`,
           }}
         />
         <style
@@ -62,11 +49,18 @@ export default function RootLayout({
               #__loading {
                 position: fixed; inset: 0; z-index: 9999;
                 display: flex; align-items: center; justify-content: center;
-                background: var(--background, #031035);
-                color: var(--foreground, #f8fafc);
-                font-family: system-ui, sans-serif;
-                font-size: 1rem;
+                background: #0a0a0a;
+                color: #fafafa;
+                font-family: ui-monospace, "SFMono-Regular", Menlo, Monaco, Consolas, monospace;
+                font-size: 0.95rem;
+                letter-spacing: 0.02em;
                 transition: opacity 0.15s;
+              }
+              #__loading::before {
+                content: "▮";
+                color: #06b6d4;
+                margin-right: 0.6ch;
+                animation: caret-blink 1s steps(1, end) infinite;
               }
               body > *:not(#__loading) { opacity: 0; }
             `,
@@ -74,16 +68,14 @@ export default function RootLayout({
         />
       </head>
       <body className="antialiased">
-        <div id="__loading">Loading…</div>
+        <div id="__loading">initializing&nbsp;failproof&nbsp;ai…</div>
         <PostHogProvider>
           <GlobalErrorListeners />
-          <ThemeProvider>
-            <AutoRefreshProvider>
-              <Navbar disabledPages={disabledPages} />
-              {children}
-            </AutoRefreshProvider>
-            <Toaster />
-          </ThemeProvider>
+          <AutoRefreshProvider>
+            <Navbar disabledPages={disabledPages} />
+            {children}
+          </AutoRefreshProvider>
+          <Toaster />
         </PostHogProvider>
       </body>
     </html>
