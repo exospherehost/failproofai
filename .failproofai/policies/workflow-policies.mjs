@@ -5,6 +5,19 @@
  */
 import { customPolicies, allow, instruct } from "failproofai";
 
+/**
+ * Match `<verb-phrase>` only when it appears at a command boundary (start of
+ * string, `;`, `&&`, `||`, `|`, or newline). Avoids false-positive matches
+ * when the literal phrase appears inside a HEREDOC or a quoted argument
+ * (e.g. `gh pr edit --body "...gh pr create..."` would previously trigger
+ * `release-prep-check` because the regex matched anywhere in the string).
+ */
+function matchesCommand(cmd, verbPhrasePattern) {
+  return new RegExp(
+    String.raw`(?:^|[;\n|]|&&|\|\|)\s*` + verbPhrasePattern + String.raw`\b`,
+  ).test(cmd);
+}
+
 // Remind to update CHANGELOG before committing
 customPolicies.add({
   name: "changelog-check",
@@ -13,7 +26,7 @@ customPolicies.add({
   fn: async (ctx) => {
     if (ctx.toolName !== "Bash") return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
-    if (/git\s+commit/.test(cmd)) {
+    if (matchesCommand(cmd, String.raw`git\s+commit`)) {
       return instruct(
         "Check whether CHANGELOG.md needs an update for this commit. " +
         "Every PR must include an entry under the current `## <version> — <YYYY-MM-DD>` section " +
@@ -34,7 +47,7 @@ customPolicies.add({
   fn: async (ctx) => {
     if (ctx.toolName !== "Bash") return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
-    if (/git\s+commit/.test(cmd)) {
+    if (matchesCommand(cmd, String.raw`git\s+commit`)) {
       return instruct(
         "Check whether documentation needs updating for this change. " +
         "Consider: docs/*.mdx files, README.md, and examples/ directory. " +
@@ -53,7 +66,7 @@ customPolicies.add({
   fn: async (ctx) => {
     if (ctx.toolName !== "Bash") return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
-    if (/git\s+push/.test(cmd)) {
+    if (matchesCommand(cmd, String.raw`git\s+push`)) {
       return instruct(
         "After pushing, check if there is an open PR for this branch. " +
         "If so, update the PR description to reflect the latest changes."
@@ -74,7 +87,7 @@ customPolicies.add({
   fn: async (ctx) => {
     if (ctx.toolName !== "Bash") return allow();
     const cmd = String(ctx.toolInput?.command ?? "");
-    if (!/\bgh\s+pr\s+create\b/.test(cmd)) return allow();
+    if (!matchesCommand(cmd, String.raw`gh\s+pr\s+create`)) return allow();
     return instruct(
       "Before creating the PR, ensure CHANGELOG.md entries land under a versioned section so the PR ships release-ready:\n" +
       "  1. Read `version` from package.json (e.g. `0.0.10-beta.10`).\n" +
