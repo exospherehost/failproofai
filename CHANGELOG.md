@@ -3,7 +3,7 @@
 ## Unreleased
 
 ### Docs
-- Swap the README hero GIF from `failproofai-hq.gif` to `readme-arch-hq.gif` across the English `README.md` and all 14 translated `docs/i18n/README.*.md` files (#321).
+- Rewrite the English `README.md`: new layout with shields.io badges (npm / CI / Slack / Docs / License), a CDN-hosted wordmark logo, condensed "What it stops" / "Your own policies" / "Session visibility" sections, and a documentation index linking to docs.befailproof.ai. The hero GIF is the new `readme-arch-hq.gif` (added in this PR); the old `failproofai-hq.gif` is removed. The 14 translated `docs/i18n/README.*.md` files were swapped to the new GIF filename in the same PR — their structural rewrite is left to the next `translate-docs` workflow run on `main` (#321).
 
 ## 0.0.10-beta.8 — 2026-05-08
 

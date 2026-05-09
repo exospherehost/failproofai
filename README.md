@@ -15,7 +15,9 @@ before they become incidents. Zero latency. Runs locally.
 
 </div>
 
-https://github.com/exospherehost/failproofai/assets/YOUR_ASSET_ID/readme-arch.mp4
+<p align="center">
+  <img src="readme-arch-hq.gif" alt="Failproof AI in action" width="800" />
+</p>
 
 ---
 
