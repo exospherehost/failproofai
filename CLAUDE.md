@@ -425,7 +425,13 @@ examples/                    Sample custom policy files
 ## Changelog
 
 Every PR **must** include an update to `CHANGELOG.md`. Add your entry under the
-`## Unreleased` section at the top. Use the appropriate subsection:
+current `## <version> — <YYYY-MM-DD>` section at the top, where `<version>` matches
+`version` in `package.json` and `<YYYY-MM-DD>` is today's date. If that section
+does not exist yet, create it above the previous version's section. There is **no**
+`## Unreleased` section — entries always go under a dated, versioned heading, so
+each feature PR ships release-ready.
+
+Use the appropriate subsection:
 
 - **Features** for new functionality
 - **Fixes** for bug fixes
@@ -433,8 +439,7 @@ Every PR **must** include an update to `CHANGELOG.md`. Add your entry under the
 - **Dependencies** for dependency bumps
 
 Each entry should be a single line: a short description followed by the PR number
-(e.g. `- Add foo support (#123)`). When a release is cut, the `Unreleased` section gets
-renamed to the version and date, and a fresh `## Unreleased` heading is added.
+(e.g. `- Add foo support (#123)`).
 
 ## Version bumps
 

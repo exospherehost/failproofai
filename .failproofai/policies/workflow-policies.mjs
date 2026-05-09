@@ -16,9 +16,10 @@ customPolicies.add({
     if (/git\s+commit/.test(cmd)) {
       return instruct(
         "Check whether CHANGELOG.md needs an update for this commit. " +
-        "Every PR must include an entry under the `## Unreleased` section. " +
-        "Use the appropriate subsection: Features, Fixes, Docs, or Dependencies.\n" +
-        "Check the version in package.json and ensure the changelog entry matches the current version."
+        "Every PR must include an entry under the current `## <version> — <YYYY-MM-DD>` section " +
+        "(matching `version` in package.json + today's date). If that section does not exist yet, " +
+        "create it above the previous version's section — there is no `## Unreleased` section. " +
+        "Use the appropriate subsection: Features, Fixes, Docs, or Dependencies."
       );
     }
     return allow();
@@ -59,5 +60,27 @@ customPolicies.add({
       );
     }
     return allow();
+  },
+});
+
+// On `gh pr create`, instruct the agent to ensure CHANGELOG entries live
+// under a versioned `## <version> — <date>` section so the PR ships
+// release-ready. There is no `## Unreleased` section.
+customPolicies.add({
+  name: "release-prep-check",
+  description:
+    "On `gh pr create`, instruct the agent to ensure CHANGELOG entries are under a versioned `## <version> — <date>` section",
+  match: { events: ["PreToolUse"] },
+  fn: async (ctx) => {
+    if (ctx.toolName !== "Bash") return allow();
+    const cmd = String(ctx.toolInput?.command ?? "");
+    if (!/\bgh\s+pr\s+create\b/.test(cmd)) return allow();
+    return instruct(
+      "Before creating the PR, ensure CHANGELOG.md entries land under a versioned section so the PR ships release-ready:\n" +
+      "  1. Read `version` from package.json (e.g. `0.0.10-beta.10`).\n" +
+      "  2. Ensure your changelog entries are under a `## <version> — <today's date in YYYY-MM-DD>` heading. If that heading does not exist yet, create it above the previous version's section. There is NO `## Unreleased` section — entries always go under a dated, versioned heading.\n" +
+      "  3. If you are on a `luv-cut-X.Y.Z` branch, the cut PR handles version bump itself.\n" +
+      "  4. Do NOT bump `package.json`'s `version` outside of `luv-cut-*` branches — that is enforced by `block-version-bumps`."
+    );
   },
 });
