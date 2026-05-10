@@ -4,7 +4,7 @@ description: "에이전트 세션 모니터링, 도구 호출 검토 및 정책 
 icon: chart-line
 ---
 
-failproofai 대시보드는 AI 에이전트 세션을 모니터링하고 정책을 관리하기 위한 로컬 웹 애플리케이션입니다. 자리를 비운 사이 에이전트가 무엇을 했는지 확인해 보세요.
+failproofai 대시보드는 AI 에이전트 세션을 모니터링하고 정책을 관리하는 로컬 웹 애플리케이션입니다. 자리를 비운 사이 에이전트가 무엇을 했는지 확인하세요.
 
 ---
 
@@ -16,22 +16,22 @@ failproofai
 
 `http://localhost:8020`에서 열립니다.
 
-대시보드는 파일시스템에서 직접 데이터를 읽어옵니다. Claude Code 프로젝트 폴더와 failproofai 설정 파일을 참조하며, 원격 서비스에는 아무것도 기록되지 않습니다.
+대시보드는 파일 시스템에서 직접 데이터를 읽습니다 — Claude Code 프로젝트 폴더와 failproofai 설정 파일을 직접 참조하며, 원격 서비스에는 아무것도 기록되지 않습니다.
 
 ---
 
-## 페이지 구성
+## 페이지
 
 ### 프로젝트
 
-머신에서 발견된 모든 Claude Code, OpenAI Codex, GitHub Copilot CLI _(베타)_, Cursor Agent _(베타)_, OpenCode _(베타)_, Pi _(베타)_, Gemini CLI _(베타)_ 프로젝트를 나열합니다. Claude 프로젝트는 `~/.claude/projects/`(또는 `CLAUDE_PROJECTS_PATH`로 설정된 경로)에서 검색됩니다. Codex 프로젝트는 `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` 아래의 모든 트랜스크립트를 스캔하여 각 세션의 첫 번째 레코드에 기록된 `cwd`를 기준으로 그룹화합니다. Copilot CLI 프로젝트는 각 `~/.copilot/session-state/<sessionId>/workspace.yaml`(`COPILOT_HOME`으로 설정 가능)을 스캔하여 `cwd` 필드를 기준으로 그룹화합니다. Cursor Agent 프로젝트는 `~/.cursor/agent-sessions/<sessionId>/`(`CURSOR_HOME`으로 설정 가능, `conversations/` 및 `sessions/` 폴백 경로 탐색) 아래의 세션별 메타데이터에서 `meta.json` / `session.json` / `workspace.yaml`의 `cwd` 스칼라를 탐색하여 검색됩니다. OpenCode 프로젝트는 `opencode db --format json`을 통해 `~/.local/share/opencode/opencode.db`의 SQLite DB를 조회하여 검색됩니다(`session` 및 `project` 테이블을 읽어 `project_id`로 그룹화). Pi 프로젝트는 `~/.pi/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`(`PI_SESSIONS_DIR`으로 설정 가능) 아래의 세션별 JSONL 트랜스크립트를 스캔하여 각 세션의 첫 번째 레코드에서 `cwd`를 추출합니다. Gemini CLI 프로젝트는 `~/.gemini/tmp/<basename>/chats/session-<timestamp>-<uuid-prefix>.jsonl`(`GEMINI_SESSIONS_DIR`으로 설정 가능)을 스캔하고 인접한 `.project_root` 텍스트 마커에서 정규 cwd를 복원합니다. 여러 CLI에서 사용된 프로젝트는 모든 해당 배지와 함께 단일 행으로 표시됩니다. 테이블 위의 **CLI** 드롭다운을 사용하여 특정 에이전트 CLI별로 필터링할 수 있으며, URL에 `?cli=claude|codex|copilot|cursor|opencode|pi|gemini` 형태로 선택 항목이 보존됩니다.
+머신에서 발견된 모든 Claude Code, OpenAI Codex, GitHub Copilot CLI _(베타)_, Cursor Agent _(베타)_, OpenCode _(베타)_, Pi _(베타)_, Gemini CLI _(베타)_ 프로젝트를 나열합니다. Claude 프로젝트는 `~/.claude/projects/`(또는 `CLAUDE_PROJECTS_PATH`로 설정된 경로)에서 검색됩니다. Codex 프로젝트는 `~/.codex/sessions/<YYYY>/<MM>/<DD>/*.jsonl` 아래의 모든 트랜스크립트를 스캔하고, 각 세션의 첫 번째 레코드에 기록된 `cwd`를 기준으로 그룹화하여 검색됩니다. Copilot CLI 프로젝트는 각 `~/.copilot/session-state/<sessionId>/workspace.yaml`을 스캔(`COPILOT_HOME`으로 구성 가능)하고 `cwd` 필드를 기준으로 그룹화하여 검색됩니다. Cursor Agent 프로젝트는 `~/.cursor/agent-sessions/<sessionId>/`(`CURSOR_HOME`으로 구성 가능, 폴백으로 `conversations/`와 `sessions/` 탐색) 아래의 세션별 메타데이터를 스캔하고 `meta.json` / `session.json` / `workspace.yaml`에서 `cwd` 스칼라를 찾아 검색됩니다. OpenCode 프로젝트는 `~/.local/share/opencode/opencode.db`의 SQLite DB를 `opencode db --format json`으로 쿼리(`session` 및 `project` 테이블을 읽어 `project_id`로 그룹화)하여 검색됩니다. Pi 프로젝트는 `~/.pi/agent/sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`(`PI_SESSIONS_DIR`로 구성 가능) 아래의 세션별 JSONL 트랜스크립트를 스캔하고, 각 세션의 첫 번째 레코드에서 `cwd`를 가져와 검색됩니다. Gemini CLI 프로젝트는 `~/.gemini/tmp/<basename>/chats/session-<timestamp>-<uuid-prefix>.jsonl`(`GEMINI_SESSIONS_DIR`로 구성 가능)을 스캔하고, 인접한 `.project_root` 텍스트 마커에서 정규 cwd를 복구하여 검색됩니다. 여러 CLI에서 사용된 프로젝트는 일치하는 모든 배지와 함께 단일 행으로 표시됩니다. 테이블 위의 **CLI** 드롭다운을 사용하여 특정 에이전트 CLI로 필터링할 수 있으며, URL에 `?cli=claude|codex|copilot|cursor|opencode|pi|gemini` 형식으로 선택 항목이 보존됩니다.
 
 각 프로젝트에는 다음이 표시됩니다:
-- 프로젝트 이름 (폴더 경로에서 파생)
-- CLI 배지 — `Claude Code` (주황), `OpenAI Codex` (보라), `GitHub Copilot` (파랑), `Cursor Agent` (에메랄드), `OpenCode` (황금), `Pi` (분홍), `Gemini CLI` (하늘)
+- 프로젝트 이름 (폴더 경로에서 파생됨)
+- CLI 배지 — `Claude Code` (주황색), `OpenAI Codex` (보라색), `GitHub Copilot` (파란색), `Cursor Agent` (에메랄드), `OpenCode` (앰버), `Pi` (핑크), `Gemini CLI` (하늘색)
 - 가장 최근 세션 활동 날짜
 
-프로젝트를 클릭하면 해당 세션 목록을 볼 수 있습니다.
+프로젝트를 클릭하면 해당 세션을 확인할 수 있습니다.
 
 ### 세션
 
@@ -41,21 +41,21 @@ failproofai
 - 도구 호출 횟수
 - 훅 활동 횟수 (실행된 정책)
 
-날짜 범위 필터와 세션 ID 검색을 사용하여 목록을 좁힐 수 있습니다. 세션은 페이지 단위로 표시됩니다.
+날짜 범위 필터와 세션 ID 검색을 사용하여 목록을 좁힐 수 있습니다. 세션은 페이지로 나뉩니다.
 
 세션을 클릭하면 세션 뷰어가 열립니다.
 
 ### 세션 뷰어
 
-세션 뷰어는 자율 에이전트의 핵심 질문에 답합니다: 에이전트가 무엇을 했고, 올바른 방향을 유지했는가? 헤더 옆의 CLI 배지는 해당 세션이 Claude Code, OpenAI Codex, GitHub Copilot CLI, Cursor Agent, OpenCode, Pi, Gemini CLI 트랜스크립트 중 어느 것인지를 나타냅니다. 세션에서 발생한 모든 것의 타임라인을 보여줍니다:
+세션 뷰어는 자율 에이전트에 대한 핵심 질문에 답합니다: 에이전트가 무엇을 했으며, 올바른 방향을 유지했는가? 헤더 옆의 CLI 배지는 세션이 Claude Code, OpenAI Codex, GitHub Copilot CLI, Cursor Agent, OpenCode, Pi, 또는 Gemini CLI 트랜스크립트인지 나타냅니다. 세션에서 발생한 모든 일의 타임라인을 표시합니다:
 
 - **메시지** - Claude의 텍스트 응답 및 사용자 프롬프트
 - **도구 호출** - Claude가 호출한 모든 도구와 입력 및 출력
-- **정책 활동** - 각 도구 호출에 대해 어떤 정책이 실행되었고 어떤 결정을 반환했는지
+- **정책 활동** - 각 도구 호출에 대해 어떤 정책이 실행되었고 어떤 결정을 내렸는지
 
 상단의 통계 바에는 세션 지속 시간, 총 도구 호출 횟수, 훅 결정 요약(allow / deny / instruct 횟수)이 표시됩니다.
 
-**로그 다운로드** 버튼을 클릭하면 세션을 내보낼 수 있습니다. Claude Code, Codex, Copilot, Cursor, Pi, Gemini 세션의 경우 디스크에 저장된 원본 JSONL 트랜스크립트를 바이트 그대로 받으며, OpenCode(세션이 디스크가 아닌 SQLite에 저장됨)의 경우 기본 `session` / `messages` / `parts` 테이블을 미러링하는 JSON 문서를 받습니다.
+**로그 다운로드** 버튼을 클릭하여 세션을 내보낼 수 있습니다. Claude Code, Codex, Copilot, Cursor, Pi, Gemini 세션의 경우 디스크의 원본 JSONL 트랜스크립트를 그대로 바이트 단위로 가져오며, OpenCode(세션이 디스크가 아닌 SQLite에 저장됨)의 경우 기본 `session` / `messages` / `parts` 테이블을 반영한 JSON 문서를 가져옵니다.
 
 ### 정책
 
@@ -63,16 +63,16 @@ failproofai
 
 <Tabs>
   <Tab title="정책 탭">
-  - 클릭 한 번으로 개별 정책을 켜거나 끌 수 있습니다 (`~/.failproofai/policies-config.json`에 저장)
-  - 정책을 펼쳐서 파라미터를 설정할 수 있습니다 (`policyParams`를 지원하는 정책의 경우)
-  - 특정 범위에 대한 훅 설치 또는 제거
-  - 커스텀 정책 파일 경로 설정
+  - 단일 패널에서 failproofai가 보호할 에이전트 CLI를 다중 선택할 수 있습니다 — Claude Code, OpenAI Codex, GitHub Copilot, Cursor Agent, OpenCode, Pi, Gemini CLI 각각 설치 상태(`Active` / `Detected` / `Inactive`), 사용자 범위 설정 경로, 브랜드 색상 강조가 있는 행으로 표시됩니다. 원하는 CLI를 체크하거나 해제하고 `Apply changes`를 클릭하면 변경된 부분만 한 번에 설치/제거됩니다. PATH에서 바이너리가 감지된 CLI는 미리 체크됩니다.
+  - 클릭 한 번으로 개별 정책을 켜거나 끌 수 있습니다 (`~/.failproofai/policies-config.json`에 기록 — 설치된 모든 CLI에서 공유됨)
+  - 정책을 펼쳐 파라미터를 구성할 수 있습니다 (`policyParams`를 지원하는 정책의 경우)
+  - 사용자 지정 정책 파일 경로 설정
   </Tab>
   <Tab title="활동 탭">
-  - 모든 세션에 걸쳐 실행된 모든 훅 이벤트의 전체 페이지네이션 기록
-  - 결정, 이벤트 유형, CLI (Claude Code / OpenAI Codex / GitHub Copilot _(베타)_ / Cursor Agent _(베타)_ / OpenCode _(베타)_ / Pi _(베타)_ / Gemini CLI _(베타)_), 정책 이름, 세션 ID로 필터링
-  - 각 행에 표시: 타임스탬프, 정책 이름, 결정, CLI 배지 (주황 = Claude Code, 보라 = OpenAI Codex, 파랑 = GitHub Copilot, 에메랄드 = Cursor Agent, 황금 = OpenCode, 분홍 = Pi, 하늘 = Gemini CLI), 도구 이름, 세션 ID, deny/instruct 결정의 이유
-  - 세션 ID를 클릭하면 해당 트랜스크립트가 열립니다 — 뷰어가 훅을 실행한 CLI를 자동으로 감지하고 (Claude `~/.claude/projects/…`, Codex `~/.codex/sessions/…`, Copilot CLI `~/.copilot/session-state/<id>/events.jsonl`, Cursor Agent `~/.cursor/agent-sessions/<id>/events.jsonl`, OpenCode `~/.local/share/opencode/opencode.db`, Pi `~/.pi/agent/sessions/<encoded-cwd>/<id>.jsonl`, Gemini CLI `~/.gemini/tmp/<basename>/chats/<session>.jsonl`) 헤더에 해당 CLI 배지를 표시합니다
+  - 모든 세션에서 실행된 모든 훅 이벤트의 전체 페이지 히스토리
+  - 결정, 이벤트 유형, CLI (Claude Code / OpenAI Codex / GitHub Copilot _(베타)_ / Cursor Agent _(베타)_ / OpenCode _(베타)_ / Pi _(베타)_ / Gemini CLI _(베타)_), 정책 이름 또는 세션 ID로 필터링
+  - 각 행에는 타임스탬프, 정책 이름, 결정, CLI 배지 (주황색 = Claude Code, 보라색 = OpenAI Codex, 파란색 = GitHub Copilot, 에메랄드 = Cursor Agent, 앰버 = OpenCode, 핑크 = Pi, 하늘색 = Gemini CLI), 도구 이름, 세션 ID, deny/instruct 결정의 이유가 표시됩니다
+  - 세션 ID를 클릭하면 트랜스크립트가 열립니다 — 뷰어는 어떤 CLI가 훅을 실행했는지 자동으로 감지하고 (Claude `~/.claude/projects/…`, Codex `~/.codex/sessions/…`, Copilot CLI `~/.copilot/session-state/<id>/events.jsonl`, Cursor Agent `~/.cursor/agent-sessions/<id>/events.jsonl`, OpenCode `~/.local/share/opencode/opencode.db`, Pi `~/.pi/agent/sessions/<encoded-cwd>/<id>.jsonl`, Gemini CLI `~/.gemini/tmp/<basename>/chats/<session>.jsonl`) 헤더에 일치하는 CLI 배지를 렌더링합니다
   </Tab>
 </Tabs>
 
@@ -80,13 +80,13 @@ failproofai
 
 ## 자동 새로고침
 
-대시보드 상단 내비게이션에 자동 새로고침 토글이 있습니다. 활성화하면 현재 페이지가 주기적으로 새로고침되어 새로운 세션과 정책 활동이 나타날 때 바로 확인할 수 있습니다. 장시간 실행되는 자율 에이전트 세션을 모니터링할 때 필수적인 기능입니다.
+대시보드 상단 내비게이션에 자동 새로고침 토글이 있습니다. 활성화하면 현재 페이지가 주기적으로 새로고침되어 새 세션과 정책 활동이 나타나는 즉시 표시됩니다. 장시간 실행되는 자율 에이전트 세션을 모니터링할 때 필수적인 기능입니다.
 
 ---
 
 ## 페이지 비활성화
 
-대시보드의 일부 페이지만 필요한 경우, `FAILPROOFAI_DISABLE_PAGES`에 비활성화할 페이지 이름을 쉼표로 구분하여 설정하세요:
+대시보드의 일부 기능만 필요한 경우, `FAILPROOFAI_DISABLE_PAGES`에 쉼표로 구분된 페이지 이름 목록을 설정하세요:
 
 ```bash
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
@@ -96,9 +96,9 @@ FAILPROOFAI_DISABLE_PAGES=policies failproofai
 
 ---
 
-## 프로젝트 경로 설정
+## 프로젝트 경로 구성
 
-기본적으로 대시보드는 표준 Claude Code 프로젝트 디렉토리에서 데이터를 읽습니다. 커스텀 설정에서는 다음과 같이 재정의할 수 있습니다:
+기본적으로 대시보드는 표준 Claude Code 프로젝트 디렉토리에서 읽습니다. 사용자 지정 설정의 경우 경로를 재정의하세요:
 
 ```bash
 CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
@@ -106,32 +106,32 @@ CLAUDE_PROJECTS_PATH=/custom/path/to/projects failproofai
 
 ---
 
-## localhost 이외의 호스트에서 접근하기
+## localhost가 아닌 호스트에서 접근하기
 
-**개발 모드** (`npm run dev`)로 대시보드를 실행하고 `localhost`가 아닌 호스트(예: 커스텀 도메인, 원격 IP, 터널 URL)에서 접근하면 다음과 같은 경고가 표시될 수 있습니다:
+**개발 모드**(`npm run dev`)로 대시보드를 실행하고 `localhost`가 아닌 호스트 이름(예: 사용자 지정 도메인, 원격 IP, 터널링된 URL)에서 접근하는 경우 다음과 같은 경고가 표시될 수 있습니다:
 
 ```text
 ⚠ Blocked cross-origin request to Next.js dev resource /_next/webpack-hmr from "dashboard.example.com".
 ```
 
-이는 Next.js가 HMR(핫 모듈 리로드) 웹소켓에 대한 크로스 오리진 접근을 차단하는 것으로, 개발 전용 기능입니다. 특정 호스트를 허용하려면 `--allowed-origins` 플래그를 사용하세요:
+이는 Next.js가 HMR(핫 모듈 리로드) 웹소켓에 대한 크로스-오리진 접근을 차단한 것으로, 개발 전용 기능입니다. 호스트를 허용하려면 `--allowed-origins` 플래그를 사용하세요:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com
 ```
 
-여러 호스트 또는 IP의 경우, 쉼표로 구분된 목록을 전달하세요:
+여러 호스트 또는 IP의 경우 쉼표로 구분된 목록을 전달하세요:
 
 ```bash
 npm run dev -- --allowed-origins dashboard.example.com,192.168.1.5
 ```
 
-환경 변수 `FAILPROOFAI_ALLOWED_DEV_ORIGINS`를 사용할 수도 있습니다:
+환경 변수 `FAILPROOFAI_ALLOWED_DEV_ORIGINS`를 대신 설정할 수도 있습니다:
 
 ```bash
 FAILPROOFAI_ALLOWED_DEV_ORIGINS=dashboard.example.com npm run dev
 ```
 
 <Note>
-이 설정은 개발 모드에만 적용됩니다. `failproofai`(프로덕션 모드)를 실행할 때는 HMR 웹소켓이 없으며 크로스 오리진 개발 리소스 문제도 발생하지 않습니다.
+이 설정은 개발 모드에만 적용됩니다. `failproofai`(프로덕션 모드)를 실행할 때는 HMR 웹소켓이 없으므로 크로스-오리진 개발 리소스 문제가 발생하지 않습니다.
 </Note>
