@@ -167,6 +167,71 @@ describe("pi-extension shim — sessionId resolution via on-disk discovery", () 
     expect(captured.at(-1)?.payload.session_id).toBe(b);
   });
 
+  it("translates Pi `path` arg to Claude `file_path` for read tool", () => {
+    // Regression for the same arg-key canonicalization gap that bit OpenCode:
+    // Pi's read tool delivers `{ path }`, but block-env-files /
+    // block-secrets-write only check `tool_input.file_path`. Without the
+    // PI_TOOL_INPUT_MAP, those policies silently no-op on Pi.
+    handlers.tool_call({ type: "tool_call", toolName: "read", input: { path: "/etc/passwd", offset: 0, limit: 100 }, cwd: "/proj" });
+    const payload = captured.at(-1)?.payload as { tool_name: string; tool_input: Record<string, unknown> };
+    expect(payload.tool_name).toBe("Read");
+    // path → file_path; unmapped offset/limit pass through unchanged.
+    expect(payload.tool_input).toEqual({ file_path: "/etc/passwd", offset: 0, limit: 100 });
+  });
+
+  it("translates Pi `path` arg for write tool", () => {
+    handlers.tool_call({ type: "tool_call", toolName: "write", input: { path: "/proj/.env", content: "SECRET=1" }, cwd: "/proj" });
+    const payload = captured.at(-1)?.payload as { tool_name: string; tool_input: Record<string, unknown> };
+    expect(payload.tool_name).toBe("Write");
+    expect(payload.tool_input).toEqual({ file_path: "/proj/.env", content: "SECRET=1" });
+  });
+
+  it("translates Pi `path` for edit tool top-level only — nested edits[] stays Pi-shape", () => {
+    // Pi's edit tool: { path, edits: [{oldText, newText}, …] } — different
+    // structurally from Claude's flat { file_path, old_string, new_string }.
+    // We can only translate the top-level `path` key; the nested array stays
+    // as-is because it isn't a flat key→key rename.
+    const edits = [{ oldText: "a", newText: "b" }];
+    handlers.tool_call({ type: "tool_call", toolName: "edit", input: { path: "/proj/x", edits }, cwd: "/proj" });
+    const payload = captured.at(-1)?.payload as { tool_name: string; tool_input: Record<string, unknown> };
+    expect(payload.tool_name).toBe("Edit");
+    expect(payload.tool_input).toEqual({ file_path: "/proj/x", edits });
+  });
+
+  it("passes unknown-tool args through unchanged", () => {
+    handlers.tool_call({ type: "tool_call", toolName: "mcp_github_create_issue", input: { title: "x", path: "/literal/key" }, cwd: "/proj" });
+    const payload = captured.at(-1)?.payload as { tool_name: string; tool_input: Record<string, unknown> };
+    // Unknown tools (MCP / extensions) keep their raw arg shape — we don't
+    // rewrite keys we can't claim to understand.
+    expect(payload.tool_input).toEqual({ title: "x", path: "/literal/key" });
+  });
+
+  it("tool_result also canonicalizes input args", () => {
+    handlers.tool_result({ type: "tool_result", toolName: "write", input: { path: "/proj/x", content: "hi" }, content: [], isError: false, cwd: "/proj" });
+    const payload = captured.at(-1)?.payload as { tool_name: string; tool_input: Record<string, unknown> };
+    expect(payload.tool_name).toBe("Write");
+    expect(payload.tool_input).toEqual({ file_path: "/proj/x", content: "hi" });
+  });
+
+  it("PI_TOOL_INPUT_MAP coverage parity with the inline shim map", async () => {
+    // Drives every entry in the exported map through the shim to keep the
+    // two copies in sync — same pattern as the OPENCODE_TOOL_INPUT_MAP test.
+    const { PI_TOOL_INPUT_MAP } = await import("../../src/hooks/types");
+    const rawByCanonical: Record<string, string> = { Read: "read", Write: "write", Edit: "edit" };
+    for (const canonical of Object.keys(PI_TOOL_INPUT_MAP)) {
+      const raw = rawByCanonical[canonical];
+      const map = PI_TOOL_INPUT_MAP[canonical];
+      const args: Record<string, unknown> = {};
+      for (const camel of Object.keys(map)) args[camel] = `v_${camel}`;
+      handlers.tool_call({ type: "tool_call", toolName: raw, input: args, cwd: "/proj" });
+      const payload = captured.at(-1)?.payload as { tool_input: Record<string, unknown> };
+      for (const camel of Object.keys(map)) {
+        expect(payload.tool_input[map[camel]]).toBe(`v_${camel}`);
+        expect(payload.tool_input[camel]).toBeUndefined();
+      }
+    }
+  });
+
   // Cleanup
   afterEach(() => {
     if (originalEnv === undefined) delete process.env.PI_SESSIONS_DIR;

@@ -750,6 +750,28 @@ function canonicalizeTool(raw) {
   return TOOL_NAME_MAP[raw] != null ? TOOL_NAME_MAP[raw] : raw;
 }
 
+// Per-tool input-key translation: opencode native tools deliver args as
+// camelCase (\`filePath\`, \`oldString\`, …) but failproofai builtin policies
+// (\`block-read-outside-cwd\`, \`block-env-files\`, \`block-secrets-write\`)
+// read \`ctx.toolInput.file_path\` etc. Without this map every Read/Write/Edit
+// path-check silently no-ops on opencode. Keys are PascalCase canonical tool
+// names so the lookup pairs with canonicalizeTool's output. Tools outside the
+// map (MCP \`mcp_*\`, plugins) pass through unchanged. Keep in sync with
+// OPENCODE_TOOL_INPUT_MAP in failproofai/src/hooks/types.ts.
+const TOOL_INPUT_MAP = {
+  Read: { filePath: "file_path" },
+  Write: { filePath: "file_path" },
+  Edit: { filePath: "file_path", oldString: "old_string", newString: "new_string", replaceAll: "replace_all" },
+};
+function canonicalizeToolInput(canonicalToolName, args) {
+  if (!args || typeof args !== "object") return args;
+  const map = TOOL_INPUT_MAP[canonicalToolName];
+  if (!map) return args;
+  const out = {};
+  for (const k of Object.keys(args)) out[map[k] != null ? map[k] : k] = args[k];
+  return out;
+}
+
 const FAILPROOFAI_BIN = ${escapedBin};
 const USE_NPX = ${useNpx};
 
@@ -848,11 +870,12 @@ export default async function failproofaiPlugin({ client, directory }) {
 
     // First-class PreToolUse hook. Note: tool args live on output.args (mutable).
     "tool.execute.before": async (input, output) => {
+      const canonicalTool = canonicalizeTool(input.tool);
       const r = runFailproofai("PreToolUse", {
         session_id: input.sessionID,
         cwd: directory,
-        tool_name: canonicalizeTool(input.tool),
-        tool_input: output.args,
+        tool_name: canonicalTool,
+        tool_input: canonicalizeToolInput(canonicalTool, output.args),
         hook_event_name: "PreToolUse",
       }, directory);
       await applyDecision(r, { client, sessionID: input.sessionID }, "PreToolUse");
@@ -860,11 +883,12 @@ export default async function failproofaiPlugin({ client, directory }) {
 
     // First-class PostToolUse hook. Note: tool args live on input.args here.
     "tool.execute.after": async (input, output) => {
+      const canonicalTool = canonicalizeTool(input.tool);
       const r = runFailproofai("PostToolUse", {
         session_id: input.sessionID,
         cwd: directory,
-        tool_name: canonicalizeTool(input.tool),
-        tool_input: input.args,
+        tool_name: canonicalTool,
+        tool_input: canonicalizeToolInput(canonicalTool, input.args),
         tool_response: { title: output.title, output: output.output, metadata: output.metadata },
         hook_event_name: "PostToolUse",
       }, directory);
@@ -873,11 +897,12 @@ export default async function failproofaiPlugin({ client, directory }) {
 
     // Cleaner deny UX for prompted tools — mutate output.status instead of throwing.
     "permission.ask": async (input, output) => {
+      const canonicalTool = canonicalizeTool(input.tool);
       const r = runFailproofai("PermissionRequest", {
         session_id: input.sessionID,
         cwd: directory,
-        tool_name: canonicalizeTool(input.tool) || input.command || "permission",
-        tool_input: input,
+        tool_name: canonicalTool || input.command || "permission",
+        tool_input: canonicalizeToolInput(canonicalTool, input),
         hook_event_name: "PermissionRequest",
       }, directory);
       try {

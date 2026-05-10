@@ -169,6 +169,96 @@ describe("OpenCode plugin shim — translation of plugin events to binary stdin"
     expect(stdin.tool_name).toBe("mcp_github_create_issue");
   });
 
+  it("tool.execute.before translates OpenCode camelCase arg keys to Claude snake_case for Read", async () => {
+    // Regression for the missing arg-key canonicalization that let a `read`
+    // tool call slip past `block-read-outside-cwd`: opencode delivers
+    // `{ filePath, offset, limit }` but the policy reads `ctx.toolInput.file_path`.
+    responses.push({ status: 0, stdout: "", stderr: "" });
+    const { plugin } = await setup();
+    const hooks = await plugin({ client: fakeClient(), directory: "/repo" });
+    await hooks["tool.execute.before"]!(
+      { tool: "read", sessionID: "ses_1", callID: "c1" },
+      { args: { filePath: "/etc/passwd", offset: 0, limit: 2000 } },
+    );
+    const stdin = JSON.parse(calls[0].opts.input!);
+    expect(stdin.tool_name).toBe("Read");
+    // filePath is renamed; unmapped keys (offset, limit) pass through unchanged.
+    expect(stdin.tool_input).toEqual({ file_path: "/etc/passwd", offset: 0, limit: 2000 });
+  });
+
+  it("tool.execute.before translates all four Edit arg keys", async () => {
+    responses.push({ status: 0, stdout: "", stderr: "" });
+    const { plugin } = await setup();
+    const hooks = await plugin({ client: fakeClient(), directory: "/repo" });
+    await hooks["tool.execute.before"]!(
+      { tool: "edit", sessionID: "ses_1", callID: "c1" },
+      { args: { filePath: "/repo/x", oldString: "a", newString: "b", replaceAll: true } },
+    );
+    const stdin = JSON.parse(calls[0].opts.input!);
+    expect(stdin.tool_name).toBe("Edit");
+    expect(stdin.tool_input).toEqual({
+      file_path: "/repo/x",
+      old_string: "a",
+      new_string: "b",
+      replace_all: true,
+    });
+  });
+
+  it("tool.execute.before passes unknown-tool args through unchanged (MCP / extensions)", async () => {
+    responses.push({ status: 0, stdout: "", stderr: "" });
+    const { plugin } = await setup();
+    const hooks = await plugin({ client: fakeClient(), directory: "/repo" });
+    await hooks["tool.execute.before"]!(
+      { tool: "mcp_github_create_issue", sessionID: "ses_1", callID: "c1" },
+      { args: { title: "x", filePath: "/literal/key/name" } },
+    );
+    const stdin = JSON.parse(calls[0].opts.input!);
+    // Unknown tools pass through with the OpenCode camelCase shape — we don't
+    // rewrite keys we can't claim to understand.
+    expect(stdin.tool_input).toEqual({ title: "x", filePath: "/literal/key/name" });
+  });
+
+  it("tool.execute.after also canonicalizes input args", async () => {
+    responses.push({ status: 0, stdout: "", stderr: "" });
+    const { plugin } = await setup();
+    const hooks = await plugin({ client: fakeClient(), directory: "/repo" });
+    await hooks["tool.execute.after"]!(
+      { tool: "write", sessionID: "ses_1", callID: "c1", args: { filePath: "/repo/x", content: "hi" } },
+      { title: "ok", output: "", metadata: {} },
+    );
+    const stdin = JSON.parse(calls[0].opts.input!);
+    expect(stdin.tool_name).toBe("Write");
+    expect(stdin.tool_input).toEqual({ file_path: "/repo/x", content: "hi" });
+  });
+
+  it("tool.execute.before canonicalizes every OPENCODE_TOOL_INPUT_MAP entry", async () => {
+    // Parity with the OPENCODE_TOOL_MAP coverage test below — keeps the
+    // shim's inline map in sync with the exported map in src/hooks/types.ts.
+    const { OPENCODE_TOOL_INPUT_MAP } = await import("../../src/hooks/types");
+    const { plugin } = await setup();
+    const hooks = await plugin({ client: fakeClient(), directory: "/repo" });
+    // Reverse-canonical-name → opencode raw name lookup so we can drive each
+    // case via the lowercase tool ID the plugin actually receives.
+    const rawByCanonical: Record<string, string> = {
+      Read: "read",
+      Write: "write",
+      Edit: "edit",
+    };
+    for (const canonical of Object.keys(OPENCODE_TOOL_INPUT_MAP)) {
+      const raw = rawByCanonical[canonical];
+      const map = OPENCODE_TOOL_INPUT_MAP[canonical];
+      const args: Record<string, unknown> = {};
+      for (const camel of Object.keys(map)) args[camel] = `v_${camel}`;
+      responses.push({ status: 0, stdout: "", stderr: "" });
+      await hooks["tool.execute.before"]!({ tool: raw, sessionID: "s", callID: "c" }, { args });
+      const stdin = JSON.parse(calls[calls.length - 1].opts.input!);
+      for (const camel of Object.keys(map)) {
+        expect(stdin.tool_input[map[camel]]).toBe(`v_${camel}`);
+        expect(stdin.tool_input[camel]).toBeUndefined();
+      }
+    }
+  });
+
   it("tool.execute.before canonicalizes every OPENCODE_TOOL_MAP entry", async () => {
     const { plugin } = await setup();
     const hooks = await plugin({ client: fakeClient(), directory: "/repo" });
