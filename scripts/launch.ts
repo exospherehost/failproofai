@@ -17,16 +17,18 @@ export function launch(mode: "dev" | "start"): void {
   // chunky lowercase "failproof ai" compressed with Unicode 2x2 quadrant
   // block characters (▖▗▘▙▚▛▜▝▞▟ + ▀ ▄ █ ▌ ▐) and then horizontally
   // scaled 4:3 (every 4th source-pixel column dropped) so the full
-  // wordmark fits in ~75 cols × ~8 rows — clean on any standard ≥80-col
+  // wordmark fits in ~75 cols × ~6 rows — clean on any standard ≥80-col
   // terminal. Many monospace fonts render each cell ~2-3× taller than wide,
-  // so we drop the f-top-serif row and trim the p-descender to a single
-  // row to keep the wordmark from looking visually stretched vertically.
+  // so we drop both the f-top-serif row AND a middle-body row, AND trim
+  // the p-descender to a single row, to keep the wordmark from looking
+  // visually stretched vertically. Letters stay readable: f keeps its
+  // curl + crossbar + stem + foot, the bowls of a/p/o collapse from a
+  // 3-row interior to 2 rows (top-arc + bottom-arc), and p keeps a stub
+  // descender.
   const bannerLines = [
-    "    ▐█▛▀▀         ▟█▖                                   ▟█▛▀▀            ▝▀",
     "   ██████ ▗████▌ ▝██▛ ██   ███    ▐██▙  ▗███    ▐██▙  ▗█████▙     ████▌  ▐█",
     "   ▀▜█▛▀▀ ▝▀▀▀▀█▙ ▄▙  ██ ▗▟▀▀▜▄▖ ▄▟▀▀▘ ▄▟▛▀▜▙▖ ▄█▀▀█▄▖▝▀██▛▀▀     ▀▀▀▀▙▄ ▐█",
     "    ▐█▌   ▗██████ ███ ██ ▐█  ▐█▌ ██    ██▌ ▐█▌ ██  ██▌  ██▌       ██████ ▐█",
-    "    ▐█▌   ▐█▛▀▀██ ██▀ ██ ▐█  ▐█▌ ██    ██▌ ▐█▌ ██  ██▌  ██▌       █▛▀▀██ ▐█",
     "    ▐█▌   ▝▀█████ ██▄▄██ ▐████▀▘ ██    ▀▜███▀▘ ▀▜███▀▘  ██▌       ▀█████ ▐█",
     "    ▝▀▘     ▀▀▀▀▀ ▀▀▀▀▀▀ ▐█▀▀▀   ▀▀     ▝▀▀▀    ▝▀▀▀    ▀▀▘        ▀▀▀▀▀ ▝▀",
     "                         ▐█",
