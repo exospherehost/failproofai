@@ -8,40 +8,44 @@ import { fileURLToPath } from "node:url";
 import { parseScriptArgs } from "./parse-script-args";
 import { diagnoseShadow } from "./install-diagnosis.mjs";
 import { version } from "../package.json";
+import { coloredBanner, monoBanner, BANNER_COLS } from "./banner.generated";
 
 export function launch(mode: "dev" | "start"): void {
   const { loggingLevel, disableTelemetry, allowedDevOrigins, remainingArgs } = parseScriptArgs(process.argv.slice(2));
 
-  // Hand-crafted pixel-block wordmark mirroring the hosted PNG logo at
-  // https://d2wq11aau0arks.cloudfront.net/failproof/logo-wordmark.png —
-  // chunky lowercase "failproof ai" compressed with Unicode 2x2 quadrant
-  // block characters (▖▗▘▙▚▛▜▝▞▟ + ▀ ▄ █ ▌ ▐) and then horizontally
-  // scaled 4:3 (every 4th source-pixel column dropped) so the full
-  // wordmark fits in ~75 cols × ~6 rows — clean on any standard ≥80-col
-  // terminal. Many monospace fonts render each cell ~2-3× taller than wide,
-  // so we drop both the f-top-serif row AND a middle-body row, AND trim
-  // the p-descender to a single row, to keep the wordmark from looking
-  // visually stretched vertically. Letters stay readable: f keeps its
-  // curl + crossbar + stem + foot, the bowls of a/p/o collapse from a
-  // 3-row interior to 2 rows (top-arc + bottom-arc), and p keeps a stub
-  // descender.
-  const bannerLines = [
-    "   ██████ ▗████▌ ▝██▛ ██   ███    ▐██▙  ▗███    ▐██▙  ▗█████▙     ████▌  ▐█",
-    "   ▀▜█▛▀▀ ▝▀▀▀▀█▙ ▄▙  ██ ▗▟▀▀▜▄▖ ▄▟▀▀▘ ▄▟▛▀▜▙▖ ▄█▀▀█▄▖▝▀██▛▀▀     ▀▀▀▀▙▄ ▐█",
-    "    ▐█▌   ▗██████ ███ ██ ▐█  ▐█▌ ██    ██▌ ▐█▌ ██  ██▌  ██▌       ██████ ▐█",
-    "    ▐█▌   ▝▀█████ ██▄▄██ ▐████▀▘ ██    ▀▜███▀▘ ▀▜███▀▘  ██▌       ▀█████ ▐█",
-    "    ▝▀▘     ▀▀▀▀▀ ▀▀▀▀▀▀ ▐█▀▀▀   ▀▀     ▝▀▀▀    ▝▀▀▀    ▀▀▘        ▀▀▀▀▀ ▝▀",
-    "                         ▐█",
-  ];
-  // Fall back to plain text on narrow terminals so the wide pixel-block art
-  // doesn't wrap and shred itself. process.stdout.columns is undefined when
-  // stdout isn't a TTY (piped, captured, redirected to a file), in which case
-  // there's no width to compare against and we keep the full art as-is.
-  const bannerWidth = bannerLines.reduce((w, l) => Math.max(w, l.length), 0);
+  // Pre-rendered wordmark — see scripts/generate-banner.ts. Two variants of
+  // the same logo: coloredBanner uses 24-bit ANSI fg/bg per cell with `▀`
+  // half-blocks (each char encodes 2 vertically-stacked source pixels at
+  // 1:1 aspect, so the teal flower + pink "l" highlights survive); monoBanner
+  // is the same grid in plain Unicode block chars for terminals where 24-bit
+  // color is unavailable (NO_COLOR, non-TTY, basic terminals).
   const cols = process.stdout.columns;
-  const banner = cols !== undefined && cols < bannerWidth
-    ? "  failproof ai"
-    : bannerLines.join("\n");
+  const fitsArt = cols === undefined || cols >= BANNER_COLS + 2;
+  // FORCE_COLOR=3 follows the chalk/supports-color convention: explicitly
+  // forces 24-bit color even when stdout isn't a TTY (useful for piping
+  // colored output into a pager or capturing for sharing).
+  const forceTruecolor = process.env.FORCE_COLOR === "3";
+  const noColor =
+    process.env.NO_COLOR !== undefined
+    || process.env.FORCE_COLOR === "0"
+    || (!process.stdout.isTTY && !forceTruecolor);
+  // Most modern terminals (iTerm2, kitty, alacritty, Windows Terminal,
+  // gnome-terminal, vscode, wezterm) advertise 24-bit support via
+  // COLORTERM=truecolor. When COLORTERM isn't set we'd rather emit clean
+  // monochrome blocks than risk garbled escapes on a basic terminal.
+  const supports24bit =
+    !noColor
+    && (process.env.COLORTERM === "truecolor"
+      || process.env.COLORTERM === "24bit"
+      || forceTruecolor);
+  let banner: string;
+  if (!fitsArt) {
+    banner = "  failproof ai";
+  } else if (supports24bit) {
+    banner = "  " + coloredBanner.join("\n  ");
+  } else {
+    banner = "  " + monoBanner.join("\n  ");
+  }
   console.log(`\n${banner}\n\n  v${version}\n`);
   console.log(`  ⭐ Star us:      https://github.com/exospherehost/failproofai`);
   console.log(`  📖 Docs:         https://befailproof.ai`);

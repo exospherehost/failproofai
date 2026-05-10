@@ -71,12 +71,14 @@
     "access": "public"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.93.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@tanstack/react-virtual": "^3.13.18",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^25.5.2",
+    "@types/pngjs": "^6.0.5",
     "@types/react": "^19.2.13",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
@@ -86,12 +88,12 @@
     "happy-dom": "^20.7.0",
     "lucide-react": "^1.0.1",
     "next": "^16.2.2",
+    "pngjs": "^7.0.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^4.1.18",
     "typescript": "^6.0.2",
-    "@anthropic-ai/sdk": "^0.93.0",
     "vitest": "^4.0.18"
   },
   "dependencies": {
