@@ -21,7 +21,7 @@
  * missing `~/.gemini/` returns `[]`, malformed JSONL falls open without
  * surfacing the session.
  */
-import { readdir, readFile, stat } from "node:fs/promises";
+import { open, readdir, readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { ProjectFolder, SessionFile } from "./projects";
@@ -34,6 +34,13 @@ import { logWarn } from "./logger";
 /** Filename pattern for a Gemini session JSONL:
  *  `session-<ISO-timestamp-with-dashes>-<8-hex-uuid-prefix>.jsonl`. */
 const SESSION_FILE_RE = /^session-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2})-([0-9a-f]{8})\.jsonl$/i;
+/** Full UUID — the filename only embeds the first 8 hex chars; the rest is on
+ *  the JSONL metadata header line. The session detail route requires a full
+ *  UUID, so links built from the truncated filename prefix 404. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+/** Metadata header sits on line 1 and is well under 1 KB; 4 KB covers it
+ *  comfortably without slurping a multi-MB transcript. */
+const FIRST_LINE_CHUNK_BYTES = 4 * 1024;
 
 /** Override for tests. Defaults to the live Gemini session-state root. */
 function getGeminiTmpRoot(): string {
@@ -46,6 +53,10 @@ interface GeminiSessionMeta {
   sessionFilename: string;
   cwd: string;
   fileMtime: Date;
+  /** Full UUID parsed from the JSONL metadata header (line 1). Undefined when
+   *  the header is missing, malformed, or carries a non-UUID `sessionId`;
+   *  callers fall through to rendering an un-linked row. */
+  sessionId?: string;
 }
 
 async function safeReaddir(dir: string) {
@@ -61,6 +72,40 @@ async function statMtime(path: string): Promise<Date | null> {
     return (await stat(path)).mtime;
   } catch {
     return null;
+  }
+}
+
+/** Read the first newline-delimited line of `filePath` without slurping the
+ *  rest. Mirrors `lib/codex-projects.ts`'s readFirstLine; the Gemini metadata
+ *  header is always on line 1. */
+async function readFirstLine(filePath: string): Promise<string | null> {
+  let fh: Awaited<ReturnType<typeof open>> | null = null;
+  try {
+    fh = await open(filePath, "r");
+    const buf = Buffer.alloc(FIRST_LINE_CHUNK_BYTES);
+    const { bytesRead } = await fh.read(buf, 0, FIRST_LINE_CHUNK_BYTES, 0);
+    if (bytesRead === 0) return null;
+    const slice = buf.subarray(0, bytesRead);
+    const nl = slice.indexOf(0x0a); // '\n'
+    const end = nl === -1 ? bytesRead : nl;
+    return slice.subarray(0, end).toString("utf-8");
+  } catch {
+    return null;
+  } finally {
+    if (fh) await fh.close().catch(() => {});
+  }
+}
+
+/** Extract a full-UUID `sessionId` from a JSONL metadata header line. Returns
+ *  undefined on parse failure, missing field, or a non-UUID value. */
+function extractFullSessionId(line: string | null): string | undefined {
+  if (!line) return undefined;
+  try {
+    const meta = JSON.parse(line) as { sessionId?: unknown };
+    if (typeof meta.sessionId !== "string") return undefined;
+    return UUID_RE.test(meta.sessionId) ? meta.sessionId : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -101,7 +146,8 @@ async function scanGeminiSessions(): Promise<GeminiSessionMeta[]> {
           const filePath = join(chatsDir, f.name);
           const mtime = await statMtime(filePath);
           if (!mtime) continue;
-          out.push({ filePath, sessionFilename: f.name, cwd, fileMtime: mtime });
+          const sessionId = extractFullSessionId(await readFirstLine(filePath));
+          out.push({ filePath, sessionFilename: f.name, cwd, fileMtime: mtime, sessionId });
         }
       }),
     16,
@@ -140,17 +186,14 @@ export async function getGeminiProjects(): Promise<ProjectFolder[]> {
 export async function getGeminiSessionsForCwd(cwd: string): Promise<SessionFile[]> {
   const sessions = await scanGeminiSessions();
   const matches = sessions.filter((s) => s.cwd === cwd);
-  const files: SessionFile[] = matches.map((s) => {
-    const m = s.sessionFilename.match(SESSION_FILE_RE);
-    return {
-      name: s.sessionFilename,
-      path: s.filePath,
-      lastModified: s.fileMtime,
-      lastModifiedFormatted: formatDate(s.fileMtime),
-      sessionId: m ? m[2] : undefined,
-      cli: "gemini",
-    };
-  });
+  const files: SessionFile[] = matches.map((s) => ({
+    name: s.sessionFilename,
+    path: s.filePath,
+    lastModified: s.fileMtime,
+    lastModifiedFormatted: formatDate(s.fileMtime),
+    sessionId: s.sessionId,
+    cli: "gemini",
+  }));
   files.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
   return files;
 }
@@ -180,17 +223,14 @@ export async function getGeminiSessionsByEncodedName(name: string): Promise<Gemi
   if (uniqueCwds.length !== 1) {
     return { cwd: null, sessions: [] };
   }
-  const sessions = matches.map((s) => {
-    const m = s.sessionFilename.match(SESSION_FILE_RE);
-    return {
-      name: s.sessionFilename,
-      path: s.filePath,
-      lastModified: s.fileMtime,
-      lastModifiedFormatted: formatDate(s.fileMtime),
-      sessionId: m ? m[2] : undefined,
-      cli: "gemini" as const,
-    };
-  });
+  const sessions = matches.map((s) => ({
+    name: s.sessionFilename,
+    path: s.filePath,
+    lastModified: s.fileMtime,
+    lastModifiedFormatted: formatDate(s.fileMtime),
+    sessionId: s.sessionId,
+    cli: "gemini" as const,
+  }));
   sessions.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
   return { cwd: uniqueCwds[0], sessions };
 }
