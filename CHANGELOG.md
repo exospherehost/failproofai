@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.10-beta.13 — 2026-05-10
+
+### Docs
+- Document the per-CLI `Stop` semantics in `docs/built-in-policies.mdx`. Adds a "Per-CLI Stop semantics" subsection at the top of the Workflow chapter with a 7-row table showing how each supported CLI (Claude / Codex / Copilot / Cursor / Gemini / OpenCode / Pi) enforces `require-*-before-stop` policies, plus a dedicated `<Note>` callout explaining the Pi limitation: Pi's `AgentEndEvent` has no Result type so failproofai cannot force-retry the same agent loop, and the gate fires on the **next user turn** via `before_agent_start` system-prompt injection instead. Six other CLIs retry the same loop and look identical to the Claude experience; only Pi visibly stops between turns. Bounds, lifetime, and the `session_shutdown` cleanup contract are all spelled out so users enabling `require-commit-before-stop` etc. on Pi understand what they're seeing before they file a bug. No code changes — pure docs PR (#342).
+
 ## 0.0.10-beta.12 — 2026-05-10
 
 ### Features
