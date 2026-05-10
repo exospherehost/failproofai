@@ -289,6 +289,55 @@ describe("hooks/policy-evaluator", () => {
     expect(parsed.hookSpecificOutput?.additionalContext).toContain("subagent verification pending");
   });
 
+  it("Pi Stop + instruct emits {permission:'deny', reason} JSON with MANDATORY ACTION wording", async () => {
+    // Pi cannot veto agent_end (the agent loop has already exited when it
+    // fires — Pi's AgentEndEvent has no Result type). Instead the
+    // pi-extension shim captures the deny reason and re-injects it as a
+    // systemPrompt suffix on the next before_agent_start. The instruct
+    // path must therefore use {permission: "deny"} (NOT the regular Pi
+    // instruct shape `{permission: "allow", reason}`) so the shim's
+    // agent_end handler captures the reason. Locks down the wording and
+    // shape so a regression here would silently weaken Pi Stop enforcement.
+    registerPolicy("verify", "desc", () => ({
+      decision: "instruct",
+      reason: "needs verification",
+    }), { events: ["Stop"] });
+
+    const result = await evaluatePolicies("Stop", {}, { cli: "pi" });
+    expect(result.exitCode).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(result.decision).toBe("instruct");
+    const parsed = JSON.parse(result.stdout) as { permission?: string; reason?: string };
+    expect(parsed.permission).toBe("deny");
+    expect(parsed.reason).toContain("MANDATORY ACTION REQUIRED");
+    expect(parsed.reason).toContain("policy: exospherehost/verify");
+    expect(parsed.reason).toContain("needs verification");
+  });
+
+  it("Pi non-Stop + instruct keeps the existing flat {permission:'allow', reason} shape", async () => {
+    // Regression guard: only Stop events should flip to permission:"deny".
+    // PreToolUse / PostToolUse / UserPromptSubmit instruct verdicts on Pi
+    // must keep the prior `{permission: "allow", reason: "Instruction
+    // from failproofai: …"}` shape so the shim's tool_call handler does
+    // NOT block tool execution.
+    registerPolicy("note", "desc", () => ({
+      decision: "instruct",
+      reason: "fyi",
+    }), { events: ["PreToolUse"] });
+
+    const result = await evaluatePolicies(
+      "PreToolUse",
+      { tool_name: "Bash", tool_input: { command: "ls" } },
+      { cli: "pi" },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.decision).toBe("instruct");
+    const parsed = JSON.parse(result.stdout) as { permission?: string; reason?: string };
+    expect(parsed.permission).toBe("allow");
+    expect(parsed.reason).toMatch(/^Instruction from failproofai: /);
+    expect(parsed.reason).toContain("fyi");
+  });
+
   it("Gemini Stop + instruct emits {decision:'block', reason} JSON on stdout (force-retry via AfterAgent)", async () => {
     // Confirms the existing cli==="gemini" Stop arm in the instruct path
     // emits the documented force-retry shape. Pairs with the deny-path
@@ -728,6 +777,63 @@ describe("hooks/policy-evaluator", () => {
       expect(parsed.hookSpecificOutput?.permissionDecision).toBe("deny");
       // No additionalContext on tool events — that's a Stop-only shape.
       expect(parsed.hookSpecificOutput?.additionalContext).toBeUndefined();
+    });
+
+    it("Pi Stop deny emits flat {permission:'deny', reason} JSON with MANDATORY ACTION wording", async () => {
+      // Pi's AgentEndEvent has no Result type — by the time agent_end fires,
+      // Pi's agent loop has already exited, so a deny return cannot keep
+      // Pi running the way Claude's exit-2-from-Stop does. The
+      // pi-extension shim instead captures the deny `reason` from
+      // agent_end and re-injects it as a systemPrompt suffix on the next
+      // before_agent_start. policy-evaluator.ts emits the flat
+      // `{permission:"deny", reason}` shape with the MANDATORY ACTION
+      // wrapper for `cli === "pi" && eventType === "Stop"` so the shim
+      // can capture the reason verbatim. This test pins both the shape
+      // and the wording — a regression here would silently weaken Pi
+      // Stop enforcement (the shim would still deny but the LLM would
+      // see the generic "Blocked stop by failproofai because: …"
+      // wording that's calibrated for tool-event denials, not Stop).
+      registerPolicy("stop-blocker", "desc", () => ({
+        decision: "deny",
+        reason: "tests not run",
+      }), { events: ["Stop"] });
+
+      const result = await evaluatePolicies("Stop", {}, { cli: "pi" });
+      expect(result.exitCode).toBe(0);
+      expect(result.stderr).toBe("");
+      const parsed = JSON.parse(result.stdout) as { permission?: string; reason?: string };
+      expect(parsed.permission).toBe("deny");
+      expect(parsed.reason).toContain("MANDATORY ACTION REQUIRED");
+      expect(parsed.reason).toContain("policy: exospherehost/stop-blocker");
+      expect(parsed.reason).toContain("tests not run");
+      expect(result.decision).toBe("deny");
+      expect(result.policyName).toBe("exospherehost/stop-blocker");
+      expect(result.reason).toBe("tests not run");
+    });
+
+    it("Pi non-Stop deny keeps the existing flat {permission:'deny', reason: blockedMessage} shape", async () => {
+      // Regression guard: the Pi-Stop branch is gated on
+      // `eventType === "Stop"` — every other event type must keep the
+      // pre-existing flat shape so PreToolUse/UserPromptSubmit/etc. denies
+      // continue to fire on Pi. Confirms the split (added in the
+      // before_agent_start handoff PR) didn't accidentally route non-Stop
+      // events through the MANDATORY ACTION wrapper.
+      registerPolicy("blocker", "desc", () => ({
+        decision: "deny",
+        reason: "sudo not allowed",
+      }), { events: ["PreToolUse"] });
+
+      const result = await evaluatePolicies(
+        "PreToolUse",
+        { tool_name: "Bash", tool_input: { command: "sudo ls" } },
+        { cli: "pi" },
+      );
+      expect(result.exitCode).toBe(0);
+      const parsed = JSON.parse(result.stdout) as { permission?: string; reason?: string };
+      expect(parsed.permission).toBe("deny");
+      expect(parsed.reason).not.toContain("MANDATORY ACTION REQUIRED");
+      expect(parsed.reason).toMatch(/^Blocked Bash by failproofai because: /);
+      expect(parsed.reason).toContain("sudo not allowed");
     });
 
     it("Gemini Stop deny emits {decision:'block', reason} JSON on stdout (force-retry via AfterAgent)", async () => {
