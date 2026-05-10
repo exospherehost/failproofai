@@ -208,6 +208,28 @@ describe("E2E: OpenCode integration — hook protocol", () => {
     }
   });
 
+  it("Read of a path outside cwd is denied by block-read-outside-cwd (regression for arg-key canonicalization gap)", () => {
+    // Regression for the bug where opencode's `read` tool delivered
+    // `tool_input.filePath` (camelCase) but the policy reads
+    // `ctx.toolInput.file_path`, letting a read outside cwd slip through.
+    // The shim now canonicalizes the arg keys; this test asserts the policy
+    // fires when the binary sees the post-canonicalized Claude-shape payload.
+    const env = createOpenCodeEnv();
+    try {
+      writeConfig(env.cwd, ["block-read-outside-cwd"]);
+      const result = runHook(
+        "PreToolUse",
+        OpenCodePayloads.preToolUse.read("/etc/passwd", env.cwd),
+        { homeDir: env.home, cli: "opencode" },
+      );
+      assertPreToolUseDeny(result);
+      const out = result.parsed?.hookSpecificOutput as Record<string, unknown> | undefined;
+      expect(out?.permissionDecisionReason).toMatch(/outside project directory/i);
+    } finally {
+      env.cleanup();
+    }
+  });
+
   it("Bash read of .opencode/plugins/failproofai.mjs is denied by the agent-settings guard", () => {
     const env = createOpenCodeEnv();
     try {

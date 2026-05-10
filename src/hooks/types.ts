@@ -279,6 +279,32 @@ export const OPENCODE_TOOL_MAP: Record<string, string> = {
   todoread: "TodoRead",
 };
 
+/**
+ * Per-tool input-key translation: OpenCode camelCase → Claude snake_case,
+ * keyed by canonical (PascalCase) tool name so it pairs naturally with the
+ * output of OPENCODE_TOOL_MAP. Without this, builtin policies that read
+ * `ctx.toolInput.file_path` (`block-read-outside-cwd`, `block-env-files`,
+ * `block-secrets-write`) silently no-op on every OpenCode Read/Write/Edit
+ * call because OpenCode's native tools deliver args as `filePath` / `oldString`
+ * / `newString` / `replaceAll`.
+ *
+ * Tools outside this set (MCP `mcp_*`, third-party plugins) pass through
+ * unchanged so their schemas aren't corrupted. Mirrored inline in the shim
+ * template at src/hooks/integrations.ts:buildOpenCodePluginShim — the shim
+ * must be self-contained because opencode loads it as a JS module — so any
+ * change here MUST be mirrored there.
+ */
+export const OPENCODE_TOOL_INPUT_MAP: Record<string, Record<string, string>> = {
+  Read: { filePath: "file_path" },
+  Write: { filePath: "file_path" },
+  Edit: {
+    filePath: "file_path",
+    oldString: "old_string",
+    newString: "new_string",
+    replaceAll: "replace_all",
+  },
+};
+
 // ── Pi (pi-coding-agent) ───────────────────────────────────────────────────
 //
 // Pi loads TypeScript extensions from packages registered in `.pi/settings.json`
@@ -362,6 +388,32 @@ export const PI_TOOL_MAP: Record<string, string> = {
   edit: "Edit",
   glob: "Glob",
   grep: "Grep",
+};
+
+/**
+ * Per-tool input-key translation: Pi's tool args use `path` for Read / Write /
+ * Edit (see https://github.com/earendil-works/pi packages/coding-agent/src/core/tools)
+ * but failproofai builtins read `ctx.toolInput.file_path`. `block-read-outside-cwd`
+ * already has a `ctx.toolInput.path` fallback (`src/hooks/builtin-policies.ts:796`)
+ * so it works on Pi via that path; without this map, however,
+ * `block-env-files` and `block-secrets-write` — which only check
+ * `ctx.toolInput.file_path` via `getFilePath()` — silently no-op on Pi.
+ *
+ * Pi's Edit tool delivers a nested `edits: [{oldText, newText}, …]` array
+ * shape that doesn't translate flatly to Claude's `{old_string, new_string,
+ * replace_all}`, so only the top-level `path` is mapped. Edit-content
+ * checks (sanitize-* on the edit body) remain Pi-shape — none of today's
+ * builtins look at the edit body. Tools outside this set pass through
+ * unchanged.
+ *
+ * Mirrored inline in pi-extension/index.ts (the extension must be self-
+ * contained — Pi loads it as an in-process JS module), so any change here
+ * MUST be mirrored there.
+ */
+export const PI_TOOL_INPUT_MAP: Record<string, Record<string, string>> = {
+  Read: { path: "file_path" },
+  Write: { path: "file_path" },
+  Edit: { path: "file_path" },
 };
 
 // ── Gemini CLI ─────────────────────────────────────────────────────────────

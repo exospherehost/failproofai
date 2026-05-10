@@ -129,6 +129,36 @@ function canonicalizeToolName(piToolName: string | undefined): string | undefine
   return PI_TOOL_MAP[piToolName] ?? piToolName;
 }
 
+/**
+ * Per-tool input-key translation. Pi's Read / Write / Edit tools deliver
+ * `path` (not `file_path`); failproofai's `block-env-files` and
+ * `block-secrets-write` builtins only read `file_path`, so without this map
+ * they silently no-op on Pi. `block-read-outside-cwd` already has a `path`
+ * fallback so it works either way. Pi's Edit tool nests `edits[{oldText,
+ * newText}]` which doesn't translate flatly to Claude's `{old_string,
+ * new_string}` — we only map the top-level `path`; the nested array stays
+ * Pi-shape (no current builtin reads it).
+ *
+ * Keep in sync with PI_TOOL_INPUT_MAP in src/hooks/types.ts.
+ */
+const PI_TOOL_INPUT_MAP: Record<string, Record<string, string>> = {
+  Read: { path: "file_path" },
+  Write: { path: "file_path" },
+  Edit: { path: "file_path" },
+};
+
+function canonicalizeToolInput(
+  canonicalToolName: string | undefined,
+  args: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!args || typeof args !== "object" || !canonicalToolName) return args;
+  const map = PI_TOOL_INPUT_MAP[canonicalToolName];
+  if (!map) return args;
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(args)) out[map[k] ?? k] = args[k];
+  return out;
+}
+
 /** Resolve the cwd for the policy payload. Pi events don't include cwd, so
  *  fall back to the extension's process.cwd() — which is where Pi was
  *  launched and where `.failproofai/` config lives. */
@@ -280,9 +310,10 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   // tool_call → PreToolUse. Block tool execution when failproofai denies.
   pi.on("tool_call", (event: unknown): unknown => {
     const e = event as PiToolCallEvent;
+    const canonicalTool = canonicalizeToolName(e.toolName);
     const decision = callPolicy("tool_call", {
-      tool_name: canonicalizeToolName(e.toolName),
-      tool_input: e.input,
+      tool_name: canonicalTool,
+      tool_input: canonicalizeToolInput(canonicalTool, e.input),
       session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
       hook_event_name: "PreToolUse",
@@ -341,9 +372,10 @@ export default function failproofaiBridge(pi: PiExtensionApi) {
   // the activity store + stderr — but Pi keeps the original tool result.
   pi.on("tool_result", (event: unknown): unknown => {
     const e = event as PiToolResultEvent;
+    const canonicalTool = canonicalizeToolName(e.toolName);
     callPolicy("tool_result", {
-      tool_name: canonicalizeToolName(e.toolName),
-      tool_input: e.input ?? {},
+      tool_name: canonicalTool,
+      tool_input: canonicalizeToolInput(canonicalTool, e.input) ?? {},
       tool_response: { content: e.content, isError: e.isError },
       session_id: resolveSessionId(e.sessionId, resolveCwd(e.cwd)),
       cwd: resolveCwd(e.cwd),
