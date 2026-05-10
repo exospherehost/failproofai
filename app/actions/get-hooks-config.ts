@@ -3,8 +3,10 @@
 import { readHooksConfig } from "@/src/hooks/hooks-config";
 import { hooksInstalledInSettings, getSettingsPath } from "@/src/hooks/manager";
 import { BUILTIN_POLICIES } from "@/src/hooks/builtin-policies";
+import { listIntegrations } from "@/src/hooks/integrations";
 import { HOOK_SCOPES } from "@/src/hooks/types";
-import type { HookScope } from "@/src/hooks/types";
+import type { HookScope, IntegrationType } from "@/src/hooks/types";
+import { getCliLabel } from "@/lib/cli-registry";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 
@@ -32,10 +34,23 @@ export interface CustomPolicyInfo {
   eventScope?: string;
 }
 
+export interface CliInstallStatus {
+  id: IntegrationType;
+  label: string;
+  installed: boolean;
+  settingsPath: string;
+  /** Whether the agent CLI's binary was found on PATH. */
+  detected: boolean;
+}
+
 export interface HooksConfigPayload {
   enabledPolicies: string[];
+  /** Claude-only legacy field; kept for back-compat. New UI should consume `clis`. */
   installedScopes: HookScope[];
+  /** Claude-only legacy field; kept for back-compat. New UI should consume `clis`. */
   settingsPath: string;
+  /** Per-CLI install state at user scope, in `INTEGRATION_TYPES` order. */
+  clis: CliInstallStatus[];
   policies: PolicyInfo[];
   customPoliciesPath?: string;
   customPolicies?: CustomPolicyInfo[];
@@ -74,6 +89,14 @@ export async function getHooksConfigAction(): Promise<HooksConfigPayload> {
   const primaryScope: HookScope = installedScopes[0] ?? "user";
   const settingsPath = getSettingsPath(primaryScope);
 
+  const clis: CliInstallStatus[] = listIntegrations().map((integration) => ({
+    id: integration.id,
+    label: getCliLabel(integration.id),
+    installed: integration.hooksInstalledInSettings("user"),
+    settingsPath: integration.getSettingsPath("user"),
+    detected: integration.detectInstalled(),
+  }));
+
   const policies: PolicyInfo[] = BUILTIN_POLICIES.map((p) => ({
     name: p.name,
     description: p.description,
@@ -98,6 +121,7 @@ export async function getHooksConfigAction(): Promise<HooksConfigPayload> {
     enabledPolicies: config.enabledPolicies,
     installedScopes,
     settingsPath,
+    clis,
     policies,
     customPoliciesPath: config.customPoliciesPath,
     customPolicies: customPolicies?.length ? customPolicies : undefined,
