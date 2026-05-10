@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.0.10-beta.10 — 2026-05-09
+## 0.0.10-beta.10 — 2026-05-10
 
 ### Fixes
 - `scripts/launch.ts`: trim the dashboard-startup ASCII wordmark from 10 to 8 char-rows (drop the `f`-top-serif row and the bottom row of the `p`-descender) so the chunky pixel-block banner doesn't read as a vertically-stretched rectangle on monospace fonts that render each cell ~2-3× taller than wide. All letters stay recognizable — `f` keeps its curl + crossbar, `p` keeps a stub descender, every other shape unchanged (#338).
