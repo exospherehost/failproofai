@@ -16,9 +16,9 @@
 
 **Переводы:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Разрешение ошибок времени выполнения для агентов кодирования.**
+**Разрешение ошибок выполнения для агентов-кодировщиков.**
 Интегрируется с Claude Code и Codex. Перехватывает циклы, опасные действия и утечки секретов
-до того, как они станут инцидентами. Нулевая задержка. Работает локально.
+прежде чем они станут проблемами. Нулевая задержка. Работает локально.
 
 </div>
 
@@ -28,7 +28,7 @@
 
 ---
 
-## Поддерживаемые CLI агентов
+## Поддерживаемые агент-CLI
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -79,7 +79,7 @@
   </a>
 </p>
 
-> Установите хуки для одного или любой комбинации: `failproofai policies --install --cli opencode pi gemini` (или `--cli claude codex copilot cursor opencode pi gemini`). Опустите `--cli` для автоматического обнаружения установленных CLI и подтверждения. **Поддержка GitHub Copilot CLI, Cursor Agent, OpenCode, Pi и Gemini CLI находится на стадии бета-тестирования — тестирование продолжается.**
+> Установите хуки для одного или нескольких вариантов: `failproofai policies --install --cli opencode pi gemini` (или `--cli claude codex copilot cursor opencode pi gemini`). Опустите `--cli` для автоматического обнаружения установленных CLI и подтверждения. **Поддержка GitHub Copilot CLI, Cursor Agent, OpenCode, Pi и Gemini CLI находится в бета-версии — тестирование продолжается.**
 
 ---
 
@@ -97,13 +97,13 @@ failproofai
 
 ## Что это блокирует
 
-| Политика | Что блокируется |
+| Политика | Что это блокирует |
 |---|---|
-| `block-push-master` | Прямые push в `main` / `master` |
+| `block-push-master` | Прямые отправки в `main` / `master` |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | Коммиты, мержи, ребейсы в `main` / `master` |
+| `block-work-on-main` | Коммиты, слияния, переработки на `main` / `master` |
 | `block-rm-rf` | Рекурсивное удаление файлов |
-| `sanitize-api-keys` | API ключи, попадающие в контекст агента |
+| `sanitize-api-keys` | API ключи, утекающие в контекст агента |
 
 → [Все 30 встроенных политик](https://docs.befailproof.ai/built-in-policies)
 
@@ -111,8 +111,8 @@ failproofai
 
 ## Ваши собственные политики
 
-Поместите файл в `.failproofai/policies/` — он загружается автоматически, никаких флагов не требуется.
-Добавьте его в репозиторий, и вся команда получит его при следующем pull.
+Поместите файл в `.failproofai/policies/` — он загружается автоматически без дополнительных флагов.
+Зафиксируйте его и вся команда получит его при следующем pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -128,12 +128,12 @@ customPolicies.add({
 });
 ```
 
-Три решения доступны для каждой политики:
+Три решения доступны каждой политике:
 
 | Решение | Эффект |
 |---|---|
 | `allow()` | Разрешить операцию |
-| `deny(message)` | Заблокировать её — сообщение вернётся к агенту |
+| `deny(message)` | Заблокировать — сообщение возвращается агенту |
 | `instruct(message)` | Пропустить, но добавить контекст в следующий запрос агента |
 
 → [Руководство по пользовательским политикам](https://docs.befailproof.ai/custom-policies)
@@ -142,9 +142,9 @@ customPolicies.add({
 
 ## Видимость сессии
 
-Каждый вызов инструмента, который делает ваш агент, записывается локально. Панель управления показывает, что было выполнено,
-что было заблокировано и что политика сообщила агенту — поэтому вы не гадаете,
-когда что-то идёт не так. → [Руководство панели управления](https://docs.befailproof.ai/dashboard)
+Каждый вызов инструмента, который делает ваш агент, логируется локально. Панель управления показывает, что было запущено,
+что было заблокировано и что политика сказала агенту — так вы не будете гадать,
+когда что-то пойдет не так. → [Руководство панели управления](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -156,20 +156,20 @@ customPolicies.add({
 | [Встроенные политики](https://docs.befailproof.ai/built-in-policies) | Все 30 политик с параметрами |
 | [Пользовательские политики](https://docs.befailproof.ai/custom-policies) | Напишите свои |
 | [Конфигурация](https://docs.befailproof.ai/configuration) | Области конфигурации и правила слияния |
-| [Панель управления](https://docs.befailproof.ai/dashboard) | Монитор сессий и активность политик |
+| [Панель управления](https://docs.befailproof.ai/dashboard) | Монитор сессии и активность политик |
 | [Архитектура](https://docs.befailproof.ai/architecture) | Как работает система хуков |
 
 ---
 
 ## Лицензия
 
-MIT с [Commons Clause](https://commonsclause.com/) — бесплатна для внутреннего и личного использования; коммерческая перепродажа самого failproofai требует отдельного соглашения. Полный текст см. в [LICENSE](./LICENSE).
+MIT с [Commons Clause](https://commonsclause.com/) — свободно для внутреннего и личного использования; коммерческая перепродажа самого failproofai требует отдельного соглашения. Полный текст см. в [LICENSE](./LICENSE).
 
 ---
 
-## Внесение вклада
+## Участие в разработке
 
-См. [CONTRIBUTING.md](./CONTRIBUTING.md). Новые политики, граничные случаи и переводы всегда приветствуются.
+См. [CONTRIBUTING.md](./CONTRIBUTING.md). Новые политики, граничные случаи и переводы приветствуются.
 
 ---
 

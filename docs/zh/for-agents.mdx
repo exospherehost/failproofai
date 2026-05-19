@@ -1,17 +1,17 @@
 ---
-title: "面向 AI 代理"
-description: "一条命令即可将 Failproof AI 知识添加到你的编程代理中。支持 Claude Code、Cursor、Windsurf 等。"
+title: "适用于 AI 助手"
+description: "一条命令即可将 Failproof AI 知识添加到你的编程 AI 助手中。支持 Claude Code、Cursor、Windsurf 等。"
 ---
 
-一条命令即可将完整的 Failproof AI 参考文档添加到你的编程代理中。支持 Claude Code、Cursor、Windsurf 以及任何支持技能（skills）的代理。
+一条命令即可将完整的 Failproof AI 参考文档添加到你的编程 AI 助手中。支持 Claude Code、Cursor、Windsurf 以及任何其他支持技能（skills）的 AI 助手。
 
 ```bash
 npx skills add https://docs.befailproof.ai
 ```
 
-`npx skills` 会自动检测你已安装的代理，并以每个代理对应的正确格式添加该技能。
+`npx skills` 会自动检测你已安装的 AI 助手，并以适合各自的格式添加该技能。
 
-## 技能涵盖范围
+## 技能涵盖的内容
 
 | 领域 | 包含内容 |
 |------|----------------|
@@ -21,18 +21,18 @@ npx skills add https://docs.befailproof.ai
 | 配置 | `policies-config.json` 结构、作用域合并、`policyParams` |
 | CLI | `failproofai policies --install`、`--uninstall`、`--custom`、作用域 |
 | 控制台 | 会话查看器、策略活动、环境变量 |
-| 架构 | Hook 处理流程、退出码、stdin/stdout 协议 |
+| 架构 | Hook 处理程序流程、退出码、stdin/stdout 协议 |
 
-## 技能是否完整？
+## 技能内容完整吗？
 
-Mintlify 会从导航中的所有页面生成 `llms.txt`。Failproof AI 文档覆盖完整 API——每一条策略、选项和示例均已包含在内。如果你发现有遗漏，源文件位于 `https://docs.befailproof.ai/llms-full.txt`。
+Mintlify 会从导航中的所有页面生成 `llms.txt`。Failproof AI 文档覆盖了完整的 API——每条策略、每个选项和每个示例都包含在内。如果你发现有遗漏，原始内容请访问 `https://docs.befailproof.ai/llms-full.txt`。
 
-如需精准获取特定上下文，可直接链接到具体页面：
+如需针对性的上下文，可直接链接到特定页面：
 
 ```bash
-# 仅自定义策略 API
+# 仅获取自定义策略 API
 npx skills add https://docs.befailproof.ai/custom-policies
 
-# 仅内置策略
+# 仅获取内置策略
 npx skills add https://docs.befailproof.ai/built-in-policies
 ```

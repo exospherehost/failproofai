@@ -1,12 +1,12 @@
 ---
 title: Bí danh Gói
-description: "Các bí danh ngăn chặn lỗi đánh máy đã đăng ký và cách chúng hoạt động"
+description: "Các bí danh phòng chống typosquat đã đăng ký và cách chúng hoạt động"
 icon: copy
 ---
 
 ## Gói chính thức
 
-Gói npm chính tắc là **`failproofai`**:
+Gói npm chuẩn là **`failproofai`**:
 
 ```bash
 npm install -g failproofai
@@ -18,9 +18,9 @@ bun add -g failproofai
 
 ## Tại sao chúng tôi sở hữu các tên bí danh
 
-Typosquatting là một cuộc tấn công chuỗi cung ứng phổ biến trong đó một diễn viên độc hại đăng ký tên gói cách một phím bàn phím từ một gói phổ biến. Những người dùng vô tình nhập sai lệnh cài đặt sẽ chạy mã được kiểm soát bởi kẻ tấn công với quyền truy cập toàn bộ hệ thống - chính xác là loại mối đe dọa mà Failproof AI được thiết kế để bảo vệ.
+Typosquatting là một cuộc tấn công chuỗi cung ứng phổ biến trong đó một diễn viên độc hại đăng ký tên gói chỉ cách một phím nhấn so với gói phổ biến. Những người dùng vô tình gõ sai lệnh cài đặt sẽ chạy mã được kiểm soát bởi kẻ tấn công với quyền truy cập toàn hệ thống - chính xác là loại mối đe dọa mà Failproof AI được thiết kế để bảo vệ.
 
-Để loại bỏ bề mặt này, **chúng tôi chủ động sở hữu tất cả các lỗi đánh máy phổ biến và biến thể định dạng** của `failproofai` trên npm. Không có tên nào trong số này có thể được đăng ký bởi bên thứ ba. Mỗi cái là một proxy mỏng cài đặt và ủy quyền cho gói `failproofai` thực tế.
+Để loại bỏ bề mặt này, **chúng tôi chủ động sở hữu tất cả các lỗi chính tả phổ biến và các biến thể định dạng** của `failproofai` trên npm. Không có tên nào trong số này có thể được đăng ký bởi bên thứ ba. Mỗi tên là một proxy mỏng cài đặt và ủy quyền cho gói `failproofai` thực tế.
 
 ---
 
@@ -37,7 +37,7 @@ Typosquatting là một cuộc tấn công chuỗi cung ứng phổ biến trong
 | `fail_proof_ai` | ⏳ Đang chờ hỗ trợ npm |
 | `fail-proofai` | ⏳ Đang chờ hỗ trợ npm |
 
-**Lỗi `failprof*`** - thiếu một `o` từ "proof":
+**Các lỗi `failprof*`** - thiếu một `o` từ "proof":
 
 | Gói | Trạng thái |
 |---------|--------|
@@ -47,7 +47,7 @@ Typosquatting là một cuộc tấn công chuỗi cung ứng phổ biến trong
 | `fail-prof-ai` | ⏳ Đang chờ hỗ trợ npm |
 | `failprof_ai` | ⏳ Đang chờ hỗ trợ npm |
 
-**Lỗi `faliproof*`** - `a` và `i` hoán vị:
+**Các lỗi `faliproof*`** - `a` và `i` được hoán đổi:
 
 | Gói | Trạng thái |
 |---------|--------|
@@ -55,13 +55,13 @@ Typosquatting là một cuộc tấn công chuỗi cung ứng phổ biến trong
 | `faliproof-ai` | ✅ Đã xuất bản |
 | `faliproofai` | ⏳ Đang chờ hỗ trợ npm |
 
-> **Tại sao đang chờ?** Chính sách ngăn chặn thư rác của npm chặn các tên chuẩn hóa thành cùng một chuỗi với gói hiện có sau khi xóa dấu chính tả và chạy kiểm tra tương tự. Chúng tôi đã liên hệ với hỗ trợ npm để đặt trước các tên này nhằm mục đích chống squatting. Chúng sẽ được kích hoạt sau khi được phê duyệt.
+> **Tại sao còn đang chờ?** Chính sách phòng chống spam của npm chặn các tên được chuẩn hóa thành chuỗi giống với gói hiện có sau khi loại bỏ dấu câu và chạy các kiểm tra tương tự. Chúng tôi đã liên hệ với hỗ trợ npm để đặt dự trữ các tên này cho các mục đích phòng chống typosquat. Chúng sẽ được kích hoạt sau khi được phê duyệt.
 
-Bạn có thể xác minh bất kỳ bí danh được xuất bản nào được chúng tôi sở hữu:
+Bạn có thể xác minh bất kỳ bí danh đã xuất bản nào được sở hữu bởi chúng tôi:
 
 ```bash
 npm info failproof
-# Tìm kiếm: "ExosphereHost Inc." trong trường maintainers
+# Tìm: "ExosphereHost Inc." trong trường maintainers
 ```
 
 ---
@@ -70,13 +70,13 @@ npm info failproof
 
 Mỗi gói bí danh:
 
-1. Liệt kê `failproofai` như một dependency - do đó gói thực tế (bao gồm thiết lập hook `postinstall` của nó) chạy khi cài đặt
-2. Phơi bày một binary trùng khớp với tên của nó (ví dụ: `failprof-ai`) để ủy quyền tất cả các đối số cho binary `failproofai`
+1. Liệt kê `failproofai` làm phụ thuộc - vì vậy gói thực tế (bao gồm thiết lập hook `postinstall` của nó) chạy khi cài đặt
+2. Tiếp xúc một tệp nhị phân khớp với tên của nó (ví dụ: `failprof-ai`) ủy quyền tất cả các đối số cho tệp nhị phân `failproofai`
 
-Proxy là một tập lệnh Node hai dòng; không có logic, không có lệnh gọi mạng và không có thu thập dữ liệu ngoài những gì `failproofai` tự làm.
+Proxy là một tập lệnh Node dài hai dòng; không có logic, không có cuộc gọi mạng và không có việc thu thập dữ liệu ngoài những gì `failproofai` tự làm.
 
 ---
 
-## Nếu bạn tìm thấy một tên chúng tôi đã bỏ lỡ
+## Nếu bạn tìm thấy một tên chúng tôi bỏ lỡ
 
 Mở một issue tại [exospherehost/failproofai](https://github.com/exospherehost/failproofai/issues) và chúng tôi sẽ đăng ký nó.

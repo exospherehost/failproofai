@@ -1,36 +1,36 @@
 ---
-title: Failproof AI
-description: "Quản lý hooks và policies giữ cho AI agents của bạn đáng tin cậy và chạy tự trị"
+title: "Failproof AI"
+description: "FailproofAI cung cấp 39 chính sách xử lý lỗi tích hợp sẵn giúp bắt các vòng lặp, rò rỉ bí mật, lệnh gọi công cụ phá hủy và nhiều hơn nữa chỉ với một lần cài đặt."
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-Hooks và policies giữ cho AI agents của bạn đáng tin cậy và chạy tự trị - dành cho **Claude Code**, **OpenAI Codex**, và **Agents SDK**.
+Hooks và chính sách cho **xử lý lỗi AI**, **phục hồi lỗi**, và **độ tin cậy LLM**. Giữ cho các AI agents của bạn đáng tin cậy và chạy tự động trên **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Cursor Agent**, **OpenCode**, **Pi**, **Gemini CLI**, và **Agents SDK**.
 
-AI agents thất bại theo những cách có thể dự đoán được. Chúng chạy các lệnh phá hủy, rò rỉ bí mật, lệch khỏi nhiệm vụ, mắc kẹt trong vòng lặp, hoặc đẩy trực tiếp lên main. Nếu không được giám sát, những lỗi nhỏ sẽ dây chuyền.
+Các AI agents thất bại theo những cách có thể dự đoán được. Chúng chạy các lệnh phá hủy, rò rỉ bí mật, lạc hướng công việc, mắc kẹt trong các vòng lặp, hoặc đẩy trực tiếp lên main. Nếu để không kiểm soát, những lỗi nhỏ có thể tích tụ thành sự cố, rò rỉ thông tin xác thực, và mất công việc.
 
-Failproof AI giải quyết vấn đề này bằng **policies** - những quy tắc hook vào mọi lệnh gọi công cụ của agent và có thể **phát hiện lỗi**, **giảm nhẹ chúng** (chặn, hướng dẫn, làm sạch), và **cảnh báo bạn** khi có gì cần chú ý. Một bảng điều khiển cục bộ cho phép bạn xem xét mọi thứ sau đó.
+FailproofAI giải quyết vấn đề này bằng **chính sách**. Các quy tắc này kết nối vào mọi lệnh gọi công cụ của agent để **phát hiện lỗi**, **giảm thiểu chúng** (chặn, hướng dẫn, vệ sinh), và **cảnh báo bạn** khi có điều gì cần chú ý. Bảng điều khiển cục bộ cho phép bạn xem lại mọi lệnh gọi công cụ, lỗi agent, và hành động phục hồi sau này.
 
-Mọi thứ chạy cục bộ. Không có dữ liệu nào rời khỏi máy tính của bạn.
+Không có dữ liệu nào rời khỏi máy của bạn.
 
 ## Bắt đầu
 
 <CardGroup cols={2}>
 
-<Card title="26 built-in policies" icon="shield" href="/vi/built-in-policies">
-  Chặn các lệnh phá hủy, ngăn chặn rò rỉ bí mật, giữ agents trong ranh giới dự án, và nhiều hơn nữa - sẵn sàng dùng ngay.
+<Card title="39 chính sách tích hợp sẵn" icon="shield" href="/vi/built-in-policies">
+  Chặn các lệnh phá hủy, ngăn chặn rò rỉ bí mật, giữ cho các agents nằm trong ranh giới dự án, và nhiều hơn nữa. Tất cả đều sẵn có ngay từ đầu.
 </Card>
 
-<Card title="Custom policies" icon="code" href="/vi/custom-policies">
-  Viết các quy tắc riêng của bạn bằng JavaScript với API allow / deny / instruct đơn giản.
+<Card title="Chính sách tùy chỉnh" icon="code" href="/vi/custom-policies">
+  Viết các quy tắc của riêng bạn bằng JavaScript với API allow / deny / instruct đơn giản.
 </Card>
 
-<Card title="Agent monitor" icon="chart-line" href="/vi/dashboard">
-  Xem agents của bạn đã làm gì khi bạn vắng mặt. Duyệt các phiên, kiểm tra các lệnh gọi công cụ, xem xét nơi policies được kích hoạt.
+<Card title="Giám sát Agent" icon="chart-line" href="/vi/dashboard">
+  Xem những gì các agents của bạn đã làm khi bạn vắng mặt. Duyệt các phiên, kiểm tra các lệnh gọi công cụ, xem xét nơi các chính sách được kích hoạt.
 </Card>
 
-<Card title="Easy configuration" icon="gear" href="/vi/configuration">
-  Điều chỉnh bất kỳ policy nào mà không cần mã. Đặt danh sách cho phép, các nhánh được bảo vệ, hoặc các ngưỡng cho mỗi dự án hoặc toàn cầu.
+<Card title="Cấu hình dễ dàng" icon="gear" href="/vi/configuration">
+  Điều chỉnh bất kỳ chính sách nào mà không cần viết mã. Đặt danh sách cho phép, nhánh được bảo vệ, hoặc ngưỡng cho mỗi dự án hoặc toàn cầu.
 </Card>
 
 </CardGroup>
@@ -50,8 +50,8 @@ bun add -g failproofai
 </CodeGroup>
 
 ```bash
-failproofai policies --install   # bật policies
-failproofai                      # mở dashboard
+failproofai policies --install   # enable policies
+failproofai                      # launch the dashboard
 ```
 
-Xem hướng dẫn [Getting started](/vi/getting-started) để có hướng dẫn đầy đủ.
+Xem hướng dẫn [Bắt đầu](/vi/getting-started) để có hướng dẫn đầy đủ.

@@ -16,7 +16,7 @@
 
 **Übersetzungen:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Laufzeit-Fehlerbehebung für Coding-Agenten.**
+**Laufzeitfehler-Behebung für Coding-Agenten.**
 Klinkt sich in Claude Code und Codex ein. Erkennt Endlosschleifen, gefährliche Aktionen und Secret-Leaks,
 bevor sie zu Vorfällen werden. Keine Latenz. Läuft lokal.
 
@@ -79,7 +79,7 @@ bevor sie zu Vorfällen werden. Keine Latenz. Läuft lokal.
   </a>
 </p>
 
-> Hooks für eine oder eine beliebige Kombination installieren: `failproofai policies --install --cli opencode pi gemini` (oder `--cli claude codex copilot cursor opencode pi gemini`). `--cli` weglassen, um installierte CLIs automatisch zu erkennen und eine Auswahl anzuzeigen. **GitHub Copilot CLI, Cursor Agent, OpenCode, Pi und Gemini CLI befinden sich noch in der Beta-Phase — Tests laufen noch.**
+> Hooks für eine oder mehrere CLIs installieren: `failproofai policies --install --cli opencode pi gemini` (oder `--cli claude codex copilot cursor opencode pi gemini`). `--cli` weglassen, um installierte CLIs automatisch zu erkennen und eine Auswahl anzuzeigen. **GitHub Copilot CLI, Cursor Agent, OpenCode, Pi und Gemini CLI befinden sich noch in der Beta-Phase — Tests laufen noch.**
 
 ---
 
@@ -91,19 +91,19 @@ failproofai policies --install
 failproofai
 ```
 
-30 integrierte Richtlinien werden sofort aktiv. Dashboard unter `localhost:8020`.
+30 integrierte Richtlinien werden sofort aktiviert. Dashboard unter `localhost:8020`.
 
 ---
 
-## Was blockiert wird
+## Was es verhindert
 
-| Richtlinie | Was sie blockiert |
+| Richtlinie | Was blockiert wird |
 |---|---|
-| `block-push-master` | Direkte Pushes auf `main` / `master` |
+| `block-push-master` | Direkte Pushes nach `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Commits, Merges und Rebases auf `main` / `master` |
 | `block-rm-rf` | Rekursives Löschen von Dateien |
-| `sanitize-api-keys` | API-Schlüssel, die in den Agenten-Kontext gelangen |
+| `sanitize-api-keys` | API-Keys, die in den Agenten-Kontext gelangen |
 
 → [Alle 30 integrierten Richtlinien](https://docs.befailproof.ai/built-in-policies)
 
@@ -111,8 +111,8 @@ failproofai
 
 ## Eigene Richtlinien
 
-Eine Datei in `.failproofai/policies/` ablegen — sie wird automatisch geladen, keine Flags erforderlich.
-Einfach einchecken, und das gesamte Team erhält sie beim nächsten Pull.
+Einfach eine Datei in `.failproofai/policies/` ablegen — sie wird automatisch geladen, ohne zusätzliche Flags.
+Ins Repository einchecken und das gesamte Team erhält sie beim nächsten Pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -128,22 +128,22 @@ customPolicies.add({
 });
 ```
 
-Drei Entscheidungen stehen jeder Richtlinie zur Verfügung:
+Jede Richtlinie kann eine von drei Entscheidungen treffen:
 
 | Entscheidung | Wirkung |
 |---|---|
-| `allow()` | Operation erlauben |
+| `allow()` | Aktion erlauben |
 | `deny(message)` | Blockieren — die Nachricht wird an den Agenten zurückgegeben |
-| `instruct(message)` | Durchlassen, aber dem nächsten Prompt des Agenten Kontext hinzufügen |
+| `instruct(message)` | Durchlassen, aber zusätzlichen Kontext zum nächsten Prompt des Agenten hinzufügen |
 
 → [Leitfaden für eigene Richtlinien](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## Sitzungstransparenz
+## Sitzungsübersicht
 
 Jeder Tool-Aufruf des Agenten wird lokal protokolliert. Das Dashboard zeigt, was ausgeführt wurde,
-was blockiert wurde und was die Richtlinie dem Agenten mitgeteilt hat — damit man nicht rätseln muss,
+was blockiert wurde und was die Richtlinie dem Agenten mitgeteilt hat — damit du nicht im Dunkeln tappst,
 wenn etwas schiefläuft. → [Dashboard-Leitfaden](https://docs.befailproof.ai/dashboard)
 
 ---
@@ -163,7 +163,7 @@ wenn etwas schiefläuft. → [Dashboard-Leitfaden](https://docs.befailproof.ai/d
 
 ## Lizenz
 
-MIT mit [Commons Clause](https://commonsclause.com/) — kostenlos für interne und private Nutzung; der kommerzielle Weiterverkauf von failproofai selbst erfordert eine gesonderte Vereinbarung. Den vollständigen Text findet man in [LICENSE](./LICENSE).
+MIT mit [Commons Clause](https://commonsclause.com/) — kostenlos für den internen und persönlichen Gebrauch; der kommerzielle Weiterverkauf von failproofai selbst erfordert eine gesonderte Vereinbarung. Den vollständigen Lizenztext findest du in [LICENSE](./LICENSE).
 
 ---
 

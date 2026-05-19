@@ -1,9 +1,9 @@
 ---
 title: "에이전트를 위한 가이드"
-description: "한 줄의 명령으로 코딩 에이전트에 Failproof AI 지식을 추가하세요. Claude Code, Cursor, Windsurf 등과 호환됩니다."
+description: "단 하나의 명령어로 코딩 에이전트에 Failproof AI 지식을 추가하세요. Claude Code, Cursor, Windsurf 등과 호환됩니다."
 ---
 
-한 줄의 명령으로 코딩 에이전트에 Failproof AI 전체 레퍼런스를 추가하세요. Claude Code, Cursor, Windsurf, 그리고 스킬을 지원하는 모든 에이전트와 호환됩니다.
+단 하나의 명령어로 코딩 에이전트에 Failproof AI 전체 레퍼런스를 추가하세요. Claude Code, Cursor, Windsurf, 그리고 스킬을 지원하는 모든 에이전트와 호환됩니다.
 
 ```bash
 npx skills add https://docs.befailproof.ai
@@ -11,12 +11,12 @@ npx skills add https://docs.befailproof.ai
 
 `npx skills`는 설치된 에이전트를 자동으로 감지하여 각 에이전트에 맞는 형식으로 스킬을 추가합니다.
 
-## 스킬에서 다루는 내용
+## 스킬이 다루는 내용
 
 | 영역 | 포함 내용 |
 |------|----------------|
-| Policies | 내장 정책 이름, 이벤트 타입, 파라미터, 활성화/비활성화 |
-| Custom policies | `customPolicies.add()`, 매치 필터, `allow`/`deny`/`instruct` API |
+| Policies | 내장 정책 이름, 이벤트 유형, 파라미터, 활성화/비활성화 |
+| Custom policies | `customPolicies.add()`, 매칭 필터, `allow`/`deny`/`instruct` API |
 | Context object | `ctx.eventType`, `ctx.toolName`, `ctx.toolInput`, `ctx.session` |
 | Configuration | `policies-config.json` 구조, 스코프 병합, `policyParams` |
 | CLI | `failproofai policies --install`, `--uninstall`, `--custom`, 스코프 |
@@ -25,12 +25,12 @@ npx skills add https://docs.befailproof.ai
 
 ## 스킬은 완전한가요?
 
-Mintlify는 네비게이션의 모든 페이지에서 `llms.txt`를 생성합니다. Failproof AI 문서는 전체 API를 포함하며, 모든 정책, 옵션, 예제가 담겨 있습니다. 누락된 내용이 있다면 원본은 `https://docs.befailproof.ai/llms-full.txt`에서 확인할 수 있습니다.
+Mintlify는 내비게이션의 모든 페이지로부터 `llms.txt`를 생성합니다. Failproof AI 문서는 전체 API를 다루며, 모든 정책, 옵션, 예제가 포함되어 있습니다. 누락된 내용이 있다면 `https://docs.befailproof.ai/llms-full.txt`에서 원본을 확인할 수 있습니다.
 
-특정 컨텍스트만 필요하다면 특정 페이지를 직접 링크하세요:
+특정 컨텍스트만 필요하다면 해당 페이지에 직접 연결하세요:
 
 ```bash
-# custom policies API만 추가
+# 커스텀 정책 API만 추가
 npx skills add https://docs.befailproof.ai/custom-policies
 
 # 내장 정책만 추가

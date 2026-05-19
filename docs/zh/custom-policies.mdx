@@ -1,10 +1,10 @@
 ---
 title: 自定义策略
-description: "用 JavaScript 编写自己的策略——强制执行项目规范、防止漂移、检测故障、集成外部系统"
+description: "用 JavaScript 编写自己的策略——强制执行规范、防止偏移、检测故障、与外部系统集成"
 icon: code
 ---
 
-自定义策略让你能够为任何 Agent 行为编写规则：强制执行项目规范、防止漂移、阻止危险操作、检测卡住的 Agent，或与 Slack、审批工作流等系统集成。它们与内置策略使用相同的钩子事件系统以及 `allow`、`deny`、`instruct` 决策机制。
+自定义策略让你能够为任何 Agent 行为编写规则：强制执行项目规范、防止偏移、拦截破坏性操作、检测卡死的 Agent，或与 Slack、审批工作流等系统集成。它们使用与内置策略相同的钩子事件系统和 `allow`、`deny`、`instruct` 决策机制。
 
 ---
 
@@ -37,30 +37,30 @@ failproofai policies --install --custom ./my-policies.js
 
 ---
 
-## 两种加载自定义策略的方式
+## 加载自定义策略的两种方式
 
 ### 方式一：基于约定（推荐）
 
-将 `*policies.{js,mjs,ts}` 文件放入 `.failproofai/policies/` 目录，即可自动加载——无需任何标志或配置更改。这与 git hooks 的工作方式类似：放入文件，直接生效。
+将 `*policies.{js,mjs,ts}` 文件放入 `.failproofai/policies/` 目录，它们会被自动加载——无需任何命令行参数或配置更改。这与 git hooks 的工作方式类似：放入文件，直接生效。
 
 ```
-# 项目级别——提交到 git，与团队共享
+# 项目级——提交到 git，与团队共享
 .failproofai/policies/security-policies.mjs
 .failproofai/policies/workflow-policies.mjs
 
-# 用户级别——个人配置，适用于所有项目
+# 用户级——个人使用，适用于所有项目
 ~/.failproofai/policies/my-policies.mjs
 ```
 
 **工作原理：**
-- 项目目录和用户目录均会被扫描（取并集，而非以首个作用域为准）
-- 文件在每个目录内按字母顺序加载；可添加 `01-`、`02-` 前缀来控制顺序
-- 仅加载符合 `*policies.{js,mjs,ts}` 的文件，其他文件会被忽略
-- 每个文件独立加载（单文件失败开放）
-- 与显式 `--custom` 和内置策略并存
+- 项目目录和用户目录均会被扫描（取并集，而非先匹配者优先）
+- 每个目录内的文件按字母顺序加载；可用 `01-`、`02-` 前缀控制顺序
+- 仅加载匹配 `*policies.{js,mjs,ts}` 的文件，其他文件会被忽略
+- 每个文件独立加载（单个文件失败时采用宽松策略）
+- 可与显式 `--custom` 参数及内置策略共存
 
 <Tip>
-基于约定的策略是为组织建立质量标准的最简单方式。将 `.failproofai/policies/` 提交到 git，每位团队成员即可自动获得相同的规则——无需逐个开发者配置。随着团队发现新的故障模式，添加一条策略并推送即可。随着时间推移，这些策略将成为持续演进的质量标准，随每次贡献不断完善。
+基于约定的策略是为团队建立质量标准的最便捷方式。将 `.failproofai/policies/` 提交到 git，每位团队成员就能自动获得相同的规则——无需逐个开发者配置。随着团队发现新的故障模式，只需添加一个策略并推送。随着时间推移，这些策略将成为一套随每次贡献不断完善的活质量标准。
 </Tip>
 
 ### 方式二：显式文件路径
@@ -76,11 +76,11 @@ failproofai policies --install --custom ./new-policies.js
 failproofai policies --uninstall --custom
 ```
 
-解析后的绝对路径将以 `customPoliciesPath` 的形式存储在 `policies-config.json` 中。每次钩子事件触发时都会重新加载该文件，事件之间不存在缓存。
+解析后的绝对路径会以 `customPoliciesPath` 字段存储在 `policies-config.json` 中。每次钩子事件触发时都会重新加载该文件，事件之间不存在缓存。
 
-### 同时使用两种方式
+### 两种方式同时使用
 
-基于约定的策略和显式 `--custom` 文件可以共存。加载顺序如下：
+基于约定的策略与显式 `--custom` 文件可以共存。加载顺序如下：
 
 1. 显式 `customPoliciesPath` 文件（如已配置）
 2. 项目约定文件（`{cwd}/.failproofai/policies/`，按字母顺序）
@@ -98,11 +98,11 @@ import { customPolicies, allow, deny, instruct } from "failproofai";
 
 ### `customPolicies.add(hook)`
 
-注册一条策略。在同一文件中可多次调用以注册多条策略。
+注册一个策略。同一文件中可多次调用以注册多个策略。
 
 ```ts
 customPolicies.add({
-  name: string;                         // 必填 - 唯一标识符
+  name: string;                         // 必填——唯一标识符
   description?: string;                 // 显示在 `failproofai policies` 输出中
   match?: { events?: HookEventType[] }; // 按事件类型过滤；省略则匹配所有事件
   fn: (ctx: PolicyContext) => PolicyResult | Promise<PolicyResult>;
@@ -113,30 +113,30 @@ customPolicies.add({
 
 | 函数 | 效果 | 适用场景 |
 |----------|--------|----------|
-| `allow()` | 静默允许该操作 | 操作安全，无需任何提示 |
-| `deny(message)` | 阻止该操作 | Agent 不应执行此操作 |
-| `instruct(message)` | 添加上下文但不阻止 | 为 Agent 提供额外上下文以保持方向正确 |
+| `allow()` | 静默允许操作 | 操作安全，无需消息提示 |
+| `deny(message)` | 阻止操作 | Agent 不应执行此操作 |
+| `instruct(message)` | 添加上下文而不阻止 | 为 Agent 提供额外上下文以保持方向 |
 
-`deny(message)` —— 消息会以 `"Blocked by failproofai:"` 为前缀显示给 Claude。单个 `deny` 会短路所有后续评估。
+`deny(message)` ——消息会以 `"Blocked by failproofai:"` 为前缀显示给 Claude。单个 `deny` 会短路所有后续评估。
 
-`instruct(message)` —— 消息将追加到 Claude 当前工具调用的上下文中。所有 `instruct` 消息会被累积并一起投递。
+`instruct(message)` ——消息会附加到 Claude 当前工具调用的上下文中。所有 `instruct` 消息会被累积并一起传递。
 
 <Tip>
-你可以通过在 `policyParams` 中添加 `hint` 字段，为任何 `deny` 或 `instruct` 消息附加额外指引——无需修改代码。这对自定义（`custom/`）、项目约定（`.failproofai-project/`）和用户约定（`.failproofai-user/`）策略同样有效。详见 [配置 → hint](/zh/configuration#hint-cross-cutting)。
+你可以通过在 `policyParams` 中添加 `hint` 字段，为任何 `deny` 或 `instruct` 消息附加额外的指引——无需修改代码。这同样适用于自定义（`custom/`）、项目约定（`.failproofai-project/`）和用户约定（`.failproofai-user/`）策略。详见 [配置 → hint](/zh/configuration#hint-cross-cutting)。
 </Tip>
 
 ### 信息性 allow 消息
 
-`allow(message)` 允许该操作**并**向 Claude 发送一条信息性消息。该消息通过钩子处理器的 stdout 响应中的 `additionalContext` 传递——与 `instruct` 使用相同的机制，但语义不同：它是状态更新，而非警告。
+`allow(message)` 允许操作**并**向 Claude 发送一条信息性消息。该消息以 `additionalContext` 的形式通过钩子处理器的 stdout 响应传递——与 `instruct` 使用相同的机制，但语义不同：它是一个状态更新，而非警告。
 
 | 函数 | 效果 | 适用场景 |
 |----------|--------|----------|
-| `allow(message)` | 允许并向 Claude 发送上下文 | 确认检查已通过，或说明为何跳过检查 |
+| `allow(message)` | 允许并向 Claude 发送上下文 | 确认检查已通过，或说明为何跳过某项检查 |
 
 使用场景：
-- **状态确认：** `allow("All CI checks passed.")` —— 告知 Claude 一切正常
-- **失败开放说明：** `allow("GitHub CLI not installed, skipping CI check.")` —— 告知 Claude 为何跳过某项检查，让其获得完整上下文
-- **多条消息累积：** 若多个策略各自返回 `allow(message)`，所有消息将以换行符连接并一起投递
+- **状态确认：** `allow("All CI checks passed.")` ——告知 Claude 一切正常
+- **宽松失败说明：** `allow("GitHub CLI not installed, skipping CI check.")` ——告知 Claude 为何跳过某项检查，使其获得完整上下文
+- **多条消息累积：** 若多个策略各自返回 `allow(message)`，所有消息将以换行符连接后一并传递
 
 ```js
 customPolicies.add({
@@ -157,17 +157,17 @@ customPolicies.add({
 
 ### `PolicyContext` 字段
 
-| 字段 | 类型 | 说明 |
+| 字段 | 类型 | 描述 |
 |-------|------|-------------|
 | `eventType` | `string` | `"PreToolUse"`、`"PostToolUse"`、`"Notification"`、`"Stop"` |
-| `toolName` | `string \| undefined` | 被调用的工具（如 `"Bash"`、`"Write"`、`"Read"`） |
+| `toolName` | `string \| undefined` | 被调用的工具（例如 `"Bash"`、`"Write"`、`"Read"`） |
 | `toolInput` | `Record<string, unknown> \| undefined` | 工具的输入参数 |
 | `payload` | `Record<string, unknown>` | 来自 Claude Code 的完整原始事件载荷 |
 | `session` | `SessionMetadata \| undefined` | 会话上下文（见下文） |
 
 ### `SessionMetadata` 字段
 
-| 字段 | 类型 | 说明 |
+| 字段 | 类型 | 描述 |
 |-------|------|-------------|
 | `sessionId` | `string` | Claude Code 会话标识符 |
 | `cwd` | `string` | Claude Code 会话的工作目录 |
@@ -177,10 +177,10 @@ customPolicies.add({
 
 | 事件 | 触发时机 | `toolInput` 内容 |
 |-------|--------------|----------------------|
-| `PreToolUse` | Claude 运行工具之前 | 工具的输入（如 Bash 对应 `{ command: "..." }`） |
+| `PreToolUse` | Claude 运行工具之前 | 工具的输入（例如 Bash 对应 `{ command: "..." }`） |
 | `PostToolUse` | 工具执行完成之后 | 工具的输入 + `tool_result`（输出结果） |
-| `Notification` | Claude 发送通知时 | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` —— 钩子必须始终返回 `allow()`，不能阻止通知 |
-| `Stop` | Claude 会话结束时 | 空 |
+| `Notification` | Claude 发送通知时 | `{ message: "...", notification_type: "idle" \| "permission_prompt" \| ... }` ——钩子必须始终返回 `allow()`，不能阻止通知 |
+| `Stop` | Claude 会话结束时 | 为空 |
 
 ---
 
@@ -190,11 +190,11 @@ customPolicies.add({
 
 1. 内置策略（按定义顺序）
 2. 来自 `customPoliciesPath` 的显式自定义策略（按 `.add()` 调用顺序）
-3. 来自项目 `.failproofai/policies/` 的约定策略（文件按字母顺序，文件内按 `.add()` 顺序）
-4. 来自用户 `~/.failproofai/policies/` 的约定策略（文件按字母顺序，文件内按 `.add()` 顺序）
+3. 项目 `.failproofai/policies/` 中的约定策略（文件按字母顺序，文件内按 `.add()` 调用顺序）
+4. 用户 `~/.failproofai/policies/` 中的约定策略（文件按字母顺序，文件内按 `.add()` 调用顺序）
 
 <Note>
-第一个 `deny` 会短路所有后续策略。所有 `instruct` 消息会被累积并一起投递。
+第一个 `deny` 会短路所有后续策略。所有 `instruct` 消息会被累积并一起传递。
 </Note>
 
 ---
@@ -238,26 +238,26 @@ customPolicies.add({
 });
 ```
 
-完全省略 `match` 则对每种事件类型都触发。
+完全省略 `match` 则在每种事件类型上都触发。
 
 ---
 
-## 错误处理与故障模式
+## 错误处理与失败模式
 
-自定义策略采用**失败开放**机制：错误不会阻止内置策略运行，也不会导致钩子处理器崩溃。
+自定义策略采用**宽松失败**策略：错误不会阻止内置策略运行，也不会导致钩子处理器崩溃。
 
-| 故障情形 | 行为 |
+| 故障情况 | 行为 |
 |---------|----------|
-| `customPoliciesPath` 未设置 | 不运行显式自定义策略；约定策略和内置策略正常继续 |
+| 未设置 `customPoliciesPath` | 不运行显式自定义策略；约定策略和内置策略正常继续 |
 | 文件未找到 | 警告记录到 `~/.failproofai/hook.log`；内置策略继续运行 |
 | 语法/导入错误（显式） | 错误记录到 `~/.failproofai/hook.log`；跳过显式自定义策略 |
 | 语法/导入错误（约定） | 错误记录；跳过该文件，其他约定文件仍正常加载 |
-| `fn` 运行时抛出异常 | 错误记录；该钩子视为 `allow`；其他钩子继续执行 |
+| `fn` 运行时抛出异常 | 错误记录；该钩子视为 `allow`；其他钩子继续运行 |
 | `fn` 执行超过 10 秒 | 超时记录；视为 `allow` |
 | 约定目录不存在 | 不运行约定策略；不报错 |
 
 <Tip>
-要调试自定义策略错误，可监控日志文件：
+要调试自定义策略错误，可监听日志文件：
 
 ```bash
 tail -f ~/.failproofai/hook.log
@@ -266,13 +266,13 @@ tail -f ~/.failproofai/hook.log
 
 ---
 
-## 完整示例：多条策略
+## 完整示例：多个策略
 
 ```js
 // my-policies.js
 import { customPolicies, allow, deny, instruct } from "failproofai";
 
-// 防止 Agent 写入 secrets/ 目录
+// 防止 Agent 向 secrets/ 目录写入
 customPolicies.add({
   name: "block-secrets-dir",
   description: "Prevent agent from writing to secrets/ directory",
@@ -300,7 +300,7 @@ customPolicies.add({
   },
 });
 
-// 冻结期间防止计划外的依赖变更
+// 在冻结期间防止计划外的依赖变更
 customPolicies.add({
   name: "dependency-freeze",
   description: "Prevent unplanned dependency changes during freeze period",
@@ -327,9 +327,9 @@ export { customPolicies };
 
 | 文件 | 内容 |
 |------|----------|
-| `examples/policies-basic.js` | 五条入门策略，涵盖常见 Agent 故障模式 |
-| `examples/policies-advanced/index.js` | 高级模式：传递性导入、异步调用、输出脱敏、会话结束钩子 |
-| `examples/convention-policies/security-policies.mjs` | 基于约定的安全策略（阻止写入 .env、防止 git 历史重写） |
+| `examples/policies-basic.js` | 涵盖常见 Agent 故障模式的五个入门策略 |
+| `examples/policies-advanced/index.js` | 高级模式：传递性导入、异步调用、输出脱敏和会话结束钩子 |
+| `examples/convention-policies/security-policies.mjs` | 基于约定的安全策略（阻止 .env 写入、防止 git 历史改写） |
 | `examples/convention-policies/workflow-policies.mjs` | 基于约定的工作流策略（测试提醒、审计文件写入） |
 
 ### 使用显式文件示例
@@ -341,13 +341,13 @@ failproofai policies --install --custom ./examples/policies-basic.js
 ### 使用基于约定的示例
 
 ```bash
-# 复制到项目级别
+# 复制到项目级
 mkdir -p .failproofai/policies
 cp examples/convention-policies/*.mjs .failproofai/policies/
 
-# 或复制到用户级别
+# 或复制到用户级
 mkdir -p ~/.failproofai/policies
 cp examples/convention-policies/*.mjs ~/.failproofai/policies/
 ```
 
-无需安装命令——文件会在下次钩子事件触发时自动被识别加载。
+无需执行安装命令——文件会在下次钩子事件触发时自动被识别加载。

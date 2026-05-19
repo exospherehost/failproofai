@@ -1,26 +1,26 @@
 ---
-title: Paket-Aliase
-description: "Registrierte Tippfehler-Schutz-Aliase und wie sie funktionieren"
+title: Paketaliase
+description: "Registrierte Tippfehler-Schutzaliase und wie sie funktionieren"
 icon: copy
 ---
 
 ## Offizielles Paket
 
-Das kanonische npm-Paket ist **`failproofai`**:
+Das offizielle npm-Paket ist **`failproofai`**:
 
 ```bash
 npm install -g failproofai
-# or
+# oder
 bun add -g failproofai
 ```
 
 ---
 
-## Warum wir die Alias-Namen besitzen
+## Warum wir die Aliasnamen besitzen
 
-Typosquatting ist ein verbreiteter Supply-Chain-Angriff, bei dem ein böswilliger Akteur einen Paketnamen registriert, der sich nur um einen Tastendruck vom Namen eines populären Pakets unterscheidet. Ahnungslose Nutzer, die beim Installationsbefehl einen Tippfehler machen, führen am Ende Code unter Angreiferkontrolle mit vollem Systemzugriff aus – genau die Art von Bedrohung, gegen die Failproof AI schützen soll.
+Typosquatting ist ein verbreiteter Supply-Chain-Angriff, bei dem ein böswilliger Akteur einen Paketnamen registriert, der sich nur einen Tastenanschlag vom Namen eines populären Pakets unterscheidet. Ahnungslose Nutzer, die den Installationsbefehl falsch eingeben, führen am Ende vom Angreifer kontrollierten Code mit vollem Systemzugriff aus – genau die Art von Bedrohung, gegen die Failproof AI entwickelt wurde.
 
-Um diese Angriffsfläche zu eliminieren, **besitzen wir präventiv alle gängigen Falschschreibungen und Formatierungsvarianten** von `failproofai` auf npm. Keiner dieser Namen kann von Dritten registriert werden. Jeder davon ist ein schlanker Proxy, der das echte `failproofai`-Paket installiert und an dieses delegiert.
+Um diese Angriffsfläche zu eliminieren, **besitzen wir vorbeugend alle gängigen Falschschreibweisen und Formatierungsvarianten** von `failproofai` auf npm. Keiner dieser Namen kann von Dritten registriert werden. Jeder ist ein schlanker Proxy, der das echte `failproofai`-Paket installiert und an es delegiert.
 
 ---
 
@@ -37,7 +37,7 @@ Um diese Angriffsfläche zu eliminieren, **besitzen wir präventiv alle gängige
 | `fail_proof_ai` | ⏳ Ausstehend (npm-Freigabe) |
 | `fail-proofai` | ⏳ Ausstehend (npm-Freigabe) |
 
-**`failprof*`-Tippfehler** – ein `o` fehlt in „proof":
+**`failprof*`-Tippfehler** – fehlendes `o` in „proof":
 
 | Paket | Status |
 |---------|--------|
@@ -47,7 +47,7 @@ Um diese Angriffsfläche zu eliminieren, **besitzen wir präventiv alle gängige
 | `fail-prof-ai` | ⏳ Ausstehend (npm-Freigabe) |
 | `failprof_ai` | ⏳ Ausstehend (npm-Freigabe) |
 
-**`faliproof*`-Tippfehler** – vertauschtes `a` und `i`:
+**`faliproof*`-Tippfehler** – vertauschte Buchstaben `a` und `i`:
 
 | Paket | Status |
 |---------|--------|
@@ -55,13 +55,13 @@ Um diese Angriffsfläche zu eliminieren, **besitzen wir präventiv alle gängige
 | `faliproof-ai` | ✅ Veröffentlicht |
 | `faliproofai` | ⏳ Ausstehend (npm-Freigabe) |
 
-> **Warum ausstehend?** Die Spam-Schutzrichtlinie von npm blockiert Namen, die nach dem Entfernen von Satzzeichen und dem Ausführen von Ähnlichkeitsprüfungen auf denselben String wie ein bestehendes Paket normalisiert werden. Wir haben den npm-Support kontaktiert, um diese Namen zu Anti-Squatting-Zwecken zu reservieren. Sie werden nach der Genehmigung freigeschaltet.
+> **Warum ausstehend?** Die Spam-Schutzrichtlinie von npm blockiert Namen, die nach dem Entfernen von Satzzeichen und Ähnlichkeitsprüfungen auf denselben String wie ein bestehendes Paket normalisiert werden. Wir haben den npm-Support kontaktiert, um diese Namen zu Anti-Squatting-Zwecken zu reservieren. Sie werden nach der Genehmigung freigeschaltet.
 
-Sie können überprüfen, ob ein veröffentlichter Alias uns gehört:
+Sie können jederzeit überprüfen, ob ein veröffentlichter Alias uns gehört:
 
 ```bash
 npm info failproof
-# Look for: "ExosphereHost Inc." in the maintainers field
+# Achten Sie auf: "ExosphereHost Inc." im Feld maintainers
 ```
 
 ---
@@ -70,13 +70,13 @@ npm info failproof
 
 Jedes Alias-Paket:
 
-1. Listet `failproofai` als Abhängigkeit auf – sodass das echte Paket (einschließlich seines `postinstall`-Hook-Setups) bei der Installation ausgeführt wird
-2. Stellt ein Binary bereit, das seinem eigenen Namen entspricht (z. B. `failprof-ai`) und alle Argumente an das `failproofai`-Binary weiterleitet
+1. Listet `failproofai` als Abhängigkeit auf – damit wird das echte Paket (einschließlich seines `postinstall`-Hook-Setups) bei der Installation ausgeführt
+2. Stellt eine ausführbare Datei bereit, die seinem eigenen Namen entspricht (z. B. `failprof-ai`) und alle Argumente an die `failproofai`-Binärdatei weiterleitet
 
-Der Proxy ist ein zweizeiliges Node-Skript; es enthält keine Logik, keine Netzwerkanfragen und keine Datenerhebung über das hinaus, was `failproofai` selbst tut.
+Der Proxy ist ein zweizeiliges Node-Skript; es enthält keine Logik, keine Netzwerkaufrufe und keine Datenerfassung über das hinaus, was `failproofai` selbst tut.
 
 ---
 
-## Falls Sie einen fehlenden Namen finden
+## Falls Sie einen fehlenden Namen entdecken
 
-Eröffnen Sie ein Issue unter [exospherehost/failproofai](https://github.com/exospherehost/failproofai/issues) – wir werden ihn dann registrieren.
+Öffnen Sie ein Issue unter [exospherehost/failproofai](https://github.com/exospherehost/failproofai/issues) und wir werden ihn registrieren.

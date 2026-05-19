@@ -1,24 +1,24 @@
 ---
-title: Failproof AI
-description: "Gestiona hooks y políticas que mantienen a tus agentes de IA fiables y funcionando de forma autónoma"
+title: "Failproof AI"
+description: "FailproofAI proporciona a los agentes de IA 39 políticas de fallos integradas que detectan bucles, filtraciones de secretos, llamadas a herramientas destructivas y más en una sola instalación."
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-Hooks y políticas que mantienen a tus agentes de IA fiables y funcionando de forma autónoma - para **Claude Code**, **OpenAI Codex** y el **Agents SDK**.
+Hooks y políticas para el **manejo de fallos en IA**, **recuperación de errores** y **fiabilidad de LLM**. Mantén tus agentes de IA fiables y funcionando de forma autónoma en **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Cursor Agent**, **OpenCode**, **Pi**, **Gemini CLI** y el **Agents SDK**.
 
-Los agentes de IA fallan de maneras predecibles. Ejecutan comandos destructivos, filtran secretos, se desvían de sus tareas, se quedan atascados en bucles o hacen push directamente a main. Si no se supervisan, los fallos pequeños se convierten en problemas mayores.
+Los agentes de IA fallan de maneras predecibles. Ejecutan comandos destructivos, filtran secretos, se desvían de su tarea, quedan atrapados en bucles o hacen push directamente a main. Sin supervisión, los pequeños fallos se convierten en interrupciones del servicio, credenciales expuestas y trabajo perdido.
 
-Failproof AI resuelve esto con **políticas** — reglas que se enganchan en cada llamada a herramientas del agente y pueden **detectar fallos**, **mitigarlos** (bloquear, instruir, sanear) y **alertarte** cuando algo requiere atención. Un panel de control local te permite revisar todo después.
+FailproofAI resuelve esto con **políticas**. Estas reglas se conectan a cada llamada de herramienta del agente para **detectar fallos**, **mitigarlos** (bloquear, instruir, sanear) y **alertarte** cuando algo requiere atención. Un panel de control local te permite revisar cada llamada a herramienta, fallo del agente y acción de recuperación.
 
-Todo se ejecuta localmente. Ningún dato sale de tu máquina.
+Ningún dato sale de tu máquina.
 
 ## Primeros pasos
 
 <CardGroup cols={2}>
 
-<Card title="26 políticas integradas" icon="shield" href="/es/built-in-policies">
-  Bloquea comandos destructivos, evita la filtración de secretos, mantén a los agentes dentro de los límites del proyecto y mucho más, sin configuración adicional.
+<Card title="39 políticas integradas" icon="shield" href="/es/built-in-policies">
+  Bloquea comandos destructivos, previene la filtración de secretos, mantiene los agentes dentro de los límites del proyecto y mucho más. Todo listo para usar desde el primer momento.
 </Card>
 
 <Card title="Políticas personalizadas" icon="code" href="/es/custom-policies">
@@ -26,11 +26,11 @@ Todo se ejecuta localmente. Ningún dato sale de tu máquina.
 </Card>
 
 <Card title="Monitor de agentes" icon="chart-line" href="/es/dashboard">
-  Ve lo que hicieron tus agentes mientras no estabas. Navega por sesiones, inspecciona llamadas a herramientas y revisa dónde se activaron las políticas.
+  Descubre qué hicieron tus agentes mientras no estabas. Explora sesiones, inspecciona llamadas a herramientas y revisa dónde se activaron las políticas.
 </Card>
 
 <Card title="Configuración sencilla" icon="gear" href="/es/configuration">
-  Ajusta cualquier política sin código. Define listas de permitidos, ramas protegidas o umbrales por proyecto o de forma global.
+  Ajusta cualquier política sin escribir código. Define listas de permitidos, ramas protegidas o umbrales por proyecto o de forma global.
 </Card>
 
 </CardGroup>
@@ -51,7 +51,7 @@ bun add -g failproofai
 
 ```bash
 failproofai policies --install   # activar políticas
-failproofai                      # abrir el panel de control
+failproofai                      # lanzar el panel de control
 ```
 
 Consulta la guía de [Primeros pasos](/es/getting-started) para ver el recorrido completo.

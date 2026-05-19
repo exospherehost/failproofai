@@ -1,34 +1,34 @@
 ---
-title: पर्यावरण चर
-description: "पर्यावरण चर के साथ failproofai के व्यवहार को कॉन्फ़िगर करें"
+title: Environment variables
+description: "failproofai के व्यवहार को environment variables के साथ कॉन्फ़िगर करें"
 ---
 
-## डैशबोर्ड
+## Dashboard
 
-| चर | विवरण |
+| Variable | Description |
 |----------|-------------|
-| `PORT` | डैशबोर्ड पोर्ट (डिफ़ॉल्ट: `8020`) |
-| `CLAUDE_PROJECTS_PATH` | Claude Code प्रोजेक्ट फ़ोल्डर को खोजने के स्थान को ओवरराइड करें |
-| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | छिपाने के लिए अल्पविराम-पृथक डैशबोर्ड पृष्ठ |
-| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | डेव संसाधनों तक पहुंचने की अनुमति वाले होस्ट/IP। `--allowed-origins` के समान। |
+| `PORT` | Dashboard port (default: `8020`) |
+| `CLAUDE_PROJECTS_PATH` | Claude Code project folders खोजने के स्थान को override करें |
+| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Dashboard pages को छुपाने के लिए comma-separated list |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | dev resources को access करने की अनुमति वाले hosts/IPs। `--allowed-origins` के समान। |
 
-## लॉगिंग
+## Logging
 
-| चर | विवरण |
+| Variable | Description |
 |----------|-------------|
-| `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | सर्वर लॉग स्तर (डिफ़ॉल्ट: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | कस्टम हुक लॉग फ़ाइल पथ, या डिफ़ॉल्ट के लिए `true` (`~/.failproofai/logs/hooks.log`) |
+| `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Server log level (default: `warn`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | Custom hook log file path, या `true` default के लिए (`~/.failproofai/logs/hooks.log`) |
 
-## टेलीमेट्री
+## Telemetry
 
-| चर | विवरण |
+| Variable | Description |
 |----------|-------------|
-| `FAILPROOFAI_TELEMETRY_DISABLED=1` | अनाम उपयोग टेलीमेट्री को अक्षम करें |
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | Anonymous usage telemetry को disable करें |
 
-## LLM (नीति मूल्यांकन के लिए)
+## LLM (policy evaluation के लिए)
 
-| चर | विवरण |
+| Variable | Description |
 |----------|-------------|
-| `FAILPROOFAI_LLM_BASE_URL` | LLM API एंडपॉइंट (डिफ़ॉल्ट: `https://api.openai.com/v1`) |
-| `FAILPROOFAI_LLM_API_KEY` | LLM-संचालित नीतियों के लिए API कुंजी |
-| `FAILPROOFAI_LLM_MODEL` | मॉडल नाम (डिफ़ॉल्ट: `gpt-4o-mini`) |
+| `FAILPROOFAI_LLM_BASE_URL` | LLM API endpoint (default: `https://api.openai.com/v1`) |
+| `FAILPROOFAI_LLM_API_KEY` | LLM-powered policies के लिए API key |
+| `FAILPROOFAI_LLM_MODEL` | Model name (default: `gpt-4o-mini`) |

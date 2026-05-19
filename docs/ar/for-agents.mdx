@@ -1,33 +1,33 @@
 ---
 title: "للوكلاء"
-description: "أضف معرفة Failproof AI إلى وكيل البرمجة الخاص بك بأمر واحد. يعمل مع Claude Code و Cursor و Windsurf والمزيد."
+description: "أضف معرفة Failproof AI إلى وكيل الترميز الخاص بك بأمر واحد. يعمل مع Claude Code و Cursor و Windsurf والمزيد."
 ---
 
-أضف مرجع Failproof AI الكامل إلى وكيل البرمجة الخاص بك بأمر واحد. يعمل مع Claude Code و Cursor و Windsurf وأي وكيل آخر يدعم المهارات.
+أضف المرجع الكامل لـ Failproof AI إلى وكيل الترميز الخاص بك بأمر واحد. يعمل مع Claude Code و Cursor و Windsurf وأي وكيل آخر يدعم المهارات.
 
 ```bash
 npx skills add https://docs.befailproof.ai
 ```
 
-يكتشف `npx skills` الوكلاء المثبتين لديك ويضيف المهارة بالتنسيق الصحيح لكل واحد تلقائياً.
+يكتشف `npx skills` الوكلاء المثبتين لديك ويضيف المهارة بالصيغة الصحيحة لكل واحد تلقائياً.
 
-## ما تغطيه المهارة
+## ما الذي تغطيه المهارة
 
-| المنطقة | ما هو مضمون |
-|------|----------------|
+| المجال | ما هو مضمّن |
+|------|------------|
 | السياسات | أسماء السياسات المدمجة وأنواع الأحداث والمعاملات والتفعيل/التعطيل |
-| السياسات المخصصة | `customPolicies.add()`وفلاتر المطابقة و `allow`/`deny`/`instruct` API |
+| السياسات المخصصة | `customPolicies.add()`وعوامل التطابق و API `allow`/`deny`/`instruct` |
 | كائن السياق | `ctx.eventType` و `ctx.toolName` و `ctx.toolInput` و `ctx.session` |
-| الإعدادات | هيكل `policies-config.json` ودمج النطاق و `policyParams` |
-| سطر الأوامر | `failproofai policies --install` و `--uninstall` و `--custom` والنطاقات |
-| لوحة التحكم | عارض الجلسات وأنشطة السياسة والمتغيرات البيئية |
-| العمارة | تدفق معالج الخطاف وأكواد الخروج وعقد stdin/stdout |
+| التكوين | هيكل `policies-config.json` ودمج الأنطقة و `policyParams` |
+| واجهة سطر الأوامر | `failproofai policies --install` و `--uninstall` و `--custom` والأنطقة |
+| لوحة التحكم | عارض الجلسة ونشاط السياسة والمتغيرات البيئية |
+| العمارة | تدفق معالج الخطاف ورموز الخروج وعقد stdin/stdout |
 
 ## هل المهارة كاملة؟
 
-ينشئ Mintlify `llms.txt` من جميع الصفحات في التنقل. توثيق Failproof AI يغطي API الكامل - كل سياسة وخيار ومثال مضمون. إذا وجدت شيئاً مفقوداً، فالمصدر موجود في `https://docs.befailproof.ai/llms-full.txt`.
+يقوم Mintlify بإنشاء `llms.txt` من جميع الصفحات في التنقل. توثيق Failproof AI يغطي API الكامل - كل سياسة وخيار ومثال مضمّن. إذا وجدت شيئاً مفقوداً، فالمصدر موجود في `https://docs.befailproof.ai/llms-full.txt`.
 
-للحصول على سياق موجه، قم بالربط مباشرة إلى صفحة محددة:
+للحصول على سياق مستهدف، قم بالربط المباشر إلى صفحة محددة:
 
 ```bash
 # API السياسات المخصصة فقط

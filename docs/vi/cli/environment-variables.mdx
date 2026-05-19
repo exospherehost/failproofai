@@ -1,6 +1,6 @@
 ---
-title: Các biến môi trường
-description: "Cấu hình hành vi failproofai bằng các biến môi trường"
+title: Biến môi trường
+description: "Cấu hình hành vi failproofai bằng biến môi trường"
 ---
 
 ## Dashboard
@@ -8,16 +8,16 @@ description: "Cấu hình hành vi failproofai bằng các biến môi trường
 | Biến | Mô tả |
 |----------|-------------|
 | `PORT` | Cổng Dashboard (mặc định: `8020`) |
-| `CLAUDE_PROJECTS_PATH` | Ghi đè vị trí các thư mục dự án Claude Code |
-| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Các trang Dashboard được ẩn, cách nhau bằng dấu phẩy |
-| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Các máy chủ/IP được phép truy cập tài nguyên dev. Giống như `--allowed-origins`. |
+| `CLAUDE_PROJECTS_PATH` | Ghi đè vị trí tìm kiếm thư mục dự án Claude Code |
+| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Các trang dashboard được ẩn, cách nhau bằng dấu phẩy |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Các host/IP được phép truy cập tài nguyên dev. Tương tự như `--allowed-origins`. |
 
-## Logging
+## Ghi nhật ký
 
 | Biến | Mô tả |
 |----------|-------------|
 | `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Mức độ ghi nhật ký máy chủ (mặc định: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | Đường dẫn tệp nhật ký hook tùy chỉnh, hoặc `true` để sử dụng mặc định (`~/.failproofai/logs/hooks.log`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | Đường dẫn tệp nhật ký hook tùy chỉnh, hoặc `true` cho đường dẫn mặc định (`~/.failproofai/logs/hooks.log`) |
 
 ## Telemetry
 
@@ -29,6 +29,6 @@ description: "Cấu hình hành vi failproofai bằng các biến môi trường
 
 | Biến | Mô tả |
 |----------|-------------|
-| `FAILPROOFAI_LLM_BASE_URL` | Điểm cuối LLM API (mặc định: `https://api.openai.com/v1`) |
-| `FAILPROOFAI_LLM_API_KEY` | Khóa API cho chính sách do LLM hỗ trợ |
+| `FAILPROOFAI_LLM_BASE_URL` | Điểm cuối API LLM (mặc định: `https://api.openai.com/v1`) |
+| `FAILPROOFAI_LLM_API_KEY` | Khóa API cho các chính sách do LLM cung cấp |
 | `FAILPROOFAI_LLM_MODEL` | Tên mô hình (mặc định: `gpt-4o-mini`) |

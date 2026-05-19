@@ -4,7 +4,7 @@ description: "Testes unitários, testes E2E e utilitários de teste"
 icon: flask-vial
 ---
 
-failproofai possui dois conjuntos de testes: **testes unitários** (rápidos, com mocks) e **testes end-to-end** (invocações reais de subprocessos).
+failproofai possui duas suítes de testes: **testes unitários** (rápidos, com mocks) e **testes end-to-end** (invocações reais de subprocessos).
 
 ---
 
@@ -39,9 +39,9 @@ __tests__/
     builtin-policies.test.ts      # Lógica de políticas para cada builtin
     hooks-config.test.ts          # Carregamento de configuração e mesclagem de escopos
     policy-evaluator.test.ts      # Injeção de parâmetros e ordem de avaliação
-    custom-hooks-registry.test.ts # Operações add/get/clear do registro globalThis
-    custom-hooks-loader.test.ts   # Loader ESM, imports transitivos, tratamento de erros
-    manager.test.ts               # Operações install/remove/list
+    custom-hooks-registry.test.ts # Registro globalThis: add/get/clear
+    custom-hooks-loader.test.ts   # Loader ESM, importações transitivas, tratamento de erros
+    manager.test.ts               # Operações de install/remove/list
   components/
     sessions-list.test.tsx        # Componente de lista de sessões
     project-list.test.tsx         # Componente de lista de projetos
@@ -126,20 +126,20 @@ Em seguida, execute os testes:
 bun run test:e2e
 ```
 
-Recompile o `dist/` sempre que alterar a API pública de hooks (`src/hooks/custom-hooks-registry.ts`, `src/hooks/policy-helpers.ts` ou `src/hooks/policy-types.ts`).
+Recompile o `dist/` sempre que você alterar a API pública de hooks (`src/hooks/custom-hooks-registry.ts`, `src/hooks/policy-helpers.ts` ou `src/hooks/policy-types.ts`).
 
 ### Estrutura dos testes E2E
 
 ```text
 __tests__/e2e/
   helpers/
-    hook-runner.ts      # Inicializa o binário, envia o payload JSON, captura código de saída + stdout + stderr
+    hook-runner.ts      # Inicia o binário, envia o payload JSON, captura código de saída + stdout + stderr
     fixture-env.ts      # Diretórios temporários isolados por teste com arquivos de configuração
-    payloads.ts         # Fábricas de payload precisas para cada tipo de evento
+    payloads.ts         # Fábricas de payload compatíveis com Claude para cada tipo de evento
   hooks/
     builtin-policies.e2e.test.ts   # Cada política builtin com subprocesso real
     custom-hooks.e2e.test.ts       # Carregamento e avaliação de hooks customizados
-    config-scopes.e2e.test.ts      # Mesclagem de configurações entre escopos project/local/global
+    config-scopes.e2e.test.ts      # Mesclagem de configuração entre escopos project/local/global
     policy-params.e2e.test.ts      # Injeção de parâmetros para cada política parametrizada
 ```
 
@@ -152,7 +152,7 @@ import { createFixtureEnv } from "../helpers/fixture-env";
 
 const env = createFixtureEnv();
 // env.cwd    - diretório temporário; passe como payload.cwd para carregar .failproofai/policies-config.json
-// env.home   - diretório home isolado; sem vazamento do ~/.failproofai real
+// env.home   - home dir isolado; evita vazamentos do ~/.failproofai real
 
 env.writeConfig({
   enabledPolicies: ["block-sudo"],
@@ -234,7 +234,7 @@ describe("block-rm-rf (E2E)", () => {
 ### Formatos de resposta E2E
 
 | Decisão | Código de saída | stdout |
-|----------|-----------|--------|
+|---------|-----------------|--------|
 | `PreToolUse` deny | `0` | `{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"..."}}` |
 | `PostToolUse` deny | `0` | `{"hookSpecificOutput":{"additionalContext":"Blocked ... because: ..."}}` |
 | Instruct (não-Stop) | `0` | `{"hookSpecificOutput":{"additionalContext":"Instruction from failproofai: ..."}}` |
@@ -245,16 +245,16 @@ describe("block-rm-rf (E2E)", () => {
 
 Os testes E2E utilizam `vitest.config.e2e.mts` com:
 
-- `environment: "node"` - sem necessidade de globals do navegador
-- `pool: "forks"` - isolamento real de processos (os testes inicializam subprocessos)
+- `environment: "node"` - sem globals de navegador necessários
+- `pool: "forks"` - isolamento real de processos (os testes iniciam subprocessos)
 - `testTimeout: 20_000` - 20s por teste (inicialização do binário + avaliação do hook)
 
-O pool `forks` é importante: workers baseados em threads compartilham o `globalThis`, o que pode interferir em testes que inicializam subprocessos. Forks baseados em processos evitam esse problema.
+O pool `forks` é importante: workers baseados em threads compartilham o `globalThis`, o que pode interferir em testes que iniciam subprocessos. Forks baseados em processos evitam esse problema.
 
 ---
 
 ## CI
 
-A execução completa de CI (`bun run lint && bunx tsc --noEmit && bun run test:run && bun run build`) deve passar antes do merge. A suite E2E é executada como um job de CI separado em paralelo.
+A execução completa de CI (`bun run lint && bunx tsc --noEmit && bun run test:run && bun run build`) deve passar antes de qualquer merge. A suíte E2E é executada como um job separado de CI em paralelo.
 
-Consulte [Contributing](../CONTRIBUTING.md) para o checklist completo pré-merge.
+Consulte [Contributing](../CONTRIBUTING.md) para o checklist completo de pré-merge.

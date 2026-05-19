@@ -18,7 +18,7 @@
 
 **Resolução de falhas em tempo de execução para agentes de código.**
 Integra-se ao Claude Code e ao Codex. Detecta loops, ações perigosas e vazamentos de segredos
-antes que se tornem incidentes. Latência zero. Executa localmente.
+antes que se tornem incidentes. Sem latência. Executa localmente.
 
 </div>
 
@@ -28,7 +28,7 @@ antes que se tornem incidentes. Latência zero. Executa localmente.
 
 ---
 
-## CLIs de agentes suportados
+## CLIs de agentes compatíveis
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -79,7 +79,7 @@ antes que se tornem incidentes. Latência zero. Executa localmente.
   </a>
 </p>
 
-> Instale hooks para um ou qualquer combinação: `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omita `--cli` para detectar automaticamente as CLIs instaladas e ser solicitado. **O suporte ao GitHub Copilot CLI, Cursor Agent, OpenCode, Pi e Gemini CLI está em beta — os testes estão em andamento.**
+> Instale hooks para um ou qualquer combinação: `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omita `--cli` para detectar automaticamente os CLIs instalados e ser solicitado a escolher. **O suporte ao GitHub Copilot CLI, Cursor Agent, OpenCode, Pi e Gemini CLI está em beta — os testes ainda estão em andamento.**
 
 ---
 
@@ -91,11 +91,11 @@ failproofai policies --install
 failproofai
 ```
 
-30 políticas integradas são ativadas imediatamente. Dashboard disponível em `localhost:8020`.
+30 políticas integradas são ativadas imediatamente. Painel disponível em `localhost:8020`.
 
 ---
 
-## O que é bloqueado
+## O que ele bloqueia
 
 | Política | O que bloqueia |
 |---|---|
@@ -111,8 +111,8 @@ failproofai
 
 ## Suas próprias políticas
 
-Adicione um arquivo em `.failproofai/policies/` — ele é carregado automaticamente, sem necessidade de flags.
-Faça o commit e toda a equipe receberá na próxima atualização.
+Coloque um arquivo em `.failproofai/policies/` — ele é carregado automaticamente, sem nenhuma flag.
+Faça o commit e toda a equipe terá acesso na próxima atualização.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -133,7 +133,7 @@ Três decisões disponíveis para cada política:
 | Decisão | Efeito |
 |---|---|
 | `allow()` | Permite a operação |
-| `deny(message)` | Bloqueia — a mensagem é enviada de volta ao agente |
+| `deny(message)` | Bloqueia — a mensagem é retornada ao agente |
 | `instruct(message)` | Deixa passar, mas adiciona contexto ao próximo prompt do agente |
 
 → [Guia de políticas personalizadas](https://docs.befailproof.ai/custom-policies)
@@ -142,9 +142,9 @@ Três decisões disponíveis para cada política:
 
 ## Visibilidade da sessão
 
-Cada chamada de ferramenta feita pelo seu agente é registrada localmente. O dashboard mostra o que foi executado,
-o que foi bloqueado e o que a política informou ao agente — para que você não fique no escuro
-quando algo der errado. → [Guia do Dashboard](https://docs.befailproof.ai/dashboard)
+Cada chamada de ferramenta feita pelo seu agente é registrada localmente. O painel mostra o que foi executado,
+o que foi bloqueado e o que a política informou ao agente — para que você não fique adivinhando
+quando algo der errado. → [Guia do painel](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -154,9 +154,9 @@ quando algo der errado. → [Guia do Dashboard](https://docs.befailproof.ai/dash
 |---|---|
 | [Primeiros Passos](https://docs.befailproof.ai/getting-started) | Instalação e primeiros passos |
 | [Políticas Integradas](https://docs.befailproof.ai/built-in-policies) | Todas as 30 políticas com parâmetros |
-| [Políticas Personalizadas](https://docs.befailproof.ai/custom-policies) | Crie as suas próprias |
+| [Políticas Personalizadas](https://docs.befailproof.ai/custom-policies) | Escreva as suas próprias |
 | [Configuração](https://docs.befailproof.ai/configuration) | Escopos de configuração e regras de mesclagem |
-| [Dashboard](https://docs.befailproof.ai/dashboard) | Monitor de sessão e atividade de políticas |
+| [Painel](https://docs.befailproof.ai/dashboard) | Monitor de sessão e atividade de políticas |
 | [Arquitetura](https://docs.befailproof.ai/architecture) | Como o sistema de hooks funciona |
 
 ---
@@ -167,9 +167,9 @@ MIT com [Commons Clause](https://commonsclause.com/) — gratuito para uso inter
 
 ---
 
-## Contribuindo
+## Contribuição
 
-Consulte [CONTRIBUTING.md](./CONTRIBUTING.md). Novas políticas, casos extremos e traduções são bem-vindos.
+Consulte o [CONTRIBUTING.md](./CONTRIBUTING.md). Novas políticas, casos extremos e traduções são bem-vindos.
 
 ---
 

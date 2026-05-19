@@ -1,62 +1,61 @@
 ---
----
 title: תצורה
-description: "תבנית קובץ הגדרות, מערכת שלוש-היקפים וכללי מיזוג"
+description: "פורמט קובץ קונפיגורציה, מערכת בעלת שלוש הערכות, וכללי מיזוג"
 icon: gear
 ---
 
-failproofai משתמש בקובצי הגדרות JSON כדי להשלוט אילו מדיניות פעילות, כיצד הן מתנהגות ומאיפה מדיניות מותאמת אישית נטענת. התצורה עוצבה להיות קלה לשיתוף עם הצוות שלך - התחייב אותה למאגר שלך וכל מפתח יקבל את אותה רשת בטיחות סוכן.
+failproofai משתמש בקבצי JSON של תצורה לשליטה בכללים פעילים, בהתנהגותם, ובמקום טעינת כללים מותאמים. התצורה מעוצבת להיות קלה לשיתוף עם הצוות שלך - עמוד אותה בריפו שלך וכל מפתח יקבל את אותו רשת בטיחות לסוכן.
 
 ---
 
 ## היקפי תצורה
 
-קיימים שלושה היקפי תצורה, המוערכים לפי סדר עדיפויות:
+ישנם שלוש היקפי תצורה, המוערכים לפי סדר עדיפויות:
 
-| היקף | נתיב קובץ | תכלית |
+| Scope | File path | Purpose |
 |-------|-----------|---------|
-| **פרויקט** | `.failproofai/policies-config.json` | הגדרות לכל מאגר, מחויבות בשליטה בגרסה |
-| **מקומי** | `.failproofai/policies-config.local.json` | עקיפות אישיות לכל מאגר, מתעלמות מ-git |
-| **גלובלי** | `~/.failproofai/policies-config.json` | ברירות מחדל ברמת משתמש בכל פרויקטים |
+| **project** | `.failproofai/policies-config.json` | הגדרות לפי ריפו, תופסות בשליטה גרסאות |
+| **local** | `.failproofai/policies-config.local.json` | דריסות אישיות לפי ריפו, gitignored |
+| **global** | `~/.failproofai/policies-config.json` | ברירות מחדל ברמת משתמש בכל הפרויקטים |
 
-כאשר failproofai מקבל אירוע hook, הוא טוען וממזג את כל שלושת הקובצים שקיימים בתיקייה עבודה הנוכחית.
+כאשר failproofai מקבל אירוע hook, הוא טוען ומוזג את כל שלושת הקבצים שקיימים עבור ספריית העבודה הנוכחית.
 
 ### כללי מיזוג
 
-**`enabledPolicies`** - התאחדות של כל שלושת ההיקפים. מדיניות שמופעלת בכל רמה פעילה.
+**`enabledPolicies`** - איחוד של כל שלושת ההיקפים. כלל שמופעל בכל רמה פעיל.
 
 ```text
 project:  ["block-sudo"]
 local:    ["block-rm-rf"]
 global:   ["block-sudo", "sanitize-api-keys"]
 
-resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← התאחדות ללא כפילויות
+resolved: ["block-sudo", "block-rm-rf", "sanitize-api-keys"]  ← deduplicated union
 ```
 
-**`policyParams`** - ההיקף הראשון המגדיר פרמטרים למדיניות נתונה מנצח לחלוטין. אין מיזוג עמוק של ערכים בתוך פרמטרים של מדיניות.
+**`policyParams`** - ההיקף הראשון שמגדיר פרמטרים לכלל מסוים מנצח לחלוטין. אין מיזוג עמוק של ערכים בתוך פרמטרים של כלל.
 
 ```text
 project:  block-sudo → { allowPatterns: ["sudo apt-get update"] }
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo apt-get update"] }   ← הפרויקט מנצח, הגלובלי מתעלם
+resolved: { allowPatterns: ["sudo apt-get update"] }   ← project wins, global ignored
 ```
 
 ```text
-project:  (אין ערך block-sudo)
-local:    (אין ערך block-sudo)
+project:  (no block-sudo entry)
+local:    (no block-sudo entry)
 global:   block-sudo → { allowPatterns: ["sudo systemctl status"] }
 
-resolved: { allowPatterns: ["sudo systemctl status"] }  ← נופל דרך לגלובלי
+resolved: { allowPatterns: ["sudo systemctl status"] }  ← falls through to global
 ```
 
-**`customPoliciesPath`** - ההיקף הראשון המגדיר אותו מנצח.
+**`customPoliciesPath`** - ההיקף הראשון שמגדיר אותו מנצח.
 
-**`llm`** - ההיקף הראשון המגדיר אותו מנצח.
+**`llm`** - ההיקף הראשון שמגדיר אותו מנצח.
 
 ---
 
-## תבנית קובץ הגדרות
+## פורמט קובץ קונפיגורציה
 
 ```json
 {
@@ -97,85 +96,85 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← נופל דרך לג
 
 ---
 
-## הפניה שדות
+## הפניה לשדות
 
 ### `enabledPolicies`
 
-סוג: `string[]`
+Type: `string[]`
 
-רשימת שמות מדיניות להפעלה. שמות חייבים להתאים בדיוק למזהי מדיניות המוצגים על ידי `failproofai policies`. ראה [מדיניות מובנות](/he/built-in-policies) לרשימה המלאה.
+רשימת שמות כללים להפעלה. השמות חייבים להתאים בדיוק למזהי הכללים המוצגים על ידי `failproofai policies`. ראה [Built-in Policies](/he/built-in-policies) לקבלת הרשימה המלאה.
 
-מדיניות שלא ב-`enabledPolicies` לא פעילה, גם אם יש להן ערכים ב-`policyParams`.
+כללים שאינם ב-`enabledPolicies` אינם פעילים, גם אם יש להם ערכים ב-`policyParams`.
 
 ### `policyParams`
 
-סוג: `Record<string, Record<string, unknown>>`
+Type: `Record<string, Record<string, unknown>>`
 
-עקיפות פרמטרים לכל מדיניות. המפתח החיצוני הוא שם המדיניות; המפתחות הפנימיים הם ספציפיים למדיניות. כל מדיניות תעד את הפרמטרים הזמינים שלה ב[מדיניות מובנות](/he/built-in-policies).
+דריסות פרמטרים לפי כלל. המפתח החיצוני הוא שם הכלל; המפתחות הפנימיים הם ספציפיים לכלל. כל כלל מתעד את הפרמטרים הזמינים שלו ב-[Built-in Policies](/he/built-in-policies).
 
-אם למדיניות יש פרמטרים אך אתה לא מצביע עליהם, משתמשים בברירות המחדל המובנות של המדיניות. משתמשים שלא מגדירים `policyParams` כלל יקבלו התנהגות זהה לגרסאות קודמות.
+אם לכלל יש פרמטרים אך אתה לא מציין אותם, משתמשים בברירות המחדל המובנות של הכלל. משתמשים שלא מגדירים `policyParams` בכלל מקבלים התנהגות זהה לגרסאות קודמות.
 
-מפתחות לא ידועים בתוך בלוק הפרמטרים של מדיניות מתעלמים בשקט בזמן הפעלת hook אך מסומנים כאזהרות כאשר אתה מריץ `failproofai policies`.
+מפתחות לא ידועים בתוך בלוק פרמטרים של כלל מתעלמים בשקט בעת הפעלת hook אך מסומנים כאזהרות כאשר אתה מריץ `failproofai policies`.
 
-#### `hint` (חוצה)
+#### `hint` (cross-cutting)
 
-סוג: `string` (אופציונלי)
+Type: `string` (optional)
 
-הודעה המוסיפה לסיבה כאשר מדיניות מחזירה `deny` או `instruct`. השתמש בה כדי לתת Claude הוראות פעולה בלי לשנות את המדיניות עצמה.
+הודעה שמצורפת לסיבה כאשר כלל מחזיר `deny` או `instruct`. השתמש בה כדי להדריך את Claude עם הנחיות ניתנות לפעולה מבלי לשנות את הכלל עצמו.
 
-עובד עם כל סוג מדיניות — מובנה, מותאם אישית (`custom/`), קונוונציה של פרויקט (`.failproofai-project/`), או קונוונציה של משתמש (`.failproofai-user/`).
+עובד עם כל סוג כלל — מובנה, מותאם (`custom/`), קונבנציה של פרויקט (`.failproofai-project/`), או קונבנציה של משתמש (`.failproofai-user/`).
 
 ```json
 {
   "policyParams": {
     "block-force-push": {
-      "hint": "נסה ליצור ענף טרי במקום זאת."
+      "hint": "Try creating a fresh branch instead."
     },
     "block-sudo": {
       "allowPatterns": ["sudo apt-get"],
-      "hint": "השתמש ב-apt-get ישירות ללא sudo."
+      "hint": "Use apt-get directly without sudo."
     },
     "custom/my-policy": {
-      "hint": "בקש אישור מהמשתמש תחילה."
+      "hint": "Ask the user for approval first."
     }
   }
 }
 ```
 
-כאשר `block-force-push` מורה, Claude רואה: *"Force-pushing חסום. נסה ליצור ענף טרי במקום זאת."*
+כאשר `block-force-push` מסרב, Claude רואה: *"Force-pushing is blocked. Try creating a fresh branch instead."*
 
-ערכים שאינם מחרוזת ומחרוזות ריקות מתעלמים בשקט. אם `hint` לא מוגדר, התנהגות זהה (תאימות לאחור).
+ערכים שאינם string ומחרוזות ריקות מתעלמים בשקט. אם `hint` אינו מוגדר, ההתנהגות לא משתנית (תואמת לאחור).
 
 ### `customPoliciesPath`
 
-סוג: `string` (נתיב מוחלט)
+Type: `string` (absolute path)
 
-נתיב לקובץ JavaScript המכיל מדיניות hook מותאמת אישית. זה מוגדר באופן אוטומטי על ידי `failproofai policies --install --custom <path>` (הנתיב מופתת למוחלט לפני שנשמר).
+נתיב לקובץ JavaScript המכיל כללים מותאמים לחטיפה. זה מוגדר באופן אוטומטי על ידי `failproofai policies --install --custom <path>` (הנתיב מומר להנחלה מוחלטת לפני שהוא מאוחסן).
 
-הקובץ נטען מחדש בכל אירוע hook - אין caching. ראה [מדיניות מותאמת אישית](/he/custom-policies) לפרטי תأليף.
+הקובץ נטען מחדש בכל אירוע hook - אין קשימון. ראה [Custom Policies](/he/custom-policies) לפרטי יצירה.
 
-### מדיניות מבוססות קונוונציה
+### כללים מבוססי קונבנציה
 
-בנוסף ל-`customPoliciesPath` המפורש, failproofai גוגל אוטומטית וטוען קובצי מדיניות מתיקיות `.failproofai/policies/`:
+בנוסף ל-`customPoliciesPath` המפורש, failproofai גם גילוי ותיקטון באופן אוטומטי קבצי כללים מספריות `.failproofai/policies/`:
 
-| רמה | תיקייה | היקף |
+| Level | Directory | Scope |
 |-------|-----------|-------|
-| פרויקט | `.failproofai/policies/` | משותף לצוות דרך שליטה בגרסה |
-| משתמש | `~/.failproofai/policies/` | אישי, חל על כל פרויקטים |
+| Project | `.failproofai/policies/` | משותף עם הצוות דרך בקרת גרסאות |
+| User | `~/.failproofai/policies/` | אישי, חל על כל הפרויקטים |
 
-**תאימת קובץ:** רק קובצים המתאימים ל-`*policies.{js,mjs,ts}` נטענים (למשל `security-policies.mjs`, `workflow-policies.js`). קובצים אחרים בתיקייה מתעלמים.
+**התאמת קבצים:** רק קבצים התואמים `*policies.{js,mjs,ts}` נטענים (למשל `security-policies.mjs`, `workflow-policies.js`). קבצים אחרים בספרייה מתעלמים.
 
-**אין צורך בהגדרות:** מדיניות קונוונציה אינה דורשת ערכים ב-`policies-config.json`. פשוט שם קובצים בתיקייה והם נבחרים בהאירוע hook הבא.
+**אין צורך בקונפיגורציה:** כללי קונבנציה אינם דורשים ערכים ב-`policies-config.json`. פשוט צניח קבצים לתוך הספרייה והם יילקחו בחדוות אירוע hook הבא.
 
-**טעינת התאחדות:** גם תיקיות קונוונציה של פרויקט וגם משתמש נסרקות. כל קובצים תאמים משתי הרמות נטענים (בשונה מ-`customPoliciesPath` אשר משתמש במנצח ראשון-היקף).
+**טעינת איחוד:** גם ספריות קונבנציה של פרויקט וגם משתמש נסרקות. כל הקבצים המתאימים משתי הרמות נטענים (בניגוד ל-`customPoliciesPath` שמשתמש בניצחון ההיקף הראשון).
 
-ראה [מדיניות מותאמת אישית](/he/custom-policies) לפרטים נוספים ודוגמאות.
+ראה [Custom Policies](/he/custom-policies) לפרטים ודוגמאות נוספים.
 
 ### `llm`
 
-סוג: `object` (אופציונלי)
+Type: `object` (optional)
 
-הגדרות לקוח LLM למדיניות אשר מבצעות קריאות AI. לא נדרש ברוב ההגדרות.
+תצורת לקוח LLM לכללים העורכים קריאות AI. לא נדרש לרוב ההגדרות.
 
 ```json
 {
@@ -188,21 +187,21 @@ resolved: { allowPatterns: ["sudo systemctl status"] }  ← נופל דרך לג
 
 ---
 
-## ניהול תצורה מ-CLI
+## ניהול תצורה מה-CLI
 
-הפקודות `policies --install` ו-`policies --uninstall` כותבות לקובץ הגדרות hook של ה-CLI של הסוכן (נקודות כניסה hook), בעוד `policies-config.json` הוא הקובץ שאתה מנהל ישירות. השניים נפרדים:
+הפקודות `policies --install` ו-`policies --uninstall` כותבות לקובץ הגדרות hook של ה-CLI של הסוכן שלך (נקודות הכניסה של hook), בעוד `policies-config.json` הוא הקובץ שאתה מנהל ישירות. השניים נפרדים:
 
-- **הגדרות סוכן CLI** — אומר לסוכן להתקשר ל-`failproofai --hook <event>` בכל שימוש בכלי:
-  - **Claude Code**: `~/.claude/settings.json` (משתמש), `<cwd>/.claude/settings.json` (פרויקט), `<cwd>/.claude/settings.local.json` (מקומי)
-  - **OpenAI Codex**: `~/.codex/hooks.json` (משתמש), `<cwd>/.codex/hooks.json` (פרויקט) — Codex אין לו היקף `local`
-  - **GitHub Copilot CLI _(beta)_**: `~/.copilot/hooks/failproofai.json` (משתמש), `<cwd>/.github/hooks/failproofai.json` (פרויקט) — Copilot אין לו היקף `local`. ערכי Hook משתמשים בשדות הפקודה `bash`/`powershell` של Copilot עם `timeoutSec`; הקובץ נושא סימן `version: 1` ברמה העליונה. תמיכת CLI של Copilot היא **beta** בזמן שאנו מאמתים את סכמת רשומות `events.jsonl` (אשר הדוקס הציבורית לא מציינת) מול יותר הפעלות בעולם האמיתי.
-  - **Cursor Agent _(beta)_**: `~/.cursor/hooks.json` (משתמש), `<cwd>/.cursor/hooks.json` (פרויקט) — Cursor אין לו היקף `local`. ערכי Hook משתמשים בצורה `{type, command, timeout}` בצורת Claude (אין חלוקת `bash`/`powershell`), אך מאוחסנים תחת מפתחות אירוע camelCase (`preToolUse`, `beforeSubmitPrompt`, …) במערך שטוח לפי [סכמת hooks של Cursor](https://cursor.com/docs/hooks); הקובץ נושא סימן `version: 1` ברמה העליונה. המטפל ממנה camelCase → PascalCase דרך `CURSOR_EVENT_MAP` כך שמדיניות builtin קיימות נשרפות ללא שינוי. תמיכת Cursor Agent היא **beta** בזמן שאנו מאמתים תמלול של Cursor על-דיסק (לא מוצא בדוקס הציבורית) מול יותר התקנות בעולם האמיתי.
-  - **OpenCode _(beta)_**: `~/.config/opencode/opencode.json` + `~/.config/opencode/plugins/failproofai.mjs` (משתמש), `<cwd>/.opencode/opencode.json` + `<cwd>/.opencode/plugins/failproofai.mjs` (פרויקט) — OpenCode אין לו היקף `local`. בשונה משש CLI האחרים, OpenCode **אין לו מערכת hook פקודה חיצונית**: הוא טוען ישירות פלאגינים JS/TS רשומים באופן מפורש דרך מערך `plugin: []` ב-`opencode.json` (auto-discovery מ-`.opencode/plugins/` **אינו** הדרך שפלאגינים נטענים ב-opencode v1.14.33). Install שם shim plugin קטן שנוצר אשר מתקשר בתהליך משנה לבינארי failproofai ותורגם את התגובה JSON בצורת Claude של הבינארי חזרה לסמנטיקה של פלאגין: `throw new Error()` עבור tool-event deny (מבטל את קריאת הכלי), `client.session.prompt(...)` עבור instruct וגם `Stop` / `SubagentStop` deny (משדר את סיבת ה-deny כהודעת המשתמש הבאה — הערוץ החד-כיווני היחיד מאז `session.idle` הוא notification-only והשלכה ממנה היא no-op), וגם no-op עבור allow. ה-Shim ממנה גם שמות כלים (lowercase → PascalCase דרך `OPENCODE_TOOL_MAP`) וגם מפתחות arg input של כלים (camelCase → snake_case דרך `OPENCODE_TOOL_INPUT_MAP` ל-`Read` / `Write` / `Edit`, למשל `filePath` → `file_path`, `oldString` → `old_string`) לפני העברה לבינארי, כך שמדיניות בדיקת נתיבים מובנות כמו `block-read-outside-cwd`, `block-env-files`, וגם `block-secrets-write` נשרפות ללא שינוי בקריאות כלים של OpenCode. הפעלות גרות בבסיס נתונים SQLite של opencode ב-`~/.local/share/opencode/opencode.db`; מסך הבקרה של תצוגת הפעלה קורא אותן דרך `opencode db --format json` ו-`opencode export <id>`. תמיכת OpenCode היא **beta** בזמן שאנו מאמתים התנהגות בין גרסאות ומול יותר הפעלות בעולם האמיתי. ראה [דוקס פלאגינים של OpenCode](https://opencode.ai/docs/plugins/).
-  - **Pi _(beta)_**: `~/.pi/agent/settings.json` (משתמש), `<cwd>/.pi/settings.json` (פרויקט) — Pi אין לו היקף `local`. Pi טוען חבילות הרחבה TypeScript בזמן יזימה; קובץ הגדרות הוא מערך מחרוזות שטוח `{"packages": ["./relative/path", …]}`. failproofai כותב ערך מערך חבילות יחיד המצביע על ספריית `pi-extension/` הכרוכה שלו. ההרחבה באופן פנימי מנויה לאירועי `tool_call` / `user_bash` / `input` / `session_start` של Pi וקולפת ל-`failproofai --hook <Event> --cli pi`; המטפל ממנה underscore_lower_snake_case → PascalCase דרך `PI_EVENT_MAP` כך שמדיניות builtin קיימות נשרפות ללא שינוי. ארגומנטים של input לכלים ממנים גם דרך `PI_TOOL_INPUT_MAP` (Read / Write / Edit של Pi משדרות `path` במקום `file_path`; מיפוי המפתח הרמה העליונה מאפשר `block-env-files` ו-`block-secrets-write` נשרפות — `block-read-outside-cwd` כבר היה fallback `path`). תמיכת Pi היא **beta** בזמן שה-API של הרחבה של Pi וסכמת session-log מייצבות.
-  - **Gemini CLI _(beta)_**: `~/.gemini/settings.json` (משתמש), `<cwd>/.gemini/settings.json` (פרויקט) — Gemini אין לו היקף `local` (הוא תעד היקף `system` ב-`/etc/gemini-cli/settings.json` אשר failproofai לא חושף). ערכי Hook משתמשים בצורה `{type, command, timeout}` של Claude עטופה בסכמת matcher של Gemini `{matcher, hooks: [...]}` עם `matcher: "*"` כברירת מחדל. אירועים הם PascalCase (`SessionStart`, `BeforeAgent`, `AfterAgent`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`, `BeforeTool`, `AfterTool`, `PreCompress`, `Notification`, `SessionEnd`); המטפל ממזג לשמות canonical של Claude דרך `GEMINI_EVENT_MAP`. שמות כלים הם snake_case (`run_shell_command`, `read_file`, `write_file`, `replace`, …) — המטפל ממנה דרך `GEMINI_TOOL_MAP` כך שמדיניות builtin קיימות נשרפות ללא שינוי. מעריך המדיניות משדר צורה שטוחה של Gemini `{decision: "deny", reason}` (מועדף לפי ה-Golden Rule של Gemini exit-0 חוזה), `{hookSpecificOutput: {hookEventName, additionalContext}}` עבור הזרקת הקשר ב-BeforeAgent / AfterTool / SessionStart, וגם `{decision: "block", reason}` על AfterAgent עבור סמנטיקה force-retry. תמיכת Gemini CLI היא **beta** בזמן שאנו מרחיבים כיסוי בעולם האמיתי. ראה [דוקס hooks של Gemini CLI](https://geminicli.com/docs/hooks/).
-- **`policies-config.json`** — אומר ל-failproofai אילו מדיניות להעריך וכן מה פרמטרים (משותף בכל agent CLIs)
+- **הגדרות סוכן CLI** — אומר לסוכן להתקשר `failproofai --hook <event>` בכל שימוש בכלי:
+  - **Claude Code**: `~/.claude/settings.json` (user), `<cwd>/.claude/settings.json` (project), `<cwd>/.claude/settings.local.json` (local)
+  - **OpenAI Codex**: `~/.codex/hooks.json` (user), `<cwd>/.codex/hooks.json` (project) — Codex אין לו היקף `local`
+  - **GitHub Copilot CLI _(beta)_**: `~/.copilot/hooks/failproofai.json` (user), `<cwd>/.github/hooks/failproofai.json` (project) — Copilot אין לו היקף `local`. ערכי Hook משתמשים בשדות הפקודה `bash`/`powershell` של Copilot עם `timeoutSec`; הקובץ נושא סימן `version: 1` ברמה עליונה. תמיכת Copilot CLI היא **beta** בזמן שאנו מאמתים את סכמת רשומות `events.jsonl` (שהתיעוד הציבורי אינו מציין) מול יותר הפעלות בעולם האמיתי.
+  - **Cursor Agent _(beta)_**: `~/.cursor/hooks.json` (user), `<cwd>/.cursor/hooks.json` (project) — Cursor אין לו היקף `local`. ערכי Hook משתמשים בצורה `{type, command, timeout}` בצורת Claude (אין חלוקה `bash`/`powershell`), אך מאוחסנים תחת מפתחות אירוע camelCase (`preToolUse`, `beforeSubmitPrompt`, …) במערך שטוח לפי [סכמת hooks](https://cursor.com/docs/hooks) של Cursor; הקובץ נושא סימן `version: 1` ברמה עליונה. המטפל קנוני camelCase → PascalCase דרך `CURSOR_EVENT_MAP` כך שכללים מובנים קיימים יורים ללא שינוי. תמיכת Cursor Agent היא **beta** בזמן שאנו מאמתים את תמלול של Cursor על דיסק (לא מצוין בתיעוד הציבורי) מול יותר התקנות בעולם האמיתי.
+  - **OpenCode _(beta)_**: `~/.config/opencode/opencode.json` + `~/.config/opencode/plugins/failproofai.mjs` (user), `<cwd>/.opencode/opencode.json` + `<cwd>/.opencode/plugins/failproofai.mjs` (project) — OpenCode אין לו היקף `local`. בניגוד לשישת ה-CLIs האחרים, OpenCode **אין לו מערכת hook חיצונית**: הוא טוען בתהליך JS/TS plugins שנרשמו במפורש דרך המערך `plugin: []` ב-`opencode.json` (auto-discovery מ-`.opencode/plugins/` אינו כיצד plugins טוענים ב-opencode v1.14.33). Install טוען קובץ זעיר שנוצר של plugin שקורא subprocess לבינארי failproofai ותורגם את התגובה JSON של הבינארי חזרה לסמנטיקה של plugin: `throw new Error()` להכחשת אירוע כלי (מבטל את קריאת הכלי), `client.session.prompt(...)` עבור instruct וגם עבור `Stop` / `SubagentStop` deny (שולח את סיבת ההכחשה כהודעת המשתמש הבאה — ערוץ force-retry היחיד מאז `session.idle` הוא notification-only והשלכת זה אינו פעולה), ו-no-op לאפשרות. קובץ קנוני שם של כלי (lowercase → PascalCase דרך `OPENCODE_TOOL_MAP`) וקלידי arg של כניסת כלי (camelCase → snake_case דרך `OPENCODE_TOOL_INPUT_MAP` עבור `Read` / `Write` / `Edit`, למשל `filePath` → `file_path`, `oldString` → `old_string`) לפני שידור לבינארי, כך שבנויים של בדיקת נתיב כמו `block-read-outside-cwd`, `block-env-files`, ו-`block-secrets-write` יורים ללא שינוי על קריאות כלי OpenCode. הפעלות חיות בבסיס נתונים SQLite של opencode ב-`~/.local/share/opencode/opencode.db`; מערכת הדפים של הלוח קוראת אותם דרך `opencode db --format json` ו-`opencode export <id>`. תמיכת OpenCode היא **beta** בזמן שאנו מאמתים התנהגות בחדוות וגרסאות מול יותר הפעלות בעולם האמיתי. ראה את [תיעוד plugins של OpenCode](https://opencode.ai/docs/plugins/).
+  - **Pi _(beta)_**: `~/.pi/agent/settings.json` (user), `<cwd>/.pi/settings.json` (project) — Pi אין לו היקף `local`. Pi טוען חבילות הרחבה TypeScript בעת ההפעלה; הקובץ הגדרות הוא מערך string שטוח `{"packages": ["./relative/path", …]}`. failproofai כותב ערך מערך packages אחד המצביע על ספרייה `pi-extension/` משובצת שלו. ההרחבה מבחינים פנימיים במחזור subscriptions של Pi כדי `tool_call` / `user_bash` / `input` / `session_start` ופירות לתוך `failproofai --hook <Event> --cli pi`; המטפל קנוני underscore_lower_snake_case → PascalCase דרך `PI_EVENT_MAP` כך שכללים מובנים קיימים יורים ללא שינוי. קלידי arg של כניסת כלי גם קנוניים דרך `PI_TOOL_INPUT_MAP` (Pi's Read / Write / Edit מסירה `path` רמוק מאשר `file_path`; קלידי המפתח העליון מאפשר `block-env-files` ו-`block-secrets-write` לירות — `block-read-outside-cwd` כבר היה `path` fallback). תמיכת Pi היא **beta** בזמן שעומדת ל-stabilize.
+  - **Gemini CLI _(beta)_**: `~/.gemini/settings.json` (user), `<cwd>/.gemini/settings.json` (project) — Gemini אין לו היקף `local` (הוא מתעד היקף `system` ב-`/etc/gemini-cli/settings.json` אשר failproofai לא חשוף). Hook entries משתמשים בצורה `{type, command, timeout}` של Claude עטופה בסכמת matcher של Gemini `{matcher, hooks: [...]}` עם `matcher: "*"` כברירת מחדל. אירועים הם PascalCase (`SessionStart`, `BeforeAgent`, `AfterAgent`, `BeforeModel`, `AfterModel`, `BeforeToolSelection`, `BeforeTool`, `AfterTool`, `PreCompress`, `Notification`, `SessionEnd`); המטפל ממפה לשמות קנוניים של Claude דרך `GEMINI_EVENT_MAP`. שמות כלים הם snake_case (`run_shell_command`, `read_file`, `write_file`, `replace`, …) — המטפל מקנוני דרך `GEMINI_TOOL_MAP` כך שכללים מובנים קיימים יורים ללא שינוי. משקיף מדיניות משיג צורה שטוחה של Gemini `{decision: "deny", reason}` (מועדפת לכל Golden Rule exit-0 של Gemini), `{hookSpecificOutput: {hookEventName, additionalContext}}` להזרקת הקשר ב-BeforeAgent / AfterTool / SessionStart, ו-`{decision: "block", reason}` ב-AfterAgent לסמנטיקה force-retry. תמיכת Gemini CLI היא **beta** בזמן שאנו מגדילים כיסוי בעולם האמיתי. ראה את [תיעוד hooks של Gemini CLI](https://geminicli.com/docs/hooks/).
+- **`policies-config.json`** — אומר ל-failproofai אילו כללים להעריך וויים פרמטרים (משותף בכל סוכני CLI)
 
-העבר `--cli claude|codex|copilot|cursor|opencode|pi|gemini` לממוצע סוכן ספציפי (רווח-מופרד או חזר לכל תת-קבוצה):
+עבור `--cli claude|codex|copilot|cursor|opencode|pi|gemini` למטרה סוכן ספציפי (space-separated או חוזר לכל תת-קבוצה):
 
 ```bash
 failproofai policies --install --cli codex --scope project
@@ -214,20 +213,20 @@ failproofai policies --install --cli gemini --scope project
 failproofai policies --install --cli claude codex copilot cursor opencode pi gemini
 ```
 
-כאשר `--cli` מותער, `failproofai` מגלה אילו agent CLIs מותקנים (`which claude` / `which codex` / `which copilot` / `which cursor-agent` / `which opencode` / `which pi` / `which gemini`):
+כאשר `--cli` מושמט, `failproofai` מגלה אילו סוכני CLI מותקנים (`which claude` / `which codex` / `which copilot` / `which cursor-agent` / `which opencode` / `which pi` / `which gemini`):
 
-- **CLI יחיד מגולה** — בוחר באופן אוטומטי את ה-CLI הזה ללא הנחיה.
-- **CLIs מרובים מגולים** בטרמינל אינטראקטיבי — מציג בחירה יחידה single-select prompt עם מקשי חץ מקובצת לסעיף `Detected (N)` (עם שורה מצטברת `Install for all N detected` + כל CLI מגולה בנפרד) וסעיף `Not installed (M) · install hooks ahead of time` המפרטת כל CLI לא מגולה כתמיכה כאפשרות forward-install (↑↓ להעברה, Enter לבחירה, ^C לחדל). זרימת ההסרה מציגה רק את סעיף Detected.
-- **CLIs מרובים מגולים** בריצה לא אינטראקטיבית (CI, אין TTY) — מתקינות לכל CLIs מגולים ללא הנחיה.
-- **אף אחד לא מגולה** — חוזר ל-`claude`, עם אזהרה שלא נמצא בינארי סוכן ב-PATH; פקודת hook עדיין כתובה כך היא מופעלת ברגע שאתה מתקין אחד.
+- **CLI אחד detected** — בחר אוטומטי את זה CLI ללא הנמקה.
+- **מספר CLIs detected** בטרמינל אינטראקטיבי — מציג בחירה יחידה במקלדת בחצים מקובצת לחלק `Detected (N)` (עם שורה מצטברת `Install for all N detected` + כל CLI detected בנפרד) וחלק `Not installed (M) · install hooks ahead of time` רשימה כל CLI שלא detected כאפשרות forward-install (↑↓ להעברה, Enter לבחירה, ^C לצאת). זרימת ה-uninstall מציגה רק את חלק Detected.
+- **מספר CLIs detected** בריצה לא אינטראקטיבית (CI, no TTY) — מתקן להמון detected CLIs ללא הנמקה.
+- **None detected** — חוזר ל-`claude`, עם אזהרה שלא binary agent נמצא ב-PATH; פקודת hook עדיין כתובה כך היא מופעלת ברגע שאתה מתקן אחד.
 
-אתה יכול לערוך `policies-config.json` ישירות בכל עת; שינויים נכנסים לתוקף מיד בהאירוע hook הבא ללא צורך בהפעלה מחדש.
+אתה יכול לערוך `policies-config.json` ישירות בכל עת; שינויים ישפיעו מיד על אירוע hook הבא ללא צורך בהפעלה מחדש.
 
 ---
 
-## דוגמה: תצורת רמת-פרויקט עם ברירות מחדל של צוות
+## דוגמה: תצורה ברמת פרויקט עם ברירות מחדל של צוות
 
-התחייב `.failproofai/policies-config.json` למאגר שלך:
+Commit `.failproofai/policies-config.json` לריפו שלך:
 
 ```json
 {
@@ -246,4 +245,4 @@ failproofai policies --install --cli claude codex copilot cursor opencode pi gem
 }
 ```
 
-כל מפתח יכול אז ליצור `.failproofai/policies-config.local.json` (מתעלם מ-git) לעקיפות אישיות ללא השפעה על חברי צוות.
+כל מפתח יכול ליצור `.failproofai/policies-config.local.json` (gitignored) עבור דריסות אישיות ללא הפרעה לעמיתים.
