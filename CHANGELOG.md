@@ -2,6 +2,11 @@
 
 ## 0.0.11-beta.0 — 2026-05-13
 
+### Docs
+- SEO and copy pass on the docs landing page (`docs/introduction.mdx`): rewrite the 84-char generic meta description into a tighter, keyword-bearing line naming the 39 built-in policies and key failure modes (loops, secret leaks, destructive tool calls); seed the page body with the missing search keywords (`AI failure handling`, `error recovery`, `LLM reliability`) by reframing the lede; expand the CLI list to the actual 7-CLI surface; correct the stale `26 built-in policies` card to the current `39`; and drop em dashes from the page body and card subtitles for a cleaner read. Also corrects the same stale `26` count in `docs/architecture.mdx` (both the Builtin policies section and the file tree comment) (#366).
+- Swap the docs header logo to the freshly-uploaded FailproofAI brand PNGs (`logo/Failproof_AI_logo_light.png` for light-mode UI, `logo/Failproof_AI_logo.png` for dark-mode UI). Replaces the previous Exosphere PNGs and the older stock `light.svg` / `dark.svg` wordmarks, both of which were removed from `docs/logo/`. `docs.json`'s `logo.light` and `logo.dark` paths updated accordingly (#366).
+- Refresh the docs favicon: replace the old `.ico` with a new FailproofAI F-mark `docs/favicon.ico` (32x32, 32-bit). An intermediate attempt to use `docs/icon.svg` was reverted because Mintlify did not render the SVG favicon in the live preview; the SVG asset is removed (#366).
+
 ### Fixes
 - Dashboard `/policies` activity-tab subheading: replace the hardcoded "Policy evaluations for Claude" with a dynamic list of installed CLIs ("Policy evaluations across Claude Code, Cursor"), collapsing to "across N agents" when 4 or more are installed and falling back to "Policy evaluations" when none are. Reads from the existing `getHooksConfigAction()` payload — no new server work. The text was a leftover from when failproofai only supported Claude Code and was inaccurate against the now-7-CLI surface (Claude, Codex, Copilot, Cursor, OpenCode, Pi, Gemini) (#358).
 
