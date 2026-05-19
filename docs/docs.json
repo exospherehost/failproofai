@@ -2,10 +2,6 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "luma",
   "name": "FailproofAI",
-  "banner": {
-    "content": "If FailproofAI saves your AI agents from doing something dumb, please [drop us a star on GitHub](https://github.com/exospherehost/failproofai).",
-    "dismissible": true
-  },
   "colors": {
     "primary": "#002CA7",
     "light": "#e4587d",
