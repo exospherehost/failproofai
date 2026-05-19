@@ -18,19 +18,19 @@
 
 **الترجمات:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**حل فشل وقت التشغيل لوكلاء الترميز.**
-يتكامل مع Claude Code و Codex. يمسك الحلقات والإجراءات الخطرة وتسرب الأسرار
+**حل فشل وقت التشغيل لوكلاء البرمجة.**
+يتكامل مع Claude Code و Codex. يوقف الحلقات اللانهائية والإجراءات الخطيرة وتسرب الأسرار
 قبل أن تصبح حوادث. بدون تأخير. يعمل محليًا.
 
 </div>
 
 <p align="center">
-  <img src="readme-arch-hq.gif" alt="Failproof AI in action" width="800" />
+  <img src="readme-arch-hq.gif" alt="Failproof AI في العمل" width="800" />
 </p>
 
 ---
 
-## واجهات سطر أوامر الوكلاء المدعومة
+## واجهات سطر الأوامر المدعومة
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -81,7 +81,7 @@
   </a>
 </p>
 
-> قم بتثبيت الخطافات لواحد أو أي مزيج: `failproofai policies --install --cli opencode pi gemini` (أو `--cli claude codex copilot cursor opencode pi gemini`). تجاهل `--cli` للكشف التلقائي عن واجهات سطر الأوامر المثبتة والمطالبة. **يعتبر دعم GitHub Copilot CLI و Cursor Agent و OpenCode و Pi و Gemini CLI في المرحلة التجريبية — الاختبار جارٍ.**
+> ثبّت الخطافات لواحد أو أي مزيج: `failproofai policies --install --cli opencode pi gemini` (أو `--cli claude codex copilot cursor opencode pi gemini`). تجاهل `--cli` للكشف التلقائي عن واجهات الأوامر المثبتة والطلب. **دعم GitHub Copilot CLI و Cursor Agent و OpenCode و Pi و Gemini CLI في مرحلة بيتا - الاختبار جاري.**
 
 ---
 
@@ -93,13 +93,13 @@ failproofai policies --install
 failproofai
 ```
 
-30 سياسة مدمجة تُفعّل فورًا. لوحة التحكم على `localhost:8020`.
+30 سياسة مدمجة تتفعل فورًا. لوحة التحكم على `localhost:8020`.
 
 ---
 
-## ما يتم إيقافه
+## ما الذي يوقفه
 
-| السياسة | ما يتم حظره |
+| السياسة | ما الذي يحجبه |
 |---|---|
 | `block-push-master` | الدفع المباشر إلى `main` / `master` |
 | `block-force-push` | `git push --force` |
@@ -107,14 +107,14 @@ failproofai
 | `block-rm-rf` | حذف الملفات بشكل متكرر |
 | `sanitize-api-keys` | تسرب مفاتيح API إلى سياق الوكيل |
 
-→ [جميع السياسات المدمجة الـ 30](https://docs.befailproof.ai/built-in-policies)
+→ [جميع السياسات المدمجة 30](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
 ## سياساتك الخاصة
 
-أسقط ملفًا في `.failproofai/policies/` — يتم تحميله تلقائيًا، بدون الحاجة إلى أي أعلام.
-التزم به وستحصل الفريق بالكامل عليه عند السحب التالي.
+ضع ملفًا في `.failproofai/policies/` - سيتم تحميله تلقائيًا بدون الحاجة إلى أي أعلام.
+التزم به وسيحصل الفريق بأكمله عليه عند السحب التالي.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -130,13 +130,13 @@ customPolicies.add({
 });
 ```
 
-ثلاثة قرارات متاحة لكل سياسة:
+ثلاث قرارات متاحة لكل سياسة:
 
 | القرار | التأثير |
 |---|---|
 | `allow()` | السماح بالعملية |
-| `deny(message)` | حظرها — الرسالة تعود إلى الوكيل |
-| `instruct(message)` | السماح بها، لكن إضافة سياق إلى الموجه التالي للوكيل |
+| `deny(message)` | حجبها - الرسالة تعود إلى الوكيل |
+| `instruct(message)` | السماح بها، لكن إضافة سياق إلى الطلب التالي للوكيل |
 
 → [دليل السياسات المخصصة](https://docs.befailproof.ai/custom-policies)
 
@@ -144,8 +144,8 @@ customPolicies.add({
 
 ## رؤية الجلسة
 
-كل استدعاء أداة يقوم به وكيلك يتم تسجيله محليًا. لوحة التحكم تعرض ما تم تشغيله
-وما تم حظره وما أخبرت السياسة الوكيل به — لذا لا تكون حائرًا
+كل استدعاء أداة يقوم به الوكيل يتم تسجيله محليًا. لوحة التحكم توضح ما تم تشغيله
+وما تم حجبه وما قالته السياسة للوكيل - بحيث لا تكون تخمينًا
 عندما يحدث خطأ ما. → [دليل لوحة التحكم](https://docs.befailproof.ai/dashboard)
 
 ---
@@ -155,27 +155,27 @@ customPolicies.add({
 | | |
 |---|---|
 | [البدء السريع](https://docs.befailproof.ai/getting-started) | التثبيت والخطوات الأولى |
-| [السياسات المدمجة](https://docs.befailproof.ai/built-in-policies) | جميع السياسات الـ 30 مع المعاملات |
-| [السياسات المخصصة](https://docs.befailproof.ai/custom-policies) | اكتب سياساتك الخاصة |
-| [التكوين](https://docs.befailproof.ai/configuration) | نطاقات التكوين وقواعد الدمج |
-| [لوحة التحكم](https://docs.befailproof.ai/dashboard) | مراقب الجلسة ونشاط السياسة |
+| [السياسات المدمجة](https://docs.befailproof.ai/built-in-policies) | جميع السياسات 30 مع المعاملات |
+| [السياسات المخصصة](https://docs.befailproof.ai/custom-policies) | اكتب الخاصة بك |
+| [الإعدادات](https://docs.befailproof.ai/configuration) | نطاقات الإعدادات وقواعد الدمج |
+| [لوحة التحكم](https://docs.befailproof.ai/dashboard) | مراقب الجلسة وأنشطة السياسة |
 | [العمارة](https://docs.befailproof.ai/architecture) | كيفية عمل نظام الخطافات |
 
 ---
 
 ## الترخيص
 
-MIT مع [Commons Clause](https://commonsclause.com/) — مجاني للاستخدام الداخلي والشخصي؛ إعادة بيع failproofai نفسه بشكل تجاري يتطلب اتفاقية منفصلة. راجع [LICENSE](./LICENSE) للنص الكامل.
+MIT مع [Commons Clause](https://commonsclause.com/) - مجاني للاستخدام الداخلي والشخصي؛ المبيعات التجارية لـ failproofai نفسه تتطلب اتفاقية منفصلة. انظر [LICENSE](./LICENSE) للنص الكامل.
 
 ---
 
 ## المساهمة
 
-راجع [CONTRIBUTING.md](./CONTRIBUTING.md). السياسات الجديدة والحالات الخاصة والترجمات جميعها مرحب بها.
+انظر [CONTRIBUTING.md](./CONTRIBUTING.md). السياسات الجديدة والحالات الحدية والترجمات جميعها مرحب بها.
 
 ---
 
-تم البناء بواسطة [Nivedit Jain](https://github.com/NiveditJain) و [Nikita Agarwal](https://github.com/nk-ag).
+بني بواسطة [Nivedit Jain](https://github.com/NiveditJain) و [Nikita Agarwal](https://github.com/nk-ag).
 [befailproof.ai](https://befailproof.ai)
 
 

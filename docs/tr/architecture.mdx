@@ -1,30 +1,31 @@
 ---
+
 ---
 title: Mimari
-description: "Hook işleyicisinin, yapılandırma yüklemesinin ve politika değerlendirmesinin dahili olarak nasıl çalıştığı"
+description: "Hook işleyicisinin, config yüklemesinin ve politika değerlendirmesinin dahili olarak nasıl çalıştığı"
 icon: sitemap
 ---
 
-Bu belge, failproofai'nin dahili olarak nasıl çalıştığını açıklar: hook sistemi aracı araç çağrılarını nasıl kesintiye uğratır, yapılandırma nasıl yüklenir ve birleştirilir, politikalar nasıl değerlendirilir ve dashboard aracı aktivitesini nasıl izler.
+Bu belge failproofai'nin dahili olarak nasıl çalıştığını açıklar: hook sistemi aracı araç çağrılarını nasıl yakalar, yapılandırma nasıl yüklenir ve birleştirilir, politikalar nasıl değerlendirilir ve kontrol paneli aracı etkinliğini nasıl izler.
 
 ---
 
 ## Genel Bakış
 
-failproofai'nin iki bağımsız alt sistemi vardır:
+failproofai iki bağımsız alt sisteme sahiptir:
 
-1. **Hook işleyici** - Claude Code'un her aracı araç çağrısında çağırdığı hızlı bir CLI alt işlemi. Politikaları değerlendirir ve bir karar döndürür.
-2. **Agent Monitor (Dashboard)** - Aracı oturumlarını izlemek ve politikaları yönetmek için bir Next.js web uygulaması.
+1. **Hook işleyicisi** - Claude Code'un her aracı araç çağrısında çağırdığı hızlı bir CLI alt süreci. Politikaları değerlendirir ve bir karar döndürür.
+2. **Aracı İzleyicisi (Kontrol Paneli)** - Aracı oturumlarını izlemek ve politikaları yönetmek için Next.js web uygulaması.
 
-Her iki alt sistem de `~/.failproofai/` ve projenin `.failproofai/` dizininde yapılandırma dosyalarını paylaşır, ancak ayrı işlemler olarak çalışırlar ve yalnızca dosya sistemi aracılığıyla iletişim kurarlar.
+Her iki alt sistem `~/.failproofai/` ve projenin `.failproofai/` dizinindeki yapılandırma dosyalarını paylaşır, ancak ayrı süreçler olarak çalışır ve yalnızca dosya sistemi aracılığıyla iletişim kurar.
 
 ---
 
-## Hook işleyici
+## Hook işleyicisi
 
 ### Claude Code ile Entegrasyon
 
-`failproofai policies --install` komutunu çalıştırdığınızda, `~/.claude/settings.json` içine şu şekilde girdiler yazılır:
+`failproofai policies --install` komutunu çalıştırdığınızda, `~/.claude/settings.json` dosyasına şu gibi girişler yazar:
 
 ```json
 {
@@ -45,9 +46,9 @@ Her iki alt sistem de `~/.failproofai/` ve projenin `.failproofai/` dizininde ya
 }
 ```
 
-Claude Code daha sonra her araç çağrısından önce `failproofai --hook PreToolUse` komutunu bir alt işlem olarak çağırır ve stdin üzerinden bir JSON yükü iletir.
+Claude Code daha sonra her araç çağrısından önce `failproofai --hook PreToolUse` komutunu bir alt süreç olarak çağırır ve stdin üzerinde bir JSON yükü iletir.
 
-### Yük Biçimi
+### Yük biçimi
 
 ```json
 {
@@ -61,11 +62,11 @@ Claude Code daha sonra her araç çağrısından önce `failproofai --hook PreTo
 }
 ```
 
-`PostToolUse` etkinlikleri için, yük ayrıca aracının çıktısını içeren `tool_result` değerini içerir.
+`PostToolUse` olayları için yük, araçın çıktısını içeren `tool_result` da içerir.
 
-İşleyici 1 MB stdin sınırını uygular. Bu limiti aşan yükler atılır ve tüm politikalar örtük olarak izin verir.
+İşleyici 1 MB stdin sınırını uygular. Bu sınırı aşan yükler atılır ve tüm politikalar örtük olarak izin verir.
 
-### Yanıt Biçimi
+### Yanıt biçimi
 
 **Reddet (PreToolUse):**
 ```json
@@ -86,7 +87,7 @@ Claude Code daha sonra her araç çağrısından önce `failproofai --hook PreTo
 }
 ```
 
-**Talimat (Stop dışında herhangi bir etkinlik):**
+**Talimat (Stop hariç herhangi bir olay):**
 ```json
 {
   "hookSpecificOutput": {
@@ -95,72 +96,72 @@ Claude Code daha sonra her araç çağrısından önce `failproofai --hook PreTo
 }
 ```
 
-**Stop etkinliği talimatı:**
+**Stop olay talimatı:**
 - Çıkış kodu: `2`
-- Neden stderr'a yazılır (stdout değil)
+- Sebep stderr'e yazılmıştır (stdout değil)
 
-**İzin Ver:**
+**İzin ver:**
 - Çıkış kodu: `0`
 - Boş stdout
 
-**İletiyle İzin Ver:**
+**İzin ver ve mesaj:**
 
-`allow(message)` bir politikanın işlem izin verildiğinde bile Claude'a bilgilendirici bağlam göndermesini sağlar. Hook işleyici aşağıdaki JSON'ı **stdout'a** yazar (yapılandırma dosyasına değil — bu, deny ve instruct yanıtları gibi hook işleyicisinin Claude Code'a verdiği yanıttır):
+`allow(message)` bir politikanın, işlem izin verildiğinde bile Claude'a bilgilendirici bağlam göndermesine izin verir. Hook işleyicisi aşağıdaki JSON'u **stdout**'a yazar (yapılandırma dosyası değil — bu, deny ve instruct yanıtlarının üstünde olduğu gibi hook işleyici sürecinin Claude Code'a yanıtıdır):
 
 ```json
-// Hook işleyici işlemi tarafından stdout'a yazılır
+// Hook işleyici süreci tarafından stdout'a yazılmıştır
 {
   "hookSpecificOutput": {
     "additionalContext": "All CI checks passed on branch 'feat/my-feature'."
   }
 }
 ```
-- Çıkış kodu: `0` (işleme izin verilir)
-- Birden fazla politika bir iletiyle `allow` döndürdüğünde, iletileri newline'larla birleştirilerek tek bir `additionalContext` dizesine katılır
-- Hiçbir politika bir ileti sağlamadığında, stdout boştur (öncekiyle aynı)
+- Çıkış kodu: `0` (işleme izin verildi)
+- Birden fazla politika ileti içeren `allow` döndürdüğünde, iletileri yeni satırlarla birleştirerek tek bir `additionalContext` dizesine katılırlar
+- Hiçbir politika ileti sağlamazsa, stdout boştur (öncekiyle aynı)
 
-### İşleme Hattı
+### İşlem hattı
 
-`src/hooks/handler.ts` tam hattı uygular:
+`src/hooks/handler.ts` tam işlem hattını uygular:
 
 ```text
 stdin JSON
-  → yükü ayrıştır (en fazla 1 MB)
-  → oturum meta verilerini çıkar (session_id, cwd, tool_name, tool_input, vb.)
-  → readMergedHooksConfig(cwd)    ← proje + yerel + genel yapılandırmayı birleştirir
-  → etkinleştirilen yerleşik politikaları çözümlenen parametrelerle kayıt et
-  → özel politikaları customPoliciesPath'ten yükle (ayarlanmışsa)
+  → yükü ayrıştır (maks 1 MB)
+  → oturum metaverilerini çıkar (session_id, cwd, tool_name, tool_input, vb.)
+  → readMergedHooksConfig(cwd)    ← proje + yerel + global yapılandırmayı birleştir
+  → etkin yerleşik politikaları çözümlenen parametrelerle kayıt et
+  → customPoliciesPath'ten özel politikaları yükle (ayarlandıysa)
   → özel politikaları politika kaydına kayıt et
-  → tüm politikaları değerlendir (önce yerleşikler, sonra özel olanlar)
-      → ilk reddet kısa devre
+  → tüm politikaları değerlendir (yerleşiklerin ardından özel olanlar)
+      → ilk reddet kısa devresi
       → talimat kararları birikir
-      → izin mesajları birikir
+      → mesajlara izin verilir ve birikir
   → JSON kararını stdout'a yaz
-  → etkinliği ~/.failproofai/hook-activity.jsonl'ye kayıt et
+  → olayı ~/.failproofai/hook-activity.jsonl'ye kalıcı hale getir
   → çık
 ```
 
-Tipik yükler için LLM çağrıları olmadan tüm işlem 100ms altında gerçekleşir.
+Tüm işlem, LLM çağrıları olmayan tipik yükler için 100ms altında çalışır.
 
 ---
 
 ## Yapılandırma Yükleme
 
-`src/hooks/hooks-config.ts` üç kapsamlı yapılandırma yüklemesi uygular.
+`src/hooks/hooks-config.ts` üç kapsamlı config yükleme uygular.
 
 ```text
 [1] {cwd}/.failproofai/policies-config.json        ← proje  (en yüksek öncelik)
 [2] {cwd}/.failproofai/policies-config.local.json  ← yerel
-[3] ~/.failproofai/policies-config.json             ← genel   (en düşük öncelik)
+[3] ~/.failproofai/policies-config.json             ← global   (en düşük öncelik)
 ```
 
 Birleştirme mantığı:
-- `enabledPolicies` - üç dosya arasında çoğaltılmamış birleşim
+- `enabledPolicies` - her üç dosya arasında tekilleştirilen birleşim
 - `policyParams` - politika başına anahtar, ilk dosya tamamen kazanır
-- `customPoliciesPath` - tanımlayan ilk dosya kazanır
-- `llm` - tanımlayan ilk dosya kazanır
+- `customPoliciesPath` - ilk dosya kazanır
+- `llm` - ilk dosya kazanır
 
-Web dashboard, proje cwd'si ile çağrılmadığından, yalnızca genel yapılandırma okuması ve yazması için `readHooksConfig()` (yalnızca genel) kullanır.
+Web kontrol paneli yalnızca global yapılandırma için `readHooksConfig()` kullanır çünkü bir proje cwd ile çağrılmaz.
 
 ---
 
@@ -170,24 +171,24 @@ Web dashboard, proje cwd'si ile çağrılmadığından, yalnızca genel yapılan
 
 Her politika için:
 
-1. Politikanın `params` şemasını arayın (varsa).
-2. Birleştirilen yapılandırmadan `policyParams[policy.name]` okuyun.
-3. Şema varsayılanları üzerine kullanıcı tarafından sağlanan değerleri birleştirerek `ctx.params` üretin.
-4. `policy.fn(ctx)` çözümlenen bağlam ile çağırın.
-5. Sonuç `deny` ise, hemen durdurun ve bu kararı döndürün.
-6. Sonuç `instruct` ise, iletiyi biriktin ve devam edin.
-7. Sonuç `allow` ise, sonraki politikaya geçin.
+1. Politikanın `params` şemasını ara (varsa).
+2. Birleştirilen yapılandırmadan `policyParams[policy.name]` oku.
+3. Kullanıcı tarafından sağlanan değerleri şema varsayılanları üzerine birleştirerek `ctx.params` üret.
+4. `policy.fn(ctx)` komutunu çözümlenen bağlamla çağır.
+5. Sonuç `deny` ise, hemen durdur ve bu kararı döndür.
+6. Sonuç `instruct` ise, mesajı biriktir ve devam et.
+7. Sonuç `allow` ise, sonraki politikaya devam et.
 
 Tüm politikalar çalıştıktan sonra:
-- Herhangi bir `deny` döndürüldüyse, deny yanıtını göster.
-- Herhangi bir `instruct` dönüşü toplandıysa, tüm iletiler birleştirilmiş tek bir instruct yanıtı göster.
-- Aksi takdirde, izin yanıtı göster (boş stdout, çıkış 0).
+- Herhangi bir `deny` döndürülürse, reddet yanıtını yayınla.
+- Herhangi bir `instruct` dönüşü toplanırsa, tüm mesajlarla birleştirilerek tek bir instruct yanıtı yayınla.
+- Aksi takdirde, izin yanıtını yayınla (boş stdout, çıkış 0).
 
 ---
 
 ## Yerleşik Politikalar
 
-`src/hooks/builtin-policies.ts` tüm 26 yerleşik politikaları `BuiltinPolicyDefinition` nesneleri olarak tanımlar:
+`src/hooks/builtin-policies.ts` tüm 39 yerleşik politikayı `BuiltinPolicyDefinition` nesneleri olarak tanımlar:
 
 ```typescript
 interface BuiltinPolicyDefinition {
@@ -205,15 +206,15 @@ interface BuiltinPolicyDefinition {
 }
 ```
 
-`params` kabul eden politikalar her parametre için türler ve varsayılanlar içeren bir `PolicyParamsSchema` bildirir. Politika değerlendiricisi, `fn`'i çağırmadan önce çözümlenen değerleri `ctx.params`'e enjekte eder. Politika fonksiyonları `ctx.params`'i null koruma olmadan okur çünkü varsayılanlar her zaman önce uygulanır.
+`params` kabul eden politikalar her parametre için türler ve varsayılanlar içeren `PolicyParamsSchema` bildirir. Politika değerlendiricisi, `fn` çağrılmadan önce çözümlenen değerleri `ctx.params` öğesine enjekte eder. Politika işlevleri, varsayılanlar her zaman ilk olarak uygulandığı için `ctx.params` öğesini null kontrol yapmadan okur.
 
-Politikalar içindeki desen eşleştirmesi, ham dize eşleştirmesi değil, ayrıştırılmış komut jetonlarını (argv) kullanır. Bu, shell operatörü injeksiyonu aracılığıyla bypass'ı önler (örneğin `sudo systemctl status *` için bir desen, komuta `; rm -rf /` eklenerek bypass edilemez).
+Politikalar içindeki desen eşleştirmesi, ham dize eşleştirmesinden değil, ayrıştırılmış komut belirteçlerini (argv) kullanır. Bu, shell operatörü enjeksiyonu aracılığıyla bypass'ı önler (örneğin, `sudo systemctl status *` için bir desen, komuta `; rm -rf /` eklenerek bypass edilemez).
 
 ---
 
 ## Özel Politikalar
 
-`src/hooks/custom-hooks-registry.ts` bir `globalThis` destekli kayıt uygulaması uygular:
+`src/hooks/custom-hooks-registry.ts` bir `globalThis` tabanlı kayıt defteri uygular:
 
 ```typescript
 const REGISTRY_KEY = "__failproofai_custom_hooks__";
@@ -228,23 +229,23 @@ export function clearCustomHooks(): void { ... }  // testlerde kullanılır
 
 `src/hooks/custom-hooks-loader.ts` kullanıcının politika dosyasını yükler:
 
-1. Yapılandırmadan `customPoliciesPath` okuyun; yoksa atla.
-2. Mutlak yola çözün; dosyanın var olup olmadığını kontrol edin.
-3. Tüm `from "failproofai"` importlarını gerçek dist yoluna yeniden yazın, böylece `customPolicies` aynı `globalThis` kaydına çözülür.
-4. ESM uyumluluğunu sağlamak için geçişli yerel importları özyinelemeli olarak yeniden yazın.
-5. Geçici `.mjs` dosyaları yazın ve giriş dosyasını `import()` edin.
-6. Kaydedilmiş hook'ları almak için `getCustomHooks()` çağırın.
-7. Bir `finally` bloğunda tüm geçici dosyaları temizle.
+1. Yapılandırmadan `customPoliciesPath` öğesini oku; yoksa atla.
+2. Mutlak yola çöz; dosyanın var olduğunu kontrol et.
+3. Tüm `from "failproofai"` içe aktarımlarını gerçek dist yoluna yeniden yaz, böylece `customPolicies` aynı `globalThis` kaydına çözülür.
+4. ESM uyumluluğunu sağlamak için geçişli yerel içe aktarımları yinelemeli olarak yeniden yaz.
+5. Geçici `.mjs` dosyaları yaz ve giriş dosyasını `import()` et.
+6. Kayıtlı kancaları almak için `getCustomHooks()` çağır.
+7. `finally` bloğunda tüm geçici dosyaları temizle.
 
-Herhangi bir hatada (dosya bulunamadı, sözdizimi hatası, import hatası), hata `~/.failproofai/hook.log` dosyasına kaydedilir ve yükleyici boş bir dizi döndürür. Yerleşik politikalar etkilenmez.
+Herhangi bir hata (dosya bulunamadı, söz dizimi hatası, içe aktarma hatası) üzerinde, hata `~/.failproofai/hook.log` dosyasına kaydedilir ve yükleyici boş bir dizi döndürür. Yerleşik politikalar etkilenmez.
 
-Özel politikalar tüm yerleşik politikaların sonrasında değerlendirilir. Özel bir politikanın `deny` değeri yine de ek özel politikaları kısa devre yapar (ancak bu noktada tüm yerleşikler zaten çalışmış durumdadır).
+Özel politikalar tüm yerleşik politikalardan sonra değerlendirilir. Özel bir politika `deny` yine de başka özel politikaları kısa devre yapar (ancak bu noktada tüm yerleşikler zaten çalıştırılmıştır).
 
 ---
 
-## Aktivite Günlüğü
+## Etkinlik Günlüğü
 
-Her hook etkinliğinden sonra, işleyici `~/.failproofai/hook-activity.jsonl` dosyasına bir JSONL satırı ekler:
+Her hook olayından sonra, işleyici `~/.failproofai/hook-activity.jsonl` dosyasına bir JSONL satırı ekler:
 
 ```json
 {
@@ -259,44 +260,44 @@ Her hook etkinliğinden sonra, işleyici `~/.failproofai/hook-activity.jsonl` do
 }
 ```
 
-Bir izin verilmeyenden karar veren her politika için bir satır. İzin verilen kararlar kaydedilmez (dosyayı küçük tutmak için).
+İzin vermeyen bir karar alan her politika için bir satır. İzin kararları günlüğe kaydedilmez (dosyayı küçük tutmak için).
 
 ---
 
-## Dashboard Mimarisi
+## Kontrol Paneli Mimarisi
 
-Dashboard, React Sunucu Bileşenleri ve Sunucu Eylemleri ile App Router kullanan bir **Next.js 16** uygulamasıdır.
+Kontrol paneli, React Server Components ve Server Actions ile App Router kullanan bir **Next.js 16** uygulamasıdır.
 
 ```text
 app/
-  layout.tsx                  ← Kök düzen (tema, telemetri, nav)
+  layout.tsx                  ← Kök düzen (tema, telemetri, gezinti)
   projects/page.tsx           ← Sunucu bileşeni: tüm Claude projelerini listele
   project/[name]/page.tsx     ← Sunucu bileşeni: bir projedeki oturumları listele
   project/[name]/session/
-    [sessionId]/page.tsx      ← Sunucu bileşeni: oturum görüntüleyiciyi renderla
-  policies/page.tsx           ← İstemci bileşeni: politika yönetimi + aktivite günlüğü
+    [sessionId]/page.tsx      ← Sunucu bileşeni: oturum görüntüleyiciyi oluştur
+  policies/page.tsx           ← İstemci bileşeni: politika yönetimi + etkinlik günlüğü
   actions/
-    get-hooks-config.ts       ← Yapılandırma + politika listesini oku
+    get-hooks-config.ts       ← Yapılandırmayı ve politika listesini oku
     update-hooks-config.ts    ← Politikayı aç/kapat
     update-policy-params.ts   ← Politika parametrelerini güncelle
-    get-hook-activity.ts      ← Aktivite günlüğünü sayfalandır/ara
-    install-hooks-web.ts      ← Tarayıcıdan hook'ları kur/kaldır
+    get-hook-activity.ts      ← Etkinlik günlüğünü sayfalandır/ara
+    install-hooks-web.ts      ← Tarayıcıdan kancaları yükle/kaldır
   api/
-    download/[project]/[session]/route.ts   ← Proje başına CLI oturum dışa aktarma (JSONL veya JSON)
+    download/[project]/[session]/route.ts   ← CLI başına oturum dışa aktarımı (JSONL veya JSON)
 ```
 
-**Veri Akışı:**
+**Veri akışı:**
 
-- Sayfa bileşenleri proje/oturum verilerini doğrudan dosya sisteminden okumak için `lib/projects.ts` ve `lib/log-entries.ts` çağırır (okumalar için API katmanı yok).
-- Policies sayfası tüm mutasyonlar (aç/kapat, parametreler güncellemesi, kur/kaldır) için Sunucu Eylemlerini kullanır.
-- Oturum görüntüleyicisi Claude'un JSONL transkript biçimini ayrıştırır ve mesajların ve araç çağrılarının bir zaman çizelgesini renderlar.
+- Sayfa bileşenleri, proje/oturum verilerini dosya sisteminden doğrudan okumak için `lib/projects.ts` ve `lib/log-entries.ts` komutlarını çağırır (okumalar için API katmanı yok).
+- Politikalar sayfası, tüm mutasyonlar (değiştir, parametreleri güncelle, yükle/kaldır) için Server Actions kullanır.
+- Oturum görüntüleyicisi Claude'un JSONL transkript biçimini ayrıştırır ve iletilerin ve araç çağrılarının bir zaman çizelgesini oluşturur.
 
-**Temel Tasarım Kararları:**
+**Temel tasarım kararları:**
 
 - Veritabanı yok - tüm kalıcı durum düz dosyalardadır (`~/.failproofai/`, `~/.claude/projects/`).
-- Mutasyonlar için Sunucu Eylemleri - CRUD işlemleri için REST API gerekli değil.
-- Okuma sayfaları için React Sunucu Bileşenleri - daha hızlı ilk yükleme, veri getirme için istemci paket yok.
-- İstemci bileşenleri yalnızca etkileşim gerekli olduğunda (politika açma/kapatma, aktivite araması, günlük görüntüleyici).
+- Mutasyonlar için Server Actions - CRUD işlemleri için REST API gerekli değildir.
+- Okuma sayfaları için React Server Components - daha hızlı ilk yükleme, veri getirme için istemci paketi yok.
+- İstemci bileşenleri yalnızca etkileşimin gerekli olduğu yerlerde (politika açma/kapatma, etkinlik arama, günlük görüntüleyicisi).
 
 ---
 
@@ -307,27 +308,27 @@ failproofai/
 ├── bin/
 │   └── failproofai.mjs           # CLI yönlendiricisi (hook / dashboard / install / vb.)
 ├── src/hooks/
-│   ├── handler.ts                # Hook etkinliği hattı
-│   ├── builtin-policies.ts       # 26 politika tanımı
+│   ├── handler.ts                # Hook olay işlem hattı
+│   ├── builtin-policies.ts       # 39 politika tanımı
 │   ├── policy-evaluator.ts       # Politika yürütme motoru
-│   ├── policy-registry.ts        # Politika kaydı ve arama
+│   ├── policy-registry.ts        # Politika kaydı ve araması
 │   ├── policy-types.ts           # TypeScript arayüzleri
 │   ├── hooks-config.ts           # Çok kapsamlı yapılandırma yükleme
-│   ├── custom-hooks-registry.ts  # globalThis destekli hook kaydı
-│   ├── custom-hooks-loader.ts    # Kullanıcı JS hook'ları için ESM yükleyici
-│   ├── manager.ts                # install / remove / list işlemleri
-│   ├── install-prompt.ts         # Etkileşimli politika seçimi istemi
-│   ├── hook-logger.ts            # hook.log'a günlüğe kaydetme
-│   ├── hook-activity-store.ts    # hook-activity.jsonl'ye aktivite kayıt et
-│   └── llm-client.ts             # LLM API istemcisi (yapay zeka destekli politikalar için)
-├── app/                          # Next.js dashboard (sayfalar + sunucu eylemleri)
-├── lib/                          # Paylaşılan yardımcı programlar
+│   ├── custom-hooks-registry.ts  # globalThis tabanlı kanca kaydı
+│   ├── custom-hooks-loader.ts    # Kullanıcı JS kancaları için ESM yükleyicisi
+│   ├── manager.ts                # yükle / kaldır / listele işlemleri
+│   ├── install-prompt.ts         # Etkileşimli politika seçim istemi
+│   ├── hook-logger.ts            # hook.log dosyasına günlüğe kaydetme
+│   ├── hook-activity-store.ts    # Etkinliği hook-activity.jsonl dosyasına kalıcı hale getir
+│   └── llm-client.ts             # LLM API istemcisi (AI güçlü politikalar için)
+├── app/                          # Next.js kontrol paneli (sayfalar + sunucu işlemleri)
+├── lib/                          # Paylaşılan yardımcılar
 │   ├── projects.ts               # Dosya sisteminden Claude projelerini numaralandır
 │   ├── log-entries.ts            # Claude transkript JSONL biçimini ayrıştır
-│   ├── paths.ts                  # Sistem yollarını çözümle
+│   ├── paths.ts                  # Sistem yollarını çöz
 │   └── ...
 ├── components/                   # Paylaşılan React UI bileşenleri
 ├── contexts/                     # React bağlam sağlayıcıları (tema, otomatik yenileme, telemetri)
-├── examples/                     # Örnek özel hook dosyaları
+├── examples/                     # Örnek özel kanca dosyaları
 └── __tests__/                    # Birim ve E2E testleri
 ```

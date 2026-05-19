@@ -18,19 +18,19 @@
 
 **תרגומים:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**פתרון כשלים בזמן ריצה עבור סוכנים קוד.**
-משתלב עם Claude Code וCodex. תופס לולאות, פעולות מסוכנות, וזליגת סודות
-לפני שהם הופכים לתקלות. אפס זמן השהיה. פועל באופן מקומי.
+**פתרון כישלונות בזמן ריצה עבור סוכני קוד.**
+משתלב עם Claude Code ו-Codex. תופס לולאות, פעולות מסוכנות, וזיפויי סודות
+לפני שהם הופכים לתקריות. זמן התגובה אפס. פועל באופן מקומי.
 
 </div>
 
 <p align="center">
-  <img src="readme-arch-hq.gif" alt="Failproof AI in action" width="800" />
+  <img src="readme-arch-hq.gif" alt="Failproof AI בפעולה" width="800" />
 </p>
 
 ---
 
-## CLI סוכנים נתמכים
+## CLIs סוכנים נתמכים
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -81,7 +81,7 @@
   </a>
 </p>
 
-> התקן hooks לאחד או לשילוב כלשהו: `failproofai policies --install --cli opencode pi gemini` (או `--cli claude codex copilot cursor opencode pi gemini`). השמט את `--cli` כדי לגלות באופן אוטומטי CLIs מותקנים ולקבל הנחיה. **תמיכת GitHub Copilot CLI, Cursor Agent, OpenCode, Pi וGemini CLI נמצאת בגרסה בטא — בדיקות בעיצומן.**
+> התקן hooks עבור אחד או כל שילוב: `failproofai policies --install --cli opencode pi gemini` (או `--cli claude codex copilot cursor opencode pi gemini`). השמט את `--cli` כדי לזהות אוטומטית CLIs מותקנים ותבחר. **תמיכת GitHub Copilot CLI, Cursor Agent, OpenCode, Pi, ו-Gemini CLI נמצאת בבטא — בדיקות מתמשכות.**
 
 ---
 
@@ -93,7 +93,7 @@ failproofai policies --install
 failproofai
 ```
 
-30 מדיניות מובנות מופעלות מיד. לוח בקרה ב`localhost:8020`.
+30 מדיניויות מובנות מופעלות באופן מיידי. דוחפן ב-`localhost:8020`.
 
 ---
 
@@ -101,20 +101,20 @@ failproofai
 
 | מדיניות | מה זה חוסם |
 |---|---|
-| `block-push-master` | דחיפות ישירות ל`main` / `master` |
+| `block-push-master` | דחיפות ישירות ל-`main` / `master` |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | Commits, merges, rebases ב`main` / `master` |
+| `block-work-on-main` | commits, merges, rebases ב-`main` / `master` |
 | `block-rm-rf` | מחיקת קבצים רקורסיבית |
-| `sanitize-api-keys` | מפתחות API הזוכים לתוך ההקשר של הסוכן |
+| `sanitize-api-keys` | מפתחות API שנוזלים להקשר של סוכן |
 
-→ [כל 30 המדיניות המובנות](https://docs.befailproof.ai/built-in-policies)
+→ [כל 30 המדיניויות המובנות](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## המדיניות שלך
+## המדיניויות שלך
 
-ירה קובץ אל `.failproofai/policies/` — הוא נטען באופן אוטומטי, ללא דגלים נדרשים.
-התחייב זה והכל הקבוצה תקבל זה בשלב ההשמה הבא.
+הטל קובץ ל-`.failproofai/policies/` — הוא נטען אוטומטית, ללא דגלים נדרשים.
+בצע commit וכל הצוות מקבל אותו בהעלאה הבאה.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -132,21 +132,21 @@ customPolicies.add({
 
 שלוש החלטות זמינות לכל מדיניות:
 
-| החלטה | השפעה |
+| החלטה | אפקט |
 |---|---|
 | `allow()` | אפשר את הפעולה |
-| `deny(message)` | חסום זה — ההודעה חוזרת לסוכן |
-| `instruct(message)` | תן לזה לעבור, אבל הוסף הקשר לתזמון הבא של הסוכן |
+| `deny(message)` | חסום אותה — ההודעה חוזרת לסוכן |
+| `instruct(message)` | תן לה לעבור, אך הוסף הקשר ללהט הבא של הסוכן |
 
-→ [מדריך מדיניות מותאם אישית](https://docs.befailproof.ai/custom-policies)
+→ [מדריך מדיניויות מותאמות אישיות](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## ראות הישיבה
+## גלוי הצפה
 
-כל קריאת כלי שהסוכן שלך עושה מתועדת בו מקומית. לוח הבקרה מציג מה רץ,
-מה חוסם, ומה המדיניות אמרה לסוכן — כך שאתה לא ניחוש
-כשמשהו הולך לא בסדר. → [מדריך לוח בקרה](https://docs.befailproof.ai/dashboard)
+כל קריאת כלי שהסוכן שלך עושה מתורגמת באופן מקומי. הדוחפן מראה מה רץ,
+מה הוחסם, ומה המדיניות אמרה לסוכן — כך שאתה לא מנחש
+כשמשהו הולך לא בסדר. → [מדריך דוחפן](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -154,28 +154,28 @@ customPolicies.add({
 
 | | |
 |---|---|
-| [תחילת דרך](https://docs.befailproof.ai/getting-started) | התקנה ודרכים ראשונים |
-| [מדיניות מובנות](https://docs.befailproof.ai/built-in-policies) | כל 30 המדיניות עם פרמטרים |
-| [מדיניות מותאמות אישית](https://docs.befailproof.ai/custom-policies) | כתוב שלך |
-| [תצורה](https://docs.befailproof.ai/configuration) | טווחי תצורה וכללי מיזוג |
-| [לוח בקרה](https://docs.befailproof.ai/dashboard) | צג הישיבה ופעילות מדיניות |
+| [התחלה](https://docs.befailproof.ai/getting-started) | התקנה והצעדים הראשונים |
+| [מדיניויות מובנות](https://docs.befailproof.ai/built-in-policies) | כל 30 המדיניויות עם פרמטרים |
+| [מדיניויות מותאמות אישיות](https://docs.befailproof.ai/custom-policies) | כתוב שלך |
+| [תצורה](https://docs.befailproof.ai/configuration) | הגדרות הטווח וכללי המיזוג |
+| [דוחפן](https://docs.befailproof.ai/dashboard) | צג הצפה ופעילות מדיניות |
 | [אדריכלות](https://docs.befailproof.ai/architecture) | איך מערכת ה-hook עובדת |
 
 ---
 
 ## רישיון
 
-MIT עם [Commons Clause](https://commonsclause.com/) — חינם לשימוש פנימי ואישי; שיווק מחדש מסחרי של failproofai עצמו דורש הסכם נפרד. ראה [LICENSE](./LICENSE) לטקסט מלא.
+MIT עם [Commons Clause](https://commonsclause.com/) — בחינם לשימוש פנימי ואישי; מכירה מסחרית של failproofai עצמו דורשת הסכמה נפרדת. ראה [LICENSE](./LICENSE) לטקסט המלא.
 
 ---
 
 ## תרומה
 
-ראה [CONTRIBUTING.md](./CONTRIBUTING.md). מדיניות חדשות, מקרי קצה, ותרגומים כולם מוזמנים.
+ראה [CONTRIBUTING.md](./CONTRIBUTING.md). מדיניויות חדשות, מקרי קצה, ותרגומים כולם מוזמנים.
 
 ---
 
-נבנה על ידי [Nivedit Jain](https://github.com/NiveditJain) ו[Nikita Agarwal](https://github.com/nk-ag).
+בנוי על ידי [Nivedit Jain](https://github.com/NiveditJain) ו-[Nikita Agarwal](https://github.com/nk-ag).
 [befailproof.ai](https://befailproof.ai)
 
 

@@ -16,9 +16,9 @@
 
 **Traduzioni:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Risoluzione dei guasti di runtime per gli agenti di codifica.**
-Si integra con Claude Code e Codex. Rileva cicli, azioni pericolose e perdite di segreti
-prima che diventino incidenti. Zero latenza. Esegui localmente.
+**Risoluzione degli errori di runtime per agenti di codifica.**
+Si integra con Claude Code e Codex. Cattura loop, azioni pericolose e fughe di segreti
+prima che diventino incidenti. Latenza zero. Esecuzione locale.
 
 </div>
 
@@ -79,7 +79,7 @@ prima che diventino incidenti. Zero latenza. Esegui localmente.
   </a>
 </p>
 
-> Installa gli hook per uno o qualsiasi combinazione: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Ometti `--cli` per il rilevamento automatico dei CLI installati e il prompt. **Il supporto per GitHub Copilot CLI, Cursor Agent, OpenCode, Pi e Gemini CLI è in beta — il test è in corso.**
+> Installa hook per uno o una combinazione qualsiasi: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Ometti `--cli` per rilevare automaticamente i CLI installati e ricevere un prompt. **Il supporto per GitHub Copilot CLI, Cursor Agent, OpenCode, Pi e Gemini CLI è in versione beta — i test sono in corso.**
 
 ---
 
@@ -91,28 +91,28 @@ failproofai policies --install
 failproofai
 ```
 
-30 politiche integrate si attivano immediatamente. Dashboard su `localhost:8020`.
+30 policy integrate si attivano immediatamente. Dashboard disponibile su `localhost:8020`.
 
 ---
 
 ## Cosa blocca
 
-| Politica | Cosa blocca |
+| Policy | Cosa blocca |
 |---|---|
 | `block-push-master` | Push diretti su `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Commit, merge, rebase su `main` / `master` |
 | `block-rm-rf` | Eliminazione ricorsiva di file |
-| `sanitize-api-keys` | Chiavi API che perdono nel contesto dell'agente |
+| `sanitize-api-keys` | Fuga di chiavi API nel contesto dell'agente |
 
-→ [Tutte le 30 politiche integrate](https://docs.befailproof.ai/built-in-policies)
+→ [Tutte le 30 policy integrate](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## Le tue politiche personali
+## Le tue policy personalizzate
 
-Rilascia un file in `.failproofai/policies/` — si carica automaticamente, nessun flag necessario.
-Eseguine il commit e l'intero team lo riceverà al prossimo pull.
+Rilascia un file in `.failproofai/policies/` — viene caricato automaticamente, non sono necessari flag.
+Effettua il commit e l'intero team lo riceverà al prossimo pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -122,29 +122,29 @@ customPolicies.add({
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (ctx.toolInput?.file_path?.includes("production"))
-      return deny("Writes to production paths are blocked.");
+      return deny("Le scritture su percorsi di produzione sono bloccate.");
     return allow();
   },
 });
 ```
 
-Tre decisioni disponibili per ogni politica:
+Tre decisioni disponibili per ogni policy:
 
 | Decisione | Effetto |
 |---|---|
 | `allow()` | Permetti l'operazione |
 | `deny(message)` | Bloccala — il messaggio torna all'agente |
-| `instruct(message)` | Lasciarla passare, ma aggiungi contesto al prossimo prompt dell'agente |
+| `instruct(message)` | Lasciala passare, ma aggiungi contesto al prompt successivo dell'agente |
 
-→ [Guida alle politiche personalizzate](https://docs.befailproof.ai/custom-policies)
+→ [Guida alle policy personalizzate](https://docs.befailproof.ai/custom-policies)
 
 ---
 
 ## Visibilità della sessione
 
-Ogni chiamata di strumento che il tuo agente esegue viene registrata localmente. Il dashboard mostra cosa è stato eseguito,
-cosa è stato bloccato e cosa la politica ha detto all'agente — quindi non stai indovinando
-quando qualcosa va male. → [Guida al dashboard](https://docs.befailproof.ai/dashboard)
+Ogni chiamata di strumento che il tuo agente effettua viene registrata localmente. Il dashboard mostra ciò che è stato eseguito,
+cosa è stato bloccato e cosa la policy ha comunicato all'agente — così non dovrai indovinare
+quando qualcosa va storto. → [Guida al dashboard](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -152,24 +152,24 @@ quando qualcosa va male. → [Guida al dashboard](https://docs.befailproof.ai/da
 
 | | |
 |---|---|
-| [Guida introduttiva](https://docs.befailproof.ai/getting-started) | Installazione e primi passi |
-| [Politiche integrate](https://docs.befailproof.ai/built-in-policies) | Tutte le 30 politiche con parametri |
-| [Politiche personalizzate](https://docs.befailproof.ai/custom-policies) | Scrivi le tue |
-| [Configurazione](https://docs.befailproof.ai/configuration) | Ambiti di configurazione e regole di unione |
-| [Dashboard](https://docs.befailproof.ai/dashboard) | Monitor di sessione e attività delle politiche |
-| [Architettura](https://docs.befailproof.ai/architecture) | Come funziona il sistema di hook |
+| [Getting Started](https://docs.befailproof.ai/getting-started) | Installazione e primi passi |
+| [Built-in Policies](https://docs.befailproof.ai/built-in-policies) | Tutte le 30 policy con parametri |
+| [Custom Policies](https://docs.befailproof.ai/custom-policies) | Scrivi le tue |
+| [Configuration](https://docs.befailproof.ai/configuration) | Ambiti di configurazione e regole di merge |
+| [Dashboard](https://docs.befailproof.ai/dashboard) | Monitor di sessione e attività delle policy |
+| [Architecture](https://docs.befailproof.ai/architecture) | Come funziona il sistema di hook |
 
 ---
 
 ## Licenza
 
-MIT con [Commons Clause](https://commonsclause.com/) — gratuito per uso interno e personale; la rivendita commerciale di failproofai stesso richiede un accordo separato. Vedi [LICENSE](./LICENSE) per il testo completo.
+MIT con [Commons Clause](https://commonsclause.com/) — gratuita per uso interno e personale; la rivendita commerciale di failproofai stessa richiede un accordo separato. Vedi [LICENSE](./LICENSE) per il testo completo.
 
 ---
 
 ## Contribuire
 
-Vedi [CONTRIBUTING.md](./CONTRIBUTING.md). Nuove politiche, edge case e traduzioni sono tutti benvenuti.
+Vedi [CONTRIBUTING.md](./CONTRIBUTING.md). Nuove policy, casi limite e traduzioni sono sempre benvenuti.
 
 ---
 

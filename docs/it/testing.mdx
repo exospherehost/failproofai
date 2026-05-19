@@ -4,20 +4,20 @@ description: "Test unitari, test end-to-end e helper per i test"
 icon: flask-vial
 ---
 
-failproofai ha due suite di test: **test unitari** (veloci, mockati) e **test end-to-end** (invocazioni di subprocess reali).
+failproofai dispone di due suite di test: **test unitari** (veloci, mockati) e **test end-to-end** (vere invocazioni di subprocess).
 
 ---
 
 ## Esecuzione dei test
 
 ```bash
-# Eseguire tutti i test unitari una volta
+# Esegui tutti i test unitari una volta
 bun run test:run
 
-# Eseguire i test unitari in watch mode
+# Esegui i test unitari in watch mode
 bun run test
 
-# Eseguire i test E2E (richiede setup - vedi sotto)
+# Esegui i test E2E (richiede setup - vedi sotto)
 bun run test:e2e
 
 # Type-check senza compilare
@@ -37,10 +37,10 @@ I test unitari si trovano in `__tests__/` e utilizzano [Vitest](https://vitest.d
 __tests__/
   hooks/
     builtin-policies.test.ts      # Logica delle policy per ogni builtin
-    hooks-config.test.ts          # Caricamento della configurazione e merge degli scope
-    policy-evaluator.test.ts      # Iniezione dei parametri e ordine di valutazione
-    custom-hooks-registry.test.ts # Registrazione globalThis add/get/clear
-    custom-hooks-loader.test.ts   # Loader ESM, import transitivi, gestione errori
+    hooks-config.test.ts          # Caricamento della config e merge dello scope
+    policy-evaluator.test.ts      # Iniezione di parametri e ordine di valutazione
+    custom-hooks-registry.test.ts # Registro globalThis add/get/clear
+    custom-hooks-loader.test.ts   # ESM loader, import transitivi, gestione errori
     manager.test.ts               # Operazioni install/remove/list
   components/
     sessions-list.test.tsx        # Componente elenco sessioni
@@ -61,7 +61,7 @@ __tests__/
     AutoRefreshContext.test.tsx
 ```
 
-### Scrivere un test unitario per una policy
+### Scrivere un test unitario di una policy
 
 ```typescript
 import { describe, it, expect, beforeEach } from "vitest";
@@ -110,11 +110,11 @@ describe("block-sudo", () => {
 
 ## Test end-to-end
 
-I test E2E invocano il vero binario `failproofai` come subprocess, inviano un payload JSON a stdin e fanno assert sull'output stdout e sul codice di uscita. Questo testa il percorso di integrazione completo che Claude Code utilizza.
+I test E2E invocano il vero binario `failproofai` come subprocess, inviano un payload JSON su stdin e fanno asserzioni sull'output stdout e sul codice di uscita. Questo testa il percorso di integrazione completo che Claude Code utilizza.
 
 ### Setup
 
-I test E2E eseguono il binario direttamente dal sorgente del repository. Prima della prima esecuzione, compila il bundle CJS che i file con hook personalizzati utilizzano quando importano da `'failproofai'`:
+I test E2E eseguono il binario direttamente dal codice sorgente del repository. Prima della prima esecuzione, compila il bundle CJS che i file di hook personalizzati utilizzano quando importano da `'failproofai'`:
 
 ```bash
 bun build src/index.ts --outdir dist --target node --format cjs
@@ -128,18 +128,18 @@ bun run test:e2e
 
 Ricompila `dist/` ogni volta che modifichi l'API pubblica dei hook (`src/hooks/custom-hooks-registry.ts`, `src/hooks/policy-helpers.ts`, o `src/hooks/policy-types.ts`).
 
-### Struttura del test E2E
+### Struttura dei test E2E
 
 ```text
 __tests__/e2e/
   helpers/
-    hook-runner.ts      # Esegui il binario, invia il payload JSON, cattura codice di uscita + stdout + stderr
-    fixture-env.ts      # Directory temporanee isolate per test con file di configurazione
+    hook-runner.ts      # Avvia il binario, invia il payload JSON, cattura il codice di uscita + stdout + stderr
+    fixture-env.ts      # Directory temporanee isolate per test con file di config
     payloads.ts         # Factory di payload accurati per Claude per ogni tipo di evento
   hooks/
-    builtin-policies.e2e.test.ts   # Ogni policy builtin con subprocess reale
+    builtin-policies.e2e.test.ts   # Ogni policy builtin con vero subprocess
     custom-hooks.e2e.test.ts       # Caricamento e valutazione di hook personalizzati
-    config-scopes.e2e.test.ts      # Merge di configurazione tra project/local/global
+    config-scopes.e2e.test.ts      # Merge della config attraverso project/local/global
     policy-params.e2e.test.ts      # Iniezione di parametri per ogni policy parametrizzata
 ```
 
@@ -151,8 +151,8 @@ __tests__/e2e/
 import { createFixtureEnv } from "../helpers/fixture-env";
 
 const env = createFixtureEnv();
-// env.cwd    - directory temporanea; passa come payload.cwd per raccogliere .failproofai/policies-config.json
-// env.home   - directory home isolata; nessuna perdita di ~/.failproofai reale
+// env.cwd    - directory temporanea; passa come payload.cwd per caricare .failproofai/policies-config.json
+// env.home   - directory home isolata; nessun reale ~/.failproofai si intromette
 
 env.writeConfig({
   enabledPolicies: ["block-sudo"],
@@ -162,7 +162,7 @@ env.writeConfig({
 });
 ```
 
-`createFixtureEnv()` registra la pulizia di `afterEach` automaticamente.
+`createFixtureEnv()` registra la pulizia `afterEach` automaticamente.
 
 **`runHook`** - invoca il binario:
 
@@ -241,20 +241,20 @@ describe("block-rm-rf (E2E)", () => {
 | Stop instruct | `2` | stdout vuoto; motivo in stderr |
 | Allow | `0` | stringa vuota |
 
-### Configurazione di Vitest
+### Config Vitest
 
 I test E2E utilizzano `vitest.config.e2e.mts` con:
 
-- `environment: "node"` - non sono necessari browser globals
+- `environment: "node"` - nessun global del browser necessario
 - `pool: "forks"` - vera isolamento dei processi (i test avviano subprocess)
-- `testTimeout: 20_000` - 20s per test (avvio del binario + valutazione del hook)
+- `testTimeout: 20_000` - 20s per test (avvio del binario + valutazione dell'hook)
 
-Il pool `forks` è importante: i worker basati su thread condividono `globalThis`, il che può interferire con i test che avviano subprocess. I fork basati su processi evitano questo.
+Il pool `forks` è importante: i worker basati su thread condividono `globalThis`, che può interferire con i test che avviano subprocess. I fork basati su processi evitano questo.
 
 ---
 
 ## CI
 
-L'esecuzione CI completa (`bun run lint && bunx tsc --noEmit && bun run test:run && bun run build`) è obbligatoria per il passaggio prima del merge. La suite E2E viene eseguita come un processo CI separato in parallelo.
+L'esecuzione completa della CI (`bun run lint && bunx tsc --noEmit && bun run test:run && bun run build`) deve passare prima del merge. La suite E2E viene eseguita come lavoro CI separato in parallelo.
 
 Vedi [Contributing](../CONTRIBUTING.md) per la checklist completa pre-merge.

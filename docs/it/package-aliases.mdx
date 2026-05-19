@@ -1,6 +1,6 @@
 ---
-title: Alias dei Package
-description: "Alias registrati per la prevenzione di typosquatting e come funzionano"
+title: Alias dei package
+description: "Alias registrati per la prevenzione del typosquatting e come funzionano"
 icon: copy
 ---
 
@@ -10,7 +10,7 @@ Il package npm canonico è **`failproofai`**:
 
 ```bash
 npm install -g failproofai
-# oppure
+# or
 bun add -g failproofai
 ```
 
@@ -18,9 +18,9 @@ bun add -g failproofai
 
 ## Perché possediamo i nomi degli alias
 
-Il typosquatting è un comune attacco alla catena di approvvigionamento in cui un attore malevolo registra un nome di package a una tastiera di distanza da un package popolare. Gli utenti ignari che digitano male il comando di installazione finiscono per eseguire codice controllato dall'attaccante con accesso completo al sistema - esattamente il tipo di minaccia contro cui Failproof AI è progettato per difendersi.
+Il typosquatting è un comune attacco alla catena di fornitura in cui un attore malevolo registra un nome di package che dista un solo tasto da un package popolare. Gli utenti ignari che commettono errori di battitura nel comando di installazione finiscono per eseguire codice controllato dall'attaccante con accesso completo al sistema - esattamente il tipo di minaccia che Failproof AI è progettato per difendere.
 
-Per eliminare questa superficie di attacco, **possediamo preventivamente tutte le comuni varianti di ortografia e formattazione** di `failproofai` su npm. Nessuno di questi nomi può essere registrato da una terza parte. Ognuno è un thin proxy che installa e delega al vero package `failproofai`.
+Per eliminare questa superficie di attacco, **possediamo preventivamente tutti gli errori di digitazione comuni e le varianti di formattazione** di `failproofai` su npm. Nessuno di questi nomi può essere registrato da terze parti. Ognuno è un thin proxy che installa e delega al vero package `failproofai`.
 
 ---
 
@@ -29,7 +29,7 @@ Per eliminare questa superficie di attacco, **possediamo preventivamente tutte l
 **Varianti di formattazione** - diversi modi di scrivere "failproof ai":
 
 | Package | Stato |
-|---------|-------|
+|---------|--------|
 | `failproof` | ✅ Pubblicato |
 | `failproof-ai` | ⏳ In attesa di supporto npm |
 | `fail-proof-ai` | ⏳ In attesa di supporto npm |
@@ -37,31 +37,31 @@ Per eliminare questa superficie di attacco, **possediamo preventivamente tutte l
 | `fail_proof_ai` | ⏳ In attesa di supporto npm |
 | `fail-proofai` | ⏳ In attesa di supporto npm |
 
-**Typo `failprof*`** - manca una `o` da "proof":
+**Errori di digitazione `failprof*`** - manca una `o` da "proof":
 
 | Package | Stato |
-|---------|-------|
+|---------|--------|
 | `failprof` | ✅ Pubblicato |
 | `failprof-ai` | ✅ Pubblicato |
 | `failprofai` | ⏳ In attesa di supporto npm |
 | `fail-prof-ai` | ⏳ In attesa di supporto npm |
 | `failprof_ai` | ⏳ In attesa di supporto npm |
 
-**Typo `faliproof*`** - `a` e `i` invertiti:
+**Errori di digitazione `faliproof*`** - `a` e `i` scambiate:
 
 | Package | Stato |
-|---------|-------|
+|---------|--------|
 | `faliproof` | ✅ Pubblicato |
 | `faliproof-ai` | ✅ Pubblicato |
 | `faliproofai` | ⏳ In attesa di supporto npm |
 
-> **Perché in sospeso?** La politica di prevenzione dello spam di npm blocca i nomi che si normalizzano nella stessa stringa di un package esistente dopo aver rimosso la punteggiatura ed eseguito controlli di somiglianza. Abbiamo contattato il supporto npm per riservare questi nomi per scopi anti-squatting. Saranno attivati una volta approvati.
+> **Perché in sospeso?** La politica di prevenzione dello spam di npm blocca i nomi che si normalizzano alla stessa stringa di un package esistente dopo aver rimosso la punteggiatura e eseguito controlli di somiglianza. Abbiamo contattato il supporto di npm per riservare questi nomi a scopo anti-squatting. Verranno attivati una volta approvati.
 
 Puoi verificare che qualsiasi alias pubblicato sia di nostra proprietà:
 
 ```bash
 npm info failproof
-# Cerca: "ExosphereHost Inc." nel campo maintainers
+# Cerca: "ExosphereHost Inc." nel campo dei maintainer
 ```
 
 ---
@@ -70,13 +70,13 @@ npm info failproof
 
 Ogni package alias:
 
-1. Elenca `failproofai` come dipendenza - così il vero package (inclusa la configurazione del suo hook `postinstall`) viene eseguito all'installazione
-2. Espone un binary che corrisponde al suo stesso nome (ad es. `failprof-ai`) che proxya tutti gli argomenti al binary `failproofai`
+1. Elenca `failproofai` come dipendenza - quindi il vero package (inclusa la configurazione del suo hook `postinstall`) viene eseguito durante l'installazione
+2. Espone un binary che corrisponde al proprio nome (ad esempio `failprof-ai`) che proxy tutti gli argomenti al binary `failproofai`
 
-Il proxy è uno script Node di due righe; non c'è logica, nessuna chiamata di rete e nessuna raccolta di dati oltre a quella che fa lo stesso `failproofai`.
+Il proxy è uno script Node di due righe; non c'è logica, nessuna chiamata di rete e nessuna raccolta dati oltre a quella che fa `failproofai` stesso.
 
 ---
 
-## Se trovi un nome che abbiamo mancato
+## Se trovi un nome che abbiamo perso
 
 Apri un issue su [exospherehost/failproofai](https://github.com/exospherehost/failproofai/issues) e lo registreremo.

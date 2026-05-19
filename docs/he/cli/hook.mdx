@@ -1,30 +1,25 @@
----
-title: מטפל וו (פנימי)
-description: "תת-תהליך שקוד Claude קורא לו בכל אירוע כלי"
----
-
 ```bash
 failproofai --hook <EventType>
 ```
 
-זו הפקודה שנרשמה בקובץ `settings.json` של Claude Code על ידי `failproofai policies --install`. בדרך כלל אתה לא קורא לזה ישירות.
+זהו הפקודה הרשומה ב-`settings.json` של Claude Code על ידי `failproofai policies --install`. בדרך כלל אתה לא קורא לזה ישירות.
 
-קורא עומס JSON מ-stdin, מעריך את כל המדיניויות המופעלות, ויוצא עם קוד המציין את ההחלטה:
+קורא payload של JSON מ-stdin, מערך את כל המדיניות המופעלות, ויוצא עם קוד המציין את ההחלטה:
 
 | קוד יציאה | החלטה | השפעה |
-|-----------|--------|--------|
+|-----------|---------|--------|
 | `0` | `allow` | אפשר את הפעולה |
 | `1` | `deny` | חסום את הפעולה - Claude רואה את סיבת הדחייה |
-| `2` | `instruct` | הזרק הנחיות להקשר של Claude |
+| `2` | `instruct` | הזריק הנחיות להקשר של Claude |
 
 ### סוגי אירועים נתמכים
 
 | קטגוריה | אירועים |
-|----------|--------|
+|----------|---------|
 | **ביצוע כלים** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
-| **מחזור חיים של הסעה** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
+| **מחזור חיים הפעלה** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
 | **אינטראקציה של משתמש** | `UserPromptSubmit`, `Notification`, `Elicitation`, `ElicitationResult` |
-| **תוכניות משנה ומשימות** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
+| **תת-סוכנים ומשימות** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
 | **תצורה** | `InstructionsLoaded`, `ConfigChange`, `CwdChanged` |
 | **מערכת קבצים** | `FileChanged`, `WorktreeCreate`, `WorktreeRemove` |
 | **הקשר** | `PreCompact`, `PostCompact` |

@@ -10,14 +10,14 @@ description: "Configure o comportamento do failproofai com variáveis de ambient
 | `PORT` | Porta do dashboard (padrão: `8020`) |
 | `CLAUDE_PROJECTS_PATH` | Substitui o local onde as pastas de projetos do Claude Code são encontradas |
 | `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Páginas do dashboard a ocultar, separadas por vírgula |
-| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Hosts/IPs com permissão para acessar recursos de desenvolvimento. Equivalente a `--allowed-origins`. |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Hosts/IPs autorizados a acessar recursos de desenvolvimento. Equivalente a `--allowed-origins`. |
 
 ## Logging
 
 | Variável | Descrição |
 |----------|-----------|
 | `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Nível de log do servidor (padrão: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | Caminho personalizado para o arquivo de log dos hooks, ou `true` para o padrão (`~/.failproofai/logs/hooks.log`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | Caminho personalizado para o arquivo de log de hooks, ou `true` para o padrão (`~/.failproofai/logs/hooks.log`) |
 
 ## Telemetria
 

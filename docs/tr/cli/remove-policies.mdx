@@ -1,13 +1,13 @@
 ---
-title: Politikaları kaldır
-description: "Claude Code'un ayarlarından hook girdilerini kaldır"
+title: İlkeleri kaldır
+description: "Claude Code'un ayarlarından hook girişlerini kaldırın"
 ---
 
 ```bash
 failproofai policies --uninstall [policy-names...] [options]
 ```
 
-failproofai hook girdilerini Claude Code'un `settings.json` dosyasından kaldırır.
+failproofai hook girişlerini Claude Code'un `settings.json` dosyasından kaldırır.
 
 Takma adlar: `failproofai p -u`
 
@@ -15,29 +15,29 @@ Takma adlar: `failproofai p -u`
 
 | Bayrak | Açıklama |
 |------|-------------|
-| `--scope user` | Global ayarlardan kaldır (varsayılan) |
-| `--scope project` | Proje ayarlarından kaldır |
-| `--scope local` | Yerel ayarlardan kaldır |
-| `--scope all` | Tüm kapsamlardan aynı anda kaldır |
-| `--custom` / `-c` | `customPoliciesPath` yapılandırmasını temizle |
+| `--scope user` | Global ayarlardan kaldırır (varsayılan) |
+| `--scope project` | Proje ayarlarından kaldırır |
+| `--scope local` | Yerel ayarlardan kaldırır |
+| `--scope all` | Tüm kapsamlardan aynı anda kaldırır |
+| `--custom` / `-c` | Yapılandırmadan `customPoliciesPath` öğesini temizler |
 
 ## Davranış
 
-- **Politika adı yok** - ayarlar dosyasından tüm failproofai hook girdilerini kaldırır
-- **Belirli adlar** - bu politikaları devre dışı bırakır ancak hook'ları yüklü tutar
+- **İlke adı yok** - ayar dosyasından tüm failproofai hook girişlerini kaldırır
+- **Belirli adlar** - bu ilkeleri devre dışı bırakır ancak hook'ları yüklü tutar
 
 ## Örnekler
 
 ```bash
-# Tüm hook'ları global olarak kaldır
+# Tüm hook'ları global olarak kaldırın
 failproofai policies --uninstall
 
-# Belirli bir politikayı devre dışı bırak (hook'ları yüklü tutar)
+# Belirli bir ilkeyi devre dışı bırakın (hook'ları yüklü tutar)
 failproofai policies --uninstall block-sudo
 
-# Hook'ları her kapsamdan kaldır
+# Hook'ları her kapsamdan kaldırın
 failproofai policies --uninstall --scope all
 
-# Özel politikalar yolunu temizle
+# Özel ilkeler yolunu temizle
 failproofai policies --uninstall --custom
 ```

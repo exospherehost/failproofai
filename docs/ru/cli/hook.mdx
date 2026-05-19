@@ -1,5 +1,5 @@
 ---
-title: Обработчик хука (внутренний)
+title: Обработчик hook (внутренний)
 description: "Подпроцесс, который Claude Code вызывает при каждом событии инструмента"
 ---
 
@@ -9,7 +9,7 @@ failproofai --hook <EventType>
 
 Это команда, зарегистрированная в `settings.json` Claude Code командой `failproofai policies --install`. Обычно вы не вызываете её напрямую.
 
-Читает JSON-полезную нагрузку из stdin, оценивает все включённые политики и выходит с кодом, указывающим решение:
+Считывает JSON-полезную нагрузку из stdin, оценивает все включённые политики и выходит с кодом, указывающим решение:
 
 | Код выхода | Решение | Эффект |
 |-----------|---------|--------|
@@ -23,8 +23,8 @@ failproofai --hook <EventType>
 |-----------|---------|
 | **Выполнение инструментов** | `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PermissionRequest`, `PermissionDenied` |
 | **Жизненный цикл сессии** | `SessionStart`, `SessionEnd`, `Stop`, `StopFailure` |
-| **Взаимодействие с пользователем** | `UserPromptSubmit`, `Notification`, `Elicitation`, `ElicitationResult` |
-| **Субагенты и задачи** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
+| **Взаимодействие пользователя** | `UserPromptSubmit`, `Notification`, `Elicitation`, `ElicitationResult` |
+| **Подагенты и задачи** | `SubagentStart`, `SubagentStop`, `TaskCreated`, `TaskCompleted`, `TeammateIdle` |
 | **Конфигурация** | `InstructionsLoaded`, `ConfigChange`, `CwdChanged` |
 | **Файловая система** | `FileChanged`, `WorktreeCreate`, `WorktreeRemove` |
 | **Контекст** | `PreCompact`, `PostCompact` |

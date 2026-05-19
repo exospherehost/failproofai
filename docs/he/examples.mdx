@@ -1,19 +1,20 @@
 ---
+---
 title: דוגמאות
 description: "כיצד להגדיר hooks עבור Claude Code ו-Agents SDK"
 icon: book-open
 ---
 
-דוגמאות מוכנות לשימוש לתרחישים נפוצים. כל אחת מציגה כיצד להתקין ומה להצפות.
+דוגמאות מוכנות לשימוש עבור תרחישים נפוצים. כל אחת מציגה כיצד להתקין ומה לצפות.
 
 ---
 
 ## הגדרת hooks עבור Claude Code
 
-Failproof AI משתלב עם Claude Code דרך [מערכת ה-hooks שלו](https://docs.anthropic.com/en/docs/claude-code/hooks). כאשר אתה מריץ `failproofai policies --install`, הוא רושם פקודות hook בקובץ `settings.json` של Claude Code שמופעלות בכל קריאת כלי.
+Failproof AI משתלבת עם Claude Code דרך [מערכת ה-hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) שלה. כאשר אתה מריץ `failproofai policies --install`, היא רושמת פקודות hook ב-`settings.json` של Claude Code שנוקדות בכל קריאת כלי.
 
 <Steps>
-  <Step title="התקן את failproofai">
+  <Step title="התקן failproofai">
     ```bash
     npm install -g failproofai
     ```
@@ -28,14 +29,14 @@ Failproof AI משתלב עם Claude Code דרך [מערכת ה-hooks שלו](htt
     cat ~/.claude/settings.json | grep failproofai
     ```
 
-    אתה אמור לראות ערכי hook עבור `PreToolUse`, `PostToolUse`, `Notification` ו-`Stop`.
+    אתה צריך לראות כניסות hook עבור אירועי `PreToolUse`, `PostToolUse`, `Notification`, ו-`Stop`.
   </Step>
   <Step title="הרץ את Claude Code">
     ```bash
     claude
     ```
 
-    המדיניויות רצות כעת באופן אוטומטי בכל קריאת כלי. נסה לבקש מ-Claude להריץ `sudo rm -rf /` - זה יחסום.
+    המדיניויות רצות כעת באופן אוטומטי בכל קריאת כלי. נסה לבקש מ-Claude להריץ `sudo rm -rf /` - היא תיחסום.
   </Step>
 </Steps>
 
@@ -43,23 +44,23 @@ Failproof AI משתלב עם Claude Code דרך [מערכת ה-hooks שלו](htt
 
 ## הגדרת hooks עבור Agents SDK
 
-אם אתה בונה עם [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk), אתה יכול להשתמש באותה מערכת hooks בצורה תכנותית.
+אם אתה בונה עם [Agents SDK](https://docs.anthropic.com/en/docs/agents-sdk), אתה יכול להשתמש באותה מערכת hooks באופן תכנותי.
 
 <Steps>
-  <Step title="התקן את failproofai בפרויקט שלך">
+  <Step title="התקן failproofai בפרויקט שלך">
     ```bash
     npm install failproofai
     ```
   </Step>
-  <Step title="קבע את ההוקים בסוכן שלך">
-    העבר פקודות hook כאשר אתה יוצר את תהליך הסוכן שלך. ההוקים מופעלים באותו אופן כמו ב-Claude Code - דרך JSON של stdin/stdout:
+  <Step title="הגדר hooks בסוכן שלך">
+    העבר פקודות hook בעת יצירת תהליך הסוכן שלך. ה-hooks נוקדות באותו אופן כמו ב-Claude Code - דרך stdin/stdout JSON:
 
     ```bash
     failproofai --hook PreToolUse   # נקרא לפני כל כלי
     failproofai --hook PostToolUse  # נקרא אחרי כל כלי
     ```
   </Step>
-  <Step title="כתוב מדיניות מותאמת אישית עבור הסוכן שלך">
+  <Step title="כתוב מדיניות מותאמת עבור הסוכן שלך">
     ```javascript
     import { customPolicies, allow, deny } from "failproofai";
 
@@ -77,7 +78,7 @@ Failproof AI משתלב עם Claude Code דרך [מערכת ה-hooks שלו](htt
     });
     ```
   </Step>
-  <Step title="התקן את המדיניות המותאמת אישית">
+  <Step title="התקן את המדיניות המותאמת">
     ```bash
     failproofai policies --install --custom ./my-agent-policies.js
     ```
@@ -88,35 +89,35 @@ Failproof AI משתלב עם Claude Code דרך [מערכת ה-hooks שלו](htt
 
 ## חסום פקודות הרסניות
 
-ההגדרה השכיחה ביותר - מנע מסוכנים לגרום נזק בלתי הפיך.
+ההגדרה הנפוצה ביותר - מנע מסוכנים לגרום נזק בלתי הפיך.
 
 ```bash
 failproofai policies --install block-sudo block-rm-rf block-force-push block-curl-pipe-sh
 ```
 
 מה זה עושה:
-- `block-sudo` - חוסם את כל הפקודות `sudo`
+- `block-sudo` - חוסם את כל פקודות `sudo`
 - `block-rm-rf` - חוסם מחיקת קובצים רקורסיבית
 - `block-force-push` - חוסם `git push --force`
-- `block-curl-pipe-sh` - חוסם העברת סקריפטים מרוחקים לשׁ
+- `block-curl-pipe-sh` - חוסם piping של סקריפטים מרוחקים ל-shell
 
 ---
 
 ## מנע דליפת סודות
 
-עצור סוכנים מלראות או לחשוף אישורים בפלט הכלים.
+עצור סוכנים מלראות או לדלוף אישורים בפלט הכלים.
 
 ```bash
 failproofai policies --install sanitize-api-keys sanitize-jwt sanitize-connection-strings sanitize-bearer-tokens
 ```
 
-אלו מופעלים ב-`PostToolUse` - אחרי שכלי רץ, הם מנקים את הפלט לפני שהסוכן רואה אותו.
+אלה נוקדות ב-`PostToolUse` - אחרי שכלי מרוץ, הם מנקים את הפלט לפני שהסוכן רואה אותו.
 
 ---
 
-## קבל התראות Slack כאשר סוכנים זקוקים לתשומת לב
+## קבל התראות Slack כשסוכנים זקוקים לתשומת לב
 
-השתמש בה-hook התראה כדי להעביר התראות רצות להמתנה ל-Slack.
+השתמש בה-notification hook כדי להעביר התראות סרק ל-Slack.
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
@@ -150,7 +151,7 @@ customPolicies.add({
 });
 ```
 
-התקן אותו:
+התקן אותה:
 
 ```bash
 SLACK_WEBHOOK_URL=https://hooks.slack.com/... failproofai policies --install --custom ./slack-alerts.js
@@ -182,9 +183,9 @@ customPolicies.add({
 
 ---
 
-## דרוש בדיקות לפני commit
+## דרוש בדיקות לפני commits
 
-הזכר לסוכנים להריץ בדיקות לפני ביצוע commit.
+הזכר לסוכנים להריץ בדיקות לפני commit.
 
 ```javascript
 import { customPolicies, allow, instruct } from "failproofai";
@@ -206,9 +207,9 @@ customPolicies.add({
 
 ---
 
-## נעל מאגר ייצור
+## נעל repo של ייצור
 
-בצע commit לקובץ תצורה ברמת הפרויקט כך שכל מפתח בצוות שלך יקבל את אותן מדיניויות.
+בצע commit של תצורה ברמת פרויקט כך שכל מפתח בצוות שלך יקבל את אותן המדיניויות.
 
 צור `.failproofai/policies-config.json` בריפו שלך:
 
@@ -231,23 +232,23 @@ customPolicies.add({
 }
 ```
 
-אח"כ בצע commit:
+אז בצע commit:
 
 ```bash
 git add .failproofai/policies-config.json
 git commit -m "Add failproofai team policies"
 ```
 
-כל חברי הצוות שיש להם failproofai מותקן יקטפו באופן אוטומטי את הכללים הללו.
+כל חברי צוות שיש להם failproofai מותקן יבחרו באופן אוטומטי את הכללים הללו.
 
 ---
 
-## בנה תקן איכות בנפוץ ארגוני עם מדיניויות קונוונציה
+## בנה תקן איכות כללי בארגון עם מדיניות קונוונציה
 
-ההגדרה בעלת ההשפעה הגדולה ביותר: בצע commit ל-`.failproofai/policies/` בריפו שלך עם מדיניויות המותאמות אישית לפרויקט שלך. כל חברי הצוות מקבלים אותם באופן אוטומטי — ללא פקודות התקנה, ללא שינויי תצורה.
+ההגדרה בעלת ההשפעה הגבוהה ביותר: בצע commit של `.failproofai/policies/` לריפו שלך עם מדיניויות המותאמות לפרויקט שלך. כל חברי צוות מקבלים אותם באופן אוטומטי — אין פקודות התקנה, אין שינויי קונפיגורציה.
 
 <Steps>
-  <Step title="צור את הספרייה והוסף מדיניויות">
+  <Step title="צור את התיקייה והוסף מדיניויות">
     ```bash
     mkdir -p .failproofai/policies
     ```
@@ -289,8 +290,8 @@ git commit -m "Add failproofai team policies"
     git commit -m "Add team quality policies"
     ```
   </Step>
-  <Step title="המשך לשפר">
-    כאשר הצוות שלך פוגש במצבי כשל חדשים, הוסף מדיניויות ודחוף. כולם מקבלים את העדכון ב-`git pull` הבא שלהם. המדיניויות הללו הופכות לתקן איכות חי שגדל עם הצוות שלך.
+  <Step title="המשך בשיפור">
+    כשהצוות שלך פוגש מצבי כישלון חדשים, הוסף מדיניויות ודחוף. כולם מקבלים את העדכון ב-`git pull` הבא שלהם. המדיניויות הללו הופכות לתקן איכות חי שגדל עם הצוות שלך.
   </Step>
 </Steps>
 
@@ -298,10 +299,10 @@ git commit -m "Add failproofai team policies"
 
 ## דוגמאות נוספות
 
-הספרייה [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) בריפו מכילה:
+תיקייה [`examples/`](https://github.com/exospherehost/failproofai/tree/main/examples) בריפו מכילה:
 
 | קובץ | מה הוא מציג |
 |------|---------------|
-| `policies-basic.js` | מדיניויות ההתחלה - חסום כתיבות בייצור, force-push, סקריפטים מופעלים דרך צינור |
-| `policies-notification.js` | התראות Slack לעדכונים בהמתנה ובסוף הסישן |
-| `policies-advanced/index.js` | ייבוא טרנזיטיבי, hooks אסינכרוני, ניקוי פלט PostToolUse, טיפול באירוע Stop |
+| `policies-basic.js` | מדיניויות מתחיל - חסום כתיבות ייצור, force-push, סקריפטים piped |
+| `policies-notification.js` | התראות Slack עבור הודעות סרק וסיום הסדרה |
+| `policies-advanced/index.js` | ייבואים חוליים, hooks אסינכרוניים, ניקוי פלט PostToolUse, טיפול באירוע Stop |

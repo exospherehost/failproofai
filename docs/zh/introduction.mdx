@@ -1,36 +1,36 @@
 ---
-title: Failproof AI
-description: "管理让 AI 智能体保持可靠、自主运行的钩子和策略"
+title: "Failproof AI"
+description: "FailproofAI 为 AI 智能体提供 39 条内置失效策略，一键安装即可捕获循环、密钥泄露、破坏性工具调用等问题。"
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-让 AI 智能体保持可靠、自主运行的钩子和策略——适用于 **Claude Code**、**OpenAI Codex** 以及 **Agents SDK**。
+用于 **AI 故障处理**、**错误恢复**和 **LLM 可靠性**的 Hooks 与策略。让你的 AI 智能体在 **Claude Code**、**OpenAI Codex**、**GitHub Copilot**、**Cursor Agent**、**OpenCode**、**Pi**、**Gemini CLI** 以及 **Agents SDK** 上保持稳定、自主运行。
 
-AI 智能体的失败方式往往是可以预见的：执行破坏性命令、泄露密钥、偏离任务、陷入死循环，或者直接推送到主分支。一旦无人看管，小问题便会接连引发更大的故障。
+AI 智能体的失效方式是可预见的：执行破坏性命令、泄露密钥、偏离任务目标、陷入死循环，或直接推送到主分支。若无人看管，小故障会不断累积，最终酿成服务中断、凭证泄露和工作丢失。
 
-Failproof AI 通过**策略**来解决这些问题——策略是一套规则，能够钩入智能体的每一次工具调用，**检测故障**、**主动缓解**（阻止、指示、脱敏），并在需要人工介入时**发出提醒**。本地仪表盘让你随时复盘所有操作记录。
+FailproofAI 通过**策略**来解决这一问题。这些规则介入每一次智能体工具调用，**检测故障**、**进行缓解**（拦截、指令纠正、脱敏处理），并在需要人工介入时**及时告警**。本地仪表盘让你事后可以回顾每一次工具调用、智能体故障及恢复操作。
 
-所有功能均在本地运行，数据不会离开你的设备。
+所有数据均不离开你的本机。
 
-## 快速上手
+## 快速入门
 
 <CardGroup cols={2}>
 
-<Card title="26 条内置策略" icon="shield" href="/zh/built-in-policies">
-  开箱即用：阻止破坏性命令、防止密钥泄露、将智能体限制在项目范围内，以及更多功能。
+<Card title="39 条内置策略" icon="shield" href="/zh/built-in-policies">
+  拦截破坏性命令、防止密钥泄露、将智能体限制在项目范围内，以及更多功能。开箱即用。
 </Card>
 
 <Card title="自定义策略" icon="code" href="/zh/custom-policies">
-  使用简洁的 allow / deny / instruct API，用 JavaScript 编写你自己的规则。
+  使用 JavaScript 编写你自己的规则，提供简洁的 allow / deny / instruct API。
 </Card>
 
 <Card title="智能体监控" icon="chart-line" href="/zh/dashboard">
-  查看智能体在你离开期间的所有操作。浏览会话记录、检查工具调用、查看策略触发情况。
+  查看智能体在你离开期间的所有操作。浏览会话记录、检查工具调用、回顾策略触发情况。
 </Card>
 
 <Card title="便捷配置" icon="gear" href="/zh/configuration">
-  无需编写代码即可调整任意策略。按项目或全局设置允许列表、受保护分支或触发阈值。
+  无需编写代码即可调整任意策略。按项目或全局设置白名单、受保护分支或阈值。
 </Card>
 
 </CardGroup>
@@ -50,8 +50,8 @@ bun add -g failproofai
 </CodeGroup>
 
 ```bash
-failproofai policies --install   # 启用策略
-failproofai                      # 启动仪表盘
+failproofai policies --install   # enable policies
+failproofai                      # launch the dashboard
 ```
 
 完整操作流程请参阅[入门指南](/zh/getting-started)。
