@@ -50,23 +50,23 @@ describe("hooks/builtin-policies", () => {
       const policies = getPoliciesForEvent("PreToolUse", "Bash");
       expect(policies).toHaveLength(2);
       expect(policies.map((p) => p.name).sort()).toEqual([
-        "exospherehost/block-rm-rf",
-        "exospherehost/block-sudo",
+        "failproofai/block-rm-rf",
+        "failproofai/block-sudo",
       ]);
     });
 
     it("accepts qualified names in enabledPolicies (forward compat)", () => {
-      registerBuiltinPolicies(["exospherehost/block-sudo", "exospherehost/block-rm-rf"]);
+      registerBuiltinPolicies(["failproofai/block-sudo", "failproofai/block-rm-rf"]);
       const policies = getPoliciesForEvent("PreToolUse", "Bash");
       expect(policies).toHaveLength(2);
       expect(policies.map((p) => p.name).sort()).toEqual([
-        "exospherehost/block-rm-rf",
-        "exospherehost/block-sudo",
+        "failproofai/block-rm-rf",
+        "failproofai/block-sudo",
       ]);
     });
 
     it("treats flat and qualified names as equivalent (mixed config works)", () => {
-      registerBuiltinPolicies(["block-sudo", "exospherehost/block-rm-rf"]);
+      registerBuiltinPolicies(["block-sudo", "failproofai/block-rm-rf"]);
       const policies = getPoliciesForEvent("PreToolUse", "Bash");
       expect(policies).toHaveLength(2);
     });

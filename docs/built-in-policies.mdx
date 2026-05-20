@@ -32,7 +32,7 @@ Policies are grouped into categories:
 ### Namespaces
 
 Every policy lives in a `<namespace>/<name>` slot. Built-in policies belong to the
-**`exospherehost/`** namespace — for example, `exospherehost/sanitize-jwt`. The
+**`failproofai/`** namespace — for example, `failproofai/sanitize-jwt`. The
 namespace prevents collisions when you also load custom or third-party policies
 with similar short names.
 
@@ -43,13 +43,13 @@ qualified name; both forms resolve to the same policy:
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
 If a name has no `/`, failproofai treats it as belonging to the default
-namespace `exospherehost`. Names that already contain a `/` (e.g. `myorg/foo`,
+namespace `failproofai`. Names that already contain a `/` (e.g. `myorg/foo`,
 `custom/my-hook`) are kept as-is.
 - **`require-`** — block the Stop event until conditions are met.
 

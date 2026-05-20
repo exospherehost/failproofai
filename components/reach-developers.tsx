@@ -5,14 +5,14 @@ import React, { useState, useCallback } from "react";
 import { GitBranch, Lightbulb, Bug, MessageSquare, ChevronDown, Star, BookOpen, Hash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const GITHUB_REPO = "https://github.com/exospherehost/failproofai";
+const GITHUB_REPO = "https://github.com/failproofai/failproofai";
 const CONTACT_EMAIL = "failproofai@exosphere.host";
 
 const options = [
   {
     label: "Star us on GitHub",
     icon: Star,
-    href: "https://github.com/exospherehost/failproofai",
+    href: "https://github.com/failproofai/failproofai",
   },
   {
     label: "Documentation",

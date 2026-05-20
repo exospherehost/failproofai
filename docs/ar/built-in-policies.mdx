@@ -33,7 +33,7 @@ icon: shield
 ### الفراغات الاسمية
 
 تعيش كل سياسة في فتحة `<namespace>/<name>`. تنتمي السياسات المدمجة إلى
-الفراغ الاسمي **`exospherehost/`** — على سبيل المثال، `exospherehost/sanitize-jwt`. يمنع الفراغ الاسمي
+الفراغ الاسمي **`failproofai/`** — على سبيل المثال، `failproofai/sanitize-jwt`. يمنع الفراغ الاسمي
 التصادمات عندما تحمل أيضاً سياسات مخصصة أو من طرف ثالث
 بأسماء قصيرة مشابهة.
 
@@ -44,13 +44,13 @@ icon: shield
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
 إذا لم يكن لاسم أي `/`، يتعامل failproofai معه كأنه ينتمي إلى الفراغ الاسمي الافتراضي
-`exospherehost`. الأسماء التي تحتوي بالفعل على `/` (مثل `myorg/foo`,
+`failproofai`. الأسماء التي تحتوي بالفعل على `/` (مثل `myorg/foo`,
 `custom/my-hook`) تُحتفظ بها كما هي.
 - **`require-`** — إيقاف حدث Stop حتى تتحقق الشروط.
 

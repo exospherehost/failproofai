@@ -35,11 +35,11 @@ const POLICY_PARAMS_MAP = new Map(
 /**
  * Look up policy params for a canonical policy name in the user config,
  * tolerating either flat ("block-force-push") or qualified
- * ("exospherehost/block-force-push") config keys for built-in policies.
+ * ("failproofai/block-force-push") config keys for built-in policies.
  *
  * The flat-key fallback is intentionally limited to the default namespace
  * so namespace isolation is preserved: `policyParams.foo` only matches
- * `exospherehost/foo`, never `myorg/foo` or `custom/foo`.
+ * `failproofai/foo`, never `myorg/foo` or `custom/foo`.
  */
 function getConfigParamsFor(
   config: HooksConfig | undefined,
@@ -87,7 +87,7 @@ export async function evaluatePolicies(
 
   for (const policy of policies) {
     // Inject params: merge policyParams[policy.name] over schema defaults.
-    // policy.name is canonical (e.g. "exospherehost/block-force-push"); user
+    // policy.name is canonical (e.g. "failproofai/block-force-push"); user
     // config keys may be flat or canonical — getConfigParamsFor accepts both.
     const schema = POLICY_PARAMS_MAP.get(policy.name);
     let ctx: PolicyContext;

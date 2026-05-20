@@ -964,7 +964,7 @@
       "anchors": [
         {
           "anchor": "GitHub",
-          "href": "https://github.com/exospherehost/failproofai",
+          "href": "https://github.com/failproofai/failproofai",
           "icon": "github"
         },
         {
@@ -990,8 +990,8 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/exospherehost/failproofai",
-      "x": "https://x.com/exospherehost"
+      "github": "https://github.com/failproofai/failproofai",
+      "x": "https://x.com/failproofai"
     }
   },
   "integrations": {

@@ -33,7 +33,7 @@ failproofai מגיע עם 39 מדיניות מובנות שתופסות מצבי
 ### שמות קבוצה
 
 כל מדיניות נמצאת בחריץ `<namespace>/<name>`. מדיניות מובנות שייכות
-לשם קבוצה **`exospherehost/`** — לדוגמה, `exospherehost/sanitize-jwt`. שם הקבוצה
+לשם קבוצה **`failproofai/`** — לדוגמה, `failproofai/sanitize-jwt`. שם הקבוצה
 מונע התנגשויות כאשר אתה גם טוען מדיניות מותאמות או של צד שלישי
 עם שמות קצרים דומים.
 
@@ -44,13 +44,13 @@ failproofai מגיע עם 39 מדיניות מובנות שתופסות מצבי
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
 אם לשם אין `/`, failproofai מתייחס אליו כשייך לשם הקבוצה הברירת המחדל
-`exospherehost`. שמות שכבר מכילים `/` (לדוגמה `myorg/foo`,
+`failproofai`. שמות שכבר מכילים `/` (לדוגמה `myorg/foo`,
 `custom/my-hook`) נשמרים כפי שהם.
 - **`require-`** — חסום את אירוע העצירה עד למילוי התנאים.
 

@@ -38,7 +38,7 @@ describe("ReachDevelopers", () => {
     const featureLink = screen.getByText("Request a Feature").closest("a");
     expect(featureLink).toHaveAttribute(
       "href",
-      expect.stringContaining("github.com/exospherehost/failproofai")
+      expect.stringContaining("github.com/failproofai/failproofai")
     );
     expect(featureLink).toHaveAttribute(
       "href",
@@ -48,7 +48,7 @@ describe("ReachDevelopers", () => {
     const bugLink = screen.getByText("Report an Issue").closest("a");
     expect(bugLink).toHaveAttribute(
       "href",
-      expect.stringContaining("github.com/exospherehost/failproofai")
+      expect.stringContaining("github.com/failproofai/failproofai")
     );
   });
 

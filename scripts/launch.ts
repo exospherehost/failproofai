@@ -17,7 +17,7 @@ export function launch(mode: "dev" | "start"): void {
   // same column so the values form a clean right-hand column).
   console.log(`\n  failproof ai\n`);
   console.log(`  📦 Version:      ${version}`);
-  console.log(`  ⭐ Star us:      https://github.com/exospherehost/failproofai`);
+  console.log(`  ⭐ Star us:      https://github.com/failproofai/failproofai`);
   console.log(`  📖 Docs:         https://befailproof.ai`);
   console.log(`  💬 Slack:        https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ\n`);
 

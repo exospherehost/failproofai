@@ -32,7 +32,7 @@ Las políticas se agrupan en categorías:
 ### Espacios de nombres
 
 Cada política ocupa un lugar `<namespace>/<name>`. Las políticas integradas pertenecen al
-espacio de nombres **`exospherehost/`** — por ejemplo, `exospherehost/sanitize-jwt`. El
+espacio de nombres **`failproofai/`** — por ejemplo, `failproofai/sanitize-jwt`. El
 espacio de nombres evita colisiones cuando también se cargan políticas personalizadas o de
 terceros con nombres cortos similares.
 
@@ -43,13 +43,13 @@ por su nombre calificado; ambas formas resuelven a la misma política:
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
 Si un nombre no contiene `/`, failproofai lo trata como perteneciente al espacio de nombres
-predeterminado `exospherehost`. Los nombres que ya contienen `/` (por ejemplo, `myorg/foo`,
+predeterminado `failproofai`. Los nombres que ya contienen `/` (por ejemplo, `myorg/foo`,
 `custom/my-hook`) se mantienen tal cual.
 - **`require-`** — bloquea el evento Stop hasta que se cumplan las condiciones.
 

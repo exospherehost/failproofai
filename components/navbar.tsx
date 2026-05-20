@@ -24,7 +24,7 @@ export const Navbar: React.FC<{ disabledPages?: string[] }> = ({ disabledPages =
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-3">
             <a
-              href="https://github.com/exospherehost/failproofai"
+              href="https://github.com/failproofai/failproofai"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center hover:opacity-80 transition-opacity"

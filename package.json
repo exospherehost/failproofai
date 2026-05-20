@@ -1,6 +1,6 @@
 {
   "name": "failproofai",
-  "version": "0.0.11-beta.0",
+  "version": "0.0.11-beta.1",
   "description": "The easiest way to manage policies that keep your AI agents reliable, on-task, and running autonomously — for Claude Code & the Agents SDK",
   "bin": {
     "failproofai": "./dist/cli.mjs"
@@ -59,13 +59,13 @@
   ],
   "author": "ExosphereHost Inc. <failproofai@exosphere.host>",
   "license": "SEE LICENSE IN LICENSE",
-  "homepage": "https://github.com/exospherehost/failproofai",
+  "homepage": "https://github.com/failproofai/failproofai",
   "repository": {
     "type": "git",
-    "url": "https://github.com/exospherehost/failproofai.git"
+    "url": "https://github.com/failproofai/failproofai.git"
   },
   "bugs": {
-    "url": "https://github.com/exospherehost/failproofai/issues"
+    "url": "https://github.com/failproofai/failproofai/issues"
   },
   "publishConfig": {
     "access": "public"

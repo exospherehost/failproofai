@@ -17,7 +17,7 @@ describe("hooks/policy-registry", () => {
     registerPolicy("test", "desc", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
     const policies = getPoliciesForEvent("PreToolUse");
     expect(policies).toHaveLength(1);
-    expect(policies[0].name).toBe("exospherehost/test");
+    expect(policies[0].name).toBe("failproofai/test");
   });
 
   it("upserts by name", () => {
@@ -33,9 +33,9 @@ describe("hooks/policy-registry", () => {
     registerPolicy("post", "desc", () => ({ decision: "allow" }), { events: ["PostToolUse"] });
 
     expect(getPoliciesForEvent("PreToolUse")).toHaveLength(1);
-    expect(getPoliciesForEvent("PreToolUse")[0].name).toBe("exospherehost/pre");
+    expect(getPoliciesForEvent("PreToolUse")[0].name).toBe("failproofai/pre");
     expect(getPoliciesForEvent("PostToolUse")).toHaveLength(1);
-    expect(getPoliciesForEvent("PostToolUse")[0].name).toBe("exospherehost/post");
+    expect(getPoliciesForEvent("PostToolUse")[0].name).toBe("failproofai/post");
   });
 
   it("filters by tool name", () => {
@@ -52,7 +52,7 @@ describe("hooks/policy-registry", () => {
 
     const readPolicies = getPoliciesForEvent("PreToolUse", "Read");
     expect(readPolicies).toHaveLength(1);
-    expect(readPolicies[0].name).toBe("exospherehost/any-tool");
+    expect(readPolicies[0].name).toBe("failproofai/any-tool");
   });
 
   it("sorts by priority (higher first)", () => {
@@ -62,9 +62,9 @@ describe("hooks/policy-registry", () => {
 
     const policies = getPoliciesForEvent("PreToolUse");
     expect(policies.map((p) => p.name)).toEqual([
-      "exospherehost/high",
-      "exospherehost/mid",
-      "exospherehost/low",
+      "failproofai/high",
+      "failproofai/mid",
+      "failproofai/low",
     ]);
   });
 
@@ -90,27 +90,27 @@ describe("hooks/policy-registry", () => {
   });
 
   describe("namespace canonicalization", () => {
-    it("DEFAULT_POLICY_NAMESPACE is exospherehost", () => {
-      expect(DEFAULT_POLICY_NAMESPACE).toBe("exospherehost");
+    it("DEFAULT_POLICY_NAMESPACE is failproofai", () => {
+      expect(DEFAULT_POLICY_NAMESPACE).toBe("failproofai");
     });
 
     it("normalizePolicyName prepends default namespace to flat names", () => {
-      expect(normalizePolicyName("foo")).toBe("exospherehost/foo");
-      expect(normalizePolicyName("sanitize-jwt")).toBe("exospherehost/sanitize-jwt");
+      expect(normalizePolicyName("foo")).toBe("failproofai/foo");
+      expect(normalizePolicyName("sanitize-jwt")).toBe("failproofai/sanitize-jwt");
     });
 
     it("normalizePolicyName leaves already-namespaced names untouched", () => {
-      expect(normalizePolicyName("exospherehost/foo")).toBe("exospherehost/foo");
+      expect(normalizePolicyName("failproofai/foo")).toBe("failproofai/foo");
       expect(normalizePolicyName("myorg/bar")).toBe("myorg/bar");
       expect(normalizePolicyName("custom/hook")).toBe("custom/hook");
     });
 
     it("registering a flat name and a qualified name for the same policy upserts (not duplicates)", () => {
       registerPolicy("dup", "first", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
-      registerPolicy("exospherehost/dup", "second", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
+      registerPolicy("failproofai/dup", "second", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
       const policies = getPoliciesForEvent("PreToolUse");
       expect(policies).toHaveLength(1);
-      expect(policies[0].name).toBe("exospherehost/dup");
+      expect(policies[0].name).toBe("failproofai/dup");
       expect(policies[0].description).toBe("second");
     });
 
@@ -118,7 +118,7 @@ describe("hooks/policy-registry", () => {
       registerPolicy("foo", "builtin", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
       registerPolicy("myorg/foo", "custom", () => ({ decision: "allow" }), { events: ["PreToolUse"] });
       const policies = getPoliciesForEvent("PreToolUse");
-      expect(policies.map((p) => p.name).sort()).toEqual(["exospherehost/foo", "myorg/foo"]);
+      expect(policies.map((p) => p.name).sort()).toEqual(["failproofai/foo", "myorg/foo"]);
     });
   });
 });

@@ -9,7 +9,7 @@ Thanks for your interest in contributing! Here's how to get started.
 ## Development Setup
 
 ```bash
-git clone https://github.com/exosphereHost/failproofai.git
+git clone https://github.com/failproofai/failproofai.git
 cd failproofai
 bun install
 bun run dev
@@ -73,4 +73,4 @@ failproofai/
 
 ## Reporting Issues
 
-Found a bug or have a feature idea? [Open an issue](https://github.com/exosphereHost/failproofai/issues). The issue templates will guide you through providing the right details.
+Found a bug or have a feature idea? [Open an issue](https://github.com/failproofai/failproofai/issues). The issue templates will guide you through providing the right details.
