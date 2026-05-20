@@ -18,7 +18,7 @@
 
 **Résolution des erreurs d'exécution pour les agents de code.**
 S'intègre à Claude Code et Codex. Détecte les boucles, les actions dangereuses et les fuites de secrets
-avant qu'elles ne deviennent des incidents. Latence nulle. Fonctionne en local.
+avant qu'ils ne deviennent des incidents. Zéro latence. Fonctionne en local.
 
 </div>
 
@@ -79,7 +79,7 @@ avant qu'elles ne deviennent des incidents. Latence nulle. Fonctionne en local.
   </a>
 </p>
 
-> Installez les hooks pour l'un ou plusieurs CLI combinés : `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omettez `--cli` pour détecter automatiquement les CLI installés et afficher une invite.
+> Installez les hooks pour un ou plusieurs CLI à la fois : `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omettez `--cli` pour détecter automatiquement les CLI installés et afficher une invite.
 
 ---
 
@@ -99,7 +99,7 @@ failproofai
 
 | Politique | Ce qui est bloqué |
 |---|---|
-| `block-push-master` | Les pushs directs vers `main` / `master` |
+| `block-push-master` | Les push directs vers `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Les commits, merges et rebases sur `main` / `master` |
 | `block-rm-rf` | La suppression récursive de fichiers |
@@ -111,8 +111,8 @@ failproofai
 
 ## Vos propres politiques
 
-Déposez un fichier dans `.failproofai/policies/` — il se charge automatiquement, sans aucun indicateur.
-Commitez-le et toute l'équipe en bénéficie au prochain pull.
+Déposez un fichier dans `.failproofai/policies/` — il est chargé automatiquement, sans aucun flag.
+Commitez-le et toute l'équipe en bénéficiera au prochain pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -134,17 +134,15 @@ Trois décisions disponibles pour chaque politique :
 |---|---|
 | `allow()` | Autorise l'opération |
 | `deny(message)` | La bloque — le message est renvoyé à l'agent |
-| `instruct(message)` | Laisse passer, mais ajoute du contexte au prochain prompt de l'agent |
+| `instruct(message)` | La laisse passer, mais ajoute du contexte au prochain prompt de l'agent |
 
 → [Guide des politiques personnalisées](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## Visibilité de session
+## Visibilité des sessions
 
-Chaque appel d'outil effectué par votre agent est journalisé localement. Le tableau de bord affiche ce qui s'est exécuté,
-ce qui a été bloqué et ce que la politique a indiqué à l'agent — pour ne plus jamais être dans le flou
-en cas de problème. → [Guide du tableau de bord](https://docs.befailproof.ai/dashboard)
+Chaque appel d'outil effectué par votre agent est journalisé en local. Le tableau de bord indique ce qui a été exécuté, ce qui a été bloqué et ce que la politique a transmis à l'agent — vous n'avez plus à tâtonner quand quelque chose tourne mal. → [Guide du tableau de bord](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -163,7 +161,7 @@ en cas de problème. → [Guide du tableau de bord](https://docs.befailproof.ai/
 
 ## Licence
 
-MIT avec [Commons Clause](https://commonsclause.com/) — utilisation interne et personnelle gratuite ; la revente commerciale de failproofai lui-même nécessite un accord séparé. Voir [LICENSE](./LICENSE) pour le texte complet.
+MIT avec [Commons Clause](https://commonsclause.com/) — gratuit pour un usage interne et personnel ; la revente commerciale de failproofai lui-même nécessite un accord séparé. Consultez [LICENSE](./LICENSE) pour le texte complet.
 
 ---
 
@@ -173,5 +171,5 @@ Consultez [CONTRIBUTING.md](./CONTRIBUTING.md). Nouvelles politiques, cas limite
 
 ---
 
-Créé par [Nivedit Jain](https://github.com/NiveditJain) et [Nikita Agarwal](https://github.com/nk-ag).
+Développé par [Nivedit Jain](https://github.com/NiveditJain) et [Nikita Agarwal](https://github.com/nk-ag).
 [befailproof.ai](https://befailproof.ai)

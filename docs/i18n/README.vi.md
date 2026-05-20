@@ -16,14 +16,14 @@
 
 **Bản dịch:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Giải pháp xử lý lỗi thời gian chạy cho các agent lập trình.**
-Kết nối với Claude Code và Codex. Phát hiện vòng lặp, hành động nguy hiểm và rò rỉ bí mật
-trước khi chúng trở thành sự cố. Không có độ trễ. Chạy cục bộ.
+**Giải pháp xử lý lỗi runtime cho các agent mã hóa.**
+Tích hợp với Claude Code và Codex. Phát hiện và ngăn chặn các vòng lặp, hành động nguy hiểm,
+và rò rỉ bí mật trước khi chúng trở thành sự cố. Độ trễ bằng không. Chạy trên máy cục bộ.
 
 </div>
 
 <p align="center">
-  <img src="readme-arch-hq.gif" alt="Failproof AI in action" width="800" />
+  <img src="readme-arch-hq.gif" alt="Failproof AI hoạt động" width="800" />
 </p>
 
 ---
@@ -91,7 +91,7 @@ failproofai policies --install
 failproofai
 ```
 
-30 chính sách tích hợp kích hoạt ngay lập tức. Bảng điều khiển tại `localhost:8020`.
+30 chính sách tích hợp sẵn được kích hoạt ngay lập tức. Bảng điều khiển tại `localhost:8020`.
 
 ---
 
@@ -99,20 +99,20 @@ failproofai
 
 | Chính sách | Những gì nó chặn |
 |---|---|
-| `block-push-master` | Đẩy trực tiếp đến `main` / `master` |
+| `block-push-master` | Đẩy trực tiếp lên `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Commit, merge, rebase trên `main` / `master` |
-| `block-rm-rf` | Xóa tập tin đệ quy |
-| `sanitize-api-keys` | Khóa API rò rỉ vào ngữ cảnh agent |
+| `block-rm-rf` | Xóa tệp đệ quy |
+| `sanitize-api-keys` | API key rò rỉ vào ngữ cảnh agent |
 
-→ [Tất cả 30 chính sách tích hợp](https://docs.befailproof.ai/built-in-policies)
+→ [Tất cả 30 chính sách tích hợp sẵn](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## Chính sách của bạn
+## Chính sách của riêng bạn
 
 Thả một tệp vào `.failproofai/policies/` — nó tải tự động, không cần cờ nào.
-Commit nó và toàn bộ nhóm sẽ có nó vào pull tiếp theo.
+Commit nó và toàn bộ nhóm sẽ có nó ở lần pull tiếp theo.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -130,21 +130,21 @@ customPolicies.add({
 
 Ba quyết định có sẵn cho mỗi chính sách:
 
-| Quyết định | Hiệu quả |
+| Quyết định | Hiệu ứng |
 |---|---|
 | `allow()` | Cho phép hoạt động |
-| `deny(message)` | Chặn nó — thông báo quay trở lại agent |
-| `instruct(message)` | Cho phép nó, nhưng thêm ngữ cảnh vào dấu nhắc tiếp theo của agent |
+| `deny(message)` | Chặn nó — tin nhắn được gửi lại cho agent |
+| `instruct(message)` | Cho nó thông qua, nhưng thêm ngữ cảnh vào lời nhắc tiếp theo của agent |
 
 → [Hướng dẫn chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## Khả năng nhìn thấy phiên
+## Khả năng hiển thị phiên
 
-Mọi lệnh gọi công cụ mà agent của bạn thực hiện đều được ghi nhật ký cục bộ. Bảng điều khiển cho thấy những gì chạy,
-những gì bị chặn và những gì chính sách bảo agent — vì vậy bạn không phải đoán
-khi có điều gì đó không ổn. → [Hướng dẫn bảng điều khiển](https://docs.befailproof.ai/dashboard)
+Mỗi lệnh gọi công cụ mà agent của bạn thực hiện đều được ghi lại cục bộ. Bảng điều khiển cho thấy những gì đã chạy,
+những gì đã bị chặn, và những gì chính sách đã nói với agent — vì vậy bạn không phải đoán
+khi có gì đó không đúng. → [Hướng dẫn bảng điều khiển](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -153,23 +153,23 @@ khi có điều gì đó không ổn. → [Hướng dẫn bảng điều khiển
 | | |
 |---|---|
 | [Bắt đầu](https://docs.befailproof.ai/getting-started) | Cài đặt và các bước đầu tiên |
-| [Chính sách tích hợp](https://docs.befailproof.ai/built-in-policies) | Tất cả 30 chính sách với các tham số |
-| [Chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies) | Viết của riêng bạn |
+| [Chính sách tích hợp sẵn](https://docs.befailproof.ai/built-in-policies) | Tất cả 30 chính sách với tham số |
+| [Chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies) | Viết chính sách của riêng bạn |
 | [Cấu hình](https://docs.befailproof.ai/configuration) | Phạm vi cấu hình và quy tắc hợp nhất |
-| [Bảng điều khiển](https://docs.befailproof.ai/dashboard) | Trình theo dõi phiên và hoạt động chính sách |
+| [Bảng điều khiển](https://docs.befailproof.ai/dashboard) | Giám sát phiên và hoạt động chính sách |
 | [Kiến trúc](https://docs.befailproof.ai/architecture) | Cách hệ thống hook hoạt động |
 
 ---
 
 ## Giấy phép
 
-MIT với [Commons Clause](https://commonsclause.com/) — miễn phí cho mục đích sử dụng nội bộ và cá nhân; bán lại thương mại failproofai yêu cầu thỏa thuận riêng. Xem [LICENSE](./LICENSE) để xem toàn bộ văn bản.
+MIT với [Commons Clause](https://commonsclause.com/) — miễn phí cho sử dụng nội bộ và cá nhân; bán lại thương mại failproofai yêu cầu một thỏa thuận riêng. Xem [LICENSE](./LICENSE) để biết toàn bộ văn bản.
 
 ---
 
 ## Đóng góp
 
-Xem [CONTRIBUTING.md](./CONTRIBUTING.md). Các chính sách mới, trường hợp biên và bản dịch đều được chào đón.
+Xem [CONTRIBUTING.md](./CONTRIBUTING.md). Chúng tôi hoan nghênh chính sách mới, các trường hợp biên và bản dịch.
 
 ---
 

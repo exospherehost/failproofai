@@ -16,9 +16,9 @@
 
 **Traduzioni:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Risoluzione degli errori di runtime per agenti di codifica.**
-Si integra con Claude Code e Codex. Cattura loop infiniti, azioni pericolose e fughe di segreti
-prima che diventino incidenti. Latenza zero. Esecuzione locale.
+**Risoluzione dei guasti in tempo reale per agenti di codifica.**
+Si integra con Claude Code e Codex. Rileva cicli infiniti, azioni pericolose e perdite di segreti
+prima che diventino incidenti. Latenza zero. Funziona localmente.
 
 </div>
 
@@ -79,7 +79,7 @@ prima che diventino incidenti. Latenza zero. Esecuzione locale.
   </a>
 </p>
 
-> Installa hook per uno o una combinazione qualsiasi: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Ometti `--cli` per auto-rilevare i CLI installati e visualizzare una richiesta.
+> Installa i hook per uno o una combinazione qualsiasi: `failproofai policies --install --cli opencode pi gemini` (oppure `--cli claude codex copilot cursor opencode pi gemini`). Ometti `--cli` per rilevare automaticamente i CLI installati e ricevere un prompt.
 
 ---
 
@@ -91,28 +91,28 @@ failproofai policies --install
 failproofai
 ```
 
-30 policy integrate si attivano immediatamente. Dashboard disponibile su `localhost:8020`.
+30 politiche integrate si attivano immediatamente. Dashboard disponibile a `localhost:8020`.
 
 ---
 
 ## Cosa blocca
 
-| Policy | Cosa blocca |
+| Politica | Cosa blocca |
 |---|---|
 | `block-push-master` | Push diretti a `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Commit, merge, rebase su `main` / `master` |
 | `block-rm-rf` | Eliminazione ricorsiva di file |
-| `sanitize-api-keys` | Fughe di chiavi API nel contesto dell'agente |
+| `sanitize-api-keys` | Chiavi API che si infiltrano nel contesto dell'agente |
 
-→ [Tutte le 30 policy integrate](https://docs.befailproof.ai/built-in-policies)
+→ [Tutte le 30 politiche integrate](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## Le tue policy
+## Politiche personalizzate
 
-Aggiungi un file in `.failproofai/policies/` — si carica automaticamente, nessun flag necessario.
-Esegui commit e tutto il team la riceverà al prossimo pull.
+Inserisci un file in `.failproofai/policies/` — si carica automaticamente, senza flag necessari.
+Eseguine il commit e l'intero team lo riceverà al prossimo pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -128,23 +128,23 @@ customPolicies.add({
 });
 ```
 
-Tre decisioni disponibili per ogni policy:
+Tre decisioni disponibili per ogni politica:
 
 | Decisione | Effetto |
 |---|---|
 | `allow()` | Consenti l'operazione |
-| `deny(message)` | Bloccala — il messaggio viene trasmesso all'agente |
-| `instruct(message)` | Consentiла, ma aggiungi contesto al prossimo prompt dell'agente |
+| `deny(message)` | Bloccala — il messaggio ritorna all'agente |
+| `instruct(message)` | Lasciala passare, ma aggiungi contesto al prossimo prompt dell'agente |
 
-→ [Guida alle policy personalizzate](https://docs.befailproof.ai/custom-policies)
+→ [Guida alle politiche personalizzate](https://docs.befailproof.ai/custom-policies)
 
 ---
 
 ## Visibilità della sessione
 
-Ogni chiamata tool che effettua il tuo agente viene registrata localmente. Il dashboard mostra cosa è stato eseguito,
-cosa è stato bloccato e cosa la policy ha comunicato all'agente — così non stai indovinando
-quando qualcosa non va. → [Guida al dashboard](https://docs.befailproof.ai/dashboard)
+Ogni chiamata a strumento che l'agente effettua viene registrata localmente. Il dashboard mostra cosa è stato eseguito,
+cosa è stato bloccato e cosa la politica ha comunicato all'agente — quindi non dovrai indovinare
+quando qualcosa va storto. → [Guida al dashboard](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -152,24 +152,24 @@ quando qualcosa non va. → [Guida al dashboard](https://docs.befailproof.ai/das
 
 | | |
 |---|---|
-| [Introduzione](https://docs.befailproof.ai/getting-started) | Installazione e primi passi |
-| [Policy integrate](https://docs.befailproof.ai/built-in-policies) | Tutte le 30 policy con parametri |
-| [Policy personalizzate](https://docs.befailproof.ai/custom-policies) | Scrivi le tue |
-| [Configurazione](https://docs.befailproof.ai/configuration) | Ambiti di configurazione e regole di merge |
-| [Dashboard](https://docs.befailproof.ai/dashboard) | Monitor sessioni e attività policy |
-| [Architettura](https://docs.befailproof.ai/architecture) | Come funziona il sistema di hook |
+| [Getting Started](https://docs.befailproof.ai/getting-started) | Installazione e primi passi |
+| [Built-in Policies](https://docs.befailproof.ai/built-in-policies) | Tutte le 30 politiche con parametri |
+| [Custom Policies](https://docs.befailproof.ai/custom-policies) | Scrivi le tue |
+| [Configuration](https://docs.befailproof.ai/configuration) | Ambiti di configurazione e regole di merge |
+| [Dashboard](https://docs.befailproof.ai/dashboard) | Monitor delle sessioni e attività delle politiche |
+| [Architecture](https://docs.befailproof.ai/architecture) | Come funziona il sistema di hook |
 
 ---
 
 ## Licenza
 
-MIT con [Commons Clause](https://commonsclause.com/) — gratuito per uso interno e personale; la rivendita commerciale di failproofai stesso richiede un accordo separato. Vedi [LICENSE](./LICENSE) per il testo completo.
+MIT con [Commons Clause](https://commonsclause.com/) — gratuito per uso interno e personale; la rivendita commerciale di failproofai richiede un accordo separato. Consulta [LICENSE](./LICENSE) per il testo completo.
 
 ---
 
 ## Contribuire
 
-Vedi [CONTRIBUTING.md](./CONTRIBUTING.md). Nuove policy, casi limite e traduzioni sono ben accetti.
+Vedi [CONTRIBUTING.md](./CONTRIBUTING.md). Nuove politiche, casi limite e traduzioni sono tutti benvenuti.
 
 ---
 

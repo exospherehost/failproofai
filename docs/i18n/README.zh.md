@@ -16,8 +16,8 @@
 
 **翻译版本：** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**为编码智能体提供运行时故障处理。**
-接入 Claude Code 和 Codex，在循环、危险操作和密钥泄露演变为生产事故之前将其拦截。零延迟，本地运行。
+**为编码智能体提供运行时故障处理能力。**
+接入 Claude Code 和 Codex，在循环调用、危险操作和密钥泄露演变成线上事故之前将其拦截。零延迟，本地运行。
 
 </div>
 
@@ -78,7 +78,7 @@
   </a>
 </p>
 
-> 可为一个或多个 CLI 安装 hook：`failproofai policies --install --cli opencode pi gemini`（或 `--cli claude codex copilot cursor opencode pi gemini`）。省略 `--cli` 参数则自动检测已安装的 CLI 并进行交互式提示。
+> 可为一个或多个 CLI 安装 hooks：`failproofai policies --install --cli opencode pi gemini`（或 `--cli claude codex copilot cursor opencode pi gemini`）。省略 `--cli` 则自动检测已安装的 CLI 并提示选择。
 
 ---
 
@@ -90,19 +90,19 @@ failproofai policies --install
 failproofai
 ```
 
-30 条内置策略立即生效。访问 `localhost:8020` 查看控制台。
+30 条内置策略即刻生效。控制台地址：`localhost:8020`。
 
 ---
 
-## 拦截内容
+## 拦截范围
 
-| 策略 | 拦截行为 |
+| 策略 | 拦截内容 |
 |---|---|
 | `block-push-master` | 直接推送到 `main` / `master` 分支 |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | 在 `main` / `master` 上提交、合并、变基 |
 | `block-rm-rf` | 递归删除文件 |
-| `sanitize-api-keys` | API 密钥泄露到智能体上下文 |
+| `sanitize-api-keys` | API 密钥泄露进智能体上下文 |
 
 → [全部 30 条内置策略](https://docs.befailproof.ai/built-in-policies)
 
@@ -110,8 +110,8 @@ failproofai
 
 ## 自定义策略
 
-将文件放入 `.failproofai/policies/` 目录即可自动加载，无需任何参数。
-提交到版本库后，团队所有成员在下次拉取时即可同步生效。
+将文件放入 `.failproofai/policies/` 目录即自动加载，无需任何标志。
+提交到版本库后，团队成员下次拉取代码即可同步生效。
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -127,21 +127,21 @@ customPolicies.add({
 });
 ```
 
-每条策略有三种可用决策：
+每条策略可返回以下三种决策：
 
 | 决策 | 效果 |
 |---|---|
 | `allow()` | 允许该操作 |
-| `deny(message)` | 拦截操作——消息将返回给智能体 |
-| `instruct(message)` | 放行操作，但在智能体的下一次提示中附加上下文信息 |
+| `deny(message)` | 阻止操作——消息将回传给智能体 |
+| `instruct(message)` | 放行操作，但在智能体的下一条提示中附加上下文说明 |
 
 → [自定义策略指南](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## 会话可视化
+## 会话可见性
 
-智能体发起的每次工具调用均在本地记录日志。控制台展示了哪些操作已执行、哪些被拦截，以及策略向智能体反馈了什么内容——让你在出现问题时不再是盲猜。→ [控制台指南](https://docs.befailproof.ai/dashboard)
+智能体的每次工具调用均在本地记录。控制台展示已执行的操作、被拦截的内容以及策略向智能体反馈的信息——出现问题时无需猜测。→ [控制台指南](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -149,24 +149,24 @@ customPolicies.add({
 
 | | |
 |---|---|
-| [快速入门](https://docs.befailproof.ai/getting-started) | 安装与初始步骤 |
+| [快速上手](https://docs.befailproof.ai/getting-started) | 安装与入门步骤 |
 | [内置策略](https://docs.befailproof.ai/built-in-policies) | 全部 30 条策略及参数说明 |
-| [自定义策略](https://docs.befailproof.ai/custom-policies) | 编写你自己的策略 |
+| [自定义策略](https://docs.befailproof.ai/custom-policies) | 编写自己的策略 |
 | [配置](https://docs.befailproof.ai/configuration) | 配置作用域与合并规则 |
 | [控制台](https://docs.befailproof.ai/dashboard) | 会话监控与策略活动 |
-| [架构](https://docs.befailproof.ai/architecture) | hook 系统的工作原理 |
+| [架构](https://docs.befailproof.ai/architecture) | Hook 系统的工作原理 |
 
 ---
 
 ## 许可证
 
-MIT 附加 [Commons Clause](https://commonsclause.com/) — 免费用于内部及个人用途；以商业方式转售 failproofai 本身需另行签署协议。完整条款请参见 [LICENSE](./LICENSE)。
+MIT 附加 [Commons Clause](https://commonsclause.com/) 条款——个人及内部使用免费；将 failproofai 本身用于商业转售需另行签订协议。完整条款请参阅 [LICENSE](./LICENSE)。
 
 ---
 
 ## 贡献
 
-详见 [CONTRIBUTING.md](./CONTRIBUTING.md)。欢迎贡献新策略、边界用例和翻译内容。
+请参阅 [CONTRIBUTING.md](./CONTRIBUTING.md)。欢迎贡献新策略、边界用例以及翻译内容。
 
 ---
 

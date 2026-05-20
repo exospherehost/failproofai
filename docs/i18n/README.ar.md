@@ -18,19 +18,19 @@
 
 **الترجمات:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**حل فشل وقت التشغيل لوكلاء البرمجة.**
-يتصل بـ Claude Code و Codex. يمسك الحلقات والإجراءات الخطيرة وتسريب الأسرار
-قبل أن تصبح حوادث. بدون تأخير. يعمل محليًا.
+**حل فشل الوقت التشغيلي لعوامل الترميز.**
+يتصل بـ Claude Code و Codex. يمسك الحلقات والإجراءات الخطرة وتسرب الأسرار
+قبل أن تصبح حوادث. صفر كمون. يعمل محليًا.
 
 </div>
 
 <p align="center">
-  <img src="readme-arch-hq.gif" alt="Failproof AI in action" width="800" />
+  <img src="readme-arch-hq.gif" alt="Failproof AI في العمل" width="800" />
 </p>
 
 ---
 
-## واجهات سطر الأوامر المدعومة للعملاء
+## واجهات سطر الأوامر للعوامل المدعومة
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -81,7 +81,7 @@
   </a>
 </p>
 
-> قم بتثبيت الخطافات لواحد أو أي مجموعة: `failproofai policies --install --cli opencode pi gemini` (أو `--cli claude codex copilot cursor opencode pi gemini`). حذف `--cli` للكشف التلقائي عن واجهات سطر الأوامر المثبتة والموجهة.
+> ثبت الخطافات لواحد أو أي مجموعة: `failproofai policies --install --cli opencode pi gemini` (أو `--cli claude codex copilot cursor opencode pi gemini`). احذف `--cli` للكشف التلقائي عن واجهات سطر الأوامر المثبتة والمطالبة.
 
 ---
 
@@ -97,24 +97,24 @@ failproofai
 
 ---
 
-## ما يوقفه
+## ما الذي يوقفه
 
-| السياسة | ما يحظره |
+| السياسة | ما الذي يحظره |
 |---|---|
 | `block-push-master` | الدفع المباشر إلى `main` / `master` |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | الالتزامات والدمج وإعادة الأساس على `main` / `master` |
+| `block-work-on-main` | الالتزامات والدمج والإعادة على `main` / `master` |
 | `block-rm-rf` | حذف الملفات بشكل متكرر |
-| `sanitize-api-keys` | مفاتيح واجهة برمجية التطبيقات تتسرب إلى سياق الوكيل |
+| `sanitize-api-keys` | تسرب مفاتيح API إلى سياق الوكيل |
 
 → [جميع السياسات المدمجة الـ 30](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## السياسات الخاصة بك
+## سياساتك الخاصة
 
-قم بإسقاط ملف في `.failproofai/policies/` — يتم تحميله تلقائيًا، بدون علامات مطلوبة.
-التزم به والفريق بأكمله يحصل عليه عند السحب التالي.
+أسقط ملفًا في `.failproofai/policies/` — يتم تحميله تلقائيًا، لا توجد علامات مطلوبة.
+قم بالالتزام بها وسيحصل الفريق بأكمله عليها في السحب التالي.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -130,13 +130,13 @@ customPolicies.add({
 });
 ```
 
-ثلاث قرارات متاحة لكل سياسة:
+ثلاثة قرارات متاحة لكل سياسة:
 
 | القرار | التأثير |
 |---|---|
 | `allow()` | السماح بالعملية |
-| `deny(message)` | حظرها — تعود الرسالة إلى الوكيل |
-| `instruct(message)` | دعها تمر، لكن أضف السياق إلى الموجه التالي للوكيل |
+| `deny(message)` | حظرها — الرسالة تعود إلى الوكيل |
+| `instruct(message)` | اسمح بها، لكن أضف السياق إلى الموجه التالي للوكيل |
 
 → [دليل السياسات المخصصة](https://docs.befailproof.ai/custom-policies)
 
@@ -144,38 +144,38 @@ customPolicies.add({
 
 ## رؤية الجلسة
 
-تسجل كل استدعاء أداة يقوم به وكيلك محليًا. تُظهر لوحة التحكم ما تم تشغيله،
-وما تم حظره، وما قالته السياسة للوكيل — لذا لا تتخمن
+كل استدعاء أداة يجريها وكيلك يتم تسجيله محليًا. تعرض لوحة التحكم ما تم تشغيله،
+وما تم حظره، وما قالت السياسة للوكيل — حتى لا تخمن
 عندما يحدث خطأ ما. → [دليل لوحة التحكم](https://docs.befailproof.ai/dashboard)
 
 ---
 
-## الوثائق
+## التوثيق
 
 | | |
 |---|---|
-| [الشروع في العمل](https://docs.befailproof.ai/getting-started) | التثبيت والخطوات الأولى |
+| [البدء السريع](https://docs.befailproof.ai/getting-started) | التثبيت والخطوات الأولى |
 | [السياسات المدمجة](https://docs.befailproof.ai/built-in-policies) | جميع السياسات الـ 30 مع المعاملات |
-| [السياسات المخصصة](https://docs.befailproof.ai/custom-policies) | اكتب الخاص بك |
-| [التكوين](https://docs.befailproof.ai/configuration) | نطاقات التكوين وقواعد الدمج |
+| [السياسات المخصصة](https://docs.befailproof.ai/custom-policies) | اكتب الخاصة بك |
+| [الإعدادات](https://docs.befailproof.ai/configuration) | نطاقات الإعدادات وقواعد الدمج |
 | [لوحة التحكم](https://docs.befailproof.ai/dashboard) | مراقب الجلسة ونشاط السياسة |
-| [الهندسة المعمارية](https://docs.befailproof.ai/architecture) | كيفية عمل نظام الخطافات |
+| [العمارة](https://docs.befailproof.ai/architecture) | كيفية عمل نظام الخطافات |
 
 ---
 
 ## الترخيص
 
-MIT مع [Commons Clause](https://commonsclause.com/) — مجاني للاستخدام الداخلي والشخصي؛ إعادة بيع failproofai نفسها بشكل تجاري تتطلب اتفاقية منفصلة. راجع [LICENSE](./LICENSE) للنص الكامل.
+MIT مع [Commons Clause](https://commonsclause.com/) — مجاني للاستخدام الداخلي والشخصي؛ إعادة البيع التجاري لـ failproofai نفسه يتطلب اتفاقية منفصلة. انظر [LICENSE](./LICENSE) للنص الكامل.
 
 ---
 
 ## المساهمة
 
-راجع [CONTRIBUTING.md](./CONTRIBUTING.md). السياسات الجديدة والحالات الحدية والترجمات موضع ترحيب.
+انظر [CONTRIBUTING.md](./CONTRIBUTING.md). السياسات الجديدة وحالات الحدود والترجمات موضع ترحيب.
 
 ---
 
-تم البناء بواسطة [Nivedit Jain](https://github.com/NiveditJain) و [Nikita Agarwal](https://github.com/nk-ag).
+صُنع بواسطة [Nivedit Jain](https://github.com/NiveditJain) و [Nikita Agarwal](https://github.com/nk-ag).
 [befailproof.ai](https://befailproof.ai)
 
 
