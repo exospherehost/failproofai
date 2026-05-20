@@ -16,9 +16,9 @@
 
 **Bản dịch:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Giải quyết sự cố thời gian chạy cho các tác nhân lập trình.**
-Kết nối vào Claude Code và Codex. Phát hiện các vòng lặp, các hành động nguy hiểm, và rò rỉ bí mật
-trước khi chúng gây sự cố. Độ trễ bằng không. Chạy cục bộ.
+**Giải pháp xử lý lỗi thời gian chạy cho các agent lập trình.**
+Kết nối với Claude Code và Codex. Phát hiện vòng lặp, hành động nguy hiểm và rò rỉ bí mật
+trước khi chúng trở thành sự cố. Không có độ trễ. Chạy cục bộ.
 
 </div>
 
@@ -28,7 +28,7 @@ trước khi chúng gây sự cố. Độ trễ bằng không. Chạy cục bộ
 
 ---
 
-## Các CLI tác nhân được hỗ trợ
+## Các agent CLI được hỗ trợ
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -79,7 +79,7 @@ trước khi chúng gây sự cố. Độ trễ bằng không. Chạy cục bộ
   </a>
 </p>
 
-> Cài đặt hook cho một hoặc bất kỳ sự kết hợp nào: `failproofai policies --install --cli opencode pi gemini` (hoặc `--cli claude codex copilot cursor opencode pi gemini`). Bỏ qua `--cli` để tự động phát hiện các CLI đã cài đặt và nhắc. **Hỗ trợ GitHub Copilot CLI, Cursor Agent, OpenCode, Pi, và Gemini CLI đang ở phiên bản beta — quá trình thử nghiệm đang diễn ra.**
+> Cài đặt hook cho một hoặc nhiều CLI: `failproofai policies --install --cli opencode pi gemini` (hoặc `--cli claude codex copilot cursor opencode pi gemini`). Bỏ qua `--cli` để tự động phát hiện các CLI được cài đặt và nhắc.
 
 ---
 
@@ -91,28 +91,28 @@ failproofai policies --install
 failproofai
 ```
 
-30 chính sách được tích hợp sẵn kích hoạt ngay lập tức. Bảng điều khiển tại `localhost:8020`.
+30 chính sách tích hợp kích hoạt ngay lập tức. Bảng điều khiển tại `localhost:8020`.
 
 ---
 
-## Điều nó dừng lại
+## Những gì nó ngăn chặn
 
-| Chính sách | Điều nó chặn |
+| Chính sách | Những gì nó chặn |
 |---|---|
-| `block-push-master` | Các đẩy trực tiếp đến `main` / `master` |
+| `block-push-master` | Đẩy trực tiếp đến `main` / `master` |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | Các commit, hợp nhất, rebase trên `main` / `master` |
-| `block-rm-rf` | Xóa tệp đệ quy |
-| `sanitize-api-keys` | Các khóa API rò rỉ vào ngữ cảnh tác nhân |
+| `block-work-on-main` | Commit, merge, rebase trên `main` / `master` |
+| `block-rm-rf` | Xóa tập tin đệ quy |
+| `sanitize-api-keys` | Khóa API rò rỉ vào ngữ cảnh agent |
 
-→ [Tất cả 30 chính sách được tích hợp sẵn](https://docs.befailproof.ai/built-in-policies)
+→ [Tất cả 30 chính sách tích hợp](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
 ## Chính sách của bạn
 
-Thả một tệp vào `.failproofai/policies/` — nó sẽ tải tự động, không cần cờ nào.
-Cam kết nó và toàn bộ nhóm sẽ nhận được nó khi kéo tiếp theo.
+Thả một tệp vào `.failproofai/policies/` — nó tải tự động, không cần cờ nào.
+Commit nó và toàn bộ nhóm sẽ có nó vào pull tiếp theo.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -130,20 +130,20 @@ customPolicies.add({
 
 Ba quyết định có sẵn cho mỗi chính sách:
 
-| Quyết định | Hiệu ứng |
+| Quyết định | Hiệu quả |
 |---|---|
 | `allow()` | Cho phép hoạt động |
-| `deny(message)` | Chặn nó — tin nhắn quay trở lại tác nhân |
-| `instruct(message)` | Cho phép nó thông qua, nhưng thêm ngữ cảnh vào lời nhắc tiếp theo của tác nhân |
+| `deny(message)` | Chặn nó — thông báo quay trở lại agent |
+| `instruct(message)` | Cho phép nó, nhưng thêm ngữ cảnh vào dấu nhắc tiếp theo của agent |
 
 → [Hướng dẫn chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## Khả năng hiển thị phiên
+## Khả năng nhìn thấy phiên
 
-Mỗi lệnh gọi công cụ mà tác nhân của bạn thực hiện đều được ghi nhật ký cục bộ. Bảng điều khiển cho thấy cái gì chạy,
-cái gì bị chặn, và cái chính sách nói với tác nhân — vì vậy bạn không đoán mò
+Mọi lệnh gọi công cụ mà agent của bạn thực hiện đều được ghi nhật ký cục bộ. Bảng điều khiển cho thấy những gì chạy,
+những gì bị chặn và những gì chính sách bảo agent — vì vậy bạn không phải đoán
 khi có điều gì đó không ổn. → [Hướng dẫn bảng điều khiển](https://docs.befailproof.ai/dashboard)
 
 ---
@@ -153,23 +153,23 @@ khi có điều gì đó không ổn. → [Hướng dẫn bảng điều khiển
 | | |
 |---|---|
 | [Bắt đầu](https://docs.befailproof.ai/getting-started) | Cài đặt và các bước đầu tiên |
-| [Chính sách được tích hợp sẵn](https://docs.befailproof.ai/built-in-policies) | Tất cả 30 chính sách có tham số |
-| [Chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies) | Viết chính sách của bạn |
+| [Chính sách tích hợp](https://docs.befailproof.ai/built-in-policies) | Tất cả 30 chính sách với các tham số |
+| [Chính sách tùy chỉnh](https://docs.befailproof.ai/custom-policies) | Viết của riêng bạn |
 | [Cấu hình](https://docs.befailproof.ai/configuration) | Phạm vi cấu hình và quy tắc hợp nhất |
-| [Bảng điều khiển](https://docs.befailproof.ai/dashboard) | Giám sát phiên và hoạt động chính sách |
+| [Bảng điều khiển](https://docs.befailproof.ai/dashboard) | Trình theo dõi phiên và hoạt động chính sách |
 | [Kiến trúc](https://docs.befailproof.ai/architecture) | Cách hệ thống hook hoạt động |
 
 ---
 
 ## Giấy phép
 
-MIT với [Commons Clause](https://commonsclause.com/) — miễn phí cho mục đích sử dụng nội bộ và cá nhân; việc bán lại thương mại failproofai yêu cầu một thỏa thuận riêng. Xem [LICENSE](./LICENSE) để biết toàn bộ văn bản.
+MIT với [Commons Clause](https://commonsclause.com/) — miễn phí cho mục đích sử dụng nội bộ và cá nhân; bán lại thương mại failproofai yêu cầu thỏa thuận riêng. Xem [LICENSE](./LICENSE) để xem toàn bộ văn bản.
 
 ---
 
 ## Đóng góp
 
-Xem [CONTRIBUTING.md](./CONTRIBUTING.md). Chính sách mới, các trường hợp cạnh, và bản dịch đều được chào đón.
+Xem [CONTRIBUTING.md](./CONTRIBUTING.md). Các chính sách mới, trường hợp biên và bản dịch đều được chào đón.
 
 ---
 

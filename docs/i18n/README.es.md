@@ -79,7 +79,7 @@ antes de que se conviertan en incidentes. Latencia cero. Se ejecuta localmente.
   </a>
 </p>
 
-> Instala hooks para uno o cualquier combinación: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Omite `--cli` para detectar automáticamente los CLIs instalados y recibir una solicitud de selección. **El soporte para GitHub Copilot CLI, Cursor Agent, OpenCode, Pi y Gemini CLI está en fase beta — las pruebas continúan.**
+> Instala hooks para uno o cualquier combinación: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Omite `--cli` para detectar automáticamente los CLIs instalados y que se te solicite confirmación.
 
 ---
 
@@ -99,7 +99,7 @@ failproofai
 
 | Política | Qué bloquea |
 |---|---|
-| `block-push-master` | Pushes directos a `main` / `master` |
+| `block-push-master` | Envíos directos a `main` / `master` |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | Commits, merges y rebases en `main` / `master` |
 | `block-rm-rf` | Eliminación recursiva de archivos |
@@ -112,7 +112,7 @@ failproofai
 ## Tus propias políticas
 
 Coloca un archivo en `.failproofai/policies/` — se carga automáticamente, sin necesidad de flags.
-Confírmalo en el repositorio y todo el equipo lo recibirá en el próximo pull.
+Confírmalo con un commit y todo el equipo lo tendrá en el próximo pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -132,17 +132,17 @@ Tres decisiones disponibles para cada política:
 
 | Decisión | Efecto |
 |---|---|
-| `allow()` | Permitir la operación |
-| `deny(message)` | Bloquearla — el mensaje se devuelve al agente |
-| `instruct(message)` | Dejarla pasar, pero agregar contexto al próximo prompt del agente |
+| `allow()` | Permite la operación |
+| `deny(message)` | La bloquea — el mensaje se devuelve al agente |
+| `instruct(message)` | La deja pasar, pero añade contexto al siguiente prompt del agente |
 
 → [Guía de políticas personalizadas](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## Visibilidad de la sesión
+## Visibilidad de sesión
 
-Cada llamada a herramienta que realiza tu agente se registra localmente. El panel de control muestra qué se ejecutó,
+Cada llamada a herramienta que realiza tu agente queda registrada localmente. El panel de control muestra qué se ejecutó,
 qué fue bloqueado y qué le indicó la política al agente — para que no tengas que adivinar
 cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.ai/dashboard)
 
@@ -153,8 +153,8 @@ cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.
 | | |
 |---|---|
 | [Primeros pasos](https://docs.befailproof.ai/getting-started) | Instalación y primeros pasos |
-| [Políticas integradas](https://docs.befailproof.ai/built-in-policies) | Las 30 políticas con sus parámetros |
-| [Políticas personalizadas](https://docs.befailproof.ai/custom-policies) | Crea las tuyas propias |
+| [Políticas integradas](https://docs.befailproof.ai/built-in-policies) | Las 30 políticas con parámetros |
+| [Políticas personalizadas](https://docs.befailproof.ai/custom-policies) | Escribe las tuyas propias |
 | [Configuración](https://docs.befailproof.ai/configuration) | Ámbitos de configuración y reglas de combinación |
 | [Panel de control](https://docs.befailproof.ai/dashboard) | Monitor de sesión y actividad de políticas |
 | [Arquitectura](https://docs.befailproof.ai/architecture) | Cómo funciona el sistema de hooks |
@@ -163,13 +163,13 @@ cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.
 
 ## Licencia
 
-MIT con [Commons Clause](https://commonsclause.com/) — gratuito para uso interno y personal; la reventa comercial de failproofai en sí requiere un acuerdo por separado. Consulta [LICENSE](./LICENSE) para el texto completo.
+MIT con [Commons Clause](https://commonsclause.com/) — gratuito para uso interno y personal; la reventa comercial de failproofai en sí requiere un acuerdo aparte. Consulta [LICENSE](./LICENSE) para el texto completo.
 
 ---
 
 ## Contribuir
 
-Consulta [CONTRIBUTING.md](./CONTRIBUTING.md). Son bienvenidas nuevas políticas, casos límite y traducciones.
+Consulta [CONTRIBUTING.md](./CONTRIBUTING.md). Nuevas políticas, casos límite y traducciones son bienvenidos.
 
 ---
 

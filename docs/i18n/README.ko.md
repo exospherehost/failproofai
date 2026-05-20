@@ -16,8 +16,8 @@
 
 **번역:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**코딩 에이전트를 위한 런타임 장애 해결 도구.**
-Claude Code 및 Codex에 연결되어 루프, 위험한 작업, 시크릿 유출을
+**코딩 에이전트를 위한 런타임 오류 해결 도구.**
+Claude Code 및 Codex에 연동됩니다. 루프, 위험한 작업, 시크릿 유출을
 인시던트가 되기 전에 차단합니다. 지연 없음. 로컬에서 실행.
 
 </div>
@@ -79,7 +79,7 @@ Claude Code 및 Codex에 연결되어 루프, 위험한 작업, 시크릿 유출
   </a>
 </p>
 
-> 하나 또는 여러 CLI를 조합하여 훅을 설치할 수 있습니다: `failproofai policies --install --cli opencode pi gemini` (또는 `--cli claude codex copilot cursor opencode pi gemini`). `--cli`를 생략하면 설치된 CLI를 자동으로 감지하고 선택을 안내합니다. **GitHub Copilot CLI, Cursor Agent, OpenCode, Pi, Gemini CLI 지원은 베타 단계로, 테스트가 진행 중입니다.**
+> 하나 또는 여러 CLI를 조합하여 훅을 설치하세요: `failproofai policies --install --cli opencode pi gemini` (또는 `--cli claude codex copilot cursor opencode pi gemini`). `--cli`를 생략하면 설치된 CLI를 자동으로 감지하고 선택을 요청합니다.
 
 ---
 
@@ -91,7 +91,7 @@ failproofai policies --install
 failproofai
 ```
 
-30개의 기본 제공 정책이 즉시 활성화됩니다. 대시보드 주소는 `localhost:8020`입니다.
+30개의 내장 정책이 즉시 활성화됩니다. 대시보드는 `localhost:8020`에서 확인하세요.
 
 ---
 
@@ -99,20 +99,20 @@ failproofai
 
 | 정책 | 차단 내용 |
 |---|---|
-| `block-push-master` | `main` / `master`로의 직접 푸시 |
+| `block-push-master` | `main` / `master` 브랜치에 직접 푸시 |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | `main` / `master`에서의 커밋, 머지, 리베이스 |
 | `block-rm-rf` | 재귀적 파일 삭제 |
 | `sanitize-api-keys` | 에이전트 컨텍스트로 유출되는 API 키 |
 
-→ [30개 기본 제공 정책 전체 목록](https://docs.befailproof.ai/built-in-policies)
+→ [30개 내장 정책 전체 목록](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## 나만의 정책 작성
+## 커스텀 정책
 
-`.failproofai/policies/` 폴더에 파일을 넣으면 별도의 설정 없이 자동으로 로드됩니다.
-커밋하면 다음 풀 시 팀 전체에 적용됩니다.
+`.failproofai/policies/` 폴더에 파일을 추가하면 별도의 플래그 없이 자동으로 로드됩니다.
+커밋하면 팀 전체가 다음 풀 때 적용받습니다.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -133,8 +133,8 @@ customPolicies.add({
 | 결정 | 효과 |
 |---|---|
 | `allow()` | 작업 허용 |
-| `deny(message)` | 작업 차단 — 메시지가 에이전트에게 반환됨 |
-| `instruct(message)` | 작업 허용, 단 에이전트의 다음 프롬프트에 컨텍스트 추가 |
+| `deny(message)` | 차단 — 메시지가 에이전트에게 반환됨 |
+| `instruct(message)` | 통과 허용, 단 에이전트의 다음 프롬프트에 컨텍스트 추가 |
 
 → [커스텀 정책 가이드](https://docs.befailproof.ai/custom-policies)
 
@@ -142,9 +142,9 @@ customPolicies.add({
 
 ## 세션 가시성
 
-에이전트가 수행하는 모든 도구 호출은 로컬에 기록됩니다. 대시보드에서 실행된 작업,
-차단된 작업, 정책이 에이전트에게 전달한 내용을 확인할 수 있어 문제가 발생해도
-추측에 의존할 필요가 없습니다. → [대시보드 가이드](https://docs.befailproof.ai/dashboard)
+에이전트가 수행하는 모든 도구 호출은 로컬에 기록됩니다. 대시보드에서 실행된 항목,
+차단된 항목, 정책이 에이전트에게 전달한 내용을 확인할 수 있어 — 문제가 발생했을 때
+추측할 필요가 없습니다. → [대시보드 가이드](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -153,23 +153,23 @@ customPolicies.add({
 | | |
 |---|---|
 | [시작하기](https://docs.befailproof.ai/getting-started) | 설치 및 첫 번째 단계 |
-| [기본 제공 정책](https://docs.befailproof.ai/built-in-policies) | 파라미터 포함 30개 정책 전체 목록 |
-| [커스텀 정책](https://docs.befailproof.ai/custom-policies) | 나만의 정책 작성 |
+| [내장 정책](https://docs.befailproof.ai/built-in-policies) | 파라미터를 포함한 30개 정책 전체 |
+| [커스텀 정책](https://docs.befailproof.ai/custom-policies) | 직접 작성하기 |
 | [설정](https://docs.befailproof.ai/configuration) | 설정 범위 및 병합 규칙 |
 | [대시보드](https://docs.befailproof.ai/dashboard) | 세션 모니터 및 정책 활동 |
-| [아키텍처](https://docs.befailproof.ai/architecture) | 훅 시스템 동작 방식 |
+| [아키텍처](https://docs.befailproof.ai/architecture) | 훅 시스템의 동작 방식 |
 
 ---
 
 ## 라이선스
 
-[Commons Clause](https://commonsclause.com/)가 포함된 MIT 라이선스 — 내부 및 개인 사용은 무료이며, failproofai 자체의 상업적 재판매에는 별도의 계약이 필요합니다. 전문은 [LICENSE](./LICENSE)를 참조하세요.
+MIT with [Commons Clause](https://commonsclause.com/) — 내부 및 개인 사용은 무료입니다. failproofai 자체의 상업적 재판매는 별도 계약이 필요합니다. 전문은 [LICENSE](./LICENSE)를 참고하세요.
 
 ---
 
-## 기여하기
+## 기여
 
-[CONTRIBUTING.md](./CONTRIBUTING.md)를 참조하세요. 새로운 정책, 엣지 케이스, 번역 모두 환영합니다.
+[CONTRIBUTING.md](./CONTRIBUTING.md)를 참고하세요. 새로운 정책, 엣지 케이스, 번역 모두 환영합니다.
 
 ---
 

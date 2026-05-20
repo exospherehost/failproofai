@@ -16,9 +16,9 @@
 
 **Übersetzungen:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Laufzeitfehler-Behebung für Coding-Agenten.**
-Klinkt sich in Claude Code und Codex ein. Erkennt Endlosschleifen, gefährliche Aktionen und Secret-Leaks,
-bevor sie zu Vorfällen werden. Keine Latenz. Läuft lokal.
+**Laufzeit-Fehlerbehebung für Coding-Agenten.**
+Greift in Claude Code und Codex ein. Erkennt Endlosschleifen, gefährliche Aktionen und
+geheime Datenlecks, bevor sie zum Problem werden. Null Latenz. Läuft lokal.
 
 </div>
 
@@ -79,7 +79,7 @@ bevor sie zu Vorfällen werden. Keine Latenz. Läuft lokal.
   </a>
 </p>
 
-> Hooks für eine oder mehrere CLIs installieren: `failproofai policies --install --cli opencode pi gemini` (oder `--cli claude codex copilot cursor opencode pi gemini`). `--cli` weglassen, um installierte CLIs automatisch zu erkennen und eine Auswahl anzuzeigen. **GitHub Copilot CLI, Cursor Agent, OpenCode, Pi und Gemini CLI befinden sich noch in der Beta-Phase — Tests laufen noch.**
+> Hooks für eine oder mehrere CLIs installieren: `failproofai policies --install --cli opencode pi gemini` (oder `--cli claude codex copilot cursor opencode pi gemini`). `--cli` weglassen, um installierte CLIs automatisch zu erkennen und zur Auswahl aufzufordern.
 
 ---
 
@@ -91,13 +91,13 @@ failproofai policies --install
 failproofai
 ```
 
-30 integrierte Richtlinien werden sofort aktiviert. Dashboard unter `localhost:8020`.
+30 integrierte Richtlinien werden sofort aktiv. Dashboard unter `localhost:8020`.
 
 ---
 
-## Was es verhindert
+## Was blockiert wird
 
-| Richtlinie | Was blockiert wird |
+| Richtlinie | Was sie verhindert |
 |---|---|
 | `block-push-master` | Direkte Pushes nach `main` / `master` |
 | `block-force-push` | `git push --force` |
@@ -111,8 +111,8 @@ failproofai
 
 ## Eigene Richtlinien
 
-Einfach eine Datei in `.failproofai/policies/` ablegen — sie wird automatisch geladen, ohne zusätzliche Flags.
-Ins Repository einchecken und das gesamte Team erhält sie beim nächsten Pull.
+Eine Datei in `.failproofai/policies/` ablegen – sie wird automatisch geladen, ohne zusätzliche Flags.
+Ins Repository einchecken, und das gesamte Team erhält sie beim nächsten Pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -128,23 +128,23 @@ customPolicies.add({
 });
 ```
 
-Jede Richtlinie kann eine von drei Entscheidungen treffen:
+Jede Richtlinie hat drei mögliche Entscheidungen:
 
 | Entscheidung | Wirkung |
 |---|---|
 | `allow()` | Aktion erlauben |
-| `deny(message)` | Blockieren — die Nachricht wird an den Agenten zurückgegeben |
-| `instruct(message)` | Durchlassen, aber zusätzlichen Kontext zum nächsten Prompt des Agenten hinzufügen |
+| `deny(message)` | Aktion blockieren – die Nachricht wird an den Agenten zurückgegeben |
+| `instruct(message)` | Aktion durchlassen, aber dem nächsten Prompt des Agenten Kontext hinzufügen |
 
-→ [Leitfaden für eigene Richtlinien](https://docs.befailproof.ai/custom-policies)
+→ [Anleitung für eigene Richtlinien](https://docs.befailproof.ai/custom-policies)
 
 ---
 
 ## Sitzungsübersicht
 
-Jeder Tool-Aufruf des Agenten wird lokal protokolliert. Das Dashboard zeigt, was ausgeführt wurde,
-was blockiert wurde und was die Richtlinie dem Agenten mitgeteilt hat — damit du nicht im Dunkeln tappst,
-wenn etwas schiefläuft. → [Dashboard-Leitfaden](https://docs.befailproof.ai/dashboard)
+Jeder Tool-Aufruf des Agenten wird lokal protokolliert. Das Dashboard zeigt, was ausgeführt
+wurde, was blockiert wurde und was die Richtlinie dem Agenten mitgeteilt hat – damit man
+bei Problemen nicht im Dunkeln tappt. → [Dashboard-Anleitung](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -157,19 +157,19 @@ wenn etwas schiefläuft. → [Dashboard-Leitfaden](https://docs.befailproof.ai/d
 | [Eigene Richtlinien](https://docs.befailproof.ai/custom-policies) | Eigene Richtlinien schreiben |
 | [Konfiguration](https://docs.befailproof.ai/configuration) | Konfigurationsbereiche und Zusammenführungsregeln |
 | [Dashboard](https://docs.befailproof.ai/dashboard) | Sitzungsmonitor und Richtlinienaktivität |
-| [Architektur](https://docs.befailproof.ai/architecture) | Wie das Hook-System funktioniert |
+| [Architektur](https://docs.befailproof.ai/architecture) | So funktioniert das Hook-System |
 
 ---
 
 ## Lizenz
 
-MIT mit [Commons Clause](https://commonsclause.com/) — kostenlos für den internen und persönlichen Gebrauch; der kommerzielle Weiterverkauf von failproofai selbst erfordert eine gesonderte Vereinbarung. Den vollständigen Lizenztext findest du in [LICENSE](./LICENSE).
+MIT mit [Commons Clause](https://commonsclause.com/) – kostenlos für den internen und privaten Einsatz; der kommerzielle Weiterverkauf von failproofai selbst erfordert eine separate Vereinbarung. Den vollständigen Text findet man in [LICENSE](./LICENSE).
 
 ---
 
 ## Mitwirken
 
-Siehe [CONTRIBUTING.md](./CONTRIBUTING.md). Neue Richtlinien, Randfälle und Übersetzungen sind herzlich willkommen.
+Siehe [CONTRIBUTING.md](./CONTRIBUTING.md). Neue Richtlinien, Edge Cases und Übersetzungen sind herzlich willkommen.
 
 ---
 
