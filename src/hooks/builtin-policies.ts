@@ -1959,7 +1959,7 @@ export const BUILTIN_POLICIES: BuiltinPolicyDefinition[] = [
 ];
 
 export function registerBuiltinPolicies(enabledNames: string[]): void {
-  // Tolerate both flat ("sanitize-jwt") and qualified ("exospherehost/sanitize-jwt")
+  // Tolerate both flat ("sanitize-jwt") and qualified ("failproofai/sanitize-jwt")
   // forms in the user's enabledPolicies config — canonicalize both sides.
   const enabledSet = new Set(enabledNames.map(normalizePolicyName));
   for (const policy of BUILTIN_POLICIES) {

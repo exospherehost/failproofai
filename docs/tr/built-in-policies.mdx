@@ -31,7 +31,7 @@ Politikalar kategorilere ayrılır:
 
 ### Ad Alanları
 
-Her politika bir `<namespace>/<name>` yuvasında yer alır. Yerleşik politikalar **`exospherehost/`** ad alanına aittir — örneğin, `exospherehost/sanitize-jwt`. Ad alanı, benzer kısa adlara sahip özel veya üçüncü taraf politikaları yüklediğinizde çakışmaları önler.
+Her politika bir `<namespace>/<name>` yuvasında yer alır. Yerleşik politikalar **`failproofai/`** ad alanına aittir — örneğin, `failproofai/sanitize-jwt`. Ad alanı, benzer kısa adlara sahip özel veya üçüncü taraf politikaları yüklediğinizde çakışmaları önler.
 
 Yapılandırmanızda yerleşik bir politikaya kısa adı veya tam nitelikli adı ile başvurabilirsiniz; her iki form aynı politikaya çözümlenir:
 
@@ -39,12 +39,12 @@ Yapılandırmanızda yerleşik bir politikaya kısa adı veya tam nitelikli adı
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
-Bir ad `/` içermiyorsa, failproofai bunu varsayılan ad alanı `exospherehost` olarak ele alır. Zaten `/` içeren adlar (ör. `myorg/foo`, `custom/my-hook`) olduğu gibi kalır.
+Bir ad `/` içermiyorsa, failproofai bunu varsayılan ad alanı `failproofai` olarak ele alır. Zaten `/` içeren adlar (ör. `myorg/foo`, `custom/my-hook`) olduğu gibi kalır.
 - **`require-`** — Stop olayını koşullar karşılanana kadar engelle.
 
 ---

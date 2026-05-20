@@ -16,7 +16,7 @@ const INDEX_CACHE_KEY = "__FAILPROOFAI_POLICY_INDEX_CACHE__";
  * `<namespace>/` prefix. Builtins live under this namespace; custom hooks
  * loaded by the handler get their own prefixes (e.g. `custom/foo`).
  */
-export const DEFAULT_POLICY_NAMESPACE = "exospherehost";
+export const DEFAULT_POLICY_NAMESPACE = "failproofai";
 
 /**
  * Canonicalize a policy name. If the name already contains a `/`, it is

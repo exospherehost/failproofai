@@ -31,7 +31,7 @@ As políticas são agrupadas em categorias:
 
 ### Namespaces
 
-Cada política ocupa um slot `<namespace>/<nome>`. As políticas integradas pertencem ao namespace **`exospherehost/`** — por exemplo, `exospherehost/sanitize-jwt`. O namespace evita colisões quando você também carrega políticas personalizadas ou de terceiros com nomes curtos semelhantes.
+Cada política ocupa um slot `<namespace>/<nome>`. As políticas integradas pertencem ao namespace **`failproofai/`** — por exemplo, `failproofai/sanitize-jwt`. O namespace evita colisões quando você também carrega políticas personalizadas ou de terceiros com nomes curtos semelhantes.
 
 Na sua configuração, você pode referenciar uma política integrada pelo nome curto ou pelo nome qualificado; ambas as formas resolvem para a mesma política:
 
@@ -39,12 +39,12 @@ Na sua configuração, você pode referenciar uma política integrada pelo nome 
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
-Se um nome não contiver `/`, failproofai o trata como pertencente ao namespace padrão `exospherehost`. Nomes que já contêm `/` (ex.: `myorg/foo`, `custom/my-hook`) são mantidos como estão.
+Se um nome não contiver `/`, failproofai o trata como pertencente ao namespace padrão `failproofai`. Nomes que já contêm `/` (ex.: `myorg/foo`, `custom/my-hook`) são mantidos como estão.
 - **`require-`** — bloqueia o evento Stop até que as condições sejam atendidas.
 
 ---

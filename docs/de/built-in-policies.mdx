@@ -32,7 +32,7 @@ Richtlinien sind in Kategorien gruppiert:
 ### Namespaces
 
 Jede Richtlinie befindet sich in einem `<namespace>/<name>`-Slot. Integrierte Richtlinien gehören zum
-**`exospherehost/`**-Namespace — zum Beispiel `exospherehost/sanitize-jwt`. Der
+**`failproofai/`**-Namespace — zum Beispiel `failproofai/sanitize-jwt`. Der
 Namespace verhindert Kollisionen, wenn Sie auch benutzerdefinierte oder Drittanbieter-Richtlinien
 mit ähnlichen Kurznamen laden.
 
@@ -43,13 +43,13 @@ qualifizierten Namen verweisen; beide Formen werden zur selben Richtlinie aufgel
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
 Enthält ein Name kein `/`, behandelt failproofai ihn als zum Standard-Namespace
-`exospherehost` gehörend. Namen, die bereits ein `/` enthalten (z. B. `myorg/foo`,
+`failproofai` gehörend. Namen, die bereits ein `/` enthalten (z. B. `myorg/foo`,
 `custom/my-hook`), werden unverändert übernommen.
 - **`require-`** — blockiert das Stop-Ereignis, bis die Bedingungen erfüllt sind.
 

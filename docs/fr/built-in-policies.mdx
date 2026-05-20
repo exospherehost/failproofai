@@ -31,7 +31,7 @@ Les politiques sont regroupées par catégories :
 
 ### Espaces de noms
 
-Chaque politique occupe un emplacement `<namespace>/<name>`. Les politiques intégrées appartiennent à l'espace de noms **`exospherehost/`** — par exemple, `exospherehost/sanitize-jwt`. L'espace de noms évite les collisions lorsque vous chargez également des politiques personnalisées ou tierces ayant des noms courts similaires.
+Chaque politique occupe un emplacement `<namespace>/<name>`. Les politiques intégrées appartiennent à l'espace de noms **`failproofai/`** — par exemple, `failproofai/sanitize-jwt`. L'espace de noms évite les collisions lorsque vous chargez également des politiques personnalisées ou tierces ayant des noms courts similaires.
 
 Dans votre configuration, vous pouvez faire référence à une politique intégrée soit par son nom court, soit par son nom qualifié ; les deux formes résolvent vers la même politique :
 
@@ -39,12 +39,12 @@ Dans votre configuration, vous pouvez faire référence à une politique intégr
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
-Si un nom ne contient pas de `/`, failproofai le considère comme appartenant à l'espace de noms par défaut `exospherehost`. Les noms qui contiennent déjà un `/` (ex. `myorg/foo`, `custom/my-hook`) sont conservés tels quels.
+Si un nom ne contient pas de `/`, failproofai le considère comme appartenant à l'espace de noms par défaut `failproofai`. Les noms qui contiennent déjà un `/` (ex. `myorg/foo`, `custom/my-hook`) sont conservés tels quels.
 - **`require-`** — bloque l'événement Stop jusqu'à ce que les conditions soient remplies.
 
 ---

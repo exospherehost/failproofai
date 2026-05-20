@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.0.11-beta.1 — 2026-05-20
+
+### Breaking
+- Default policy namespace renamed from `exospherehost` to `failproofai`. Configs that explicitly reference builtins as `exospherehost/<name>` must update to `failproofai/<name>`. Flat-name shorthand (e.g. `"sanitize-jwt"`) continues to work unchanged because it auto-resolves to the new default namespace. Builtin docs (EN + 14 translations) updated to show the new namespace.
+
+### Docs
+- Rename GitHub org URLs across `package.json` metadata, README CI badge (EN + 14 translated READMEs), CONTRIBUTING, in-app "Star us" banners (`bin/failproofai.mjs`, `scripts/launch.ts`, navbar, reach-developers component), Mintlify `docs/docs.json`, and 30 translated docs (`package-aliases.mdx` issues link + `examples.mdx` repo-tree link) to reflect the `exospherehost` → `failproofai` org rename. X social handle in `docs/docs.json` updated from `x.com/exospherehost` to `x.com/failproofai`.
+
+### Fixes
+- Remove orphan `exospheresmall` token from the Next.js proxy matcher in `proxy.ts` — no asset by that name exists in the repo.
+
 ## 0.0.11-beta.0 — 2026-05-13
 
 ### Docs

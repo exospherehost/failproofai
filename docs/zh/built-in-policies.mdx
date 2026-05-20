@@ -31,7 +31,7 @@ failproofai 内置了 39 个策略，用于捕获常见的 Agent 故障模式。
 
 ### 命名空间
 
-每个策略都位于 `<namespace>/<name>` 插槽中。内置策略属于 **`exospherehost/`** 命名空间——例如 `exospherehost/sanitize-jwt`。命名空间可防止在同时加载具有相似短名称的自定义或第三方策略时发生冲突。
+每个策略都位于 `<namespace>/<name>` 插槽中。内置策略属于 **`failproofai/`** 命名空间——例如 `failproofai/sanitize-jwt`。命名空间可防止在同时加载具有相似短名称的自定义或第三方策略时发生冲突。
 
 在配置中，你可以通过短名称或完整限定名称来引用内置策略；两种形式都解析到同一个策略：
 
@@ -39,12 +39,12 @@ failproofai 内置了 39 个策略，用于捕获常见的 Agent 故障模式。
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
-如果名称中不含 `/`，failproofai 会将其视为属于默认命名空间 `exospherehost`。已包含 `/` 的名称（例如 `myorg/foo`、`custom/my-hook`）将保持原样。
+如果名称中不含 `/`，failproofai 会将其视为属于默认命名空间 `failproofai`。已包含 `/` 的名称（例如 `myorg/foo`、`custom/my-hook`）将保持原样。
 - **`require-`** — 阻止 Stop 事件，直到满足条件为止。
 
 ---

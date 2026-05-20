@@ -33,7 +33,7 @@ Các chính sách được nhóm thành các danh mục:
 
 ### Không gian tên
 
-Mỗi chính sách nằm trong một slot `<namespace>/<name>`. Các chính sách tích hợp sẵn thuộc về không gian tên **`exospherehost/`** — ví dụ, `exospherehost/sanitize-jwt`. Không gian tên ngăn chặn xung đột khi bạn cũng tải các chính sách tùy chỉnh hoặc bên thứ ba có tên ngắn tương tự.
+Mỗi chính sách nằm trong một slot `<namespace>/<name>`. Các chính sách tích hợp sẵn thuộc về không gian tên **`failproofai/`** — ví dụ, `failproofai/sanitize-jwt`. Không gian tên ngăn chặn xung đột khi bạn cũng tải các chính sách tùy chỉnh hoặc bên thứ ba có tên ngắn tương tự.
 
 Trong cấu hình của bạn, bạn có thể tham chiếu đến một chính sách tích hợp sẵn bằng tên ngắn hoặc tên đủ điều kiện; cả hai hình thức đều phân giải thành cùng một chính sách:
 
@@ -41,12 +41,12 @@ Trong cấu hình của bạn, bạn có thể tham chiếu đến một chính 
 {
   "enabledPolicies": [
     "sanitize-jwt",
-    "exospherehost/block-rm-rf"
+    "failproofai/block-rm-rf"
   ]
 }
 ```
 
-Nếu tên không có `/`, failproofai coi nó thuộc về không gian tên mặc định `exospherehost`. Tên đã chứa `/` (ví dụ `myorg/foo`, `custom/my-hook`) được giữ nguyên.
+Nếu tên không có `/`, failproofai coi nó thuộc về không gian tên mặc định `failproofai`. Tên đã chứa `/` (ví dụ `myorg/foo`, `custom/my-hook`) được giữ nguyên.
 - **`require-`** — chặn sự kiện Stop cho đến khi các điều kiện được đáp ứng.
 
 ---

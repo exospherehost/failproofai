@@ -41,7 +41,7 @@ describe("hooks/policy-evaluator", () => {
       "Blocked Bash by failproofai because: blocked, as per the policy configured by the user",
     );
     expect(parsed.hookSpecificOutput.hookEventName).toBe("PreToolUse");
-    expect(result.policyName).toBe("exospherehost/blocker");
+    expect(result.policyName).toBe("failproofai/blocker");
     expect(result.reason).toBe("blocked");
   });
 
@@ -60,7 +60,7 @@ describe("hooks/policy-evaluator", () => {
     expect(parsed.hookSpecificOutput.additionalContext).toBe(
       "Blocked Read by failproofai because: JWT found, as per the policy configured by the user",
     );
-    expect(result.policyName).toBe("exospherehost/jwt-scrub");
+    expect(result.policyName).toBe("failproofai/jwt-scrub");
     expect(result.reason).toBe("JWT found");
   });
 
@@ -114,8 +114,8 @@ describe("hooks/policy-evaluator", () => {
     expect(result.decision).toBe("instruct");
     const parsed = JSON.parse(result.stdout);
     expect(parsed.hookSpecificOutput.additionalContext).toContain("You should try something else");
-    expect(result.policyName).toBe("exospherehost/advisor");
-    expect(result.policyNames).toEqual(["exospherehost/advisor"]);
+    expect(result.policyName).toBe("failproofai/advisor");
+    expect(result.policyNames).toEqual(["failproofai/advisor"]);
     expect(result.reason).toBe("You should try something else");
   });
 
@@ -131,7 +131,7 @@ describe("hooks/policy-evaluator", () => {
 
     const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
     expect(result.decision).toBe("deny");
-    expect(result.policyName).toBe("exospherehost/blocker");
+    expect(result.policyName).toBe("failproofai/blocker");
     const parsed = JSON.parse(result.stdout);
     expect(parsed.hookSpecificOutput.permissionDecision).toBe("deny");
   });
@@ -172,7 +172,7 @@ describe("hooks/policy-evaluator", () => {
     expect(result.stdout).toBe("");
     expect(result.stderr).toContain("MANDATORY ACTION REQUIRED");
     expect(result.stderr).toContain("Unsatisfied intents remain");
-    expect(result.policyName).toBe("exospherehost/verify");
+    expect(result.policyName).toBe("failproofai/verify");
   });
 
   it("SubagentStop + instruct also returns exitCode 2 (Claude path mirrors Stop)", async () => {
@@ -310,7 +310,7 @@ describe("hooks/policy-evaluator", () => {
     const parsed = JSON.parse(result.stdout) as { permission?: string; reason?: string };
     expect(parsed.permission).toBe("deny");
     expect(parsed.reason).toContain("MANDATORY ACTION REQUIRED");
-    expect(parsed.reason).toContain("policy: exospherehost/verify");
+    expect(parsed.reason).toContain("policy: failproofai/verify");
     expect(parsed.reason).toContain("needs verification");
   });
 
@@ -369,8 +369,8 @@ describe("hooks/policy-evaluator", () => {
 
     const result = await evaluatePolicies("PreToolUse", { tool_name: "Read" });
     expect(result.decision).toBe("instruct");
-    expect(result.policyName).toBe("exospherehost/first");
-    expect(result.policyNames).toEqual(["exospherehost/first", "exospherehost/second"]);
+    expect(result.policyName).toBe("failproofai/first");
+    expect(result.policyNames).toEqual(["failproofai/first", "failproofai/second"]);
     expect(result.reason).toBe("first warning\nsecond warning");
     const parsed = JSON.parse(result.stdout);
     expect(parsed.hookSpecificOutput.additionalContext).toContain("first warning");
@@ -388,11 +388,11 @@ describe("hooks/policy-evaluator", () => {
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
       expect(result.reason).toBe("All checks passed");
-      expect(result.policyName).toBe("exospherehost/info");
-      expect(result.policyNames).toEqual(["exospherehost/info"]);
+      expect(result.policyName).toBe("failproofai/info");
+      expect(result.policyNames).toEqual(["failproofai/info"]);
       const parsed = JSON.parse(result.stdout);
       expect(parsed.hookSpecificOutput.additionalContext).toBe("Note from failproofai: All checks passed");
-      expect(result.stderr).toContain("[failproofai] exospherehost/info: All checks passed");
+      expect(result.stderr).toContain("[failproofai] failproofai/info: All checks passed");
     });
 
     it("combines multiple allow messages with newline", async () => {
@@ -408,12 +408,12 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
-      expect(result.policyName).toBe("exospherehost/info1");
-      expect(result.policyNames).toEqual(["exospherehost/info1", "exospherehost/info2"]);
+      expect(result.policyName).toBe("failproofai/info1");
+      expect(result.policyNames).toEqual(["failproofai/info1", "failproofai/info2"]);
       const parsed = JSON.parse(result.stdout);
       expect(parsed.reason).toBe("Commit check passed\nPush check passed");
-      expect(result.stderr).toContain("[failproofai] exospherehost/info1: Commit check passed");
-      expect(result.stderr).toContain("[failproofai] exospherehost/info2: Push check passed");
+      expect(result.stderr).toContain("[failproofai] failproofai/info1: Commit check passed");
+      expect(result.stderr).toContain("[failproofai] failproofai/info2: Push check passed");
     });
 
     it("returns empty stdout when allow has no reason (backward-compatible)", async () => {
@@ -440,7 +440,7 @@ describe("hooks/policy-evaluator", () => {
 
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
       expect(result.decision).toBe("deny");
-      expect(result.policyName).toBe("exospherehost/blocker");
+      expect(result.policyName).toBe("failproofai/blocker");
     });
 
     it("instruct takes precedence over allow with message", async () => {
@@ -455,7 +455,7 @@ describe("hooks/policy-evaluator", () => {
 
       const result = await evaluatePolicies("PreToolUse", { tool_name: "Bash" });
       expect(result.decision).toBe("instruct");
-      expect(result.policyName).toBe("exospherehost/advisor");
+      expect(result.policyName).toBe("failproofai/advisor");
     });
   });
 
@@ -512,7 +512,7 @@ describe("hooks/policy-evaluator", () => {
     it("flat policyParams key only matches default-namespace policies (not custom/myorg)", async () => {
       // A custom hook registered with a third-party namespace must NOT pick up
       // params keyed by the bare short name — that key belongs to the
-      // exospherehost/<short> builtin slot, not myorg/<short>.
+      // failproofai/<short> builtin slot, not myorg/<short>.
       let capturedHint: unknown = null;
       registerPolicy("myorg/foo", "desc", () => ({
         decision: "deny",
@@ -804,10 +804,10 @@ describe("hooks/policy-evaluator", () => {
       const parsed = JSON.parse(result.stdout) as { permission?: string; reason?: string };
       expect(parsed.permission).toBe("deny");
       expect(parsed.reason).toContain("MANDATORY ACTION REQUIRED");
-      expect(parsed.reason).toContain("policy: exospherehost/stop-blocker");
+      expect(parsed.reason).toContain("policy: failproofai/stop-blocker");
       expect(parsed.reason).toContain("tests not run");
       expect(result.decision).toBe("deny");
-      expect(result.policyName).toBe("exospherehost/stop-blocker");
+      expect(result.policyName).toBe("failproofai/stop-blocker");
       expect(result.reason).toBe("tests not run");
     });
 
@@ -876,7 +876,7 @@ describe("hooks/policy-evaluator", () => {
 
       const result = await evaluatePolicies("Stop", {});
       expect(result.decision).toBe("deny");
-      expect(result.policyName).toBe("exospherehost/require-commit");
+      expect(result.policyName).toBe("failproofai/require-commit");
       expect(policyCalls).toEqual(["commit"]);
     });
 
@@ -901,7 +901,7 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
-      expect(result.policyNames).toEqual(["exospherehost/wf-commit", "exospherehost/wf-push", "exospherehost/wf-pr", "exospherehost/wf-ci"]);
+      expect(result.policyNames).toEqual(["failproofai/wf-commit", "failproofai/wf-push", "failproofai/wf-pr", "failproofai/wf-ci"]);
       const parsed = JSON.parse(result.stdout);
       expect(parsed.reason).toContain("All changes committed");
       expect(parsed.reason).toContain("All commits pushed");
@@ -921,7 +921,7 @@ describe("hooks/policy-evaluator", () => {
 
       const result = await evaluatePolicies("Stop", {});
       expect(result.decision).toBe("deny");
-      expect(result.policyName).toBe("exospherehost/wf-push");
+      expect(result.policyName).toBe("failproofai/wf-push");
       expect(result.reason).toBe("unpushed commits");
     });
 
@@ -954,8 +954,8 @@ describe("hooks/policy-evaluator", () => {
       const result = await evaluatePolicies("Stop", {});
       expect(result.exitCode).toBe(0);
       expect(result.decision).toBe("allow");
-      expect(result.policyName).toBe("exospherehost/informative");
-      expect(result.policyNames).toEqual(["exospherehost/informative"]);
+      expect(result.policyName).toBe("failproofai/informative");
+      expect(result.policyNames).toEqual(["failproofai/informative"]);
       const parsed = JSON.parse(result.stdout);
       expect(parsed.reason).toBe("CI is green");
     });
@@ -971,7 +971,7 @@ describe("hooks/policy-evaluator", () => {
 
       const result = await evaluatePolicies("Stop", {});
       expect(result.decision).toBe("deny");
-      expect(result.policyName).toBe("exospherehost/checker");
+      expect(result.policyName).toBe("failproofai/checker");
     });
   });
 
