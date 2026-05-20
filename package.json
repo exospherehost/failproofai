@@ -59,13 +59,13 @@
   ],
   "author": "ExosphereHost Inc. <failproofai@exosphere.host>",
   "license": "SEE LICENSE IN LICENSE",
-  "homepage": "https://github.com/failproofai/failproofai",
+  "homepage": "https://github.com/FailproofAI/failproofai",
   "repository": {
     "type": "git",
-    "url": "https://github.com/failproofai/failproofai.git"
+    "url": "https://github.com/FailproofAI/failproofai.git"
   },
   "bugs": {
-    "url": "https://github.com/failproofai/failproofai/issues"
+    "url": "https://github.com/FailproofAI/failproofai/issues"
   },
   "publishConfig": {
     "access": "public"

@@ -10,6 +10,7 @@
 
 ### Fixes
 - Remove orphan `exospheresmall` token from the Next.js proxy matcher in `proxy.ts` — no asset by that name exists in the repo.
+- Restore `FailproofAI` org casing in `package.json` `homepage`, `repository.url`, and `bugs.url` (was lowercased to `failproofai/failproofai` during the org rename). npm provenance verification compares the field byte-for-byte against `${{ github.repository }}` (`FailproofAI/failproofai`) and rejected `0.0.11-beta.1` publish with `422 Error verifying sigstore provenance bundle: Failed to validate repository information`. GitHub URL routing is case-insensitive so this only affected provenance verification, not link resolution.
 
 ## 0.0.11-beta.0 — 2026-05-13
 
