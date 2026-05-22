@@ -214,7 +214,12 @@ export function formatText(result: AuditResult, opts: RunAuditOptions = {}): str
     lines.push("");
   }
 
-  lines.push(`      📄 Shareable report:  ${ANSI.cyan}./failproofai-audit.md${ANSI.reset}`);
+  // Mirror the actual --report path so the printed footer matches what was
+  // (or will be) written. Suppressed entirely with --no-report.
+  if (!opts.noReport) {
+    const reportPath = opts.reportPath ?? "./failproofai-audit.md";
+    lines.push(`      📄 Shareable report:  ${ANSI.cyan}${reportPath}${ANSI.reset}`);
+  }
   lines.push(`      ⭐ Star us:           ${ANSI.cyan}https://github.com/FailproofAI/failproofai${ANSI.reset}`);
   lines.push("");
 
