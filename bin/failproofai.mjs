@@ -118,10 +118,12 @@ COMMANDS
 
   policies --help, -h            Show this help for the policies command
 
-  audit                          Scan past agent CLI transcripts and count
+  audit  (beta)                  Scan past agent CLI transcripts and count
                                    "stupid behaviors" (env-var checks, force
                                    pushes, redundant cd <cwd>, sleep loops,
                                    etc.) per policy / audit detector.
+                                   Going live shortly — flags + output may
+                                   still change between beta releases.
     --cli claude|codex|copilot|cursor|opencode|pi|gemini
                                    Restrict to one or more CLIs (default: all).
     --project <path>               Restrict to one cwd (repeatable).
@@ -433,7 +435,10 @@ EXAMPLES
 
     if (subArgs.includes("--help") || subArgs.includes("-h")) {
       console.log(`
-failproofai audit — scan past agent transcripts for stupid behaviors
+failproofai audit (beta) — scan past agent transcripts for stupid behaviors
+
+  NOTE: This command is in beta. Flags, output format, and the audit-only
+  detector catalog may change before the next stable cut. Going live shortly.
 
 USAGE
   failproofai audit [options]
