@@ -389,6 +389,7 @@ function ActivityTab({
     return isKnownCli(v) ? v : "";
   });
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const filterTelemetryFirstRunRef = useRef(true);
   const filtersRef = useRef({ filterDecision, filterEventType, filterPolicy, filterSessionId, filterCli });
   filtersRef.current = { filterDecision, filterEventType, filterPolicy, filterSessionId, filterCli };
 
@@ -448,6 +449,12 @@ function ActivityTab({
       setPage(1);
       setExpandedRow(null);
       fetchData(1);
+      // Skip the initial render — filters are initialized from URL params, not
+      // from a user action. Only fire on real user-driven changes.
+      if (filterTelemetryFirstRunRef.current) {
+        filterTelemetryFirstRunRef.current = false;
+        return;
+      }
       capture("activity_filter_changed", {
         active_filter_count:
           (filterDecision !== "" ? 1 : 0) +

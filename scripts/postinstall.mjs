@@ -138,17 +138,39 @@ try {
 // is a stable signal: written on every postinstall, absent before the first one.
 // Cannot piggy-back on instance-id because most users hit Tier 2 (OS machine ID)
 // and never create that file.
+//
+// Semver comparison: a release (no prerelease tag) is greater than the same
+// version with a prerelease tag (semver §11). Inside the prerelease, numeric
+// identifiers are lower than non-numeric ones of the same length.
 function compareSemver(a, b) {
-  const pa = a.split(/[.-]/);
-  const pb = b.split(/[.-]/);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-    const ai = pa[i], bi = pb[i];
+  const parse = (v) => {
+    const m = /^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/.exec(v);
+    if (!m) return null;
+    return { nums: [Number(m[1]), Number(m[2]), Number(m[3])], pre: m[4] ?? null };
+  };
+  const pa = parse(a);
+  const pb = parse(b);
+  if (!pa || !pb) return a < b ? -1 : a > b ? 1 : 0;
+  for (let i = 0; i < 3; i++) {
+    if (pa.nums[i] !== pb.nums[i]) return pa.nums[i] < pb.nums[i] ? -1 : 1;
+  }
+  if (pa.pre === null && pb.pre === null) return 0;
+  if (pa.pre === null) return 1;
+  if (pb.pre === null) return -1;
+  const ax = pa.pre.split(/[.-]/);
+  const bx = pb.pre.split(/[.-]/);
+  for (let i = 0; i < Math.max(ax.length, bx.length); i++) {
+    const ai = ax[i], bi = bx[i];
     if (ai === undefined) return -1;
     if (bi === undefined) return 1;
     const aNum = /^\d+$/.test(ai), bNum = /^\d+$/.test(bi);
     if (aNum && bNum) {
       const d = Number(ai) - Number(bi);
       if (d !== 0) return d < 0 ? -1 : 1;
+    } else if (aNum) {
+      return -1;
+    } else if (bNum) {
+      return 1;
     } else if (ai !== bi) {
       return ai < bi ? -1 : 1;
     }
@@ -173,7 +195,9 @@ if (previousVersion === null) {
     node_version: process.versions.node,
     version: currentVersion,
   }).catch(() => {});
-} else if (previousVersion !== currentVersion) {
+} else {
+  // Same version is a reinstall — still worth tracking; users hitting `npm install -g`
+  // repeatedly is itself signal. Drop the `!==` guard so cmp===0 reaches the event.
   const cmp = compareSemver(previousVersion, currentVersion);
   trackInstallEvent("version_changed", {
     from_version: previousVersion,
