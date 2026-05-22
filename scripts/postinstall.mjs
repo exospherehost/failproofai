@@ -7,7 +7,7 @@
  *
  * No external dependencies — Node.js built-ins only.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { platform, arch, release, homedir, hostname } from "node:os";
 import { createHmac } from "node:crypto";
@@ -133,6 +133,61 @@ try {
 } catch {
   // Non-critical — don't fail the install
 }
+
+// First-run + version_changed detection. The presence of ~/.failproofai/last-version
+// is a stable signal: written on every postinstall, absent before the first one.
+// Cannot piggy-back on instance-id because most users hit Tier 2 (OS machine ID)
+// and never create that file.
+function compareSemver(a, b) {
+  const pa = a.split(/[.-]/);
+  const pb = b.split(/[.-]/);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const ai = pa[i], bi = pb[i];
+    if (ai === undefined) return -1;
+    if (bi === undefined) return 1;
+    const aNum = /^\d+$/.test(ai), bNum = /^\d+$/.test(bi);
+    if (aNum && bNum) {
+      const d = Number(ai) - Number(bi);
+      if (d !== 0) return d < 0 ? -1 : 1;
+    } else if (ai !== bi) {
+      return ai < bi ? -1 : 1;
+    }
+  }
+  return 0;
+}
+
+const currentVersion = process.env.npm_package_version ?? "unknown";
+const lastVersionFile = resolve(homedir(), ".failproofai", "last-version");
+let previousVersion = null;
+try {
+  if (existsSync(lastVersionFile)) {
+    previousVersion = readFileSync(lastVersionFile, "utf8").trim() || null;
+  }
+} catch {}
+
+if (previousVersion === null) {
+  trackInstallEvent("first_install", {
+    platform: platform(),
+    arch: arch(),
+    os_release: release(),
+    node_version: process.versions.node,
+    version: currentVersion,
+  }).catch(() => {});
+} else if (previousVersion !== currentVersion) {
+  const cmp = compareSemver(previousVersion, currentVersion);
+  trackInstallEvent("version_changed", {
+    from_version: previousVersion,
+    to_version: currentVersion,
+    direction: cmp < 0 ? "upgrade" : cmp > 0 ? "downgrade" : "reinstall",
+    platform: platform(),
+    arch: arch(),
+  }).catch(() => {});
+}
+
+try {
+  mkdirSync(resolve(homedir(), ".failproofai"), { recursive: true });
+  writeFileSync(lastVersionFile, currentVersion, "utf8");
+} catch {}
 
 // Telemetry (best-effort, fire-and-forget)
 trackInstallEvent("package_installed", {
