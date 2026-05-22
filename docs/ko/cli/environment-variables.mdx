@@ -1,6 +1,6 @@
 ---
 title: 환경 변수
-description: "환경 변수로 failproofai 동작 설정하기"
+description: "환경 변수로 failproofai 동작 구성하기"
 ---
 
 ## 대시보드
@@ -8,7 +8,7 @@ description: "환경 변수로 failproofai 동작 설정하기"
 | 변수 | 설명 |
 |----------|-------------|
 | `PORT` | 대시보드 포트 (기본값: `8020`) |
-| `CLAUDE_PROJECTS_PATH` | Claude Code 프로젝트 폴더 경로 재정의 |
+| `CLAUDE_PROJECTS_PATH` | Claude Code 프로젝트 폴더 위치 재정의 |
 | `FAILPROOFAI_DISABLE_PAGES=policies,projects` | 숨길 대시보드 페이지를 쉼표로 구분하여 지정 |
 | `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | 개발 리소스 접근을 허용할 호스트/IP. `--allowed-origins`와 동일. |
 
@@ -17,13 +17,19 @@ description: "환경 변수로 failproofai 동작 설정하기"
 | 변수 | 설명 |
 |----------|-------------|
 | `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | 서버 로그 레벨 (기본값: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | 커스텀 훅 로그 파일 경로, 또는 기본 경로(`~/.failproofai/logs/hooks.log`) 사용 시 `true` |
+| `FAILPROOFAI_HOOK_LOG_FILE` | 커스텀 훅 로그 파일 경로, 또는 기본 경로(`~/.failproofai/logs/hooks.log`)를 사용하려면 `true` |
 
-## 텔레메트리
+## 원격 측정
 
 | 변수 | 설명 |
 |----------|-------------|
-| `FAILPROOFAI_TELEMETRY_DISABLED=1` | 익명 사용 텔레메트리 비활성화 |
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | 익명 사용 현황 원격 측정 비활성화 |
+
+## 최초 실행 프롬프트
+
+| 변수 | 설명 |
+|----------|-------------|
+| `FAILPROOFAI_NO_FIRST_RUN=1` | `failproofai`를 인수 없이 처음 실행할 때 정책 설치를 제안하는 프롬프트 건너뛰기 |
 
 ## LLM (정책 평가용)
 

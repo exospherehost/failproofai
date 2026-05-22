@@ -1,35 +1,40 @@
 ---
+title: متغيرات البيئة
+description: "تكوين سلوك failproofai باستخدام متغيرات البيئة"
 ---
-title: משתני סביבה
-description: "הגדרת התנהגות failproofai באמצעות משתני סביבה"
----
 
-## לוח בקרה
+## لوحة المعلومات
 
-| משתנה | תיאור |
+| متغير | الوصف |
 |----------|-------------|
-| `PORT` | פורט לוח הבקרה (ברירת מחדל: `8020`) |
-| `CLAUDE_PROJECTS_PATH` | דריסת מיקום תיקיות פרויקט Claude Code |
-| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | עמודי לוח בקרה להסתרה מופרדים בפסיקים |
-| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | מארחים/IP-ים שמורשים לגשת למשאבי פיתוח. זהה ל-`--allowed-origins`. |
+| `PORT` | منفذ لوحة المعلومات (الافتراضي: `8020`) |
+| `CLAUDE_PROJECTS_PATH` | تجاوز موقع مجلدات مشاريع Claude Code |
+| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | صفحات لوحة المعلومات المفصولة بفواصل لإخفاؤها |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | المضيفات/عناوين IP المسموحة بالوصول إلى موارد التطوير. مثل `--allowed-origins`. |
 
-## רישום
+## تسجيل السجلات
 
-| משתנה | תיאור |
+| متغير | الوصف |
 |----------|-------------|
-| `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | רמת רישום השרת (ברירת מחדל: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | נתיב קובץ רישום חיבור מותאם, או `true` לברירת מחדל (`~/.failproofai/logs/hooks.log`) |
+| `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | مستوى سجل الخادم (الافتراضي: `warn`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | مسار ملف سجل hook مخصص، أو `true` للافتراضي (`~/.failproofai/logs/hooks.log`) |
 
-## טלמטריה
+## التحليلات
 
-| משתנה | תיאור |
+| متغير | الوصف |
 |----------|-------------|
-| `FAILPROOFAI_TELEMETRY_DISABLED=1` | השבתת טלמטריה שימוש אנונימית |
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | تعطيل تحليلات الاستخدام المجهولة |
 
-## LLM (להערכת מדיניות)
+## موجه التشغيل الأول
 
-| משתנה | תיאור |
+| متغير | الوصف |
 |----------|-------------|
-| `FAILPROOFAI_LLM_BASE_URL` | נקודת קצה ל-API של LLM (ברירת מחדל: `https://api.openai.com/v1`) |
-| `FAILPROOFAI_LLM_API_KEY` | מפתח API למדיניויות המופעלות על ידי LLM |
-| `FAILPROOFAI_LLM_MODEL` | שם המודל (ברירת מחדל: `gpt-4o-mini`) |
+| `FAILPROOFAI_NO_FIRST_RUN=1` | تخطي الموجه الذي يعرض تثبيت السياسات عند أول استدعاء لـ `failproofai` الفارغ |
+
+## نموذج اللغة (لتقييم السياسة)
+
+| متغير | الوصف |
+|----------|-------------|
+| `FAILPROOFAI_LLM_BASE_URL` | نقطة نهاية API لنموذج اللغة (الافتراضي: `https://api.openai.com/v1`) |
+| `FAILPROOFAI_LLM_API_KEY` | مفتاح API لسياسات مدعومة بنموذج اللغة |
+| `FAILPROOFAI_LLM_MODEL` | اسم النموذج (الافتراضي: `gpt-4o-mini`) |

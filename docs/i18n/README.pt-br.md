@@ -79,7 +79,7 @@ antes que se tornem incidentes. Latência zero. Executa localmente.
   </a>
 </p>
 
-> Instale hooks para um ou qualquer combinação: `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omita `--cli` para detectar automaticamente os CLIs instalados e ser solicitado a escolher.
+> Instale hooks para um ou qualquer combinação: `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omita `--cli` para detectar automaticamente os CLIs instalados e receber uma solicitação interativa.
 
 ---
 
@@ -87,11 +87,11 @@ antes que se tornem incidentes. Latência zero. Executa localmente.
 
 ```sh
 npm install -g failproofai
-failproofai policies --install
+failproofai policies --install   # ou simplesmente execute `failproofai` e aceite o prompt de primeira execução
 failproofai
 ```
 
-30 políticas integradas são ativadas imediatamente. Dashboard em `localhost:8020`.
+30 políticas integradas são ativadas imediatamente. Dashboard disponível em `localhost:8020`. Desative o prompt de primeira execução com `FAILPROOFAI_NO_FIRST_RUN=1`.
 
 ---
 
@@ -112,7 +112,7 @@ failproofai
 ## Suas próprias políticas
 
 Adicione um arquivo em `.failproofai/policies/` — ele é carregado automaticamente, sem necessidade de flags.
-Faça o commit e toda a equipe receberá as alterações no próximo pull.
+Faça o commit e toda a equipe receberá na próxima atualização.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -144,7 +144,7 @@ Três decisões disponíveis para cada política:
 
 Cada chamada de ferramenta feita pelo seu agente é registrada localmente. O dashboard mostra o que foi executado,
 o que foi bloqueado e o que a política informou ao agente — para que você não fique no escuro
-quando algo der errado. → [Guia do Dashboard](https://docs.befailproof.ai/dashboard)
+quando algo der errado. → [Guia do dashboard](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -154,7 +154,7 @@ quando algo der errado. → [Guia do Dashboard](https://docs.befailproof.ai/dash
 |---|---|
 | [Primeiros Passos](https://docs.befailproof.ai/getting-started) | Instalação e primeiros passos |
 | [Políticas Integradas](https://docs.befailproof.ai/built-in-policies) | Todas as 30 políticas com parâmetros |
-| [Políticas Personalizadas](https://docs.befailproof.ai/custom-policies) | Crie as suas próprias |
+| [Políticas Personalizadas](https://docs.befailproof.ai/custom-policies) | Escreva as suas próprias |
 | [Configuração](https://docs.befailproof.ai/configuration) | Escopos de configuração e regras de mesclagem |
 | [Dashboard](https://docs.befailproof.ai/dashboard) | Monitor de sessão e atividade de políticas |
 | [Arquitetura](https://docs.befailproof.ai/architecture) | Como o sistema de hooks funciona |
@@ -167,7 +167,7 @@ MIT com [Commons Clause](https://commonsclause.com/) — gratuito para uso inter
 
 ---
 
-## Contribuição
+## Contribuindo
 
 Consulte [CONTRIBUTING.md](./CONTRIBUTING.md). Novas políticas, casos extremos e traduções são bem-vindos.
 

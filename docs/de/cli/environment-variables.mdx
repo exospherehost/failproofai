@@ -1,6 +1,6 @@
 ---
 title: Umgebungsvariablen
-description: "failproofai-Verhalten mit Umgebungsvariablen konfigurieren"
+description: "Das Verhalten von failproofai mit Umgebungsvariablen konfigurieren"
 ---
 
 ## Dashboard
@@ -8,16 +8,16 @@ description: "failproofai-Verhalten mit Umgebungsvariablen konfigurieren"
 | Variable | Beschreibung |
 |----------|-------------|
 | `PORT` | Dashboard-Port (Standard: `8020`) |
-| `CLAUDE_PROJECTS_PATH` | Überschreibt den Pfad, unter dem Claude Code Projektordner gesucht werden |
+| `CLAUDE_PROJECTS_PATH` | Überschreibt den Pfad, unter dem Claude Code-Projektordner gesucht werden |
 | `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Kommagetrennte Liste von Dashboard-Seiten, die ausgeblendet werden sollen |
 | `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Hosts/IPs, die auf Entwicklungsressourcen zugreifen dürfen. Entspricht `--allowed-origins`. |
 
-## Logging
+## Protokollierung
 
 | Variable | Beschreibung |
 |----------|-------------|
-| `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Server-Log-Level (Standard: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | Benutzerdefinierter Pfad zur Hook-Log-Datei oder `true` für den Standardpfad (`~/.failproofai/logs/hooks.log`) |
+| `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Server-Protokollierungsstufe (Standard: `warn`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | Benutzerdefinierter Pfad zur Hook-Protokolldatei oder `true` für den Standardpfad (`~/.failproofai/logs/hooks.log`) |
 
 ## Telemetrie
 
@@ -25,7 +25,13 @@ description: "failproofai-Verhalten mit Umgebungsvariablen konfigurieren"
 |----------|-------------|
 | `FAILPROOFAI_TELEMETRY_DISABLED=1` | Anonyme Nutzungstelemetrie deaktivieren |
 
-## LLM (für Richtlinienauswertung)
+## Erststart-Eingabeaufforderung
+
+| Variable | Beschreibung |
+|----------|-------------|
+| `FAILPROOFAI_NO_FIRST_RUN=1` | Überspringt die Eingabeaufforderung, die beim ersten bloßen Aufruf von `failproofai` das Installieren von Richtlinien anbietet |
+
+## LLM (zur Richtlinienauswertung)
 
 | Variable | Beschreibung |
 |----------|-------------|

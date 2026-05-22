@@ -1,24 +1,24 @@
 ---
 title: "Failproof AI"
-description: "FailproofAI stattet KI-Agenten mit 39 integrierten Fehlerrichtlinien aus, die Schleifen, geheime Datenlecks, destruktive Tool-Aufrufe und mehr mit einer einzigen Installation abfangen."
+description: "FailproofAI stattet KI-Agenten mit 39 eingebauten Fehlerrichtlinien aus, die Schleifen, geheime Datenlecks, destruktive Tool-Aufrufe und mehr bei einer einzigen Installation abfangen."
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-Hooks und Richtlinien für **KI-Fehlerbehandlung**, **Fehlerwiederherstellung** und **LLM-Zuverlässigkeit**. Halten Sie Ihre KI-Agenten zuverlässig und autonom am Laufen – in **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Cursor Agent**, **OpenCode**, **Pi**, **Gemini CLI** und dem **Agents SDK**.
+Hooks und Richtlinien für **KI-Fehlerbehandlung**, **Fehlerbehebung** und **LLM-Zuverlässigkeit**. Halten Sie Ihre KI-Agenten zuverlässig und autonom am Laufen – mit **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Cursor Agent**, **OpenCode**, **Pi**, **Gemini CLI** und dem **Agents SDK**.
 
-KI-Agenten scheitern auf vorhersehbare Weisen. Sie führen destruktive Befehle aus, geben Geheimnisse preis, weichen von ihrer Aufgabe ab, stecken in Schleifen fest oder pushen direkt in den main-Branch. Werden diese Fehler nicht unterbunden, eskalieren kleine Probleme zu Ausfällen, geleakten Zugangsdaten und verloren gegangener Arbeit.
+KI-Agenten scheitern auf vorhersehbare Weise. Sie führen destruktive Befehle aus, geben Geheimnisse preis, verlieren den Fokus, stecken in Schleifen fest oder pushen direkt auf main. Ohne Aufsicht eskalieren kleine Fehler zu Ausfällen, geleakten Zugangsdaten und verlorener Arbeit.
 
-FailproofAI löst das mit **Richtlinien**. Diese Regeln greifen bei jedem Agenten-Tool-Aufruf ein, um **Fehler zu erkennen**, **sie zu beheben** (blockieren, anweisen, bereinigen) und **Sie zu benachrichtigen**, wenn etwas Aufmerksamkeit erfordert. Ein lokales Dashboard ermöglicht es Ihnen, im Nachhinein jeden Tool-Aufruf, jeden Agentenfehler und jede Wiederherstellungsmaßnahme einzusehen.
+FailproofAI löst dieses Problem mit **Richtlinien**. Diese Regeln klinken sich in jeden Tool-Aufruf des Agenten ein, um **Fehler zu erkennen**, **sie zu beheben** (blockieren, anweisen, bereinigen) und **Sie zu benachrichtigen**, wenn etwas Aufmerksamkeit erfordert. Ein lokales Dashboard ermöglicht es Ihnen, jeden Tool-Aufruf, jeden Agentenfehler und jede Wiederherstellungsaktion im Nachhinein zu überprüfen.
 
 Es verlassen keine Daten Ihren Rechner.
 
-## Einstieg
+## Erste Schritte
 
 <CardGroup cols={2}>
 
-<Card title="39 integrierte Richtlinien" icon="shield" href="/de/built-in-policies">
-  Destruktive Befehle blockieren, geheime Datenlecks verhindern, Agenten innerhalb der Projektgrenzen halten und vieles mehr – alles ohne zusätzliche Konfiguration.
+<Card title="39 eingebaute Richtlinien" icon="shield" href="/de/built-in-policies">
+  Destruktive Befehle blockieren, das Durchsickern von Geheimnissen verhindern, Agenten innerhalb der Projektgrenzen halten und vieles mehr. Alles sofort einsatzbereit.
 </Card>
 
 <Card title="Benutzerdefinierte Richtlinien" icon="code" href="/de/custom-policies">
@@ -26,11 +26,11 @@ Es verlassen keine Daten Ihren Rechner.
 </Card>
 
 <Card title="Agenten-Monitor" icon="chart-line" href="/de/dashboard">
-  Sehen Sie, was Ihre Agenten während Ihrer Abwesenheit getan haben. Sitzungen durchsuchen, Tool-Aufrufe untersuchen, nachvollziehen, wo Richtlinien ausgelöst wurden.
+  Sehen Sie, was Ihre Agenten in Ihrer Abwesenheit getan haben. Sitzungen durchsuchen, Tool-Aufrufe untersuchen, nachverfolgen, wo Richtlinien ausgelöst wurden.
 </Card>
 
 <Card title="Einfache Konfiguration" icon="gear" href="/de/configuration">
-  Jede Richtlinie ohne Code anpassen. Erlaubnislisten, geschützte Branches oder Schwellenwerte pro Projekt oder global festlegen.
+  Jede Richtlinie ohne Code anpassen. Allowlists, geschützte Branches oder Schwellenwerte pro Projekt oder global festlegen.
 </Card>
 
 </CardGroup>
@@ -50,8 +50,8 @@ bun add -g failproofai
 </CodeGroup>
 
 ```bash
-failproofai policies --install   # enable policies
+failproofai policies --install   # enable policies (or skip — `failproofai` will offer to set them up on first run)
 failproofai                      # launch the dashboard
 ```
 
-Eine vollständige Anleitung finden Sie im [Erste Schritte](/de/getting-started)-Leitfaden.
+Die vollständige Anleitung finden Sie im [Erste-Schritte-Leitfaden](/de/getting-started).

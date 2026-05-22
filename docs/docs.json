@@ -42,7 +42,6 @@
                   "cli/install-policies",
                   "cli/remove-policies",
                   "cli/list-policies",
-                  "cli/audit",
                   "cli/hook",
                   "cli/version",
                   "cli/environment-variables"

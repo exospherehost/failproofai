@@ -1,29 +1,35 @@
 ---
 title: Ortam değişkenleri
-description: "failproofai davranışını ortam değişkenleriyle yapılandırın"
+description: "failproofai davranışını ortam değişkenleri ile yapılandırın"
 ---
 
-## Gösterge Paneli
+## Dashboard
 
 | Değişken | Açıklama |
 |----------|----------|
-| `PORT` | Gösterge paneli portu (varsayılan: `8020`) |
-| `CLAUDE_PROJECTS_PATH` | Claude Code proje klasörlerinin bulunduğu yeri geçersiz kıl |
-| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Gizlenecek gösterge paneli sayfaları (virgülle ayrılmış) |
-| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Geliştirme kaynaklarına erişmesine izin verilen ana bilgisayarlar/IP'ler. `--allowed-origins` ile aynı. |
+| `PORT` | Dashboard portu (varsayılan: `8020`) |
+| `CLAUDE_PROJECTS_PATH` | Claude Code proje klasörlerinin bulunduğu konumu değiştirin |
+| `FAILPROOFAI_DISABLE_PAGES=policies,projects` | Gizlenecek dashboard sayfaları (virgülle ayrılmış) |
+| `FAILPROOFAI_ALLOWED_DEV_ORIGINS` | Dev kaynaklarına erişim izni verilen ana bilgisayarlar/IP'ler. `--allowed-origins` ile aynı. |
 
 ## Günlükleme
 
 | Değişken | Açıklama |
 |----------|----------|
 | `FAILPROOFAI_LOG_LEVEL=info\|warn\|error` | Sunucu günlük seviyesi (varsayılan: `warn`) |
-| `FAILPROOFAI_HOOK_LOG_FILE` | Özel hook günlük dosyası yolu veya varsayılan için `true` (`~/.failproofai/logs/hooks.log`) |
+| `FAILPROOFAI_HOOK_LOG_FILE` | Özel hook günlük dosyası yolu veya `true` (varsayılan: `~/.failproofai/logs/hooks.log`) |
 
 ## Telemetri
 
 | Değişken | Açıklama |
 |----------|----------|
-| `FAILPROOFAI_TELEMETRY_DISABLED=1` | Anonim kullanım telemetrisini devre dışı bırak |
+| `FAILPROOFAI_TELEMETRY_DISABLED=1` | Anonim kullanım telemetrisini devre dışı bırakın |
+
+## İlk çalıştırma istemesi
+
+| Değişken | Açıklama |
+|----------|----------|
+| `FAILPROOFAI_NO_FIRST_RUN=1` | İlk `failproofai` çağrısında politikaları yüklemeyi teklif eden istememi atlayın |
 
 ## LLM (politika değerlendirmesi için)
 

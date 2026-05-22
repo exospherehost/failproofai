@@ -1,36 +1,36 @@
 ---
 title: "Failproof AI"
-description: "FailproofAI は AI エージェントに 39 個の組み込みポリシーを提供し、ループ・シークレット漏洩・破壊的なツール呼び出しなどを 1 回のインストールで検出します。"
+description: "FailproofAI は、ループ・シークレット漏洩・破壊的なツール呼び出しなどを検出する 39 個の組み込み失敗ポリシーを、1 回のインストールで提供します。"
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-**AI 障害処理**・**エラー回復**・**LLM の信頼性**のためのフックとポリシー。**Claude Code**、**OpenAI Codex**、**GitHub Copilot**、**Cursor Agent**、**OpenCode**、**Pi**、**Gemini CLI**、**Agents SDK** 上で AI エージェントを安定させ、自律的に動作し続けさせます。
+**AI 障害ハンドリング**・**エラーリカバリー**・**LLM の信頼性**のためのフックとポリシー。**Claude Code**、**OpenAI Codex**、**GitHub Copilot**、**Cursor Agent**、**OpenCode**、**Pi**、**Gemini CLI**、**Agents SDK** 上で、AI エージェントを安定して自律的に稼働させ続けます。
 
-AI エージェントは予測可能なパターンで失敗します。破壊的なコマンドを実行し、シークレットを漏洩し、タスクから逸脱し、ループにはまり込み、main ブランチに直接プッシュします。放置すると、小さな障害が障害停止・認証情報の漏洩・作業の損失へと連鎖していきます。
+AI エージェントは、予測可能なパターンで失敗します。破壊的なコマンドを実行したり、シークレットを漏洩させたり、タスクから脱線したり、ループにはまったり、直接 main にプッシュしたりします。放置すると、小さな障害が連鎖してサービス停止・認証情報の漏洩・作業の消失につながります。
 
-FailproofAI はこれを**ポリシー**で解決します。これらのルールはエージェントのすべてのツール呼び出しにフックし、**障害を検出**・**軽減**（ブロック、指示、サニタイズ）し、注意が必要な場合に**アラートを通知**します。ローカルダッシュボードで、すべてのツール呼び出し・エージェント障害・回復アクションをあとから確認できます。
+FailproofAI はこの問題を **ポリシー** で解決します。これらのルールはすべてのエージェントツール呼び出しにフックし、**障害を検出**・**軽減**（ブロック・指示・サニタイズ）し、対応が必要なときに**アラートを通知**します。ローカルダッシュボードで、すべてのツール呼び出し・エージェント障害・リカバリーアクションを事後に確認できます。
 
-データはマシンの外に出ません。
+データは一切、外部に送信されません。
 
 ## はじめに
 
 <CardGroup cols={2}>
 
 <Card title="39 個の組み込みポリシー" icon="shield" href="/ja/built-in-policies">
-  破壊的なコマンドのブロック、シークレット漏洩の防止、エージェントをプロジェクト境界内に制限するなど、すぐに使えるポリシーを多数用意しています。
+  破壊的なコマンドのブロック、シークレット漏洩の防止、エージェントをプロジェクト境界内に制限など、すぐに使える機能が揃っています。
 </Card>
 
 <Card title="カスタムポリシー" icon="code" href="/ja/custom-policies">
-  シンプルな allow / deny / instruct API を使って、JavaScript で独自のルールを記述できます。
+  シンプルな allow / deny / instruct API を使って、JavaScript で独自ルールを作成できます。
 </Card>
 
 <Card title="エージェントモニター" icon="chart-line" href="/ja/dashboard">
-  離席中にエージェントが何をしていたかを確認できます。セッションの閲覧、ツール呼び出しの詳細確認、ポリシーが発動した箇所のレビューが可能です。
+  離席中にエージェントが何をしていたかを確認できます。セッションの閲覧、ツール呼び出しの詳細確認、ポリシーが発火した箇所のレビューが可能です。
 </Card>
 
-<Card title="簡単な設定" icon="gear" href="/ja/configuration">
-  コードなしでポリシーを調整できます。プロジェクト単位またはグローバルに、許可リスト・保護ブランチ・しきい値を設定できます。
+<Card title="かんたん設定" icon="gear" href="/ja/configuration">
+  コードを書かずにポリシーを調整できます。許可リスト・保護ブランチ・しきい値をプロジェクト単位またはグローバルに設定できます。
 </Card>
 
 </CardGroup>
@@ -50,8 +50,8 @@ bun add -g failproofai
 </CodeGroup>
 
 ```bash
-failproofai policies --install   # ポリシーを有効化する
-failproofai                      # ダッシュボードを起動する
+failproofai policies --install   # enable policies (or skip — `failproofai` will offer to set them up on first run)
+failproofai                      # launch the dashboard
 ```
 
-詳細な手順については [Getting started](/ja/getting-started) ガイドをご覧ください。
+詳細な手順については、[はじめかた](/ja/getting-started)ガイドをご覧ください。

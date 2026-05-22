@@ -1,15 +1,15 @@
 ---
 title: "Failproof AI"
-description: "FailproofAI offre aux agents IA 39 politiques de gestion des défaillances intégrées qui détectent les boucles, les fuites de secrets, les appels d'outils destructeurs, et plus encore en une seule installation."
+description: "FailproofAI donne aux agents IA 39 politiques de défaillance intégrées qui détectent les boucles, les fuites de secrets, les appels d'outils destructeurs et bien plus encore, en une seule installation."
 ---
 
 [![npm weekly downloads](https://img.shields.io/npm/dw/failproofai?style=flat-square&color=2ea44f)](https://www.npmjs.com/package/failproofai)
 
-Hooks et politiques pour la **gestion des défaillances IA**, la **récupération d'erreurs** et la **fiabilité des LLM**. Gardez vos agents IA fiables et autonomes avec **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Cursor Agent**, **OpenCode**, **Pi**, **Gemini CLI** et le **Agents SDK**.
+Hooks et politiques pour la **gestion des défaillances de l'IA**, la **récupération d'erreurs** et la **fiabilité des LLM**. Gardez vos agents IA fiables et autonomes sur **Claude Code**, **OpenAI Codex**, **GitHub Copilot**, **Cursor Agent**, **OpenCode**, **Pi**, **Gemini CLI** et le **Agents SDK**.
 
-Les agents IA échouent de manière prévisible. Ils exécutent des commandes destructrices, divulguent des secrets, s'éloignent de leur tâche, se retrouvent coincés dans des boucles ou poussent directement vers la branche principale. Sans surveillance, de petites défaillances se transforment en pannes, en identifiants compromis et en travail perdu.
+Les agents IA échouent de manière prévisible. Ils exécutent des commandes destructrices, exposent des secrets, dérivent hors de leur tâche, se retrouvent bloqués dans des boucles ou poussent directement sur main. Sans surveillance, de petites défaillances s'enchaînent et provoquent des pannes, des identifiants compromis et du travail perdu.
 
-FailproofAI résout ce problème grâce aux **politiques**. Ces règles s'intègrent à chaque appel d'outil de l'agent pour **détecter les défaillances**, **les atténuer** (bloquer, instruire, assainir) et **vous alerter** lorsqu'une intervention est nécessaire. Un tableau de bord local vous permet de consulter chaque appel d'outil, chaque défaillance de l'agent et chaque action corrective a posteriori.
+FailproofAI résout ce problème grâce à des **politiques**. Ces règles s'accrochent à chaque appel d'outil de l'agent pour **détecter les défaillances**, les **atténuer** (bloquer, instruire, assainir) et **vous alerter** lorsqu'un problème nécessite votre attention. Un tableau de bord local vous permet de consulter chaque appel d'outil, chaque défaillance d'agent et chaque action corrective après coup.
 
 Aucune donnée ne quitte votre machine.
 
@@ -26,11 +26,11 @@ Aucune donnée ne quitte votre machine.
 </Card>
 
 <Card title="Moniteur d'agents" icon="chart-line" href="/fr/dashboard">
-  Voyez ce que vos agents ont fait pendant votre absence. Parcourez les sessions, inspectez les appels d'outils, vérifiez où les politiques ont été déclenchées.
+  Voyez ce que vos agents ont fait pendant votre absence. Parcourez les sessions, inspectez les appels d'outils, examinez où les politiques se sont déclenchées.
 </Card>
 
-<Card title="Configuration simplifiée" icon="gear" href="/fr/configuration">
-  Ajustez n'importe quelle politique sans écrire de code. Définissez des listes d'autorisation, des branches protégées ou des seuils par projet ou de manière globale.
+<Card title="Configuration facile" icon="gear" href="/fr/configuration">
+  Ajustez n'importe quelle politique sans code. Définissez des listes d'autorisation, des branches protégées ou des seuils par projet ou de manière globale.
 </Card>
 
 </CardGroup>
@@ -50,8 +50,8 @@ bun add -g failproofai
 </CodeGroup>
 
 ```bash
-failproofai policies --install   # activer les politiques
-failproofai                      # lancer le tableau de bord
+failproofai policies --install   # enable policies (or skip — `failproofai` will offer to set them up on first run)
+failproofai                      # launch the dashboard
 ```
 
-Consultez le guide [Premiers pas](/fr/getting-started) pour une présentation complète.
+Consultez le guide [Prise en main](/fr/getting-started) pour une présentation complète.

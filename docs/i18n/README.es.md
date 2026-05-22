@@ -79,7 +79,7 @@ antes de que se conviertan en incidentes. Sin latencia. Se ejecuta localmente.
   </a>
 </p>
 
-> Instala hooks para uno o cualquier combinación: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Omite `--cli` para detectar automáticamente los CLIs instalados y que se te solicite.
+> Instala los hooks para uno o cualquier combinación: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Omite `--cli` para detectar automáticamente los CLIs instalados y recibir un aviso.
 
 ---
 
@@ -87,15 +87,15 @@ antes de que se conviertan en incidentes. Sin latencia. Se ejecuta localmente.
 
 ```sh
 npm install -g failproofai
-failproofai policies --install
+failproofai policies --install   # o simplemente ejecuta `failproofai` y acepta el aviso de primera ejecución
 failproofai
 ```
 
-30 políticas integradas se activan de inmediato. Panel en `localhost:8020`.
+30 políticas integradas se activan de inmediato. Panel de control en `localhost:8020`. Desactiva el aviso de primera ejecución con `FAILPROOFAI_NO_FIRST_RUN=1`.
 
 ---
 
-## Qué detiene
+## Qué bloquea
 
 | Política | Qué bloquea |
 |---|---|
@@ -111,8 +111,8 @@ failproofai
 
 ## Tus propias políticas
 
-Coloca un archivo en `.failproofai/policies/` — se carga automáticamente, sin flags adicionales.
-Confírmalo en el repositorio y todo el equipo lo tendrá en el próximo pull.
+Coloca un archivo en `.failproofai/policies/` — se carga automáticamente, sin necesidad de flags.
+Súbelo al repositorio y todo el equipo lo tendrá en el próximo pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -133,8 +133,8 @@ Tres decisiones disponibles para cada política:
 | Decisión | Efecto |
 |---|---|
 | `allow()` | Permite la operación |
-| `deny(message)` | La bloquea — el mensaje se devuelve al agente |
-| `instruct(message)` | La deja pasar, pero añade contexto al siguiente prompt del agente |
+| `deny(message)` | La bloquea — el mensaje se envía de vuelta al agente |
+| `instruct(message)` | La deja pasar, pero agrega contexto al siguiente prompt del agente |
 
 → [Guía de políticas personalizadas](https://docs.befailproof.ai/custom-policies)
 
@@ -142,9 +142,9 @@ Tres decisiones disponibles para cada política:
 
 ## Visibilidad de la sesión
 
-Cada llamada a herramientas que realiza tu agente se registra localmente. El panel muestra qué se ejecutó,
-qué fue bloqueado y qué indicó la política al agente — para que no tengas que adivinar
-qué salió mal. → [Guía del panel](https://docs.befailproof.ai/dashboard)
+Cada llamada de herramienta que realiza tu agente se registra localmente. El panel de control muestra qué se ejecutó,
+qué fue bloqueado y qué le indicó la política al agente — para que no tengas que adivinar
+cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -152,24 +152,24 @@ qué salió mal. → [Guía del panel](https://docs.befailproof.ai/dashboard)
 
 | | |
 |---|---|
-| [Primeros pasos](https://docs.befailproof.ai/getting-started) | Instalación y pasos iniciales |
+| [Primeros pasos](https://docs.befailproof.ai/getting-started) | Instalación y primeros pasos |
 | [Políticas integradas](https://docs.befailproof.ai/built-in-policies) | Las 30 políticas con sus parámetros |
 | [Políticas personalizadas](https://docs.befailproof.ai/custom-policies) | Escribe las tuyas propias |
-| [Configuración](https://docs.befailproof.ai/configuration) | Ámbitos de configuración y reglas de fusión |
-| [Panel](https://docs.befailproof.ai/dashboard) | Monitor de sesión y actividad de políticas |
+| [Configuración](https://docs.befailproof.ai/configuration) | Alcances de configuración y reglas de combinación |
+| [Panel de control](https://docs.befailproof.ai/dashboard) | Monitor de sesión y actividad de políticas |
 | [Arquitectura](https://docs.befailproof.ai/architecture) | Cómo funciona el sistema de hooks |
 
 ---
 
 ## Licencia
 
-MIT con [Commons Clause](https://commonsclause.com/) — gratuito para uso interno y personal; la reventa comercial de failproofai en sí requiere un acuerdo separado. Consulta [LICENSE](./LICENSE) para el texto completo.
+MIT con [Commons Clause](https://commonsclause.com/) — gratuito para uso interno y personal; la reventa comercial de failproofai en sí requiere un acuerdo por separado. Consulta [LICENSE](./LICENSE) para el texto completo.
 
 ---
 
-## Contribuir
+## Contribuciones
 
-Consulta [CONTRIBUTING.md](./CONTRIBUTING.md). Son bienvenidas nuevas políticas, casos límite y traducciones.
+Consulta [CONTRIBUTING.md](./CONTRIBUTING.md). Nuevas políticas, casos límite y traducciones son bienvenidas.
 
 ---
 
