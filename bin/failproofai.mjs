@@ -492,6 +492,17 @@ EXAMPLES
     );
   }
 
+  // First-run nudge — only on truly bare `failproofai` invocations. Best-effort:
+  // any thrown error must not block the dashboard from launching.
+  if (args.length === 0) {
+    try {
+      const { maybeRunFirstRunNudge } = await import("../src/hooks/first-run-nudge");
+      await maybeRunFirstRunNudge();
+    } catch {
+      // Nudge is non-critical; fall through to dashboard.
+    }
+  }
+
   // Dashboard launch — always production mode
   const { launch } = await import("../scripts/launch");
   launch("start");

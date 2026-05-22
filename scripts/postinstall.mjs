@@ -134,6 +134,15 @@ try {
   // Non-critical — don't fail the install
 }
 
+if (!hooksResult.configured && !hooksResult.registered) {
+  console.log(
+    `\n[failproofai] Installed. Next steps:\n` +
+    `  1. Run \`failproofai policies --install\` to enable safety policies.\n` +
+    `  2. Run \`failproofai\` to open the dashboard (or just \`failproofai\` to start now — it'll offer to set up policies for you).\n` +
+    `  Disable first-run prompt: FAILPROOFAI_NO_FIRST_RUN=1\n`
+  );
+}
+
 // First-run + version_changed detection. The presence of ~/.failproofai/last-version
 // is a stable signal: written on every postinstall, absent before the first one.
 // Cannot piggy-back on instance-id because most users hit Tier 2 (OS machine ID)
