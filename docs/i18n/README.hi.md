@@ -16,19 +16,19 @@
 
 **अनुवाद:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**कोडिंग एजेंटों के लिए रनटाइम विफलता समाधान।**
-Claude Code और Codex में हुक करता है। लूप्स, खतरनाक क्रियाओं और सीक्रेट लीक को पकड़ता है
-इससे पहले कि वे समस्याएं बनें। शून्य विलंबता। स्थानीय रूप से चलता है।
+**कोडिंग एजेंट्स के लिए रनटाइम विफलता समाधान।**
+Claude Code और Codex में हुक करता है। लूप, खतरनाक कार्य और गुप्त जानकारी के रिसाव को पकड़ता है
+इससे पहले कि वे समस्या बन जाएं। शून्य विलंबता। स्थानीय रूप से चलता है।
 
 </div>
 
 <p align="center">
-  <img src="readme-arch-hq.gif" alt="Failproof AI क्रिया में" width="800" />
+  <img src="readme-arch-hq.gif" alt="Failproof AI in action" width="800" />
 </p>
 
 ---
 
-## समर्थित एजेंट CLIs
+## समर्थित एजेंट सीएलआई
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -79,7 +79,7 @@ Claude Code और Codex में हुक करता है। लूप्
   </a>
 </p>
 
-> एक या किसी भी संयोजन के लिए हुक इंस्टॉल करें: `failproofai policies --install --cli opencode pi gemini` (या `--cli claude codex copilot cursor opencode pi gemini`)। स्वचालित-पहचान और संकेत देने के लिए `--cli` को छोड़ दें।
+> एक या किसी भी संयोजन के लिए हुक इंस्टॉल करें: `failproofai policies --install --cli opencode pi gemini` (या `--cli claude codex copilot cursor opencode pi gemini`)। स्वचालित रूप से स्थापित सीएलआई का पता लगाने के लिए `--cli` को छोड़ दें और प्रकट करें।
 
 ---
 
@@ -87,32 +87,32 @@ Claude Code और Codex में हुक करता है। लूप्
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # या बस `failproofai` चलाएं और पहली बार के प्रॉम्प्ट को स्वीकार करें
+failproofai policies --install   # या बस `failproofai` चलाएं और पहली बार प्रकट किए गए प्रस्ताव को स्वीकार करें
 failproofai
 ```
 
-30 बिल्ट-इन नीतियां तुरंत सक्रिय हो जाती हैं। डैशबोर्ड `localhost:8020` पर। `FAILPROOFAI_NO_FIRST_RUN=1` से पहली बार के प्रॉम्प्ट को अक्षम करें।
+30 अंतर्निर्मित नीतियां तुरंत सक्रिय हो जाती हैं। `localhost:8020` पर डैशबोर्ड। `FAILPROOFAI_NO_FIRST_RUN=1` से पहली बार प्रकट किए गए प्रस्ताव को अक्षम करें।
 
 ---
 
 ## यह क्या रोकता है
 
-| नीति | क्या यह ब्लॉक करता है |
+| नीति | यह क्या अवरुद्ध करता है |
 |---|---|
 | `block-push-master` | `main` / `master` को सीधे पुश |
 | `block-force-push` | `git push --force` |
 | `block-work-on-main` | `main` / `master` पर कमिट, मर्ज, रीबेस |
-| `block-rm-rf` | पुनरावर्ती फाइल हटाना |
-| `sanitize-api-keys` | एजेंट संदर्भ में API कुंजियों का लीक होना |
+| `block-rm-rf` | पुनरावर्ती फ़ाइल विलोपन |
+| `sanitize-api-keys` | एपीआई कुंजियां एजेंट संदर्भ में रिसना |
 
-→ [सभी 30 बिल्ट-इन नीतियां](https://docs.befailproof.ai/built-in-policies)
+→ [सभी 30 अंतर्निर्मित नीतियां](https://docs.befailproof.ai/built-in-policies)
 
 ---
 
-## अपनी खुद की नीतियां
+## अपनी नीतियां
 
-`.failproofai/policies/` में एक फाइल डालें — यह स्वचालित रूप से लोड होती है, किसी फ्लैग की आवश्यकता नहीं।
-इसे कमिट करें और पूरी टीम को अगले पुल पर मिलता है।
+`.failproofai/policies/` में एक फ़ाइल ड्रॉप करें — यह स्वचालित रूप से लोड होती है, कोई ध्वज की आवश्यकता नहीं।
+इसे कमिट करें और पूरी टीम को अगले पुल पर मिल जाता है।
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -132,46 +132,46 @@ customPolicies.add({
 
 | निर्णय | प्रभाव |
 |---|---|
-| `allow()` | ऑपरेशन को अनुमति दें |
-| `deny(message)` | इसे ब्लॉक करें — संदेश एजेंट के पास वापस जाता है |
-| `instruct(message)` | इसे जाने दें, लेकिन एजेंट के अगले प्रॉम्प्ट में संदर्भ जोड़ें |
+| `allow()` | ऑपरेशन की अनुमति दें |
+| `deny(message)` | इसे अवरुद्ध करें — संदेश एजेंट को वापस जाता है |
+| `instruct(message)` | इसे सामने आने दें, लेकिन एजेंट के अगले प्रॉम्प्ट में संदर्भ जोड़ें |
 
 → [कस्टम नीतियां गाइड](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## सेशन दृश्यता
+## सत्र दृश्यता
 
-आपका एजेंट जो हर टूल कॉल करता है वह स्थानीय रूप से लॉग किया जाता है। डैशबोर्ड दिखाता है कि क्या चला,
-क्या ब्लॉक किया गया, और नीति ने एजेंट को क्या बताया — तो आप अनुमान नहीं लगा रहे
+आपके एजेंट द्वारा किया जाने वाला प्रत्येक टूल कॉल स्थानीय रूप से लॉग किया जाता है। डैशबोर्ड दिखाता है कि क्या चलता था,
+क्या अवरुद्ध किया गया था, और नीति ने एजेंट को क्या बताया — इसलिए आप अनुमान नहीं लगा रहे हैं
 जब कुछ गलत हो जाता है। → [डैशबोर्ड गाइड](https://docs.befailproof.ai/dashboard)
 
 ---
 
-## डॉक्यूमेंटेशन
+## दस्तावेज़
 
 | | |
 |---|---|
-| [शुरुआत करना](https://docs.befailproof.ai/getting-started) | इंस्टॉलेशन और पहले कदम |
-| [बिल्ट-इन नीतियां](https://docs.befailproof.ai/built-in-policies) | सभी 30 नीतियां पैरामीटर के साथ |
+| [शुरुआत करना](https://docs.befailproof.ai/getting-started) | स्थापना और पहले कदम |
+| [अंतर्निर्मित नीतियां](https://docs.befailproof.ai/built-in-policies) | सभी 30 नीतियां पैरामीटर के साथ |
 | [कस्टम नीतियां](https://docs.befailproof.ai/custom-policies) | अपना लिखें |
-| [कॉन्फ़िगरेशन](https://docs.befailproof.ai/configuration) | कॉन्फ़िग स्कोप और मर्ज नियम |
-| [डैशबोर्ड](https://docs.befailproof.ai/dashboard) | सेशन मॉनिटर और नीति गतिविधि |
+| [कॉन्फ़िगरेशन](https://docs.befailproof.ai/configuration) | कॉन्फ़िग स्कोप और विलय नियम |
+| [डैशबोर्ड](https://docs.befailproof.ai/dashboard) | सत्र मॉनिटर और नीति गतिविधि |
 | [आर्किटेक्चर](https://docs.befailproof.ai/architecture) | हुक सिस्टम कैसे काम करता है |
 
 ---
 
 ## लाइसेंस
 
-MIT with [Commons Clause](https://commonsclause.com/) — आंतरिक और व्यक्तिगत उपयोग के लिए मुफ्त; failproofai के व्यावसायिक पुनर्विक्रय के लिए एक अलग समझौते की आवश्यकता है। पूर्ण पाठ के लिए [LICENSE](./LICENSE) देखें।
+[Commons Clause](https://commonsclause.com/) के साथ एमआईटी — आंतरिक और व्यक्तिगत उपयोग के लिए स्वतंत्र; failproofai के वाणिज्यिक पुनर्विक्रय के लिए एक अलग समझौते की आवश्यकता है। पूर्ण पाठ के लिए [LICENSE](./LICENSE) देखें।
 
 ---
 
-## योगदान देना
+## योगदान
 
-[CONTRIBUTING.md](./CONTRIBUTING.md) देखें। नई नीतियां, किनारे की स्थितियां, और अनुवाद सभी स्वागत हैं।
+[CONTRIBUTING.md](./CONTRIBUTING.md) देखें। नई नीतियां, सीमांत मामले और अनुवाद सभी स्वागत हैं।
 
 ---
 
-[Nivedit Jain](https://github.com/NiveditJain) और [Nikita Agarwal](https://github.com/nk-ag) द्वारा बनाया गया।
+[Nivedit Jain](https://github.com/NiveditJain) और [Nikita Agarwal](https://github.com/nk-ag) द्वारा निर्मित।
 [befailproof.ai](https://befailproof.ai)

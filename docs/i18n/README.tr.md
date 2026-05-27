@@ -17,8 +17,8 @@
 **Çeviriler:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
 **Kodlama ajanları için çalışma zamanı hata çözümü.**
-Claude Code ve Codex içine entegre edilir. Döngüleri, tehlikeli işlemleri ve sır sızıntılarını
-incident olmadan önce yakalar. Sıfır gecikme. Yerel çalışır.
+Claude Code ve Codex'e entegre olur. Döngüleri, tehlikeli işlemleri ve gizli dizi sızıntılarını
+bunlar olaylar haline gelmeden yakalar. Sıfır gecikme. Yerel olarak çalışır.
 
 </div>
 
@@ -28,7 +28,7 @@ incident olmadan önce yakalar. Sıfır gecikme. Yerel çalışır.
 
 ---
 
-## Desteklenen ajan CLI'ları
+## Desteklenen ajan CLileri
 
 <p align="center">
   <a href="https://claude.com/claude-code" title="Claude Code">
@@ -79,7 +79,7 @@ incident olmadan önce yakalar. Sıfır gecikme. Yerel çalışır.
   </a>
 </p>
 
-> Hook'ları bir veya birkaç kombinasyon için kurun: `failproofai policies --install --cli opencode pi gemini` (veya `--cli claude codex copilot cursor opencode pi gemini`). Kurulan CLI'ları otomatik olarak algılamak ve sorunca `--cli` parametresini atlayın.
+> Hook'ları bir veya herhangi bir kombinasyon için yükleyin: `failproofai policies --install --cli opencode pi gemini` (veya `--cli claude codex copilot cursor opencode pi gemini`). Kurulu CLileri otomatik olarak algılamak ve istemi için `--cli` parametresini atlayın.
 
 ---
 
@@ -87,21 +87,21 @@ incident olmadan önce yakalar. Sıfır gecikme. Yerel çalışır.
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # veya sadece `failproofai` çalıştırın ve ilk çalıştırma istemini kabul edin
+failproofai policies --install   # veya sadece `failproofai` çalıştırın ve ilk çalıştırma istemini onaylayın
 failproofai
 ```
 
-30 yerleşik politika hemen etkinleştirilir. Pano `localhost:8020` adresindedir. İlk çalıştırma istemini `FAILPROOFAI_NO_FIRST_RUN=1` ile devre dışı bırakın.
+30 yerleşik politika hemen etkinleşir. Pano `localhost:8020` adresinde bulunur. İlk çalıştırma istemini `FAILPROOFAI_NO_FIRST_RUN=1` ile devre dışı bırakın.
 
 ---
 
-## Neleri durdurur
+## Neyi durdurur
 
 | Politika | Neyi engeller |
 |---|---|
-| `block-push-master` | `main` / `master` dalına doğrudan gönderimler |
+| `block-push-master` | `main` / `master` dalına doğrudan itmeler |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | `main` / `master` üzerinde commit'ler, merge'ler, rebase'ler |
+| `block-work-on-main` | `main` / `master` üzerinde işlemler, birleştirmeler, yeniden temelleme |
 | `block-rm-rf` | Özyinelemeli dosya silme |
 | `sanitize-api-keys` | API anahtarlarının ajan bağlamına sızması |
 
@@ -111,8 +111,8 @@ failproofai
 
 ## Kendi politikalarınız
 
-`.failproofai/policies/` klasörüne bir dosya bırakın — otomatik olarak yüklenir, bayrak gerekmez.
-Commit edin ve tüm takım bunu sonraki çekme sırasında alır.
+`.failproofai/policies/` klasörüne bir dosya bırakın — bayrak gerekmeksizin otomatik olarak yüklenir.
+Bunu işleyin ve tüm ekip bir sonraki çekme üzerinde alır.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -122,19 +122,19 @@ customPolicies.add({
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (ctx.toolInput?.file_path?.includes("production"))
-      return deny("Production yollarına yazımlar engellenir.");
+      return deny("Üretim yollarına yazma işlemleri engellenir.");
     return allow();
   },
 });
 ```
 
-Her politika için üç karar vardır:
+Her politika için kullanılabilir üç karar:
 
 | Karar | Etki |
 |---|---|
 | `allow()` | İşleme izin ver |
 | `deny(message)` | Engelle — ileti ajana geri gider |
-| `instruct(message)` | Geçir, ancak ajana sonraki istem içine bağlam ekle |
+| `instruct(message)` | İzin ver, ancak ajanın bir sonraki isteminde bağlam ekle |
 
 → [Özel politikalar rehberi](https://docs.befailproof.ai/custom-policies)
 
@@ -142,9 +142,9 @@ Her politika için üç karar vardır:
 
 ## Oturum görünürlüğü
 
-Ajanınızın yaptığı her araç çağrısı yerel olarak kaydedilir. Pano ne çalıştırıldığını,
-ne engellendğini ve politikanın ajana ne söylediğini gösterir — böylece bir şey yanlış gittiğinde
-tahmin etmezsiniz. → [Pano rehberi](https://docs.befailproof.ai/dashboard)
+Ajanınızın yaptığı her araç çağrısı yerel olarak kaydedilir. Pano, neyin çalıştığını,
+neyin engellendiğini ve politikanın ajana ne söylediğini gösterir — böylece bir şey
+ters gittiğinde tahmin etmezsiniz. → [Pano rehberi](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -152,8 +152,8 @@ tahmin etmezsiniz. → [Pano rehberi](https://docs.befailproof.ai/dashboard)
 
 | | |
 |---|---|
-| [Başlangıç](https://docs.befailproof.ai/getting-started) | Kurulum ve ilk adımlar |
-| [Yerleşik Politikalar](https://docs.befailproof.ai/built-in-policies) | Parametrelerle 30 politika |
+| [Başlarken](https://docs.befailproof.ai/getting-started) | Kurulum ve ilk adımlar |
+| [Yerleşik Politikalar](https://docs.befailproof.ai/built-in-policies) | Tüm 30 politika ve parametreleri |
 | [Özel Politikalar](https://docs.befailproof.ai/custom-policies) | Kendi politikalarınızı yazın |
 | [Yapılandırma](https://docs.befailproof.ai/configuration) | Yapılandırma kapsamları ve birleştirme kuralları |
 | [Pano](https://docs.befailproof.ai/dashboard) | Oturum monitörü ve politika aktivitesi |
@@ -163,15 +163,15 @@ tahmin etmezsiniz. → [Pano rehberi](https://docs.befailproof.ai/dashboard)
 
 ## Lisans
 
-MIT ile [Commons Clause](https://commonsclause.com/) — iç ve kişisel kullanım için ücretsiz; failproofai'nin kendisinin ticari yeniden satışı ayrı bir anlaşma gerektirir. Tam metin için [LICENSE](./LICENSE) bölümüne bakın.
+MIT ile [Commons Clause](https://commonsclause.com/) — dahili ve kişisel kullanım için ücretsiz; failproofai'ın kendisinin ticari satışı ayrı bir anlaşma gerektirir. Tam metin için [LICENSE](./LICENSE) dosyasına bakın.
 
 ---
 
-## Katkıda bulunma
+## Katkı yapma
 
-[CONTRIBUTING.md](./CONTRIBUTING.md) bölümüne bakın. Yeni politikalar, uç durumlar ve çeviriler hoş geldiniz.
+[CONTRIBUTING.md](./CONTRIBUTING.md) dosyasına bakın. Yeni politikalar, kenar durumlar ve çeviriler hepsi hoş karşılanır.
 
 ---
 
-[Nivedit Jain](https://github.com/NiveditJain) ve [Nikita Agarwal](https://github.com/nk-ag) tarafından yapıldı.
+[Nivedit Jain](https://github.com/NiveditJain) ve [Nikita Agarwal](https://github.com/nk-ag) tarafından yapılmıştır.
 [befailproof.ai](https://befailproof.ai)

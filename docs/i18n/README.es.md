@@ -17,7 +17,7 @@
 **Traducciones:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
 **Resolución de fallos en tiempo de ejecución para agentes de código.**
-Se integra con Claude Code y Codex. Detecta bucles, acciones peligrosas y fugas de secretos
+Se integra con Claude Code y Codex. Detecta bucles, acciones peligrosas y filtraciones de secretos
 antes de que se conviertan en incidentes. Sin latencia. Se ejecuta localmente.
 
 </div>
@@ -79,7 +79,7 @@ antes de que se conviertan en incidentes. Sin latencia. Se ejecuta localmente.
   </a>
 </p>
 
-> Instala los hooks para uno o cualquier combinación: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Omite `--cli` para detectar automáticamente los CLIs instalados y recibir un aviso.
+> Instala hooks para uno o cualquier combinación: `failproofai policies --install --cli opencode pi gemini` (o `--cli claude codex copilot cursor opencode pi gemini`). Omite `--cli` para detectar automáticamente los CLIs instalados y recibir una solicitud.
 
 ---
 
@@ -95,13 +95,13 @@ failproofai
 
 ---
 
-## Qué bloquea
+## Qué detiene
 
 | Política | Qué bloquea |
 |---|---|
-| `block-push-master` | Envíos directos a `main` / `master` |
+| `block-push-master` | Pushes directos a `main` / `master` |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | Commits, merges y rebases en `main` / `master` |
+| `block-work-on-main` | Commits, merges, rebases en `main` / `master` |
 | `block-rm-rf` | Eliminación recursiva de archivos |
 | `sanitize-api-keys` | Claves de API que se filtran al contexto del agente |
 
@@ -111,8 +111,8 @@ failproofai
 
 ## Tus propias políticas
 
-Coloca un archivo en `.failproofai/policies/` — se carga automáticamente, sin necesidad de flags.
-Súbelo al repositorio y todo el equipo lo tendrá en el próximo pull.
+Coloca un archivo en `.failproofai/policies/` — se carga automáticamente, sin flags adicionales.
+Haz commit y todo el equipo lo obtiene en el próximo pull.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -134,16 +134,16 @@ Tres decisiones disponibles para cada política:
 |---|---|
 | `allow()` | Permite la operación |
 | `deny(message)` | La bloquea — el mensaje se envía de vuelta al agente |
-| `instruct(message)` | La deja pasar, pero agrega contexto al siguiente prompt del agente |
+| `instruct(message)` | La deja pasar, pero añade contexto al siguiente prompt del agente |
 
 → [Guía de políticas personalizadas](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## Visibilidad de la sesión
+## Visibilidad de sesión
 
-Cada llamada de herramienta que realiza tu agente se registra localmente. El panel de control muestra qué se ejecutó,
-qué fue bloqueado y qué le indicó la política al agente — para que no tengas que adivinar
+Cada llamada a herramienta que realiza tu agente se registra localmente. El panel de control muestra qué se ejecutó,
+qué fue bloqueado y qué le indicó la política al agente — así no tienes que adivinar
 cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.ai/dashboard)
 
 ---
@@ -155,7 +155,7 @@ cuando algo sale mal. → [Guía del panel de control](https://docs.befailproof.
 | [Primeros pasos](https://docs.befailproof.ai/getting-started) | Instalación y primeros pasos |
 | [Políticas integradas](https://docs.befailproof.ai/built-in-policies) | Las 30 políticas con sus parámetros |
 | [Políticas personalizadas](https://docs.befailproof.ai/custom-policies) | Escribe las tuyas propias |
-| [Configuración](https://docs.befailproof.ai/configuration) | Alcances de configuración y reglas de combinación |
+| [Configuración](https://docs.befailproof.ai/configuration) | Ámbitos de configuración y reglas de fusión |
 | [Panel de control](https://docs.befailproof.ai/dashboard) | Monitor de sesión y actividad de políticas |
 | [Arquitectura](https://docs.befailproof.ai/architecture) | Cómo funciona el sistema de hooks |
 
@@ -169,7 +169,7 @@ MIT con [Commons Clause](https://commonsclause.com/) — gratuito para uso inter
 
 ## Contribuciones
 
-Consulta [CONTRIBUTING.md](./CONTRIBUTING.md). Nuevas políticas, casos límite y traducciones son bienvenidas.
+Consulta [CONTRIBUTING.md](./CONTRIBUTING.md). Se aceptan nuevas políticas, casos límite y traducciones.
 
 ---
 

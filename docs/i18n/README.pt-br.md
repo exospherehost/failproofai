@@ -18,7 +18,7 @@
 
 **Resolução de falhas em tempo de execução para agentes de código.**
 Integra-se ao Claude Code e ao Codex. Detecta loops, ações perigosas e vazamentos de segredos
-antes que se tornem incidentes. Latência zero. Executa localmente.
+antes que se tornem incidentes. Zero latência. Roda localmente.
 
 </div>
 
@@ -79,7 +79,7 @@ antes que se tornem incidentes. Latência zero. Executa localmente.
   </a>
 </p>
 
-> Instale hooks para um ou qualquer combinação: `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omita `--cli` para detectar automaticamente os CLIs instalados e receber uma solicitação interativa.
+> Instale hooks para um ou qualquer combinação: `failproofai policies --install --cli opencode pi gemini` (ou `--cli claude codex copilot cursor opencode pi gemini`). Omita `--cli` para detectar automaticamente os CLIs instalados e ser solicitado a escolher.
 
 ---
 
@@ -87,11 +87,11 @@ antes que se tornem incidentes. Latência zero. Executa localmente.
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # ou simplesmente execute `failproofai` e aceite o prompt de primeira execução
+failproofai policies --install   # ou apenas execute `failproofai` e aceite o prompt da primeira execução
 failproofai
 ```
 
-30 políticas integradas são ativadas imediatamente. Dashboard disponível em `localhost:8020`. Desative o prompt de primeira execução com `FAILPROOFAI_NO_FIRST_RUN=1`.
+30 políticas integradas são ativadas imediatamente. Dashboard em `localhost:8020`. Desative o prompt da primeira execução com `FAILPROOFAI_NO_FIRST_RUN=1`.
 
 ---
 
@@ -111,7 +111,7 @@ failproofai
 
 ## Suas próprias políticas
 
-Adicione um arquivo em `.failproofai/policies/` — ele é carregado automaticamente, sem necessidade de flags.
+Coloque um arquivo em `.failproofai/policies/` — ele é carregado automaticamente, sem necessidade de flags.
 Faça o commit e toda a equipe receberá na próxima atualização.
 
 ```js
@@ -152,9 +152,9 @@ quando algo der errado. → [Guia do dashboard](https://docs.befailproof.ai/dash
 
 | | |
 |---|---|
-| [Primeiros Passos](https://docs.befailproof.ai/getting-started) | Instalação e primeiros passos |
-| [Políticas Integradas](https://docs.befailproof.ai/built-in-policies) | Todas as 30 políticas com parâmetros |
-| [Políticas Personalizadas](https://docs.befailproof.ai/custom-policies) | Escreva as suas próprias |
+| [Primeiros passos](https://docs.befailproof.ai/getting-started) | Instalação e primeiros passos |
+| [Políticas integradas](https://docs.befailproof.ai/built-in-policies) | Todas as 30 políticas com parâmetros |
+| [Políticas personalizadas](https://docs.befailproof.ai/custom-policies) | Escreva as suas próprias |
 | [Configuração](https://docs.befailproof.ai/configuration) | Escopos de configuração e regras de mesclagem |
 | [Dashboard](https://docs.befailproof.ai/dashboard) | Monitor de sessão e atividade de políticas |
 | [Arquitetura](https://docs.befailproof.ai/architecture) | Como o sistema de hooks funciona |
@@ -163,13 +163,13 @@ quando algo der errado. → [Guia do dashboard](https://docs.befailproof.ai/dash
 
 ## Licença
 
-MIT com [Commons Clause](https://commonsclause.com/) — gratuito para uso interno e pessoal; a revenda comercial do failproofai em si requer um acordo separado. Consulte [LICENSE](./LICENSE) para o texto completo.
+MIT com [Commons Clause](https://commonsclause.com/) — gratuito para uso interno e pessoal; a revenda comercial do próprio failproofai requer um acordo separado. Veja [LICENSE](./LICENSE) para o texto completo.
 
 ---
 
 ## Contribuindo
 
-Consulte [CONTRIBUTING.md](./CONTRIBUTING.md). Novas políticas, casos extremos e traduções são bem-vindos.
+Veja [CONTRIBUTING.md](./CONTRIBUTING.md). Novas políticas, casos extremos e traduções são bem-vindos.
 
 ---
 

@@ -16,9 +16,9 @@
 
 **Переводы:** [简体中文](./docs/i18n/README.zh.md) · [日本語](./docs/i18n/README.ja.md) · [한국어](./docs/i18n/README.ko.md) · [Español](./docs/i18n/README.es.md) · [Português](./docs/i18n/README.pt-br.md) · [Deutsch](./docs/i18n/README.de.md) · [Français](./docs/i18n/README.fr.md) · [Русский](./docs/i18n/README.ru.md) · [हिन्दी](./docs/i18n/README.hi.md) · [Türkçe](./docs/i18n/README.tr.md) · [Tiếng Việt](./docs/i18n/README.vi.md) · [Italiano](./docs/i18n/README.it.md) · [العربية](./docs/i18n/README.ar.md) · [עברית](./docs/i18n/README.he.md)
 
-**Разрешение проблем времени выполнения для кодирующих агентов.**
-Интегрируется с Claude Code и Codex. Перехватывает бесконечные циклы, опасные действия и утечки секретов
-до того, как они станут инцидентами. Нулевая задержка. Работает локально.
+**Разрешение ошибок выполнения для кодирующих агентов.**
+Интегрируется с Claude Code и Codex. Обнаруживает циклы, опасные действия и утечки секретов
+прежде чем они станут инцидентами. Нулевая задержка. Работает локально.
 
 </div>
 
@@ -79,7 +79,7 @@
   </a>
 </p>
 
-> Установите хуки для одного или любой комбинации: `failproofai policies --install --cli opencode pi gemini` (или `--cli claude codex copilot cursor opencode pi gemini`). Опустите `--cli` для автоматического обнаружения установленных CLI и подтверждения.
+> Установите hooks для одного или любой комбинации: `failproofai policies --install --cli opencode pi gemini` (или `--cli claude codex copilot cursor opencode pi gemini`). Пропустите `--cli` для автоматического обнаружения установленных CLI и подтверждения.
 
 ---
 
@@ -87,21 +87,21 @@
 
 ```sh
 npm install -g failproofai
-failproofai policies --install   # или просто запустите `failproofai` и примите подсказку при первом запуске
+failproofai policies --install   # или просто запустите `failproofai` и подтвердите приглашение при первом запуске
 failproofai
 ```
 
-30 встроенных политик активируются немедленно. Панель управления на `localhost:8020`. Отключите подсказку при первом запуске с помощью `FAILPROOFAI_NO_FIRST_RUN=1`.
+30 встроенных политик активируются немедленно. Панель управления на `localhost:8020`. Отключите приглашение при первом запуске с помощью `FAILPROOFAI_NO_FIRST_RUN=1`.
 
 ---
 
-## Что он блокирует
+## Что это блокирует
 
-| Политика | Что она блокирует |
+| Политика | Что блокируется |
 |---|---|
-| `block-push-master` | Прямые push-команды в `main` / `master` |
+| `block-push-master` | Прямые push-операции в `main` / `master` |
 | `block-force-push` | `git push --force` |
-| `block-work-on-main` | Коммиты, мержи, ребейсы на `main` / `master` |
+| `block-work-on-main` | Коммиты, слияния, перебазирования на `main` / `master` |
 | `block-rm-rf` | Рекурсивное удаление файлов |
 | `sanitize-api-keys` | API ключи, утекающие в контекст агента |
 
@@ -111,8 +111,8 @@ failproofai
 
 ## Ваши собственные политики
 
-Поместите файл в `.failproofai/policies/` — он загружается автоматически, никакие флаги не требуются.
-Коммитьте его, и вся команда получит его при следующем pull.
+Поместите файл в `.failproofai/policies/` — он загружается автоматически без дополнительных флагов.
+Закоммитьте его, и вся команда получит его при следующем pull-запросе.
 
 ```js
 import { customPolicies, deny, allow } from "failproofai";
@@ -122,29 +122,29 @@ customPolicies.add({
   match: { events: ["PreToolUse"] },
   fn: async (ctx) => {
     if (ctx.toolInput?.file_path?.includes("production"))
-      return deny("Записи в пути production заблокированы.");
+      return deny("Writes to production paths are blocked.");
     return allow();
   },
 });
 ```
 
-Три решения, доступные для каждой политики:
+Три решения доступны для каждой политики:
 
 | Решение | Эффект |
 |---|---|
 | `allow()` | Разрешить операцию |
 | `deny(message)` | Заблокировать — сообщение возвращается агенту |
-| `instruct(message)` | Пропустить, но добавить контекст в следующий запрос агента |
+| `instruct(message)` | Разрешить, но добавить контекст в следующий приглашение агента |
 
 → [Руководство по пользовательским политикам](https://docs.befailproof.ai/custom-policies)
 
 ---
 
-## Видимость сессии
+## Видимость сеанса
 
-Каждый вызов инструмента, который делает ваш агент, регистрируется локально. Панель управления показывает, что было запущено,
-что было заблокировано и что политика сказала агенту — так что вы не будете гадать,
-когда что-то пойдет не так. → [Руководство по панели управления](https://docs.befailproof.ai/dashboard)
+Каждый вызов инструмента, который делает ваш агент, регистрируется локально. Панель управления показывает, что выполнилось,
+что было заблокировано и что политика сказала агенту — так что вы не гадаете
+когда что-то идет не так. → [Руководство панели управления](https://docs.befailproof.ai/dashboard)
 
 ---
 
@@ -156,18 +156,18 @@ customPolicies.add({
 | [Встроенные политики](https://docs.befailproof.ai/built-in-policies) | Все 30 политик с параметрами |
 | [Пользовательские политики](https://docs.befailproof.ai/custom-policies) | Напишите свои собственные |
 | [Конфигурация](https://docs.befailproof.ai/configuration) | Области конфигурации и правила слияния |
-| [Панель управления](https://docs.befailproof.ai/dashboard) | Монитор сессии и активность политик |
-| [Архитектура](https://docs.befailproof.ai/architecture) | Как работает система хуков |
+| [Панель управления](https://docs.befailproof.ai/dashboard) | Монитор сеанса и активность политик |
+| [Архитектура](https://docs.befailproof.ai/architecture) | Как работает система hooks |
 
 ---
 
 ## Лицензия
 
-MIT с [Commons Clause](https://commonsclause.com/) — свободно для внутреннего и личного использования; коммерческая перепродажа самого failproofai требует отдельного соглашения. Полный текст см. в [LICENSE](./LICENSE).
+MIT с [Commons Clause](https://commonsclause.com/) — бесплатно для внутреннего и личного использования; коммерческая перепродажа самого failproofai требует отдельного соглашения. Полный текст см. в [LICENSE](./LICENSE).
 
 ---
 
-## Участие в разработке
+## Внесение вклада
 
 См. [CONTRIBUTING.md](./CONTRIBUTING.md). Новые политики, граничные случаи и переводы приветствуются.
 
