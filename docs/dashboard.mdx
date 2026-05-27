@@ -57,6 +57,19 @@ The stats bar at the top shows session duration, total tool calls, and a summary
 
 Click the **Download Logs** button to export the session. For Claude Code, Codex, Copilot, Cursor, Pi, and Gemini sessions you get the original on-disk JSONL transcript byte-for-byte; for OpenCode (whose sessions live in SQLite, not on disk) you get a JSON document mirroring the underlying `session` / `messages` / `parts` tables.
 
+### Audit
+
+A personality-driven report of how your agent has actually been behaving across past sessions. Runs the same scan as the `failproofai audit` CLI but renders it as a six-section dashboard:
+
+1. **Identity** — classifies your agent into one of 8 archetypes (`the optimist`, `the cowboy`, `the explorer`, `the goldfish`, `the paranoid architect`, `the precision builder`, `the hammer`, `the ghost`) based on which detectors + policies fired and how heavily. Renders an 8×8 pixel sigil, the archetype tagline, "common in" / "primary risk" framing, and the closing one-liner.
+2. **Show off your agent** — captures the identity card as a 1200×630 PNG suitable for posting to X / LinkedIn (click `make poster`).
+3. **Strengths** — green-checked behaviors your agent already does right, derived from the live audit data (clean tool-call rate, average session length, zero credential leaks, zero retry storms, etc.).
+4. **Score + leaderboard** — 0–100 score with letter grade (S/A/B/C/D/F), a distribution histogram showing where you fall in the cohort, prose ("a B starts at 71. you're 13 points away."), and a leaderboard table with your row highlighted.
+5. **Findings** — per-finding cards ranked by impact. Each card surfaces what happened, what it costs, an evidence sample with real captured commands, and the failproofai policy that would catch the same pattern (`$ failproof policy add <slug>`, click-to-copy).
+6. **Prescribed policies + return loop** — a grid of every unenabled builtin policy that would close a gap, with a projected-score callout, plus a "re-audit in 7 days" CTA.
+
+Driven by the `failproofai audit` runtime — see [Audit CLI](/cli/audit) for the underlying scan engine, supported flags, and per-transcript cache invariants. The dashboard caches the latest result at `~/.failproofai/audit-dashboard.json` (mode `0600`, single slot, new runs overwrite) so revisits are instant; clicking `[ Re-run ↻ ]` POSTs `/api/audit/run` and the dashboard polls `/api/audit/status` at 1Hz until the run finishes. Empty state (no cache) and zero-sessions state (cache exists but the scan found no transcripts) are surfaced separately.
+
 ### Policies
 
 A two-tab page for managing policies and reviewing activity.
@@ -92,7 +105,7 @@ If you only need some parts of the dashboard, set `FAILPROOFAI_DISABLE_PAGES` to
 FAILPROOFAI_DISABLE_PAGES=policies failproofai
 ```
 
-Valid values: `policies`, `projects`.
+Valid values: `policies`, `projects`, `audit`.
 
 ---
 
