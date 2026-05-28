@@ -1,8 +1,11 @@
 # Security Policy
 
-failproofai is itself a security tool, so we hold our own supply chain to a high
-bar. This document covers how to report a vulnerability and how our dependency
-supply-chain scanning works.
+failproofai is an npm package that installs hooks into AI coding agents (Claude
+Code, Codex, and others) and runs locally in developers' environments, observing
+and gating agent actions. A compromised dependency would therefore run on our
+users' machines, inside their agent sessions — so we treat our supply chain as
+part of our users' trust boundary. This document covers how to report a
+vulnerability and how our dependency supply-chain scanning works.
 
 ## Reporting a Vulnerability
 
