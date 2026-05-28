@@ -33,8 +33,7 @@ advisories **and** the [OpenSSF malicious-packages feed](https://github.com/ossf
 **Policy: block on any finding.** The gate fails on *any* known-vulnerable or
 malicious package in the tree — not just newly introduced ones. It runs on every
 PR, on pushes to `main`, and weekly (to catch advisories disclosed after a
-dependency was already merged). Results for `main` are published to the
-repository's **Security → Code scanning** tab.
+dependency was already merged).
 
 ### 2. Socket — behavioral early-warning
 
@@ -64,8 +63,8 @@ These steps live outside the repo and require admin access:
 1. **Install the [Socket GitHub App](https://github.com/apps/socket-security)** on
    the repository to enable behavioral PR comments.
 2. **Make the OSV-Scanner check required**: in branch protection for `main`, add
-   the OSV-Scanner PR job (shown as `scan-pr / osv-scan`) as a required status
-   check, so a red scan blocks merge.
+   the OSV-Scanner job (shown as `OSV-Scanner`) as a required status check, so a
+   red scan blocks merge.
 3. *(Optional)* For a Socket CI gate in addition to the App, add a
    `SOCKET_SECURITY_API_KEY` repository secret and the Socket CI action — deferred
    until tuned, since behavioral findings can have false positives.

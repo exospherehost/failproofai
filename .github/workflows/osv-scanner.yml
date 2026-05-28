@@ -3,12 +3,17 @@
 # Scans the resolved dependency tree (bun.lock) against the OSV.dev database —
 # which aggregates GitHub/npm security advisories AND the OpenSSF
 # malicious-packages feed — and FAILS on any known-vulnerable or known-malicious
-# package (block-on-any-finding policy).
+# package (block-on-any-finding policy). OSV-Scanner exits non-zero when it finds
+# anything, which fails this job.
 #
 # Runs on every PR (incl. Dependabot bumps), on pushes to main, and weekly to
 # catch advisories disclosed after a dependency was already merged.
 #
-# Triage / allow-listing unfixable advisories: see SECURITY.md and osv-scanner.toml.
+# Triage / allow-listing unfixable advisories: see SECURITY.md and osv-scanner.toml
+# (auto-loaded from the repo root by OSV-Scanner).
+#
+# Third-party actions are pinned to a commit SHA (we're a supply-chain tool —
+# practice what we preach).
 name: Supply Chain
 
 on:
@@ -20,34 +25,21 @@ on:
     - cron: "17 4 * * 1" # Mondays 04:17 UTC
   workflow_dispatch:
 
-# Deny-all by default; each job opts into the minimum it needs.
-permissions: {}
+# Least privilege: the scan only needs to read the checked-out source.
+# contents:read is also available to Dependabot PRs (read-only token), so the
+# gate enforces on dependency-bump PRs too.
+permissions:
+  contents: read
 
 jobs:
-  # Pull requests (including Dependabot): full scan, fail on ANY finding.
-  # Only contents:read, so it works with the read-only token on Dependabot PRs;
-  # SARIF upload is disabled here (it needs security-events:write, unavailable then).
-  scan-pr:
-    if: ${{ github.event_name == 'pull_request' }}
-    permissions:
-      contents: read
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
-    with:
-      scan-args: |-
-        --lockfile=bun.lock
-      fail-on-vuln: true
-      upload-sarif: false
-
-  # main / scheduled / manual: full scan + publish results to the Security tab.
-  scan-main:
-    if: ${{ github.event_name != 'pull_request' }}
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
-    with:
-      scan-args: |-
-        --lockfile=bun.lock
-      fail-on-vuln: true
-      upload-sarif: true
+  osv-scanner:
+    name: OSV-Scanner
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      - name: Scan bun.lock for known-vulnerable / malicious dependencies
+        uses: google/osv-scanner-action/osv-scanner-action@8dc09193bb540e09b23da07ad7e30bd33bf87018 # v2.3.8
+        with:
+          scan-args: |-
+            --lockfile=bun.lock
