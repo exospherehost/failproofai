@@ -1,6 +1,9 @@
 # Changelog
 
-## 0.0.11-beta.3 — 2026-05-25
+## 0.0.11-beta.3 — 2026-05-28
+
+### Fixes
+- Fix the `bump-platform-submodule.yml` workflow's first post-merge push, which failed with `fatal: could not read Username for 'https://github.com'`. The `persist-credentials: false` hardening from #394 left the cross-repo `git push`/`fetch` unauthenticated, and the inline `Authorization: bearer …` extraheader only authenticates GitHub's REST API — git-over-HTTPS smart-protocol expects Basic auth with `x-access-token:<pat>`. Switch to a base64-encoded Basic header (matching `actions/checkout`'s own internal extraheader format) so the push and the rebase-and-retry fetch in the loop both authenticate (#395).
 
 ### Features
 - Add a `bump-platform-submodule.yml` workflow that pushes a matching `failproofai/oss` gitlink bump to `FailproofAI/platform` `main` on every merge into this repo's `main`, so the monorepo's pinned submodule commit tracks upstream automatically. Uses a `PLATFORM_BUMP_TOKEN` repo secret (fine-grained PAT, contents: read & write on `FailproofAI/platform`) for cross-repo auth, a concurrency group to serialize back-to-back merges, and a rebase-and-retry loop to stay race-safe against humans pushing to platform `main` between checkout and push (#394).

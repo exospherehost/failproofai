@@ -41,7 +41,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          AUTH_HEADER="Authorization: bearer ${PLATFORM_BUMP_TOKEN}"
+          # GitHub's git-over-HTTPS smart protocol expects Basic auth with
+          # `x-access-token:<pat>` (Bearer works for the REST API but not
+          # for `git push`/`git fetch`). Matches actions/checkout's own
+          # internal extraheader format.
+          AUTH_B64=$(printf '%s' "x-access-token:${PLATFORM_BUMP_TOKEN}" | base64 -w0)
+          AUTH_HEADER="Authorization: basic ${AUTH_B64}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
