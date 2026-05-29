@@ -11,7 +11,7 @@
   prompts interactively (or takes `--email`); logout best-effort revokes
   server-side then always clears local state; whoami auto-refreshes an expired
   access token and surfaces "Session expired" when the refresh token itself is
-  expired (#NNN).
+  expired (#396).
 
 ### Fixes
 - Stop three builtin policies from over-firing on benign source code and shell
@@ -19,7 +19,8 @@
   containing the substring `credentials` (it was denying source files like
   `src/auth/credentials.ts`); `SECRET_FILE_CREDENTIALS_RE` now anchors to
   well-known credential paths (`.aws/credentials`, `.docker/credentials.json`,
-  `.netrc`, …) and `SECRET_FILE_ID_RSA_RE` requires the `.ssh/` directory.
+  `.netrc`, …) and `SECRET_FILE_ID_RSA_RE` matches the SSH-key basename only
+  (so `<anywhere>/id_rsa` still blocks but `id_rsa_backup.md` does not).
   `sanitize-connection-strings` no longer flags grep/perl arguments that merely
   contain a scheme name (e.g. `'postgres://|mysql://'`): the regex now requires
   a URL-safe `<user>:<pass>@<host>` shape so regex metachars in the pre-`@`
@@ -27,7 +28,7 @@
   fingerprint (sorts input keys recursively) so the same logical call always
   hashes the same, and records a `warned` set in the sidecar so the warning
   only fires once per fingerprint per session instead of repeating every turn
-  (#NNN).
+  (#396).
 - Fix the `bump-platform-submodule.yml` workflow's first post-merge push, which failed with `fatal: could not read Username for 'https://github.com'`. The `persist-credentials: false` hardening from #394 left the cross-repo `git push`/`fetch` unauthenticated, and the inline `Authorization: bearer …` extraheader only authenticates GitHub's REST API — git-over-HTTPS smart-protocol expects Basic auth with `x-access-token:<pat>`. Switch to a base64-encoded Basic header (matching `actions/checkout`'s own internal extraheader format) so the push and the rebase-and-retry fetch in the loop both authenticate (#395).
 
 ### Features
