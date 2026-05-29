@@ -966,12 +966,14 @@ async function warnRepeatedToolCalls(ctx: PolicyContext): Promise<PolicyResult> 
   } catch { /* first call or unreadable — start fresh */ }
 
   const prevCount = tracker.counts[fingerprint] ?? 0;
-  // Fire only when we cross the threshold AND we have not already warned for
-  // this fingerprint. Repeated warnings on the same input add noise without
-  // adding information; the agent already got the message the first time.
-  const shouldWarn = prevCount >= THRESHOLD && !tracker.warned[fingerprint];
+  const nextCount = prevCount + 1;
+  // Fire when this current call brings the total to THRESHOLD or above. With
+  // THRESHOLD = 3 that means we warn on the 3rd identical call. We also only
+  // fire once per fingerprint — repeated warnings add noise without adding
+  // information; the agent already got the message the first time.
+  const shouldWarn = nextCount >= THRESHOLD && !tracker.warned[fingerprint];
 
-  tracker.counts[fingerprint] = prevCount + 1;
+  tracker.counts[fingerprint] = nextCount;
   if (shouldWarn) tracker.warned[fingerprint] = true;
 
   try {
@@ -983,7 +985,7 @@ async function warnRepeatedToolCalls(ctx: PolicyContext): Promise<PolicyResult> 
 
   if (shouldWarn) {
     return instruct(
-      `STOP: You have already called ${ctx.toolName} ${prevCount} times with identical parameters. This is wasteful and unproductive. Do NOT repeat this call — use a different approach or ask the user for clarification.`,
+      `STOP: You have called ${ctx.toolName} ${nextCount} times with identical parameters. This is wasteful and unproductive. Do NOT repeat this call — use a different approach or ask the user for clarification.`,
     );
   }
   return allow();

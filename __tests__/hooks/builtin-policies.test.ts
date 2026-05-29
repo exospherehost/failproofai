@@ -1463,10 +1463,11 @@ describe("hooks/builtin-policies", () => {
       expect(result.decision).toBe("allow");
     });
 
-    it("returns instruct when sidecar shows 3+ identical calls", async () => {
-      // Policy now reads a per-session sidecar file instead of the full transcript.
+    it("returns instruct when this call brings the count to the threshold (3rd identical call)", async () => {
+      // Sidecar shows 2 prior identical calls; this call (the 3rd) brings the
+      // total to THRESHOLD and the warning fires reporting "3 times".
       const fingerprint = JSON.stringify({ tool: "Read", input: { file_path: "/foo/bar.ts" } });
-      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ [fingerprint]: 3 }));
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ [fingerprint]: 2 }));
 
       const ctx = makeCtx({
         toolName: "Read",
@@ -1513,7 +1514,7 @@ describe("hooks/builtin-policies", () => {
       // Malformed sidecar JSON → counts reset to {} → allow on first call.
       // Valid sidecar at threshold → instruct. Test the valid-sidecar path here.
       const fingerprint = JSON.stringify({ tool: "Read", input: { file_path: "/foo/bar.ts" } });
-      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ [fingerprint]: 3 }));
+      vi.mocked(readFile).mockResolvedValue(JSON.stringify({ [fingerprint]: 2 }));
 
       const ctx = makeCtx({
         toolName: "Read",
