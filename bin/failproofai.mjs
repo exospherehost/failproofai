@@ -103,7 +103,7 @@ if (hookIdx >= 0) {
  */
 async function runCli() {
   // --help / -h  (only when not inside a subcommand that handles its own --help)
-  const SUBCOMMANDS = ["policies", "audit"];
+  const SUBCOMMANDS = ["policies", "audit", "auth"];
   if ((args.includes("--help") || args.includes("-h")) && !SUBCOMMANDS.includes(args[0])) {
     const extraArgs = args.filter((a) => a !== "--help" && a !== "-h");
     if (extraArgs.length > 0) {
@@ -139,6 +139,12 @@ COMMANDS
     --custom, -c                   Clear the customPoliciesPath from config
 
   policies --help, -h            Show this help for the policies command
+
+  auth                           Sign in / out of FailproofAI from the CLI.
+    --login                        Email + OTP flow; writes ~/.failproofai/auth.json
+    --logout                       Revoke this session and remove auth.json
+    --whoami                       Print the currently authenticated identity
+  auth --help, -h                Show this help for the auth command
 
   audit  (beta)                  Scan past agent CLI transcripts and count
                                    "stupid behaviors" (env-var checks, force
@@ -470,6 +476,15 @@ EXAMPLES
     process.exit(0);
   }
 
+  // auth — email-OTP login flow against the FailproofAI api-server.
+  if (args[0] === "auth") {
+    lastSubcommand = "auth";
+    const { runAuthCli } = await import("../src/auth/cli");
+    await runAuthCli(args.slice(1));
+    await track("cli_auth_invoked", { args_count: args.length - 1 });
+    process.exit(process.exitCode ?? 0);
+  }
+
   // audit — scan past transcripts for "stupid behaviors" caught by builtin
   // policies + a set of audit-only detectors.
   if (args[0] === "audit") {
@@ -640,7 +655,7 @@ EXAMPLES
       return dp[m][n];
     }
 
-    const primary = ["--version", "--help", "--hook", "policies", "audit"];
+    const primary = ["--version", "--help", "--hook", "policies", "audit", "auth"];
     const closest = primary.reduce((best, flag) => {
       const dist = levenshtein(unknownFlag, flag);
       return dist < best.dist ? { flag, dist } : best;
