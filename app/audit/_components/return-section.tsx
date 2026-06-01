@@ -145,16 +145,6 @@ export function ReturnSection({ result }: Props) {
     [persistReminder],
   );
 
-  const handleClearReminder = useCallback(async () => {
-    try {
-      setReminderBusy(true);
-      await fetch("/api/auth/reminder", { method: "DELETE" });
-      setReminder(null);
-    } finally {
-      setReminderBusy(false);
-    }
-  }, []);
-
   const handleRerun = useCallback(async () => {
     if (rerunBusy) return;
     setRerunBusy(true);
@@ -229,14 +219,6 @@ export function ReturnSection({ result }: Props) {
                   {copied ? "[ ✓ copied — paste in your shell ]" : "[ install policies ]"}
                 </button>
               )}
-              <button
-                type="button"
-                className="rs-clear"
-                onClick={handleClearReminder}
-                disabled={reminderBusy}
-              >
-                clear reminder
-              </button>
             </div>
           </div>
         ) : (

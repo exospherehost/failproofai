@@ -13,31 +13,43 @@ const options = [
     label: "Star us on GitHub",
     icon: Star,
     href: "https://github.com/failproofai/failproofai",
+    color: "#f5c842",
+    bg: "rgba(245,200,66,0.08)",
   },
   {
     label: "Documentation",
     icon: BookOpen,
     href: "https://befailproof.ai",
+    color: "#60a5fa",
+    bg: "rgba(96,165,250,0.08)",
   },
   {
     label: "Join our Slack",
     icon: Hash,
     href: "https://join.slack.com/t/failproofai/shared_invite/zt-3v63b7k5e-O3NBHmj8X6n9gZSGDx6ggQ",
+    color: "#a78bfa",
+    bg: "rgba(167,139,250,0.08)",
   },
   {
     label: "Request a Feature",
     icon: Lightbulb,
     href: `${GITHUB_REPO}/issues/new?labels=enhancement&title=Feature+Request%3A+`,
+    color: "#34d399",
+    bg: "rgba(52,211,153,0.08)",
   },
   {
     label: "Report an Issue",
     icon: Bug,
     href: `${GITHUB_REPO}/issues/new?labels=bug&title=Bug+Report%3A+`,
+    color: "#f87171",
+    bg: "rgba(248,113,113,0.08)",
   },
   {
     label: "Ask a Question",
     icon: MessageSquare,
     href: `${GITHUB_REPO}/discussions/new?category=q-a`,
+    color: "#fb923c",
+    bg: "rgba(251,146,60,0.08)",
   },
 ] as const;
 
@@ -76,35 +88,51 @@ export const ReachDevelopers: React.FC = () => {
       </Button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-56 rounded-lg border border-border bg-card shadow-lg z-50" role="menu">
-          <div className="px-3 py-2 border-b border-border">
-            <p className="text-xs font-medium text-foreground">Reach Developers</p>
+        <div className="absolute right-0 mt-2 w-60 rounded-lg border border-border bg-card shadow-xl z-50" role="menu"
+          style={{ boxShadow: "0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.04)" }}
+        >
+          <div className="px-3 py-2.5 border-b border-border"
+            style={{ background: "linear-gradient(135deg, rgba(236,72,153,0.12) 0%, rgba(139,92,246,0.08) 100%)" }}
+          >
+            <p className="text-xs font-semibold" style={{ color: "#e879f9", letterSpacing: "0.06em" }}>Reach Developers</p>
             <p className="text-[0.65rem] text-muted-foreground mt-0.5">
               We&apos;d love to hear from you
             </p>
           </div>
           <div className="py-1">
-            {options.map(({ label, icon: Icon, href }) => (
+            {options.map(({ label, icon: Icon, href, color, bg }) => (
               <a
                 key={label}
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
                 role="menuitem"
-                className="flex items-center gap-2.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                className="flex items-center gap-2.5 px-3 py-2 text-xs transition-colors"
+                style={{ color: "var(--muted-foreground)" }}
+                onMouseEnter={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.background = bg;
+                  (e.currentTarget as HTMLAnchorElement).style.color = color;
+                }}
+                onMouseLeave={(e) => {
+                  (e.currentTarget as HTMLAnchorElement).style.background = "";
+                  (e.currentTarget as HTMLAnchorElement).style.color = "";
+                }}
                 onClick={close}
               >
-                <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+                <Icon className="h-3.5 w-3.5 flex-shrink-0" style={{ color }} />
                 {label}
               </a>
             ))}
           </div>
-          <div className="px-3 py-2 border-t border-border">
+          <div className="px-3 py-2 border-t border-border" style={{ background: "rgba(0,0,0,0.2)" }}>
             <p className="text-[0.65rem] text-muted-foreground">
               or email{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
-                className="text-primary hover:text-primary/80 transition-colors"
+                className="transition-colors"
+                style={{ color: "#e879f9" }}
+                onMouseEnter={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = "0.75")}
+                onMouseLeave={(e) => ((e.currentTarget as HTMLAnchorElement).style.opacity = "1")}
               >
                 {CONTACT_EMAIL}
               </a>

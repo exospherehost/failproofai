@@ -473,7 +473,7 @@
 .archetype-frame.capturing {
   min-width: 1080px;
   max-width: 1180px;
-  padding: 72px 64px 64px;
+  padding: 52px 52px 44px;
   box-shadow: none;
 }
 .archetype-frame.capturing .arch-name {
@@ -514,14 +514,62 @@
   padding-top: 26px;
 }
 .archetype-frame.capturing .sigil-wrap {
-  position: sticky;
-  top: 0;
+  position: static;
   align-self: center;
-  padding-top: 48px;
+  justify-self: center;
+  padding-top: 0;
 }
 .archetype-frame.capturing .sigil {
   box-shadow: 6px 6px 0 0 var(--accent-pink-shadow);
 }
+
+/* identity share buttons (inside .archetype-frame, hidden during capture) */
+.identity-share-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+}
+.identity-share-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--ink-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 120ms, border-color 120ms, color 120ms;
+  text-transform: lowercase;
+}
+.identity-share-btn:hover {
+  background: var(--accent-pink-bg);
+  border-color: var(--accent-pink);
+  color: var(--accent-pink);
+}
+.identity-share-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.isb-glyph {
+  display: grid; place-items: center;
+  width: 20px; height: 20px;
+  border: 1px solid var(--line);
+  font-family: var(--font-mono); font-size: 10px;
+  text-transform: uppercase;
+  color: var(--accent-pink);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.identity-share-btn:hover .isb-glyph { border-color: var(--accent-pink); }
+
+/* hide during html2canvas capture */
+.archetype-frame.capturing .identity-share-btns { display: none; }
 
 /* ───────────────────────── 02 STRENGTHS ───────────────────────── */
 
@@ -585,31 +633,21 @@
   padding-left: 4px;
 }
 
-/* ───────────────────────── 03 SCORE CARD + SHARE ───────────────────────── */
+/* ───────────────────────── 03 SCORE CARD ───────────────────────── */
 
 .score-share-card {
-  padding: 28px 32px 24px;
+  padding: 22px 24px 20px;
   background:
     repeating-linear-gradient(0deg, rgba(228,88,125,0.03) 0 1px, transparent 1px 16px),
     repeating-linear-gradient(90deg, rgba(228,88,125,0.03) 0 1px, transparent 1px 16px),
     var(--bg-2);
 }
-.score-share-mast {
-  display: flex; justify-content: space-between; flex-wrap: wrap;
-  gap: 16px;
-  font-family: var(--font-mono); font-size: 10px;
-  letter-spacing: 0.22em; text-transform: uppercase;
-  color: var(--ink-2);
-  padding-bottom: 16px; margin-bottom: 22px;
-  border-bottom: 1px dashed var(--line);
-}
-.score-share-mast .ssm-right { text-align: right; }
 
-.score-share-body {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.4fr);
-  gap: 36px;
-  align-items: start;
+.score-card-header {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink-2);
+  margin-bottom: 16px;
 }
 
 .ss-label {
@@ -621,12 +659,12 @@
 
 /* — left column ------------------------------------------------------ */
 .ss-score-row {
-  display: flex; align-items: baseline; gap: 12px;
-  margin: 0 0 14px;
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 0 0 10px;
 }
 .ss-score {
   font-family: var(--font-display);
-  font-size: clamp(64px, 9vw, 96px);
+  font-size: clamp(52px, 7vw, 76px);
   line-height: 0.9;
   letter-spacing: 0.04em;
   color: var(--accent-pink);
@@ -641,7 +679,7 @@
 
 .ss-tier-row {
   display: flex; align-items: center; gap: 12px;
-  margin-bottom: 22px;
+  margin-bottom: 16px;
 }
 .ss-tier-badge {
   font-family: var(--font-mono); font-size: 11px;
@@ -670,36 +708,61 @@
   display: flex; justify-content: space-between;
   font-family: var(--font-mono); font-size: 11px;
   letter-spacing: 0.06em;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .ss-progress-track {
-  height: 4px; background: var(--bg);
+  position: relative;
+  height: 10px; background: var(--bg);
   border: 1px solid var(--line);
-  margin-bottom: 22px;
-  overflow: hidden;
+  margin-bottom: 6px;
+  overflow: visible;
 }
 .ss-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--accent-pink) 0%, #e89aaf 100%);
+  background: linear-gradient(90deg, var(--accent-pink) 0%, #f472b6 60%, #a78bfa 100%);
+}
+.ss-progress-tick {
+  position: absolute;
+  top: -4px; bottom: -4px;
+  width: 1px;
+  background: var(--line-2);
+  pointer-events: none;
+}
+.ss-grade-stops {
+  position: relative;
+  height: 16px;
+  margin-bottom: 16px;
+}
+.ss-grade-stop {
+  position: absolute;
+  transform: translateX(-50%);
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--dim);
+  top: 0;
+}
+.ss-grade-stop.active {
+  color: var(--accent-pink);
+  font-weight: 700;
 }
 
 .ss-stats {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 22px;
+  gap: 8px;
+  margin-bottom: 16px;
 }
 .ss-stat {
   border: 1px solid var(--line-2);
   background: var(--bg);
-  padding: 14px 12px;
+  padding: 10px 12px;
   text-align: left;
 }
 .ss-stat-n {
   font-family: var(--font-display);
-  font-size: 30px; line-height: 1;
+  font-size: 24px; line-height: 1;
   letter-spacing: 0.04em;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 .ss-stat-l {
   font-family: var(--font-mono); font-size: 9px;
@@ -712,6 +775,9 @@
   font-family: var(--font-mono); font-size: 10px;
   letter-spacing: 0.22em; text-transform: uppercase;
   color: var(--ink-2);
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
   margin-bottom: 10px;
 }
 .ss-policy-chips {
@@ -720,27 +786,27 @@
 .ss-chip {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 4px 10px;
-  border-radius: 999px;
+  border-radius: 0;
   border: 1px solid var(--line-2);
   background: var(--bg);
   font-family: var(--font-mono); font-size: 11px;
   color: var(--ink-2);
 }
 .ss-chip .dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
+  width: 5px; height: 5px;
+  border-radius: 0;
   background: var(--dim);
 }
 .ss-chip.missing {
-  border-color: var(--accent-pink);
+  border-color: rgba(228, 88, 125, 0.6);
   color: var(--accent-pink);
-  background: var(--accent-pink-bg);
+  background: rgba(228, 88, 125, 0.06);
 }
 .ss-chip.missing .dot { background: var(--accent-pink); }
 .ss-chip.enabled {
-  border-color: var(--accent-green);
+  border-color: rgba(102, 209, 181, 0.5);
   color: var(--accent-green);
-  background: var(--accent-green-bg);
+  background: rgba(102, 209, 181, 0.05);
 }
 .ss-chip.enabled .dot { background: var(--accent-green); }
 
@@ -840,9 +906,7 @@
 .ss-foot-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 
 @media (max-width: 880px) {
-  .score-share-card { padding: 22px 20px 20px; }
-  .score-share-body { grid-template-columns: 1fr; gap: 28px; }
-  .score-share-mast .ssm-right { text-align: left; }
+  .score-share-card { padding: 16px 16px 16px; }
 }
 
 

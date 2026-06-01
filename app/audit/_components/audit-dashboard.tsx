@@ -15,12 +15,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { getAuditResultAction } from "@/app/actions/get-audit-result";
 import type { AuditResult, RunAuditOptions } from "@/src/audit/types";
 import { classifyAgent } from "@/src/audit/archetypes";
-import { COHORT_SIZE, deriveScore, gradeFor, projectedScore } from "@/src/audit/scoring";
+import { COHORT_SIZE, deriveScore, gradeFor, projectedScore, type Grade } from "@/src/audit/scoring";
 import { deriveStrengths } from "@/src/audit/strengths";
 import { deriveFindings } from "@/src/audit/findings";
 
 import { IdentitySection } from "./identity-section";
-import { ShowOffCTA } from "./show-off-cta";
 import { StrengthsSection } from "./strengths-section";
 import { ScoreSection } from "./score-section";
 import { FindingsSection } from "./findings-section";
@@ -181,7 +180,12 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
 
   const detectorsTriggered = result.results.filter((r) => r.hits > 0).length;
 
-  /** Identity hero ref — captured to PNG by the "make poster" button. */
+  /** Slipping builtin policies — passed to IdentitySection share buttons. */
+  const missing = result.results.filter(
+    (r) => r.source === "builtin" && !r.enabledInConfig && r.hits > 0,
+  ).length;
+
+  /** Identity hero ref — captured to PNG by the share buttons. */
   const identityFrameRef = useRef<HTMLDivElement>(null);
 
   return (
@@ -197,10 +201,9 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
             sessions={result.transcripts.scanned}
             window={window}
             seed={project}
-          />
-          <ShowOffCTA
-            archetypeKey={classification.archetype}
-            identityFrameRef={identityFrameRef}
+            score={score}
+            grade={grade}
+            missing={missing}
           />
           <StrengthsSection
             strengths={strengths}
@@ -211,13 +214,12 @@ function MainReport({ result, cachedAt, params, projectFromUrl, totalCatalogSize
             result={result}
             score={score}
             grade={grade}
-            cohort={COHORT_SIZE}
             archetypeKey={classification.archetype}
             project={project}
           />
+          <ReturnSection result={result} />
           <FindingsSection findings={findings} />
           <PoliciesSection result={result} projected={projected} projectedGrade={projectedGrade} />
-          <ReturnSection result={result} />
         </div>
         <ReportFooter cachedAt={cachedAt} />
       </div>

@@ -38,35 +38,20 @@ export const Navbar: React.FC<{
 
   return (
     <header className="app-header">
+      {/* Brand — logo mark + name only (no version/section here) */}
       <a
         href="https://github.com/failproofai/failproofai"
         target="_blank"
         rel="noopener noreferrer"
         className="h-brand"
+        style={{ flex: "none" }}
         aria-label="failproof ai · GitHub"
       >
-        <span className="h-brand-mark" aria-hidden="true">▮▮</span>
-        <span className="h-brand-name">failproof_ai</span>
-        {process.env.NEXT_PUBLIC_APP_VERSION && (
-          <span className="h-brand-sep" aria-hidden="true">·</span>
-        )}
-        {process.env.NEXT_PUBLIC_APP_VERSION && (
-          <span
-            style={{
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              letterSpacing: "0.18em",
-              textTransform: "uppercase",
-              color: "var(--dim)",
-            }}
-          >
-            v{process.env.NEXT_PUBLIC_APP_VERSION}
-          </span>
-        )}
-        {sectionLabel && <span className="h-brand-sep" aria-hidden="true">·</span>}
-        {sectionLabel && <span className="h-brand-section">{sectionLabel}</span>}
+        <img src="/icon.svg" alt="" aria-hidden="true" style={{ height: 22, width: 22, display: "block", flexShrink: 0 }} />
+        <img src="/logo.svg" alt="failproof_ai" style={{ height: 18, display: "block", flexShrink: 0 }} />
       </a>
 
+      {/* Nav links — swapped to sit right after the brand */}
       <nav className="tabs" style={{ border: "none", padding: 0, gap: 0 }}>
         {NAV_LINKS.filter(({ href }) => {
           const key = href.slice(1);
@@ -114,6 +99,32 @@ export const Navbar: React.FC<{
           );
         })}
       </nav>
+
+      {/* Spacer pushes version/section + actions to the right */}
+      <div style={{ flex: 1 }} />
+
+      {/* Version + section label — swapped to right of nav */}
+      {(process.env.NEXT_PUBLIC_APP_VERSION || sectionLabel) && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {process.env.NEXT_PUBLIC_APP_VERSION && (
+            <span
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+                letterSpacing: "0.18em",
+                textTransform: "uppercase",
+                color: "var(--dim)",
+              }}
+            >
+              v{process.env.NEXT_PUBLIC_APP_VERSION}
+            </span>
+          )}
+          {sectionLabel && process.env.NEXT_PUBLIC_APP_VERSION && (
+            <span className="h-brand-sep" aria-hidden="true">·</span>
+          )}
+          {sectionLabel && <span className="h-brand-section">{sectionLabel}</span>}
+        </div>
+      )}
 
       <div className="h-actions">
         <RefreshButton />

@@ -22,7 +22,7 @@ function formatUtcShort(iso: string | null): string {
 export function ReportFooter({ cachedAt }: Props) {
   return (
     <footer className="report-footer">
-      <span className="brand-mark">▮▮</span> failproof_ai
+      <img src="/logo.svg" alt="failproof_ai" style={{ height: 18, display: "inline-block", verticalAlign: "middle" }} />
       <span style={{ margin: "0 12px", color: "var(--line-2)" }}>·</span>
       audit v1.0
       <span style={{ margin: "0 12px", color: "var(--line-2)" }}>·</span>
