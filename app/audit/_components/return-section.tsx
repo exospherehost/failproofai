@@ -6,15 +6,15 @@
  * Behavior matrix:
  *   - unknown (probe in flight)  → buttons disabled
  *   - anon (no session)          → [ set a reminder ] opens AuthDialog,
- *                                  on success persists the 7-day reminder
- *                                  and we flip to the authed state below.
- *   - authed + no reminder       → [ set a reminder ] writes the timestamp,
- *                                  no auth dialog needed.
- *   - authed + reminder set      → button collapses to a status pill showing
- *                                  the email and the relative "next audit
- *                                  in X days" line. The reminder persists
- *                                  across reloads via ~/.failproofai/next-
- *                                  audit.json — same as the CLI's auth.json.
+ *                                  on success we flip to the authed panel
+ *                                  below and persist the 7-day reminder.
+ *   - authed (any)               → consolidated status panel: "signed in as
+ *                                  …" + either the persisted "next audit in
+ *                                  X days" line OR a "no reminder set yet"
+ *                                  line with an inline [ set a reminder ]
+ *                                  button. The reminder persists across
+ *                                  reloads via ~/.failproofai/next-audit.json
+ *                                  — same as the CLI's auth.json.
  *
  * Also exposes [ re-audit now ] next to [ install policies ] so the user
  * can trigger a fresh scan inline without leaving the page. The button
@@ -161,6 +161,8 @@ export function ReturnSection({ result }: Props) {
   const authed = authStatus.kind === "authed";
   const hasReminder = authed && reminder !== null;
   const days = reminder ? daysUntil(reminder.next_audit_at) : 0;
+  const authedEmail =
+    authStatus.kind === "authed" ? authStatus.user.email : "";
 
   return (
     <section className="section" data-screen-label="06 Next audit">
@@ -186,52 +188,49 @@ export function ReturnSection({ result }: Props) {
           most agents move from C to B in one session. some make it in a day.
         </p>
 
-        {/* Authed + reminder set → status panel + dismiss; else the
-            classic CTA + install + (re-audit when there's data). */}
-        {hasReminder && reminder ? (
+        {/* Once authed, the section stays in the consolidated status panel —
+            with the reminder line if one is set, or a "no reminder yet" line
+            + inline [ set a reminder ] button otherwise. The anonymous CTA
+            layout only shows for genuinely-unauthed sessions. */}
+        {authed ? (
           <div className="return-status">
-            <div className="rs-row rs-row-primary">
-              <span className="rs-dot rs-dot-pink" aria-hidden="true" />
-              <span>
-                next audit set for{" "}
-                <span className="rs-strong">{formatNextAudit(reminder.next_audit_at)}</span>
-                {" "}<span style={{ color: "var(--dim)" }}>·</span>{" "}
-                <span className="rs-strong">in {days} day{days === 1 ? "" : "s"}</span>
-              </span>
-            </div>
+            {hasReminder && reminder ? (
+              <div className="rs-row rs-row-primary">
+                <span className="rs-dot rs-dot-pink" aria-hidden="true" />
+                <span>
+                  next audit set for{" "}
+                  <span className="rs-strong">{formatNextAudit(reminder.next_audit_at)}</span>
+                  {" "}<span style={{ color: "var(--dim)" }}>·</span>{" "}
+                  <span className="rs-strong">in {days} day{days === 1 ? "" : "s"}</span>
+                </span>
+              </div>
+            ) : (
+              <div className="rs-row rs-row-primary">
+                <span className="rs-dot rs-dot-pink" aria-hidden="true" />
+                <span>
+                  <span className="rs-strong">no reminder set yet</span>
+                  {" "}<span style={{ color: "var(--dim)" }}>·</span>{" "}
+                  recommended in {DEFAULT_REMINDER_DAYS} days
+                </span>
+              </div>
+            )}
             <div className="rs-row">
               <span className="rs-dot rs-dot-green" aria-hidden="true" />
               <span>
-                signed in as <span className="rs-email">{(authStatus as { user: { email: string } }).user.email}</span>
+                signed in as <span className="rs-email">{authedEmail}</span>
               </span>
             </div>
             <div className="return-actions" style={{ marginTop: 18 }}>
-              <button
-                type="button"
-                className="share-btn"
-                onClick={handleRerun}
-                disabled={rerunBusy}
-              >
-                {rerunBusy ? "[ scanning… ]" : "[ re-audit now ]"}
-              </button>
-              {hasUnenabled && (
-                <button type="button" className="share-btn alt" onClick={handleInstall}>
-                  {copied ? "[ ✓ copied — paste in your shell ]" : "[ install policies ]"}
+              {!hasReminder && (
+                <button
+                  type="button"
+                  className="share-btn"
+                  onClick={handleSetReminder}
+                  disabled={reminderBusy}
+                >
+                  {reminderBusy ? "[ saving… ]" : "[ set a reminder ]"}
                 </button>
               )}
-            </div>
-          </div>
-        ) : (
-          <>
-            <div className="return-actions">
-              <button
-                type="button"
-                className="share-btn"
-                onClick={handleSetReminder}
-                disabled={authStatus.kind === "unknown" || reminderBusy}
-              >
-                {reminderBusy ? "[ saving… ]" : "[ set a reminder ]"}
-              </button>
               <button
                 type="button"
                 className="share-btn alt"
@@ -246,14 +245,31 @@ export function ReturnSection({ result }: Props) {
                 </button>
               )}
             </div>
-            {authed && (
-              <div className="auth-status-pill">
-                <span className="dot" aria-hidden="true" />
-                signed in as{" "}
-                <span className="email">{(authStatus as { user: { email: string } }).user.email}</span>
-              </div>
+          </div>
+        ) : (
+          <div className="return-actions">
+            <button
+              type="button"
+              className="share-btn"
+              onClick={handleSetReminder}
+              disabled={authStatus.kind === "unknown" || reminderBusy}
+            >
+              {reminderBusy ? "[ saving… ]" : "[ set a reminder ]"}
+            </button>
+            <button
+              type="button"
+              className="share-btn alt"
+              onClick={handleRerun}
+              disabled={rerunBusy}
+            >
+              {rerunBusy ? "[ scanning… ]" : "[ re-audit now ]"}
+            </button>
+            {hasUnenabled && (
+              <button type="button" className="share-btn alt" onClick={handleInstall}>
+                {copied ? "[ ✓ copied — paste in your shell ]" : "[ install policies ]"}
+              </button>
             )}
-          </>
+          </div>
         )}
       </div>
 
